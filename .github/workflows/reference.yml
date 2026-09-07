@@ -1,0 +1,40 @@
+name: Reference run verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Save committed stats snapshot
+        run: cp workloads/tabular_adult/reference/stats.yaml /tmp/stats_committed.yaml
+
+      - name: Prepare data
+        run: make data WORKLOAD=tabular_adult
+
+      - name: Run reference protocol
+        run: make reference WORKLOAD=tabular_adult
+
+      - name: Verify stats match committed snapshot
+        run: |
+          uv run python scripts/verify_reference.py \
+            /tmp/stats_committed.yaml \
+            workloads/tabular_adult/reference/stats.yaml

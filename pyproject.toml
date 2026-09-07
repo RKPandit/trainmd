@@ -1,0 +1,26 @@
+[project]
+name = "trainmd"
+version = "0.1.0"
+description = "TrainMD: Evidence-Grounded Diagnosis and Verified Recovery of Controlled ML Training Incidents"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+dependencies = [
+    "torch==2.2.2",
+    "numpy==1.26.4",
+    "pandas==2.2.3",
+    "scikit-learn==1.5.2",
+    "pyyaml==6.0.2",
+]
+
+[tool.uv]
+# Use CPU-only PyTorch on Linux to avoid pulling the ~2 GB CUDA wheel in CI.
+# macOS ARM wheels are only on PyPI, so this index is Linux-only.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", marker = "platform_system == 'Linux'" },
+]
