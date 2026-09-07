@@ -106,8 +106,9 @@ def _scan_file(path: Path, tokens: list[str]) -> list[str]:
 def test_no_forbidden_tokens_in_artifact(trained_output, artifact):
     """Each workspace artifact must not contain any forbidden token."""
     path = trained_output / artifact
-    if not path.exists():
-        pytest.skip(f"{artifact} not found")
+    assert path.exists(), (
+        f"Required workspace artifact {artifact} not produced (spec §2 output contract)"
+    )
 
     violations = _scan_file(path, FORBIDDEN_TOKENS)
     assert not violations, (
@@ -118,8 +119,9 @@ def test_no_forbidden_tokens_in_artifact(trained_output, artifact):
 def test_no_forbidden_tokens_in_visible_manifest():
     """The visible data manifest must not reference hidden files or tokens."""
     manifest_path = WORKLOAD_DIR / ".data" / "manifest.json"
-    if not manifest_path.exists():
-        pytest.skip("Visible manifest not found; run `make data` first.")
+    assert manifest_path.exists(), (
+        "Visible manifest not found at .data/manifest.json; run `make data` first."
+    )
 
     violations = _scan_file(manifest_path, FORBIDDEN_TOKENS)
     assert not violations, (
@@ -134,8 +136,9 @@ def test_no_forbidden_tokens_in_visible_manifest():
 def test_no_test_data_in_visible_dir():
     """X_test.npy and y_test.npy must NOT exist in the visible data directory."""
     data_dir = WORKLOAD_DIR / ".data"
-    if not data_dir.exists():
-        pytest.skip("Visible data dir not found; run `make data` first.")
+    assert data_dir.exists(), (
+        "Visible data dir not found at .data/; run `make data` first."
+    )
 
     for fname in ["X_test.npy", "y_test.npy"]:
         assert not (data_dir / fname).exists(), (
@@ -147,8 +150,9 @@ def test_no_test_data_in_visible_dir():
 def test_hidden_data_in_correct_location():
     """X_test.npy and y_test.npy must exist in the hidden data directory."""
     hidden_dir = WORKLOAD_DIR / ".hidden_data"
-    if not hidden_dir.exists():
-        pytest.skip("Hidden data dir not found; run `make data` first.")
+    assert hidden_dir.exists(), (
+        "Hidden data dir not found at .hidden_data/; run `make data` first."
+    )
 
     for fname in ["X_test.npy", "y_test.npy"]:
         assert (hidden_dir / fname).exists(), (
