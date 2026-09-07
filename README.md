@@ -16,6 +16,13 @@ make data            # downloads and prepares the Adult dataset
 make reference       # runs 10 seeded training jobs, writes reference/stats.yaml
 ```
 
+## Reference stats
+
+The committed `reference/stats.yaml` is generated on Linux x86_64 in CI.
+Local macOS runs will produce slightly different metric values due to
+cross-platform BLAS divergence (~0.001) and will **not** match the
+committed snapshot — this is expected. See `docs/DECISIONS.md` for details.
+
 ## Current milestone
 
 **M2.1** — repo scaffold, tabular workload, reference-run protocol green in CI.
