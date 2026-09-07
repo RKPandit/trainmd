@@ -6,11 +6,14 @@ Implements the SageMaker training container contract (harness_spec §2):
 - Writes model artifacts to SM_MODEL_DIR env var or --output-dir flag.
 
 Outputs (per harness_spec §2):
-    metrics.jsonl          per-step and per-epoch metrics
+    metrics.jsonl          per-step and per-epoch metrics (visible only)
     logs/stdout.log        human-readable training log
     config.resolved.yaml   fully resolved configuration
     checkpoints/           ckpt_final.pt
     exitcode               0 on success, 1 on failure
+
+The workspace never sees or evaluates against the hidden evaluation split.
+Hidden-metric computation happens exclusively in harness/evaluator/ (spec §7).
 """
 from __future__ import annotations
 
@@ -41,7 +44,6 @@ def set_seed(seed: int) -> None:
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.use_deterministic_algorithms(True)
-    # Ensure hash-based operations are deterministic
     os.environ["PYTHONHASHSEED"] = str(seed)
 
 
@@ -105,13 +107,11 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
     wall_start = time.monotonic()
     device = torch.device("cpu")
 
-    # ---- load data -------------------------------------------------------
+    # ---- load visible data only (train + val) ----------------------------
     X_train = torch.from_numpy(np.load(data_dir / "X_train.npy"))
     y_train = torch.from_numpy(np.load(data_dir / "y_train.npy"))
     X_val = torch.from_numpy(np.load(data_dir / "X_val.npy"))
     y_val = torch.from_numpy(np.load(data_dir / "y_val.npy"))
-    X_test = torch.from_numpy(np.load(data_dir / "X_test.npy"))
-    y_test = torch.from_numpy(np.load(data_dir / "y_test.npy"))
 
     tcfg = config["training"]
 
@@ -126,12 +126,6 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
     )
     val_loader = DataLoader(
         TensorDataset(X_val, y_val),
-        batch_size=tcfg["batch_size"],
-        shuffle=False,
-        num_workers=0,
-    )
-    test_loader = DataLoader(
-        TensorDataset(X_test, y_test),
         batch_size=tcfg["batch_size"],
         shuffle=False,
         num_workers=0,
@@ -209,10 +203,9 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
                     }) + "\n"
                 )
 
-            # ---- end-of-epoch eval ----------------------------------------
+            # ---- end-of-epoch eval (visible metrics only) -----------------
             train_loss_avg = epoch_loss / epoch_samples
             val_loss, val_acc = evaluate(model, val_loader, criterion, device)
-            test_loss, test_acc = evaluate(model, test_loader, criterion, device)
 
             epoch_sec = time.monotonic() - epoch_start
             throughput = epoch_samples / epoch_sec
@@ -224,8 +217,6 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
                 "train_loss": round(train_loss_avg, 6),
                 "val_loss": round(val_loss, 6),
                 "metric_visible_val_acc": round(val_acc, 6),
-                "test_loss": round(test_loss, 6),
-                "metric_hidden_test_acc": round(test_acc, 6),
                 "lr": tcfg["lr"],
                 "throughput_samples_per_sec": round(throughput, 2),
                 "epoch_time_sec": round(epoch_sec, 3),
@@ -236,8 +227,8 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
             metrics_fh.flush()
 
             logger.info(
-                "Epoch %3d | train_loss=%.4f | val_acc=%.4f | test_acc=%.4f | %.0f samples/s",
-                epoch, train_loss_avg, val_acc, test_acc, throughput,
+                "Epoch %3d | train_loss=%.4f | val_acc=%.4f | %.0f samples/s",
+                epoch, train_loss_avg, val_acc, throughput,
             )
 
         # ---- save checkpoint ----------------------------------------------
@@ -245,14 +236,14 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
             {
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
+                "model_config": mcfg,
+                "input_dim": input_dim,
                 "epoch": tcfg["epochs"] - 1,
                 "seed": seed,
             },
             output_dir / "checkpoints" / "ckpt_final.pt",
         )
-        logger.info(
-            "Training complete.  val_acc=%.4f  test_acc=%.4f", val_acc, test_acc,
-        )
+        logger.info("Training complete.  val_acc=%.4f", val_acc)
 
     except Exception:
         import traceback

@@ -2,13 +2,6 @@ workload:
   family: tabular
   name: tabular_adult
 
-data:
-  openml_name: adult
-  openml_version: 2          # pinned; see docs/DECISIONS.md
-  val_fraction: 0.15
-  test_fraction: 0.15
-  prep_seed: 0               # fixed seed for data splitting, independent of training seeds
-
 model:
   type: mlp
   hidden_dims: [64, 32]
@@ -24,7 +17,6 @@ training:
 
 metrics:
   visible: metric_visible_val_acc      # agent sees this during investigation
-  hidden: metric_hidden_test_acc       # recovery oracle uses this (never agent-visible)
 
 reference:
   num_seeds: 10

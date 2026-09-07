@@ -2,11 +2,13 @@
 statistics for a workload.
 
 Per harness_spec_v0.1.md §3:
-  1. Run the clean config on K=10 seeds; record final hidden-metric values,
+  1. Run the clean config on K=10 seeds; record final visible-metric values,
      per-epoch curves, wall-time, and peak memory.
-  2. Commit reference/stats.yaml: mean, std, empirical min/max of the hidden
+  2. After each seed's training, call the evaluator on the saved checkpoint to
+     obtain the hidden test metric.  The workspace never sees the hidden data.
+  3. Commit reference/stats.yaml: mean, std, empirical min/max of the hidden
      metric; tolerance bands are mean - 2*std on the *hidden test metric*.
-  3. Reference runs are re-executed in CI monthly and on any dependency change;
+  4. Reference runs are re-executed in CI monthly and on any dependency change;
      drift beyond tolerance fails CI and blocks case generation.
 """
 from __future__ import annotations
@@ -18,6 +20,8 @@ from pathlib import Path
 
 import numpy as np
 import yaml
+
+from harness.evaluator.evaluate_checkpoint import evaluate_checkpoint
 
 
 def _read_epoch_metrics(metrics_path: Path) -> list[dict]:
@@ -43,6 +47,7 @@ def run_reference(workload_dir: Path, num_seeds: int = 10) -> dict:
         config = yaml.safe_load(f)
 
     data_dir = workload_dir / ".data"
+    hidden_data_dir = workload_dir / ".hidden_data"
     reference_dir = workload_dir / "reference"
     runs_dir = reference_dir / "runs"
     reference_dir.mkdir(parents=True, exist_ok=True)
@@ -56,6 +61,7 @@ def run_reference(workload_dir: Path, num_seeds: int = 10) -> dict:
         print(f"Reference run: seed={seed}")
         print(f"{'=' * 60}")
 
+        # ---- training (workspace-visible metrics only) --------------------
         result = subprocess.run(
             [
                 sys.executable,
@@ -71,13 +77,20 @@ def run_reference(workload_dir: Path, num_seeds: int = 10) -> dict:
                 f"Training failed for seed {seed} (exit code {result.returncode})"
             )
 
+        # ---- evaluator (hidden metric, spec §7) --------------------------
+        checkpoint_path = seed_dir / "checkpoints" / "ckpt_final.pt"
+        eval_result = evaluate_checkpoint(checkpoint_path, hidden_data_dir, config)
+        hidden_acc = eval_result["metric_hidden_test_acc"]
+        print(f"  Evaluator: metric_hidden_test_acc={hidden_acc:.6f}")
+
+        # ---- collect per-epoch visible metrics ----------------------------
         epoch_metrics = _read_epoch_metrics(seed_dir / "metrics.jsonl")
         final = epoch_metrics[-1]
 
         all_results.append({
             "seed": seed,
             "metric_visible_val_acc": final["metric_visible_val_acc"],
-            "metric_hidden_test_acc": final["metric_hidden_test_acc"],
+            "metric_hidden_test_acc": hidden_acc,
             "wall_time_sec": round(
                 sum(m["epoch_time_sec"] for m in epoch_metrics), 3,
             ),
@@ -87,7 +100,6 @@ def run_reference(workload_dir: Path, num_seeds: int = 10) -> dict:
                     "epoch": m["epoch"],
                     "train_loss": m["train_loss"],
                     "metric_visible_val_acc": m["metric_visible_val_acc"],
-                    "metric_hidden_test_acc": m["metric_hidden_test_acc"],
                 }
                 for m in epoch_metrics
             ],

@@ -12,8 +12,9 @@ data:
 	uv run python $(WORKLOAD_DIR)/data_prep.py --workload-dir $(WORKLOAD_DIR)
 
 reference: data
-	uv run python harness/reference_run.py --workload-dir $(WORKLOAD_DIR)
+	uv run python -m harness.reference_run --workload-dir $(WORKLOAD_DIR)
 
 clean:
 	rm -rf $(WORKLOAD_DIR)/reference/runs
 	rm -rf $(WORKLOAD_DIR)/.data
+	rm -rf $(WORKLOAD_DIR)/.hidden_data

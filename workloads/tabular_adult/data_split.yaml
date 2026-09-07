@@ -1,0 +1,7 @@
+# Data split configuration — read ONLY by data_prep.py, never by train.py.
+# This file is not mounted into the workspace container.
+openml_name: adult
+openml_version: 2          # pinned; see docs/DECISIONS.md
+val_fraction: 0.15
+holdout_fraction: 0.15     # held-out evaluation split; evaluator-only
+prep_seed: 0               # fixed seed for data splitting, independent of training seeds
