@@ -24,14 +24,14 @@ jobs:
       - name: Install dependencies
         run: uv sync --extra test
 
-      - name: Run tests
-        run: uv run pytest tests/ -v
-
       - name: Save committed stats snapshot
         run: cp workloads/tabular_adult/reference/stats.yaml /tmp/stats_committed.yaml
 
       - name: Prepare data
         run: make data WORKLOAD=tabular_adult
+
+      - name: Run tests
+        run: uv run pytest tests/ -v
 
       - name: Run reference protocol
         run: make reference WORKLOAD=tabular_adult
