@@ -1,4 +1,4 @@
-.PHONY: data reference clean
+.PHONY: data reference build-case clean
 
 WORKLOAD ?= tabular_adult
 WORKLOAD_DIR := workloads/$(WORKLOAD)
@@ -13,6 +13,17 @@ data:
 
 reference: data
 	uv run python -m harness.reference_run --workload-dir $(WORKLOAD_DIR)
+
+OPERATOR ?= silent.lr_warmup.v1
+STRENGTH ?= moderate
+SEED ?= 42
+
+build-case: data
+	uv run python -m harness.build_case \
+		--workload $(WORKLOAD) \
+		--operator $(OPERATOR) \
+		--strength $(STRENGTH) \
+		--seed $(SEED)
 
 clean:
 	rm -rf $(WORKLOAD_DIR)/reference/runs
