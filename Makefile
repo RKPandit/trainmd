@@ -1,4 +1,4 @@
-.PHONY: data reference build-case clean
+.PHONY: data reference build-case verify-repair clean
 
 WORKLOAD ?= tabular_adult
 WORKLOAD_DIR := workloads/$(WORKLOAD)
@@ -24,6 +24,14 @@ build-case: data
 		--operator $(OPERATOR) \
 		--strength $(STRENGTH) \
 		--seed $(SEED)
+
+CASE ?= cases/case_0001
+SPEC ?= repair_spec.yaml
+
+verify-repair:
+	uv run python -m harness.evaluator.verify_repair \
+		--case $(CASE) \
+		--spec $(SPEC)
 
 clean:
 	rm -rf $(WORKLOAD_DIR)/reference/runs
