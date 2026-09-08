@@ -1,19 +1,28 @@
 """Agent protocol and trial runner (spec §6).
 
 Defines the minimal :class:`Agent` protocol and the :func:`run_trial`
-function that executes one agent on one case, producing a trial record.
+function that executes one agent on one case, producing a provenance-rich
+trial record with crash recovery.
 """
 from __future__ import annotations
 
 import argparse
 import importlib
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
 
+from harness.provenance import (
+    append_index,
+    build_empty_record,
+    capture_environment,
+    finalize_record,
+    write_record,
+)
 from harness.tools.tool_context import ToolContext
 from harness.tools.tools import register_all_tools
 
@@ -60,13 +69,22 @@ def run_trial(
     agent: Agent,
     case_dir: Path,
     project_root: Path | None = None,
+    score: bool = True,
 ) -> dict:
     """Run one agent trial on one case.
+
+    1. Capture environment before the agent starts.
+    2. Write a partial record to disk (crash checkpoint).
+    3. Run the agent in a try/finally block.
+    4. Score free axes (detection, identification, evidence, safety)
+       inline — no training cost.  Recovery is ``None`` (pending).
+    5. Finalize and persist the record; append to index.jsonl.
 
     Args:
         agent: An object satisfying the :class:`Agent` protocol.
         case_dir: Path to the case directory.
         project_root: Project root directory (default: auto-detect).
+        score: If ``True``, auto-score the free axes inline.
 
     Returns:
         Trial record dict, also written to
@@ -83,31 +101,52 @@ def run_trial(
     case_id = card["case_id"]
     run_id = _generate_run_id()
 
-    # Create tool context and register tools
+    # 1. Capture environment
+    env = capture_environment(project_root, case_dir)
+
+    # 2. Build empty record
+    record = build_empty_record(case_id, agent.name, run_id, env)
+
+    # 3. Create tool context
     tools = ToolContext(case_dir)
     register_all_tools(tools)
 
-    # Run the agent
-    agent.run(case_dir, tools)
+    # 4. Write partial record (crash checkpoint)
+    record["status"] = "partial"
+    write_record(project_root, record)
 
-    # Build trial record
-    record = {
-        "case_id": case_id,
-        "agent_name": agent.name,
-        "run_id": run_id,
-        "submission": tools.submission,
-        "tool_transcript": tools.transcript,
-        "budget_used": tools.budget_total - tools.budget_remaining,
-        "budget_total": tools.budget_total,
-        "tokens_used": 0,
-    }
+    # 5. Run agent in try/finally
+    t0 = time.monotonic()
+    agent_error = None
+    try:
+        agent.run(case_dir, tools)
+    except Exception as e:
+        agent_error = e
+    finally:
+        wall_sec = time.monotonic() - t0
 
-    # Write to results/
-    trials_dir = project_root / "results" / case_id / "trials"
-    trials_dir.mkdir(parents=True, exist_ok=True)
-    result_path = trials_dir / f"{agent.name}_{run_id}.yaml"
-    with open(result_path, "w") as f:
-        yaml.dump(record, f, default_flow_style=False, sort_keys=False)
+        # 6. Score free axes (no training cost)
+        scores = None
+        if agent_error is None and tools.submission is not None and score:
+            from harness.scoring import score_diagnosis
+            scores = score_diagnosis(
+                {"submission": tools.submission,
+                 "tool_transcript": tools.transcript},
+                case_dir,
+            )
+
+        # 7. Finalize record
+        record = finalize_record(record, tools, scores, wall_sec)
+        record["status"] = "crashed" if agent_error is not None else "completed"
+
+        # 8. Overwrite the partial record
+        write_record(project_root, record, overwrite_partial=True)
+
+        # 9. Append to index
+        append_index(project_root, record)
+
+    if agent_error is not None:
+        raise agent_error
 
     return record
 

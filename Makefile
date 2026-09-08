@@ -1,4 +1,4 @@
-.PHONY: data reference build-case verify-repair run-agent score clean
+.PHONY: data reference build-case verify-repair run-agent score verify clean
 
 WORKLOAD ?= tabular_adult
 WORKLOAD_DIR := workloads/$(WORKLOAD)
@@ -44,6 +44,11 @@ TRIAL ?= trial.yaml
 
 score:
 	uv run python -m harness.scoring \
+		--case $(CASE) \
+		--trial $(TRIAL)
+
+verify:
+	uv run python -m harness.scoring --verify \
 		--case $(CASE) \
 		--trial $(TRIAL)
 

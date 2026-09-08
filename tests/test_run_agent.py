@@ -97,10 +97,9 @@ class TestRunTrial:
         assert "run_id" in record
         assert "submission" in record
         assert "tool_transcript" in record
-        assert "budget_used" in record
-        assert "budget_total" in record
-        assert "tokens_used" in record
-        assert record["tokens_used"] == 0
+        assert "budget" in record
+        assert "usage" in record
+        assert record["usage"]["input_tokens"] == 0
 
     def test_record_written_to_disk(self, built_case):
         """Trial YAML written to results/<case_id>/trials/."""
@@ -145,7 +144,7 @@ class TestRunTrial:
 
         record = run_trial(StubAgent(), case_dir, project_root)
 
-        assert record["budget_used"] == 3
+        assert record["budget"]["tool_calls_used"] == 3
         transcript = record["tool_transcript"]
         assert len(transcript) == 3
         assert transcript[0]["tool_name"] == "read_config"
@@ -166,4 +165,4 @@ class TestRunTrial:
         assert sub["diagnosis"]["operator_class"] == "data_corruption"
         assert sub["evidence_refs"] == []
         assert sub["repair_spec"]["patches"]["training.lr"] == 0.01
-        assert record["budget_used"] == 1
+        assert record["budget"]["tool_calls_used"] == 1

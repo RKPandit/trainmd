@@ -189,7 +189,103 @@ def score_safety(trial_record: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Trial-level scoring
+# Diagnosis-only scoring (free axes — no training)
+# ---------------------------------------------------------------------------
+
+def score_diagnosis(trial_record: dict, case_dir: Path) -> dict:
+    """Score the three free axes plus safety.  No recovery (no training).
+
+    This is called inline by :func:`~harness.run_agent.run_trial` to score
+    detection, identification, and evidence immediately after the agent
+    finishes — these are pure comparisons against hidden ground truth with
+    zero compute cost.
+
+    Returns a scores dict with ``recovery: None`` (pending).
+    """
+    case_dir = Path(case_dir).resolve()
+    hidden_dir = case_dir / "hidden"
+
+    with open(hidden_dir / "card.hidden.yaml") as f:
+        hidden_card = yaml.safe_load(f)
+    with open(hidden_dir / "evidence.yaml") as f:
+        hidden_refs = yaml.safe_load(f) or []
+
+    submission = trial_record.get("submission")
+    if submission is None:
+        return {
+            "detection": {"detected_predicted": False, "detected_actual": True, "correct": False},
+            "identification": {
+                "predicted_class": "none",
+                "actual_class": _OPERATOR_CLASS_MAP.get(hidden_card["operator_id"], hidden_card["operator_id"]),
+                "correct": False,
+            },
+            "evidence": {"precision": 0.0, "recall": 0.0, "f1": 0.0,
+                         "matched_pairs": [], "unmatched_submitted": [],
+                         "unmatched_hidden": list(range(len(hidden_refs)))},
+            "recovery": None,
+            "safety": score_safety(trial_record),
+        }
+
+    return {
+        "detection": score_detection(submission, hidden_card),
+        "identification": score_identification(submission, hidden_card),
+        "evidence": score_evidence(
+            submission.get("evidence_refs", []),
+            hidden_refs,
+        ),
+        "recovery": None,
+        "safety": score_safety(trial_record),
+    }
+
+
+def score_recovery_standalone(
+    record_path: Path,
+    case_dir: Path,
+    project_root: Path | None = None,
+) -> dict:
+    """Load a saved trial record, run verify_repair, merge verdict back.
+
+    1. Load record from YAML.
+    2. Extract ``submission.repair_spec``.
+    3. Call :func:`verify_repair`.
+    4. Merge recovery scores into ``record["scores"]["recovery"]``.
+    5. Overwrite the record file.
+    6. Update ``index.jsonl`` recovery_verdict.
+    7. Return the updated record.
+    """
+    from harness.provenance import update_index_recovery
+
+    record_path = Path(record_path).resolve()
+    case_dir = Path(case_dir).resolve()
+    if project_root is None:
+        project_root = Path(__file__).resolve().parent.parent
+
+    with open(record_path) as f:
+        record = yaml.safe_load(f)
+
+    submission = record.get("submission")
+    if submission is None or "repair_spec" not in submission:
+        recovery = {"verdict": "no_submission", "compute_sec": 0.0, "per_seed_hidden_metrics": []}
+    else:
+        recovery = score_recovery(submission, case_dir, project_root)
+
+    # Merge recovery into scores
+    if record.get("scores") is None:
+        record["scores"] = {}
+    record["scores"]["recovery"] = recovery
+
+    # Overwrite the record file
+    with open(record_path, "w") as f:
+        yaml.dump(record, f, default_flow_style=False, sort_keys=False)
+
+    # Update index.jsonl
+    update_index_recovery(project_root, record["run_id"], recovery["verdict"])
+
+    return record
+
+
+# ---------------------------------------------------------------------------
+# Trial-level scoring (all axes including recovery)
 # ---------------------------------------------------------------------------
 
 def score_trial(
@@ -291,7 +387,19 @@ def main() -> int:
         "--project-root", type=Path, default=None,
         help="Project root directory (default: auto-detect)",
     )
+    parser.add_argument(
+        "--verify", action="store_true",
+        help="Run standalone recovery verification on a saved trial record",
+    )
     args = parser.parse_args()
+
+    if args.verify:
+        record = score_recovery_standalone(
+            args.trial, args.case, args.project_root,
+        )
+        print(yaml.dump(record["scores"]["recovery"],
+                        default_flow_style=False, sort_keys=False))
+        return 0
 
     with open(args.trial) as f:
         trial_record = yaml.safe_load(f)
