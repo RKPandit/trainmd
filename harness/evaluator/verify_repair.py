@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -34,8 +35,20 @@ from harness.evaluator.repair_spec import (
 
 
 # ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+_KNOWN_WORKLOADS = {"tabular_adult"}
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _hash_file(path: Path) -> str:
+    """Return the SHA-256 hex digest of a file's contents."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
 
 def _set_nested(d: dict, key_path: str, value: Any) -> None:
     """Set a value in a nested dict using a dot-separated key path.
@@ -51,12 +64,11 @@ def _set_nested(d: dict, key_path: str, value: Any) -> None:
     d[keys[-1]] = value
 
 
-def _generate_run_id(repair_spec: dict) -> str:
-    """Generate a unique run ID from UTC timestamp + short spec hash."""
+def _generate_run_id() -> str:
+    """Generate a unique run ID from UTC timestamp + 6-char uuid4."""
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    spec_bytes = json.dumps(repair_spec, sort_keys=True).encode()
-    short_hash = hashlib.sha256(spec_bytes).hexdigest()[:4]
-    return f"{ts}_{short_hash}"
+    suffix = uuid.uuid4().hex[:6]
+    return f"{ts}_{suffix}"
 
 
 def _make_result(
@@ -122,12 +134,34 @@ def verify_repair(
         public_card = yaml.safe_load(f)
 
     case_id = public_card["case_id"]
-    workload_name = public_card["workload_name"]
+
+    # Read workload_name from HIDDEN card only (trusted identity)
+    if "workload_name" not in hidden_card:
+        raise ValueError(
+            "card.hidden.yaml missing 'workload_name' "
+            "(case predates trusted workload identity; rebuild with build_case)"
+        )
+    workload_name = hidden_card["workload_name"]
+    if workload_name not in _KNOWN_WORKLOADS:
+        raise ValueError(
+            f"Unknown workload {workload_name!r}; "
+            f"known: {sorted(_KNOWN_WORKLOADS)}"
+        )
+    if "/" in workload_name or "\\" in workload_name or ".." in workload_name:
+        raise ValueError(
+            f"Invalid workload_name {workload_name!r}: "
+            f"contains path separator"
+        )
     workload_dir = project_root / "workloads" / workload_name
 
     # ---- Step 2: Integrity hash pre-run ----------------------------------
-    verify_yaml_bytes = (hidden_dir / "verify.yaml").read_bytes()
-    hash_before = hashlib.sha256(verify_yaml_bytes).hexdigest()
+    integrity_files = {
+        "verify.yaml": hidden_dir / "verify.yaml",
+        "card.hidden.yaml": hidden_dir / "card.hidden.yaml",
+        "workload/train.py": workload_dir / "train.py",
+        "workload/config.yaml": workload_dir / "config.yaml",
+    }
+    hashes_before = {name: _hash_file(path) for name, path in integrity_files.items()}
 
     # ---- Step 3: Parse + validate repair spec ----------------------------
     if isinstance(repair_spec, Path):
@@ -139,7 +173,7 @@ def verify_repair(
     else:
         raw = repair_spec
 
-    run_id = _generate_run_id(raw)
+    run_id = _generate_run_id()
 
     try:
         submission = parse_repair_spec(raw)
@@ -241,15 +275,15 @@ def verify_repair(
     verdict = "recovered" if all_recovered else "not_recovered"
 
     # ---- Step 7: Integrity hash post-run ---------------------------------
-    verify_yaml_after = (hidden_dir / "verify.yaml").read_bytes()
-    hash_after = hashlib.sha256(verify_yaml_after).hexdigest()
-    hash_verified = hash_before == hash_after
-
-    if not hash_verified:
-        raise RuntimeError(
-            f"verify.yaml was modified during evaluation! "
-            f"Before: {hash_before}, after: {hash_after}"
-        )
+    hashes_after = {
+        name: _hash_file(path) for name, path in integrity_files.items()
+    }
+    for name in integrity_files:
+        if hashes_before[name] != hashes_after[name]:
+            raise RuntimeError(
+                f"{name} was modified during evaluation! "
+                f"Before: {hashes_before[name]}, after: {hashes_after[name]}"
+            )
 
     # ---- Step 8: Assemble and write result -------------------------------
     result = _make_result(
@@ -260,7 +294,7 @@ def verify_repair(
         per_seed=per_seed_results,
         compute_sec=compute_sec,
         integrity={
-            "verify_yaml_hash": hash_before,
+            "hashes": hashes_before,
             "hash_verified": True,
         },
     )

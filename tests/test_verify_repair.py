@@ -200,6 +200,56 @@ class TestValidateRepair:
         assert VALUE_OUT_OF_RANGE in result.reason_codes
         assert KEY_NOT_ALLOWED in result.reason_codes
 
+    def test_reject_bool_true(self):
+        """bool True passes isinstance(int) but must be rejected."""
+        spec = RepairSubmission(
+            repair_type="config_patch",
+            patches={"training.lr": True},
+        )
+        result = validate_repair(spec, SAMPLE_VERIFY)
+        assert result.valid is False
+        assert VALUE_TYPE_INVALID in result.reason_codes
+
+    def test_reject_bool_false(self):
+        """bool False passes isinstance(int) but must be rejected."""
+        spec = RepairSubmission(
+            repair_type="config_patch",
+            patches={"training.lr": False},
+        )
+        result = validate_repair(spec, SAMPLE_VERIFY)
+        assert result.valid is False
+        assert VALUE_TYPE_INVALID in result.reason_codes
+
+    def test_reject_nan(self):
+        """NaN bypasses range comparisons; must be explicitly rejected."""
+        spec = RepairSubmission(
+            repair_type="config_patch",
+            patches={"training.lr": float("nan")},
+        )
+        result = validate_repair(spec, SAMPLE_VERIFY)
+        assert result.valid is False
+        assert VALUE_OUT_OF_RANGE in result.reason_codes
+
+    def test_reject_inf(self):
+        """Positive infinity must be rejected."""
+        spec = RepairSubmission(
+            repair_type="config_patch",
+            patches={"training.lr": float("inf")},
+        )
+        result = validate_repair(spec, SAMPLE_VERIFY)
+        assert result.valid is False
+        assert VALUE_OUT_OF_RANGE in result.reason_codes
+
+    def test_reject_neg_inf(self):
+        """Negative infinity must be rejected."""
+        spec = RepairSubmission(
+            repair_type="config_patch",
+            patches={"training.lr": float("-inf")},
+        )
+        result = validate_repair(spec, SAMPLE_VERIFY)
+        assert result.valid is False
+        assert VALUE_OUT_OF_RANGE in result.reason_codes
+
 
 # ==========================================================================
 # Integration tests — full verify_repair pipeline
@@ -265,6 +315,8 @@ def test_oracle_repair_recovers(built_case):
         assert seed_result["metric_hidden_test_acc"] >= 0.843535
 
     assert result["integrity"]["hash_verified"] is True
+    assert "hashes" in result["integrity"]
+    assert len(result["integrity"]["hashes"]) == 4
     assert result["compute_spent_sec"] > 0
 
 
@@ -451,3 +503,75 @@ def test_determinism(built_case):
         assert s1["seed"] == s2["seed"]
         assert s1["metric_hidden_test_acc"] == s2["metric_hidden_test_acc"]
         assert s1["exitcode"] == s2["exitcode"]
+
+
+# --------------------------------------------------------------------------
+# Backfill guard: old cases without workload_name in hidden card
+# --------------------------------------------------------------------------
+
+def test_missing_workload_name_in_hidden_card_raises(built_case):
+    """Cases predating trusted workload identity must raise, not fallback.
+
+    If card.hidden.yaml lacks 'workload_name', verify_repair must raise
+    ValueError telling the user to rebuild. It must NOT silently fall back
+    to card.public.yaml — that would reintroduce the vulnerability.
+    """
+    case_dir, project_root = built_case
+    hidden_card_path = case_dir / "hidden" / "card.hidden.yaml"
+
+    with open(hidden_card_path) as f:
+        original = yaml.safe_load(f)
+
+    # Remove workload_name to simulate old case
+    stripped = {k: v for k, v in original.items() if k != "workload_name"}
+
+    try:
+        with open(hidden_card_path, "w") as f:
+            yaml.dump(stripped, f, default_flow_style=False, sort_keys=False)
+
+        repair = {
+            "repair_type": "config_patch",
+            "patches": {"training.lr": 0.01},
+        }
+        with pytest.raises(ValueError, match="rebuild with build_case"):
+            verify_repair(case_dir, repair, project_root)
+    finally:
+        with open(hidden_card_path, "w") as f:
+            yaml.dump(original, f, default_flow_style=False, sort_keys=False)
+
+
+# --------------------------------------------------------------------------
+# Tampered public card has no effect
+# --------------------------------------------------------------------------
+
+def test_tampered_public_card_no_effect(built_case):
+    """Modifying card.public.yaml workload_name must not affect verification.
+
+    verify_repair reads workload_name from the hidden card, so a tampered
+    public card is ignored.
+    """
+    case_dir, project_root = built_case
+    public_card_path = case_dir / "card.public.yaml"
+
+    with open(public_card_path) as f:
+        original = yaml.safe_load(f)
+
+    # Tamper with workload_name in public card
+    tampered = dict(original)
+    tampered["workload_name"] = "bogus_workload"
+
+    try:
+        with open(public_card_path, "w") as f:
+            yaml.dump(tampered, f, default_flow_style=False, sort_keys=False)
+
+        repair = {
+            "repair_type": "config_patch",
+            "patches": {"training.lr": 0.01},
+        }
+        result = verify_repair(case_dir, repair, project_root)
+
+        # Must still succeed — workload_name comes from hidden card
+        assert result["verdict"] == "recovered"
+    finally:
+        with open(public_card_path, "w") as f:
+            yaml.dump(original, f, default_flow_style=False, sort_keys=False)

@@ -259,6 +259,7 @@ def build_case(
     # ---- write hidden/card.hidden.yaml ------------------------------------
     hidden_card = {
         "case_id": case_id,
+        "workload_name": workload_name,
         "operator_id": manifest.operator_id,
         "layer": manifest.layer,
         "strength": manifest.strength,

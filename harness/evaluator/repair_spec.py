@@ -9,6 +9,7 @@ v1 supports ``repair_type="config_patch"`` only: a dict of
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -152,6 +153,15 @@ def validate_repair(
 
         # Value type check (must be numeric for ranged keys)
         if key in value_ranges:
+            # Reject bool explicitly (bool is a subclass of int in Python)
+            if isinstance(value, bool):
+                codes.append(VALUE_TYPE_INVALID)
+                details.append(
+                    f"Value for {key!r} must be numeric, "
+                    f"got bool: {value!r}"
+                )
+                continue
+
             if not isinstance(value, (int, float)):
                 codes.append(VALUE_TYPE_INVALID)
                 details.append(
@@ -159,6 +169,14 @@ def validate_repair(
                     f"got {type(value).__name__}: {value!r}"
                 )
                 continue  # skip range check
+
+            # Reject non-finite floats (NaN, inf, -inf)
+            if not math.isfinite(value):
+                codes.append(VALUE_OUT_OF_RANGE)
+                details.append(
+                    f"Value {value} for {key!r} is not finite"
+                )
+                continue
 
             lo, hi = value_ranges[key]
             if value < lo or value > hi:
