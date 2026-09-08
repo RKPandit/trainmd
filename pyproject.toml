@@ -17,6 +17,9 @@ test = ["pytest==8.3.4"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+markers = [
+    "slow_integration: marks tests that run training (deselect with '-m \"not slow_integration\"')",
+]
 
 [tool.uv]
 # Use CPU-only PyTorch on Linux to avoid pulling the ~2 GB CUDA wheel in CI.

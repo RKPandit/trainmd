@@ -1,4 +1,4 @@
-.PHONY: data reference build-case verify-repair clean
+.PHONY: data reference build-case verify-repair run-agent score clean
 
 WORKLOAD ?= tabular_adult
 WORKLOAD_DIR := workloads/$(WORKLOAD)
@@ -32,6 +32,20 @@ verify-repair:
 	uv run python -m harness.evaluator.verify_repair \
 		--case $(CASE) \
 		--spec $(SPEC)
+
+AGENT ?= stub_oracle
+
+run-agent:
+	uv run python -m harness.run_agent \
+		--case $(CASE) \
+		--agent $(AGENT)
+
+TRIAL ?= trial.yaml
+
+score:
+	uv run python -m harness.scoring \
+		--case $(CASE) \
+		--trial $(TRIAL)
 
 clean:
 	rm -rf $(WORKLOAD_DIR)/reference/runs
