@@ -115,6 +115,10 @@ def run_trial(
     record["status"] = "partial"
     write_record(project_root, record)
 
+    # 4b. Give LLM agents access to the mutable record for incremental usage
+    if hasattr(agent, "set_record"):
+        agent.set_record(record)
+
     # 5. Run agent in try/finally
     t0 = time.monotonic()
     agent_error = None
