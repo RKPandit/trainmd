@@ -324,26 +324,26 @@ class TestCostEstimation:
 
     def test_cost_known_model(self):
         from harness.pricing import estimate_cost
-        result = estimate_cost("claude-sonnet-4-20250514", 1_000_000, 500_000)
+        result = estimate_cost("claude-sonnet-5", 1_000_000, 500_000)
         assert result is not None
-        # 1M input * $3/M + 500K output * $15/M = $3 + $7.5 = $10.5
-        assert abs(result.cost_usd - 10.5) < 0.001
+        # 1M input * $2/M + 500K output * $10/M = $2 + $5 = $7
+        assert abs(result.cost_usd - 7.0) < 0.001
         assert result.is_estimate is True
 
     def test_cost_with_cached(self):
         from harness.pricing import estimate_cost
         # 1M input, 200K cached, 500K output
         result = estimate_cost(
-            "claude-sonnet-4-20250514",
+            "claude-sonnet-5",
             input_tokens=1_000_000,
             output_tokens=500_000,
             cached_tokens=200_000,
         )
         assert result is not None
         # billable_input = 1M - 200K = 800K
-        # cost = 800K * $3/M + 500K * $15/M + 200K * $0.30/M
-        #      = $2.40 + $7.50 + $0.06 = $9.96
-        assert abs(result.cost_usd - 9.96) < 0.001
+        # cost = 800K * $2/M + 500K * $10/M + 200K * $0.20/M
+        #      = $1.60 + $5.00 + $0.04 = $6.64
+        assert abs(result.cost_usd - 6.64) < 0.001
 
     def test_cost_unknown_model(self):
         from harness.pricing import estimate_cost

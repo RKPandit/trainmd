@@ -181,6 +181,31 @@ def _load_agent(name: str) -> Agent:
 # CLI entry point
 # ---------------------------------------------------------------------------
 
+def _print_cost_summary(record: dict) -> None:
+    """Print a human-readable cost summary after a trial."""
+    usage = record.get("usage", {})
+    inp = usage.get("input_tokens", 0)
+    out = usage.get("output_tokens", 0)
+    total = inp + out
+
+    model = record.get("model")
+    status = record.get("status", "unknown")
+
+    # Compute cost estimate
+    from harness.pricing import estimate_cost
+    est = estimate_cost(model, inp, out, usage.get("cached_tokens", 0))
+
+    trial_path = record.get("_trial_path", "")
+    print(f"\nTrial:  {trial_path}")
+    print(f"Model:  {model or 'none'}")
+    print(f"Tokens: {inp} in + {out} out = {total} total")
+    if est is not None:
+        print(f"Cost:   ~${est.cost_usd:.4f} (estimate — verify before paper)")
+    else:
+        print("Cost:   unknown (model not in price table)")
+    print(f"Status: {status}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run an agent trial on a case (spec §6)",
@@ -190,8 +215,24 @@ def main() -> int:
         help="Path to the case directory",
     )
     parser.add_argument(
-        "--agent", type=str, required=True,
+        "--agent", type=str, default=None,
         help="Agent name (e.g. stub_oracle, stub_degenerate)",
+    )
+    parser.add_argument(
+        "--model", type=str, default=None,
+        help="LLM model ID (e.g. claude-haiku-4-5-20251001); creates LLMAgent",
+    )
+    parser.add_argument(
+        "--provider", type=str, default="anthropic",
+        help="LLM provider (default: anthropic)",
+    )
+    parser.add_argument(
+        "--temperature", type=float, default=1.0,
+        help="Sampling temperature (default: 1.0)",
+    )
+    parser.add_argument(
+        "--max-turns", type=int, default=15,
+        help="Max agent turns (default: 15)",
     )
     parser.add_argument(
         "--project-root", type=Path, default=None,
@@ -199,9 +240,48 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    agent = _load_agent(args.agent)
+    # Must specify either --agent or --model, not both, not neither
+    if args.agent and args.model:
+        parser.error("Specify --agent or --model, not both")
+    if not args.agent and not args.model:
+        parser.error("Specify --agent (registry) or --model (LLM)")
+
+    if args.model:
+        # Create LLM agent with the specified provider
+        if args.provider == "anthropic":
+            from harness.llm.anthropic_client import AnthropicClient
+            client = AnthropicClient(
+                model=args.model, temperature=args.temperature,
+            )
+        else:
+            parser.error(f"Unknown provider {args.provider!r}; supported: anthropic")
+
+        from agents.llm_agent import LLMAgent
+        agent: Agent = LLMAgent(
+            client,
+            model_id=args.model,
+            temperature=args.temperature,
+            max_turns=args.max_turns,
+            provider=args.provider,
+        )
+    else:
+        agent = _load_agent(args.agent)
+
     record = run_trial(agent, args.case, args.project_root)
-    print(yaml.dump(record, default_flow_style=False, sort_keys=False))
+
+    # Store trial path for summary display
+    case_id = record.get("case_id", "unknown")
+    run_id = record.get("run_id", "unknown")
+    agent_name = record.get("agent", "unknown")
+    record["_trial_path"] = (
+        f"results/{case_id}/trials/{agent_name}_{run_id}.yaml"
+    )
+
+    if args.model:
+        _print_cost_summary(record)
+    else:
+        print(yaml.dump(record, default_flow_style=False, sort_keys=False))
+
     return 0
 
 

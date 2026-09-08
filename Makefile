@@ -1,4 +1,4 @@
-.PHONY: data reference build-case verify-repair run-agent score verify clean
+.PHONY: data reference build-case verify-repair run-agent smoke score verify clean
 
 WORKLOAD ?= tabular_adult
 WORKLOAD_DIR := workloads/$(WORKLOAD)
@@ -39,6 +39,14 @@ run-agent:
 	uv run python -m harness.run_agent \
 		--case $(CASE) \
 		--agent $(AGENT)
+
+SMOKE_MODEL ?= claude-haiku-4-5-20251001
+
+smoke: build-case
+	uv run --extra llm python -m harness.run_agent \
+		--case $(CASE) \
+		--model $(SMOKE_MODEL) \
+		--provider anthropic
 
 TRIAL ?= trial.yaml
 
