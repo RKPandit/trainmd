@@ -105,13 +105,13 @@ class TestApply:
 class TestEvidence:
     """Verify evidence() returns correct structural refs."""
 
-    def test_returns_config_key_and_metric_window(self):
+    def test_returns_config_key_and_metric_windows(self):
         refs = LrWarmupOperator().evidence()
-        assert len(refs) == 2
+        assert len(refs) == 3
         assert all(isinstance(r, EvidenceRef) for r in refs)
 
-        kinds = {r.kind for r in refs}
-        assert kinds == {"config_key", "metric_window"}
+        kinds = [r.kind for r in refs]
+        assert kinds == ["config_key", "metric_window", "metric_window"]
 
     def test_config_key_ref(self):
         refs = LrWarmupOperator().evidence()
@@ -119,14 +119,19 @@ class TestEvidence:
         assert config_ref.artifact_id == "config.yaml"
         assert config_ref.detail["key_path"] == "training.lr"
 
-    def test_metric_window_covers_full_run(self):
+    def test_metric_windows_cover_full_run(self):
         refs = LrWarmupOperator().evidence()
-        mw = [r for r in refs if r.kind == "metric_window"][0]
-        assert mw.artifact_id == "metrics.jsonl"
-        assert mw.detail["series"] == "train_loss"
-        assert mw.detail["start_epoch"] == 0
-        # end_epoch omitted — high LR corrupts the entire run
-        assert "end_epoch" not in mw.detail
+        mws = [r for r in refs if r.kind == "metric_window"]
+        assert len(mws) == 2
+
+        series_set = {mw.detail["series"] for mw in mws}
+        assert series_set == {"train_loss", "metric_visible_val_acc"}
+
+        for mw in mws:
+            assert mw.artifact_id == "metrics.jsonl"
+            assert mw.detail["start_epoch"] == 0
+            # end_epoch omitted — high LR corrupts the entire run
+            assert "end_epoch" not in mw.detail
 
 
 class TestAdmissibleRepairs:

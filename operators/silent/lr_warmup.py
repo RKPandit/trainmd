@@ -112,6 +112,9 @@ class LrWarmupOperator:
            corrupts the entire training trajectory, not just a warmup
            window.  ``end_epoch`` is omitted so the matcher defaults
            to infinity; any epoch range the agent cites will overlap.
+        3. Degraded metric_visible_val_acc anywhere in the run — the
+           fault observably corrupts validation accuracy as well as
+           training loss.
         """
         return [
             EvidenceRef(
@@ -124,6 +127,14 @@ class LrWarmupOperator:
                 artifact_id="metrics.jsonl",
                 detail={
                     "series": "train_loss",
+                    "start_epoch": 0,
+                },
+            ),
+            EvidenceRef(
+                kind="metric_window",
+                artifact_id="metrics.jsonl",
+                detail={
+                    "series": "metric_visible_val_acc",
                     "start_epoch": 0,
                 },
             ),
