@@ -65,27 +65,45 @@ def _get_operator(operator_id: str) -> IncidentOperator:
 # Case ID management
 # ---------------------------------------------------------------------------
 
-def _next_case_id(registry_path: Path) -> str:
-    """Return the next sequential case ID (``case_NNNN``)."""
+def _load_registry(registry_path: Path) -> dict:
+    """Load the hidden registry, returning empty dict if missing."""
     if registry_path.exists():
         with open(registry_path) as f:
-            registry = yaml.safe_load(f) or {}
-        existing = [k for k in registry if k.startswith("case_")]
-        if existing:
-            max_num = max(int(k.split("_")[1]) for k in existing)
-            return f"case_{max_num + 1:04d}"
+            return yaml.safe_load(f) or {}
+    return {}
+
+
+def _next_case_id(registry: dict) -> str:
+    """Return the next sequential case ID (``case_NNNN``)."""
+    existing = [k for k in registry if k.startswith("case_")]
+    if existing:
+        max_num = max(int(k.split("_")[1]) for k in existing)
+        return f"case_{max_num + 1:04d}"
     return "case_0001"
 
 
-def _append_registry(registry_path: Path, case_id: str, entry: dict) -> None:
-    """Append a case entry to the hidden registry."""
+def _find_existing_case(
+    registry: dict,
+    workload: str,
+    operator: str,
+    strength: str,
+    seed: int,
+) -> str | None:
+    """Return case_id if (workload, operator, strength, seed) already exists."""
+    for case_id, entry in registry.items():
+        if (
+            entry.get("workload") == workload
+            and entry.get("operator") == operator
+            and entry.get("strength") == strength
+            and entry.get("seed") == seed
+        ):
+            return case_id
+    return None
+
+
+def _save_registry(registry_path: Path, registry: dict) -> None:
+    """Write the full registry to disk."""
     registry_path.parent.mkdir(parents=True, exist_ok=True)
-    if registry_path.exists():
-        with open(registry_path) as f:
-            registry = yaml.safe_load(f) or {}
-    else:
-        registry = {}
-    registry[case_id] = entry
     with open(registry_path, "w") as f:
         yaml.dump(registry, f, default_flow_style=False, sort_keys=False)
 
@@ -100,8 +118,14 @@ def build_case(
     strength: str,
     seed: int,
     project_root: Path | None = None,
+    force: bool = False,
 ) -> Path:
     """Build one case instance.
+
+    Deterministic generation is idempotent: a given (workload, operator,
+    strength, seed) tuple maps to exactly one case ID.  If the tuple
+    already exists in the registry, build_case refuses unless *force*
+    is True, in which case it rebuilds in place reusing the existing ID.
 
     Args:
         workload_name: Name of the workload (e.g. ``tabular_adult``).
@@ -110,6 +134,8 @@ def build_case(
         seed: RNG seed for the operator and training run.
         project_root: Project root directory.  Defaults to this file's
             grandparent (i.e. the repo root).
+        force: If True and the tuple already exists, rebuild in place
+            reusing the existing case ID.
 
     Returns:
         Path to the created case directory.
@@ -118,6 +144,7 @@ def build_case(
         RuntimeError: If the faulty run violates silent-layer invariants
             (crash, NaN metrics, missing checkpoint) or if the hidden test
             accuracy is not below tolerance.
+        SystemExit: If the tuple already exists and *force* is False.
     """
     if project_root is None:
         project_root = Path(__file__).resolve().parent.parent
@@ -126,8 +153,28 @@ def build_case(
     cases_dir = project_root / "cases"
     registry_path = cases_dir / "registry.hidden.yaml"
 
-    # ---- assign opaque case ID -------------------------------------------
-    case_id = _next_case_id(registry_path)
+    # ---- idempotency check -----------------------------------------------
+    registry = _load_registry(registry_path)
+    existing_id = _find_existing_case(
+        registry, workload_name, operator_id, strength, seed,
+    )
+
+    if existing_id is not None and not force:
+        sys.exit(
+            f"Case for ({workload_name}, {operator_id}, {strength}, {seed}) "
+            f"already exists as {existing_id}; use --force to rebuild in place"
+        )
+
+    if existing_id is not None:
+        # --force: rebuild in place, reuse existing ID
+        case_id = existing_id
+        case_dir = cases_dir / case_id
+        if case_dir.exists():
+            shutil.rmtree(case_dir)
+    else:
+        # genuinely new tuple — allocate next sequential ID
+        case_id = _next_case_id(registry)
+
     case_dir = cases_dir / case_id
     case_dir.mkdir(parents=True, exist_ok=True)
 
@@ -287,13 +334,14 @@ def build_case(
     with open(hidden / "verify.yaml", "w") as f:
         yaml.dump(verify, f, default_flow_style=False, sort_keys=False)
 
-    # ---- append to registry -----------------------------------------------
-    _append_registry(registry_path, case_id, {
+    # ---- update registry ----------------------------------------------------
+    registry[case_id] = {
         "workload": workload_name,
         "operator": operator_id,
         "strength": strength,
         "seed": seed,
-    })
+    }
+    _save_registry(registry_path, registry)
 
     print(f"Case {case_id} built at {case_dir}")
     print(f"  operator={operator_id}  strength={strength}  seed={seed}")
@@ -327,9 +375,16 @@ def main() -> int:
         "--seed", type=int, required=True,
         help="RNG seed for operator and training",
     )
+    parser.add_argument(
+        "--force", action="store_true", default=False,
+        help="Rebuild in place if (workload, operator, strength, seed) already exists",
+    )
     args = parser.parse_args()
 
-    build_case(args.workload, args.operator, args.strength, args.seed)
+    build_case(
+        args.workload, args.operator, args.strength, args.seed,
+        force=args.force,
+    )
     return 0
 
 
