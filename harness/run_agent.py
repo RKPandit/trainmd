@@ -188,16 +188,17 @@ def _print_cost_summary(record: dict) -> None:
     out = usage.get("output_tokens", 0)
     total = inp + out
 
-    model = record.get("model")
+    model_block = record.get("model", {})
+    model_id = model_block.get("model_id") if isinstance(model_block, dict) else None
     status = record.get("status", "unknown")
 
     # Compute cost estimate
     from harness.pricing import estimate_cost
-    est = estimate_cost(model, inp, out, usage.get("cached_tokens", 0))
+    est = estimate_cost(model_id, inp, out, usage.get("cached_tokens", 0))
 
     trial_path = record.get("_trial_path", "")
     print(f"\nTrial:  {trial_path}")
-    print(f"Model:  {model or 'none'}")
+    print(f"Model:  {model_id or 'none'}")
     print(f"Tokens: {inp} in + {out} out = {total} total")
     if est is not None:
         print(f"Cost:   ~${est.cost_usd:.4f} (estimate — verify before paper)")
