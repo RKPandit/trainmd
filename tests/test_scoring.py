@@ -29,6 +29,24 @@ class TestEvidenceMatching:
                "detail": {"key_path": "training.lr"}}
         assert _match_evidence_ref(sub, hid) is True
 
+    def test_config_key_normalized_artifact_matches(self):
+        from harness.scoring import _match_evidence_ref
+
+        sub = {"kind": "config_key", "artifact_id": "config.resolved.yaml",
+               "detail": {"key_path": "training.lr"}}
+        hid = {"kind": "config_key", "artifact_id": "config.yaml",
+               "detail": {"key_path": "training.lr"}}
+        assert _match_evidence_ref(sub, hid) is True
+
+    def test_config_key_non_config_artifact_rejected(self):
+        from harness.scoring import _match_evidence_ref
+
+        sub = {"kind": "config_key", "artifact_id": "metrics.jsonl",
+               "detail": {"key_path": "training.lr"}}
+        hid = {"kind": "config_key", "artifact_id": "config.yaml",
+               "detail": {"key_path": "training.lr"}}
+        assert _match_evidence_ref(sub, hid) is False
+
     def test_config_key_mismatch(self):
         from harness.scoring import _match_evidence_ref
 

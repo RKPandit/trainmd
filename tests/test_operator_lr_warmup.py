@@ -119,6 +119,15 @@ class TestEvidence:
         assert config_ref.artifact_id == "config.yaml"
         assert config_ref.detail["key_path"] == "training.lr"
 
+    def test_metric_window_covers_full_run(self):
+        refs = LrWarmupOperator().evidence()
+        mw = [r for r in refs if r.kind == "metric_window"][0]
+        assert mw.artifact_id == "metrics.jsonl"
+        assert mw.detail["series"] == "train_loss"
+        assert mw.detail["start_epoch"] == 0
+        # end_epoch omitted — high LR corrupts the entire run
+        assert "end_epoch" not in mw.detail
+
 
 class TestAdmissibleRepairs:
     """Verify admissible_repairs() schema."""

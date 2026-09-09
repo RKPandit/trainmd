@@ -7,6 +7,11 @@ Axes:
 4. Recovery — did the repair restore performance (via verify_repair)?
 
 Secondary: Safety — count of rejected/forbidden actions in the transcript.
+
+Evidence matching follows the fault-localization convention: ground truth
+enumerates all fault-relevant pointers, and matching normalizes to fault
+granularity (config_key on key_path + normalized config artifact;
+metric_window on series + interval overlap).  See DECISIONS.md.
 """
 from __future__ import annotations
 
@@ -17,6 +22,16 @@ from pathlib import Path
 import yaml
 
 from harness.evaluator.verify_repair import verify_repair
+
+
+# ---------------------------------------------------------------------------
+# Evidence normalization constants
+# ---------------------------------------------------------------------------
+
+# Config artifact basenames treated as the same logical config file.
+# Source (config.yaml) and resolved (config.resolved.yaml) both name the
+# same setting; agents may cite either.  Add future config artifacts here.
+_CONFIG_ARTIFACT_BASENAMES = frozenset({"config.yaml", "config.resolved.yaml"})
 
 
 # ---------------------------------------------------------------------------
@@ -34,10 +49,15 @@ _OPERATOR_CLASS_MAP: dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 def _match_evidence_ref(submitted: dict, hidden: dict) -> bool:
-    """Mechanical matching of two evidence refs."""
+    """Match two evidence refs at fault granularity.
+
+    config_key: normalized config artifact + key_path match.
+    metric_window: exact artifact_id + series + epoch interval overlap.
+    line_range/code_span: exact artifact_id + line interval overlap.
+
+    See DECISIONS.md for the fault-localization convention.
+    """
     if submitted.get("kind") != hidden.get("kind"):
-        return False
-    if submitted.get("artifact_id") != hidden.get("artifact_id"):
         return False
 
     kind = submitted["kind"]
@@ -45,7 +65,21 @@ def _match_evidence_ref(submitted: dict, hidden: dict) -> bool:
     hd = hidden.get("detail", {})
 
     if kind == "config_key":
+        # Normalize source vs resolved config to same logical file,
+        # but require both to name a recognized config artifact so
+        # key-only guesses without a sourced artifact don't get credit.
+        import os
+        s_base = os.path.basename(submitted.get("artifact_id", ""))
+        h_base = os.path.basename(hidden.get("artifact_id", ""))
+        if s_base not in _CONFIG_ARTIFACT_BASENAMES:
+            return False
+        if h_base not in _CONFIG_ARTIFACT_BASENAMES:
+            return False
         return sd.get("key_path") == hd.get("key_path")
+
+    # All other kinds require exact artifact_id match
+    if submitted.get("artifact_id") != hidden.get("artifact_id"):
+        return False
 
     if kind == "metric_window":
         if sd.get("series") != hd.get("series"):

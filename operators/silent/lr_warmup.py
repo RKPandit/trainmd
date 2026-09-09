@@ -108,8 +108,10 @@ class LrWarmupOperator:
 
         A correct diagnosis should cite:
         1. The config key ``training.lr`` (the root cause).
-        2. Early-epoch train_loss anomaly in metrics.jsonl (the observable
-           symptom — high LR causes elevated initial loss).
+        2. Anomalous train_loss anywhere in the run — a too-high LR
+           corrupts the entire training trajectory, not just a warmup
+           window.  ``end_epoch`` is omitted so the matcher defaults
+           to infinity; any epoch range the agent cites will overlap.
         """
         return [
             EvidenceRef(
@@ -123,7 +125,6 @@ class LrWarmupOperator:
                 detail={
                     "series": "train_loss",
                     "start_epoch": 0,
-                    "end_epoch": 4,
                 },
             ),
         ]
