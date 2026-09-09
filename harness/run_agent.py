@@ -17,10 +17,10 @@ from pathlib import Path
 import yaml
 
 from harness.provenance import (
-    append_index,
     build_empty_record,
     capture_environment,
     finalize_record,
+    update_index,
     write_record,
 )
 from harness.tools.tool_context import ToolContext
@@ -146,8 +146,8 @@ def run_trial(
         # 8. Overwrite the partial record
         write_record(project_root, record, overwrite_partial=True)
 
-        # 9. Append to index
-        append_index(project_root, record)
+        # 9. Update index (insert or rewrite from record state)
+        update_index(project_root, record)
 
     if agent_error is not None:
         raise agent_error

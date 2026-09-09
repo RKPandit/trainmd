@@ -81,9 +81,10 @@ def _make_result(
     per_seed: list[dict] | None = None,
     compute_sec: float = 0.0,
     integrity: dict | None = None,
+    trial_run_id: str | None = None,
 ) -> dict:
     """Factory for result dicts."""
-    return {
+    result = {
         "case_id": case_id,
         "run_id": run_id,
         "verdict": verdict,
@@ -94,6 +95,9 @@ def _make_result(
         "repair_spec": repair_spec,
         "integrity": integrity or {},
     }
+    if trial_run_id is not None:
+        result["trial_run_id"] = trial_run_id
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +108,7 @@ def verify_repair(
     case_dir: Path,
     repair_spec: dict | Path,
     project_root: Path | None = None,
+    trial_run_id: str | None = None,
 ) -> dict:
     """Run the recovery verification pipeline for one repair submission.
 
@@ -114,10 +119,15 @@ def verify_repair(
             containing the repair submission.
         project_root: Project root directory.  Defaults to this file's
             great-grandparent (repo root).
+        trial_run_id: If provided, the result file is named
+            ``recovery_<trial_run_id>.yaml`` so re-verification overwrites
+            in place (idempotent).  The ``trial_run_id`` is also recorded
+            in the result dict for traceability.
 
     Returns:
         Result dict with verdict, per-seed metrics, and integrity info.
-        Also written to ``results/<case_id>/<run_id>.yaml``.
+        Also written to ``results/<case_id>/recovery_<trial_run_id>.yaml``
+        (or ``results/<case_id>/<run_id>.yaml`` if no trial_run_id).
     """
     if project_root is None:
         project_root = Path(__file__).resolve().parent.parent.parent
@@ -180,8 +190,9 @@ def verify_repair(
     except ValueError as e:
         result = _make_result(
             case_id, run_id, "rejected", [MALFORMED], [str(e)], raw,
+            trial_run_id=trial_run_id,
         )
-        _write_result(project_root, result)
+        _write_result(project_root, result, trial_run_id=trial_run_id)
         return result
 
     validation = validate_repair(submission, verify)
@@ -189,8 +200,9 @@ def verify_repair(
         result = _make_result(
             case_id, run_id, "rejected",
             validation.reason_codes, validation.details, raw,
+            trial_run_id=trial_run_id,
         )
-        _write_result(project_root, result)
+        _write_result(project_root, result, trial_run_id=trial_run_id)
         return result
 
     # ---- Step 4: Build FRESH verification workspace ----------------------
@@ -297,16 +309,30 @@ def verify_repair(
             "hashes": hashes_before,
             "hash_verified": True,
         },
+        trial_run_id=trial_run_id,
     )
-    _write_result(project_root, result)
+    _write_result(project_root, result, trial_run_id=trial_run_id)
     return result
 
 
-def _write_result(project_root: Path, result: dict) -> Path:
-    """Write result to ``results/<case_id>/<run_id>.yaml``."""
+def _write_result(
+    project_root: Path,
+    result: dict,
+    trial_run_id: str | None = None,
+) -> Path:
+    """Write recovery result to disk.
+
+    If *trial_run_id* is provided, the file is named
+    ``recovery_<trial_run_id>.yaml`` so re-verification overwrites
+    in place (idempotent).  Otherwise falls back to ``<run_id>.yaml``.
+    """
     results_dir = project_root / "results" / result["case_id"]
     results_dir.mkdir(parents=True, exist_ok=True)
-    result_path = results_dir / f"{result['run_id']}.yaml"
+    if trial_run_id is not None:
+        filename = f"recovery_{trial_run_id}.yaml"
+    else:
+        filename = f"{result['run_id']}.yaml"
+    result_path = results_dir / filename
     with open(result_path, "w") as f:
         yaml.dump(result, f, default_flow_style=False, sort_keys=False)
     return result_path

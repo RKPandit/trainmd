@@ -188,10 +188,13 @@ def score_recovery(
     submission: dict,
     case_dir: Path,
     project_root: Path | None = None,
+    trial_run_id: str | None = None,
 ) -> dict:
     """Axis 4: Recovery via verify_repair."""
     repair_spec = submission["repair_spec"]
-    result = verify_repair(case_dir, repair_spec, project_root)
+    result = verify_repair(
+        case_dir, repair_spec, project_root, trial_run_id=trial_run_id,
+    )
     return {
         "verdict": result["verdict"],
         "compute_sec": result["compute_spent_sec"],
@@ -287,7 +290,7 @@ def score_recovery_standalone(
     6. Update ``index.jsonl`` recovery_verdict.
     7. Return the updated record.
     """
-    from harness.provenance import update_index_recovery
+    from harness.provenance import update_index
 
     record_path = Path(record_path).resolve()
     case_dir = Path(case_dir).resolve()
@@ -298,10 +301,13 @@ def score_recovery_standalone(
         record = yaml.safe_load(f)
 
     submission = record.get("submission")
+    trial_run_id = record.get("run_id")
     if submission is None or "repair_spec" not in submission:
         recovery = {"verdict": "no_submission", "compute_sec": 0.0, "per_seed_hidden_metrics": []}
     else:
-        recovery = score_recovery(submission, case_dir, project_root)
+        recovery = score_recovery(
+            submission, case_dir, project_root, trial_run_id=trial_run_id,
+        )
 
     # Merge recovery into scores
     if record.get("scores") is None:
@@ -312,8 +318,8 @@ def score_recovery_standalone(
     with open(record_path, "w") as f:
         yaml.dump(record, f, default_flow_style=False, sort_keys=False)
 
-    # Update index.jsonl
-    update_index_recovery(project_root, record["run_id"], recovery["verdict"])
+    # Update index.jsonl from full record state
+    update_index(project_root, record)
 
     return record
 

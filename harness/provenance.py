@@ -269,18 +269,25 @@ def append_index(project_root: Path, record: dict) -> None:
         f.flush()
 
 
-def update_index_recovery(
-    project_root: Path,
-    run_id: str,
-    verdict: str,
-) -> None:
-    """Update the recovery verdict for *run_id* in ``index.jsonl``.
+def update_index(project_root: Path, record: dict) -> None:
+    """Rewrite the index line for *record*'s ``run_id`` from current state.
 
-    Reads all lines, finds the one matching *run_id*, updates
-    ``recovery_verdict``, and rewrites the file.  Single-process safe.
+    The trial record is the single source of truth.  This function
+    derives the index line via :func:`_index_line` and overwrites the
+    existing entry in ``index.jsonl``.  Called after any (re)score —
+    diagnosis or recovery — to keep the index in sync.
+
+    If no matching ``run_id`` is found, the line is appended.
     """
     index_path = project_root / "results" / "index.jsonl"
+    new_line = _index_line(record)
+    run_id = record["run_id"]
+
     if not index_path.exists():
+        index_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(index_path, "w") as f:
+            f.write(json.dumps(new_line, separators=(",", ":")) + "\n")
+            f.flush()
         return
 
     lines = index_path.read_text().splitlines()
@@ -291,12 +298,15 @@ def update_index_recovery(
             continue
         entry = json.loads(raw)
         if entry.get("run_id") == run_id:
-            entry["recovery_verdict"] = verdict
+            updated_lines.append(json.dumps(new_line, separators=(",", ":")))
             found = True
-        updated_lines.append(json.dumps(entry, separators=(",", ":")))
+        else:
+            updated_lines.append(raw.strip())
 
-    if found:
-        with open(index_path, "w") as f:
-            for line in updated_lines:
-                f.write(line + "\n")
-            f.flush()
+    if not found:
+        updated_lines.append(json.dumps(new_line, separators=(",", ":")))
+
+    with open(index_path, "w") as f:
+        for line in updated_lines:
+            f.write(line + "\n")
+        f.flush()
