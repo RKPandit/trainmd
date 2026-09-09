@@ -1,4 +1,4 @@
-.PHONY: data reference build-case verify-repair run-agent smoke score verify clean
+.PHONY: data reference build-case verify-repair run-agent smoke score verify validate validate-all clean
 
 WORKLOAD ?= tabular_adult
 WORKLOAD_DIR := workloads/$(WORKLOAD)
@@ -59,6 +59,12 @@ verify:
 	uv run python -m harness.scoring --verify \
 		--case $(CASE) \
 		--trial $(TRIAL)
+
+validate:
+	uv run python -m harness.validate_case --case $(CASE)
+
+validate-all:
+	uv run python -m harness.validate_case --all
 
 clean:
 	rm -rf $(WORKLOAD_DIR)/reference/runs
