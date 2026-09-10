@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import random
+import hashlib
 import sys
 import time
 import tracemalloc
@@ -119,7 +120,13 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
         # not the training seed.  The evaluator reruns with hidden seeds
         # 100/101/102 — corruption must be the same set of flipped labels
         # every time, regardless of training seed.
-        corrupt_seed = hash((len(y_train_np), noise_frac, 0xDEAD_BEEF)) & 0xFFFF_FFFF
+        # NOTE: must NOT use Python's built-in hash() — it is salted per
+        # process (PYTHONHASHSEED), so different subprocesses would corrupt
+        # different label sets.  hashlib is deterministic across processes.
+        corrupt_seed = int.from_bytes(
+            hashlib.sha256(f"{len(y_train_np)}:{noise_frac}".encode()).digest()[:4],
+            "big",
+        )
         corrupt_rng = np.random.RandomState(corrupt_seed)
         corrupt_idx = corrupt_rng.choice(
             len(y_train_np), size=n_corrupt, replace=False,

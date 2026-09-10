@@ -12,9 +12,12 @@ and evaluate checkpoints against the reference tolerance.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 from random import Random
 
@@ -208,8 +211,12 @@ def test_corruption_indices_seed_independent():
 
     indices_by_seed = []
     for training_seed in [0, 42, 100, 101, 102]:
-        # Replicate the corruption logic from train.py — seed is independent
-        corrupt_seed = hash((len(y_train), noise_frac, 0xDEAD_BEEF)) & 0xFFFF_FFFF
+        # Replicate the corruption logic from train.py — seed is independent.
+        # Uses hashlib (not hash()) for cross-process determinism.
+        corrupt_seed = int.from_bytes(
+            hashlib.sha256(f"{len(y_train)}:{noise_frac}".encode()).digest()[:4],
+            "big",
+        )
         corrupt_rng = np.random.RandomState(corrupt_seed)
         corrupt_idx = sorted(
             corrupt_rng.choice(len(y_train), size=n_corrupt, replace=False)
@@ -224,6 +231,70 @@ def test_corruption_indices_seed_independent():
                 f"seed {[0, 42, 100, 101, 102][i]}"
             ),
         )
+
+
+def test_corruption_deterministic_across_processes():
+    """Same faulty config trained in TWO separate subprocesses → identical metrics.
+
+    This catches bugs where the corruption seed depends on per-process state
+    (e.g. Python's hash() is salted with a random PYTHONHASHSEED per process).
+    The in-process test (test_corruption_indices_seed_independent) cannot catch
+    this class of bug because both iterations share the same hash salt.
+    """
+    _skip_if_no_data()
+
+    workspace = WORKLOAD_DIR
+    noise_frac = 0.15
+    seed = 7  # arbitrary training seed
+
+    # Build a faulty config
+    with open(workspace / "config.yaml") as f:
+        config = yaml.safe_load(f)
+    config.setdefault("data", {})["label_noise_fraction"] = noise_frac
+
+    metrics_by_run = []
+    for run_idx in range(2):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = Path(tmpdir)
+            output_dir = tmpdir / "output"
+            output_dir.mkdir()
+            config_path = tmpdir / "config.yaml"
+            with open(config_path, "w") as f:
+                yaml.dump(config, f)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(workspace / "train.py"),
+                    "--config", str(config_path),
+                    "--data-dir", str(workspace / ".data"),
+                    "--output-dir", str(output_dir),
+                    "--seed", str(seed),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == 0, (
+                f"Run {run_idx} crashed: {result.stderr[-300:]}"
+            )
+
+            # Extract deterministic metric fields
+            _DET_KEYS = {
+                "epoch", "step", "train_loss", "val_loss",
+                "metric_visible_val_acc", "lr", "batch_size", "end_of_epoch",
+            }
+            records = []
+            with open(output_dir / "metrics.jsonl") as f:
+                for line in f:
+                    rec = json.loads(line)
+                    records.append({k: v for k, v in rec.items() if k in _DET_KEYS})
+            metrics_by_run.append(records)
+
+    assert metrics_by_run[0] == metrics_by_run[1], (
+        "Metrics differ between two separate subprocess runs of the same "
+        "faulty config — corruption seed is not deterministic across processes"
+    )
 
 
 # --------------------------------------------------------------------------
@@ -243,9 +314,6 @@ def _skip_if_no_data():
 
 def _run_training(workspace: Path, config: dict, seed: int, output_dir: Path) -> int:
     """Run a training job and return exitcode."""
-    import sys
-    import subprocess
-
     output_dir.mkdir(parents=True, exist_ok=True)
     config_path = output_dir / "config.yaml"
     with open(config_path, "w") as f:
