@@ -159,10 +159,15 @@ class ShapeMismatchOperator:
         )
 
     def accepted_classes(self) -> frozenset[str]:
-        """Class names an agent might use to correctly identify this fault."""
+        """Class names whose core meaning is a shape/dimension mismatch.
+
+        Defined by principle (the fault's core concept), not by expanding
+        to match observed model outputs.  See DECISIONS.md.
+        """
         return frozenset({
-            "shape_mismatch", "dimension_mismatch", "input_dimension",
-            "input_dim_mismatch", "model_shape_error",
+            "shape_mismatch", "dimension_mismatch", "data_shape_mismatch",
+            "input_dim_mismatch", "tensor_shape_error", "model_shape_error",
+            "shape_error", "dimension_error",
         })
 
 

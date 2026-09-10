@@ -70,9 +70,14 @@ class TestProtocol:
     def test_accepted_classes(self):
         classes = ShapeMismatchOperator().accepted_classes()
         assert isinstance(classes, frozenset)
-        assert len(classes) > 0
-        assert "shape_mismatch" in classes
-        assert "dimension_mismatch" in classes
+        assert len(classes) == 8
+        # Core members defined by principle: any label meaning shape/dimension mismatch
+        for expected in [
+            "shape_mismatch", "dimension_mismatch", "data_shape_mismatch",
+            "input_dim_mismatch", "tensor_shape_error", "model_shape_error",
+            "shape_error", "dimension_error",
+        ]:
+            assert expected in classes, f"{expected!r} missing from accepted_classes"
 
 
 class TestApply:
