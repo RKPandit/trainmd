@@ -136,6 +136,72 @@ class TestEvidence:
         assert lr_ref.detail["end_line"] == 24
 
 
+class TestEvidenceResolvesInConfig:
+    """Verify evidence key_path matches the actual key in config.resolved.yaml.
+
+    Regression test: train.py previously wrote input_dim at top level in
+    config.resolved.yaml but evidence referenced model.input_dim (nested).
+    Agents would cite the top-level path, scoring the evidence as wrong.
+    """
+
+    def test_evidence_key_exists_in_resolved_config(self, tmp_path):
+        """Evidence config_key key_path must exist in config.resolved.yaml."""
+        _skip_if_no_data()
+
+        workspace = _make_workspace(tmp_path)
+        op = ShapeMismatchOperator()
+        op.apply(workspace, Random(42), "moderate")
+
+        with open(workspace / "config.yaml") as f:
+            config = yaml.safe_load(f)
+
+        output_dir = tmp_path / "output"
+        _run_training(workspace, config, 0, output_dir)
+
+        # Load resolved config
+        resolved_path = output_dir / "config.resolved.yaml"
+        with open(resolved_path) as f:
+            resolved = yaml.safe_load(f)
+
+        # Get evidence key_path
+        refs = op.evidence()
+        config_ref = [r for r in refs if r.kind == "config_key"][0]
+        key_path = config_ref.detail["key_path"]
+
+        # Navigate the dotted path in resolved config
+        parts = key_path.split(".")
+        node = resolved
+        for part in parts:
+            assert isinstance(node, dict) and part in node, (
+                f"Evidence key_path {key_path!r} not found in "
+                f"config.resolved.yaml at segment {part!r}; "
+                f"available keys: {sorted(node.keys()) if isinstance(node, dict) else type(node).__name__}"
+            )
+            node = node[part]
+
+    def test_no_top_level_input_dim(self, tmp_path):
+        """config.resolved.yaml must NOT have a top-level input_dim key."""
+        _skip_if_no_data()
+
+        workspace = _make_workspace(tmp_path)
+
+        with open(workspace / "config.yaml") as f:
+            config = yaml.safe_load(f)
+
+        output_dir = tmp_path / "output"
+        _run_training(workspace, config, 0, output_dir)
+
+        resolved_path = output_dir / "config.resolved.yaml"
+        with open(resolved_path) as f:
+            resolved = yaml.safe_load(f)
+
+        assert "input_dim" not in resolved, (
+            "config.resolved.yaml has a top-level 'input_dim' key; "
+            "it should be nested under 'model' to match the operator's "
+            "mutation path and evidence key_path"
+        )
+
+
 class TestAdmissibleRepairs:
     """Verify admissible_repairs() schema."""
 

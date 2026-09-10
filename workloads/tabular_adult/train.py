@@ -184,7 +184,8 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
         logger.addHandler(handler)
 
     # Write fully resolved config
-    resolved = {**config, "seed": seed, "input_dim": input_dim}
+    resolved = {**config, "seed": seed}
+    resolved.setdefault("model", {})["input_dim"] = input_dim
     with open(output_dir / "config.resolved.yaml", "w") as f:
         yaml.dump(resolved, f, default_flow_style=False, sort_keys=False)
 
