@@ -170,18 +170,23 @@ TOOLS_SCHEMA: list[dict] = [
                         "properties": {
                             "kind": {
                                 "type": "string",
-                                "enum": ["config_key", "metric_window"],
+                                "enum": ["config_key", "metric_window", "line_range", "code_span"],
                             },
                             "artifact_id": {
                                 "type": "string",
-                                "description": "Artifact name, e.g. 'config.yaml', 'metrics.jsonl'",
+                                "description": (
+                                    "Artifact name, e.g. 'config.yaml', 'metrics.jsonl', "
+                                    "'logs/stdout.log', 'train.py'"
+                                ),
                             },
                             "detail": {
                                 "type": "object",
                                 "description": (
                                     "Kind-specific fields. "
                                     "config_key: {key_path: str}. "
-                                    "metric_window: {series: str, start_epoch: int, end_epoch: int}."
+                                    "metric_window: {series: str, start_epoch: int, end_epoch: int}. "
+                                    "line_range: {start_line: int, end_line: int}. "
+                                    "code_span: {start_line: int, end_line: int}."
                                 ),
                             },
                         },
@@ -236,9 +241,10 @@ across epochs).
 - Focus on learning rate, batch size, and optimizer settings as common silent \
 fault vectors.
 - Look for values that differ significantly from reasonable defaults.
-- If you detect an incident, gather at least one config_key evidence ref \
-pointing to the faulty parameter and one metric_window evidence ref showing \
-the impact.
+- If you detect an incident, gather evidence appropriate to the fault: \
+a config_key ref pointing to the faulty parameter, plus whichever fits the \
+symptom — a metric_window for anomalous training curves, or a line_range \
+for an error/traceback in a log file (e.g. logs/stdout.log).
 
 ## Submit format
 
