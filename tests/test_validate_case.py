@@ -91,6 +91,8 @@ def _make_case(
             "mutated_value": mutated_value,
             "description": "test mutation",
         }],
+        "accepted_classes": ["lr_misconfiguration", "learning_rate",
+                             "lr_too_high", "lr_warmup"],
     }
     with open(hidden / "card.hidden.yaml", "w") as f:
         yaml.dump(hidden_card, f)
@@ -467,6 +469,20 @@ class TestWellFormednessChecks:
         report = validate_case(case_dir, project_root=tmp_path)
         failed_names = [c.name for c in report.failed]
         assert "F3_verify_yaml_required_fields" in failed_names
+
+    def test_f4_missing_accepted_classes(self, tmp_path):
+        """Missing accepted_classes in card.hidden.yaml fails F4."""
+        case_dir = _make_case(tmp_path)
+        card_path = case_dir / "hidden" / "card.hidden.yaml"
+        with open(card_path) as f:
+            card = yaml.safe_load(f)
+        del card["accepted_classes"]
+        with open(card_path, "w") as f:
+            yaml.dump(card, f)
+
+        report = validate_case(case_dir, project_root=tmp_path)
+        failed_names = [c.name for c in report.failed]
+        assert "F4_accepted_classes" in failed_names
 
 
 # ---------------------------------------------------------------------------

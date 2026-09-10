@@ -70,6 +70,13 @@ class TestProtocol:
     def test_layer(self):
         assert LabelCorruptionOperator().layer == "dynamics"
 
+    def test_accepted_classes(self):
+        classes = LabelCorruptionOperator().accepted_classes()
+        assert isinstance(classes, frozenset)
+        assert len(classes) > 0
+        assert "label_corruption" in classes
+        assert "data_corruption" in classes
+
 
 class TestApply:
     """Verify apply() correctly mutates config for each strength."""

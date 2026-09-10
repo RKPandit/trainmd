@@ -100,3 +100,13 @@ class IncidentOperator(Protocol):
     def admissible_repairs(self) -> RepairSpecSchema:
         """Schema of valid repairs the evaluator will accept."""
         ...
+
+    def accepted_classes(self) -> frozenset[str]:
+        """Set of class names that correctly identify this operator.
+
+        Scoring normalises case and separators (``-``/``_``/`` ``) before
+        comparing the agent's predicted class against this set.  Include
+        all synonyms an agent might reasonably use to name this fault
+        category.
+        """
+        ...

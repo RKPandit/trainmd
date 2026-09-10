@@ -314,6 +314,7 @@ def build_case(
         "strength": manifest.strength,
         "seed": seed,
         "mutations": [dataclasses.asdict(m) for m in manifest.mutations],
+        "accepted_classes": sorted(op.accepted_classes()),
     }
     with open(hidden / "card.hidden.yaml", "w") as f:
         yaml.dump(hidden_card, f, default_flow_style=False, sort_keys=False)

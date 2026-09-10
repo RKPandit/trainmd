@@ -487,6 +487,26 @@ def _check_f3(verify: dict) -> CheckResult:
     return CheckResult("F3_verify_yaml_required_fields", True, "", "WELL_FORMEDNESS")
 
 
+def _check_f4(hidden_card: dict) -> CheckResult:
+    """F4: accepted_classes must be present and non-empty.
+
+    Without accepted_classes, score_identification silently returns
+    correct=False for every trial — catching this at validate time
+    prevents a whole sweep from being silently mis-scored.
+    """
+    accepted = hidden_card.get("accepted_classes", [])
+    if not accepted:
+        detail = (
+            "card.hidden.yaml missing non-empty accepted_classes; "
+            "rebuild the case with an operator that declares accepted_classes()"
+        )
+        return CheckResult("F4_accepted_classes", False, detail, "WELL_FORMEDNESS")
+    if not isinstance(accepted, list) or not all(isinstance(c, str) for c in accepted):
+        detail = "accepted_classes must be a list of strings"
+        return CheckResult("F4_accepted_classes", False, detail, "WELL_FORMEDNESS")
+    return CheckResult("F4_accepted_classes", True, "", "WELL_FORMEDNESS")
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -544,6 +564,7 @@ def validate_case(
     # WELL_FORMEDNESS
     checks.append(_check_f2(hidden_card))
     checks.append(_check_f3(verify))
+    checks.append(_check_f4(hidden_card))
 
     # WALL
     checks.append(_check_w1(case_dir, hidden_card))

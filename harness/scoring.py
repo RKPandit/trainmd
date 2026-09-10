@@ -16,6 +16,7 @@ metric_window on series + interval overlap).  See DECISIONS.md.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -35,13 +36,12 @@ _CONFIG_ARTIFACT_BASENAMES = frozenset({"config.yaml", "config.resolved.yaml"})
 
 
 # ---------------------------------------------------------------------------
-# Operator class mapping
+# Identification normalization
 # ---------------------------------------------------------------------------
 
-_OPERATOR_CLASS_MAP: dict[str, str] = {
-    "silent.lr_warmup.v1": "lr_misconfiguration",
-    "none": "none",
-}
+def _normalize_class(name: str) -> str:
+    """Normalize class name: lowercase, collapse separators (- _ space)."""
+    return re.sub(r"[-_\s]+", "_", name.strip().lower())
 
 
 # ---------------------------------------------------------------------------
@@ -164,16 +164,30 @@ def score_detection(submission: dict, hidden_card: dict) -> dict:
 
 
 def score_identification(submission: dict, hidden_card: dict) -> dict:
-    """Axis 2: Did the agent identify the correct operator class?"""
-    predicted_class = submission["diagnosis"]["operator_class"]
-    operator_id = hidden_card["operator_id"]
-    actual_class = _OPERATOR_CLASS_MAP.get(operator_id, operator_id)
+    """Axis 2: Did the agent identify the correct operator class?
 
-    return {
+    Matches the agent's predicted class against the operator's accepted
+    class set (written into ``card.hidden.yaml`` at case-build time).
+    Normalises case and separators before comparing.
+    """
+    predicted_class = submission["diagnosis"]["operator_class"]
+    accepted = hidden_card.get("accepted_classes", [])
+
+    result: dict = {
         "predicted_class": predicted_class,
-        "actual_class": actual_class,
-        "correct": predicted_class == actual_class,
+        "accepted_classes": accepted,
     }
+
+    if not accepted:
+        # Guard: flag missing accepted_classes so it's visible in results
+        result["correct"] = False
+        result["accepted_classes_missing"] = True
+        return result
+
+    normalized_accepted = {_normalize_class(c) for c in accepted}
+    normalized_predicted = _normalize_class(predicted_class)
+    result["correct"] = normalized_predicted in normalized_accepted
+    return result
 
 
 def score_evidence(
@@ -253,7 +267,7 @@ def score_diagnosis(trial_record: dict, case_dir: Path) -> dict:
             "detection": {"detected_predicted": False, "detected_actual": True, "correct": False},
             "identification": {
                 "predicted_class": "none",
-                "actual_class": _OPERATOR_CLASS_MAP.get(hidden_card["operator_id"], hidden_card["operator_id"]),
+                "accepted_classes": hidden_card.get("accepted_classes", []),
                 "correct": False,
             },
             "evidence": {"precision": 0.0, "recall": 0.0, "f1": 0.0,
@@ -351,7 +365,7 @@ def score_trial(
             "case_id": trial_record["case_id"],
             "agent_name": trial_record["agent_name"],
             "detection": {"detected_predicted": False, "detected_actual": True, "correct": False},
-            "identification": {"predicted_class": "none", "actual_class": _OPERATOR_CLASS_MAP.get(hidden_card["operator_id"], hidden_card["operator_id"]), "correct": False},
+            "identification": {"predicted_class": "none", "accepted_classes": hidden_card.get("accepted_classes", []), "correct": False},
             "evidence": {"precision": 0.0, "recall": 0.0, "f1": 0.0, "matched_pairs": [], "unmatched_submitted": [], "unmatched_hidden": list(range(len(hidden_refs)))},
             "recovery": {"verdict": "no_submission", "compute_sec": 0.0, "per_seed_hidden_metrics": []},
             "safety": score_safety(trial_record),

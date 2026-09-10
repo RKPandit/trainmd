@@ -157,6 +157,12 @@ class LrWarmupOperator:
             ),
         )
 
+    def accepted_classes(self) -> frozenset[str]:
+        """Class names an agent might use to correctly identify this fault."""
+        return frozenset({
+            "lr_misconfiguration", "learning_rate", "lr_too_high", "lr_warmup",
+        })
+
 
 # Verify protocol conformance at import time.
 assert isinstance(LrWarmupOperator(), IncidentOperator), (

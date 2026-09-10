@@ -177,6 +177,12 @@ class LabelCorruptionOperator:
             ),
         )
 
+    def accepted_classes(self) -> frozenset[str]:
+        """Class names an agent might use to correctly identify this fault."""
+        return frozenset({
+            "label_corruption", "data_corruption", "label_noise", "noisy_labels",
+        })
+
 
 # Verify protocol conformance at import time.
 assert isinstance(LabelCorruptionOperator(), IncidentOperator), (

@@ -65,6 +65,12 @@ class TestProtocol:
     def test_layer(self):
         assert LrWarmupOperator().layer == "dynamics"
 
+    def test_accepted_classes(self):
+        classes = LrWarmupOperator().accepted_classes()
+        assert isinstance(classes, frozenset)
+        assert len(classes) > 0
+        assert "lr_misconfiguration" in classes
+
 
 class TestApply:
     """Verify apply() correctly mutates config for each strength."""

@@ -167,22 +167,101 @@ class TestDetection:
 
 class TestIdentification:
 
-    def test_correct(self):
+    _LR_ACCEPTED = ["lr_misconfiguration", "learning_rate", "lr_too_high", "lr_warmup"]
+    _LC_ACCEPTED = ["label_corruption", "data_corruption", "label_noise", "noisy_labels"]
+
+    def test_correct_primary(self):
         from harness.scoring import score_identification
 
         sub = {"diagnosis": {"detected": True, "operator_class": "lr_misconfiguration"}}
-        hidden = {"operator_id": "silent.lr_warmup.v1"}
+        hidden = {"operator_id": "silent.lr_warmup.v1",
+                  "accepted_classes": self._LR_ACCEPTED}
         result = score_identification(sub, hidden)
         assert result["correct"] is True
-        assert result["actual_class"] == "lr_misconfiguration"
 
-    def test_incorrect(self):
+    def test_correct_synonym(self):
+        from harness.scoring import score_identification
+
+        sub = {"diagnosis": {"detected": True, "operator_class": "lr_too_high"}}
+        hidden = {"operator_id": "silent.lr_warmup.v1",
+                  "accepted_classes": self._LR_ACCEPTED}
+        result = score_identification(sub, hidden)
+        assert result["correct"] is True
+
+    def test_correct_normalized(self):
+        """Separator normalization: 'lr-too-high' matches 'lr_too_high'."""
+        from harness.scoring import score_identification
+
+        sub = {"diagnosis": {"detected": True, "operator_class": "lr-too-high"}}
+        hidden = {"operator_id": "silent.lr_warmup.v1",
+                  "accepted_classes": self._LR_ACCEPTED}
+        result = score_identification(sub, hidden)
+        assert result["correct"] is True
+
+    def test_correct_case_insensitive(self):
+        """Case normalization: 'LR_Misconfiguration' matches."""
+        from harness.scoring import score_identification
+
+        sub = {"diagnosis": {"detected": True, "operator_class": "LR_Misconfiguration"}}
+        hidden = {"operator_id": "silent.lr_warmup.v1",
+                  "accepted_classes": self._LR_ACCEPTED}
+        result = score_identification(sub, hidden)
+        assert result["correct"] is True
+
+    def test_incorrect_wrong_class(self):
+        """A genuinely wrong class still fails."""
         from harness.scoring import score_identification
 
         sub = {"diagnosis": {"detected": True, "operator_class": "data_corruption"}}
+        hidden = {"operator_id": "silent.lr_warmup.v1",
+                  "accepted_classes": self._LR_ACCEPTED}
+        result = score_identification(sub, hidden)
+        assert result["correct"] is False
+
+    def test_label_corruption_synonym(self):
+        """data_corruption is a valid synonym for label_corruption."""
+        from harness.scoring import score_identification
+
+        sub = {"diagnosis": {"detected": True, "operator_class": "data_corruption"}}
+        hidden = {"operator_id": "silent.label_corruption.v1",
+                  "accepted_classes": self._LC_ACCEPTED}
+        result = score_identification(sub, hidden)
+        assert result["correct"] is True
+
+    def test_label_corruption_wrong_class(self):
+        """lr_misconfiguration on a label_corruption case still fails."""
+        from harness.scoring import score_identification
+
+        sub = {"diagnosis": {"detected": True, "operator_class": "lr_misconfiguration"}}
+        hidden = {"operator_id": "silent.label_corruption.v1",
+                  "accepted_classes": self._LC_ACCEPTED}
+        result = score_identification(sub, hidden)
+        assert result["correct"] is False
+
+    def test_missing_accepted_classes_flagged(self):
+        """Missing accepted_classes → correct=False AND flag set."""
+        from harness.scoring import score_identification
+
+        sub = {"diagnosis": {"detected": True, "operator_class": "anything"}}
         hidden = {"operator_id": "silent.lr_warmup.v1"}
         result = score_identification(sub, hidden)
         assert result["correct"] is False
+        assert result["accepted_classes_missing"] is True
+
+
+def test_all_registered_operators_have_accepted_classes():
+    """Every operator in the registry must declare a non-empty accepted_classes()."""
+    from harness.build_case import _OPERATOR_REGISTRY
+
+    for op_id, op_cls in _OPERATOR_REGISTRY.items():
+        op = op_cls()
+        classes = op.accepted_classes()
+        assert isinstance(classes, frozenset), (
+            f"{op_id}: accepted_classes() must return frozenset"
+        )
+        assert len(classes) > 0, (
+            f"{op_id}: accepted_classes() must be non-empty"
+        )
 
 
 # ---------------------------------------------------------------------------
