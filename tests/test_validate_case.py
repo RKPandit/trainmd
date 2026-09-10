@@ -582,6 +582,50 @@ class TestIndexAndRecoveryChecks:
         assert c8.passed
         assert "skipped" in c8.detail
 
+    def test_c8_catches_non_recovery_prefix_orphan(self, tmp_path):
+        """C8 catches orphaned recovery-shaped files even without recovery_ prefix.
+
+        Regression: C8 previously only globbed recovery_*.yaml, missing
+        orphans written by standalone verify_repair calls with no trial_run_id.
+        """
+        case_dir = _make_case(tmp_path)
+        case_id = "case_0001"
+
+        results_dir = tmp_path / "results" / case_id
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        # Orphan: recovery-shaped content, no trial_run_id, non-recovery_ filename
+        orphan = {
+            "case_id": case_id,
+            "run_id": "20260101T000000Z_abcdef",
+            "verdict": "recovered",
+            "per_seed_hidden_metrics": [{"seed": 100, "metric_hidden_test_acc": 0.85}],
+        }
+        with open(results_dir / "20260101T000000Z_abcdef.yaml", "w") as f:
+            yaml.dump(orphan, f)
+
+        report = validate_case(case_dir, project_root=tmp_path)
+        c8 = [c for c in report.checks if c.name == "C8_recovery_files_linked"][0]
+        assert not c8.passed
+        assert "orphan" in c8.detail.lower()
+
+    def test_c8_ignores_non_recovery_yaml(self, tmp_path):
+        """C8 ignores YAML files that are not recovery-shaped."""
+        case_dir = _make_case(tmp_path)
+        case_id = "case_0001"
+
+        results_dir = tmp_path / "results" / case_id
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        # Non-recovery file (no verdict or per_seed_hidden_metrics)
+        misc = {"some_key": "some_value", "notes": "not a recovery result"}
+        with open(results_dir / "misc_notes.yaml", "w") as f:
+            yaml.dump(misc, f)
+
+        report = validate_case(case_dir, project_root=tmp_path)
+        c8 = [c for c in report.checks if c.name == "C8_recovery_files_linked"][0]
+        assert c8.passed
+
 
 # ---------------------------------------------------------------------------
 # WELL_FORMEDNESS checks

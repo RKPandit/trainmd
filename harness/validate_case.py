@@ -402,14 +402,25 @@ def _check_c7(case_id: str, project_root: Path) -> CheckResult:
 
 
 def _check_c8(case_id: str, project_root: Path) -> CheckResult:
-    """C8: recovery_files_linked — recovery files reference existing trials."""
+    """C8: recovery_files_linked — no orphaned recovery results in results dir.
+
+    Detects orphans structurally (by missing trial linkage), not by
+    filename pattern.  ANY .yaml file in ``results/<case_id>/`` (not
+    in ``trials/``) that contains recovery-shaped content (``verdict``
+    or ``per_seed_hidden_metrics``) must have a valid ``trial_run_id``
+    linking it to an existing trial record.
+    """
     results_dir = project_root / "results" / case_id
     if not results_dir.exists():
         return CheckResult("C8_recovery_files_linked", True, "skipped: no results", "CONSISTENCY")
 
-    recovery_files = list(results_dir.glob("recovery_*.yaml"))
-    if not recovery_files:
-        return CheckResult("C8_recovery_files_linked", True, "skipped: no recovery files", "CONSISTENCY")
+    # Find all .yaml files directly in results/<case_id>/ (not in trials/)
+    candidate_files = [
+        f for f in results_dir.glob("*.yaml")
+        if f.is_file()
+    ]
+    if not candidate_files:
+        return CheckResult("C8_recovery_files_linked", True, "skipped: no result files", "CONSISTENCY")
 
     # Collect existing trial run_ids
     trials_dir = results_dir / "trials"
@@ -421,14 +432,23 @@ def _check_c8(case_id: str, project_root: Path) -> CheckResult:
                 trial_run_ids.add(record["run_id"])
 
     mismatches = []
-    for rf in recovery_files:
+    for rf in candidate_files:
         content = _load_yaml(rf)
         if content is None:
             mismatches.append(f"{rf.name}: could not parse YAML")
             continue
+
+        # Is this a recovery-shaped file?
+        is_recovery = (
+            "verdict" in content
+            or "per_seed_hidden_metrics" in content
+        )
+        if not is_recovery:
+            continue
+
         trial_run_id = content.get("trial_run_id")
         if trial_run_id is None:
-            mismatches.append(f"{rf.name}: missing trial_run_id field")
+            mismatches.append(f"{rf.name}: recovery result with no trial_run_id (orphan)")
             continue
         if trial_run_id not in trial_run_ids:
             mismatches.append(

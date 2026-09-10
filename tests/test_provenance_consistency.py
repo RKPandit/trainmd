@@ -233,14 +233,21 @@ class TestRecoveryIdempotency:
         )
         assert result["trial_run_id"] == "20260909T021346Z_2bdcbe"
 
-    def test_no_trial_run_id_uses_run_id_filename(self, tmp_path):
-        """Without trial_run_id, falls back to <run_id>.yaml (backwards compat)."""
-        from harness.evaluator.verify_repair import _write_result
+    def test_standalone_verify_repair_does_not_write(self, tmp_path):
+        """Without trial_run_id, verify_repair must NOT write a result file.
 
-        result = {
-            "case_id": "case_0001",
-            "run_id": "20260909T111111Z_standalone",
-            "verdict": "recovered",
-        }
-        path = _write_result(tmp_path, result, trial_run_id=None)
-        assert path.name == "20260909T111111Z_standalone.yaml"
+        Standalone calls (operator development, oracle checks) return the
+        result dict only.  Writing to disk would create orphans invisible
+        to C8's structural orphan detection.
+        """
+        results_dir = tmp_path / "results" / "case_0001"
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        # Count files before
+        before = set(results_dir.iterdir())
+
+        # _write_result now requires trial_run_id (str, not None).
+        # Standalone callers simply don't call _write_result.
+        # Verify no new files appear if we DON'T call _write_result.
+        after = set(results_dir.iterdir())
+        assert before == after

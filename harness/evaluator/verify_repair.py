@@ -126,8 +126,11 @@ def verify_repair(
 
     Returns:
         Result dict with verdict, per-seed metrics, and integrity info.
-        Also written to ``results/<case_id>/recovery_<trial_run_id>.yaml``
-        (or ``results/<case_id>/<run_id>.yaml`` if no trial_run_id).
+        When *trial_run_id* is provided, also written to
+        ``results/<case_id>/recovery_<trial_run_id>.yaml``.
+        Standalone calls (no *trial_run_id*) return the dict only —
+        no file is written, avoiding orphaned results in the trial
+        results directory.
     """
     if project_root is None:
         project_root = Path(__file__).resolve().parent.parent.parent
@@ -192,7 +195,8 @@ def verify_repair(
             case_id, run_id, "rejected", [MALFORMED], [str(e)], raw,
             trial_run_id=trial_run_id,
         )
-        _write_result(project_root, result, trial_run_id=trial_run_id)
+        if trial_run_id is not None:
+            _write_result(project_root, result, trial_run_id=trial_run_id)
         return result
 
     validation = validate_repair(submission, verify)
@@ -202,7 +206,8 @@ def verify_repair(
             validation.reason_codes, validation.details, raw,
             trial_run_id=trial_run_id,
         )
-        _write_result(project_root, result, trial_run_id=trial_run_id)
+        if trial_run_id is not None:
+            _write_result(project_root, result, trial_run_id=trial_run_id)
         return result
 
     # ---- Step 4: Build FRESH verification workspace ----------------------
@@ -311,27 +316,27 @@ def verify_repair(
         },
         trial_run_id=trial_run_id,
     )
-    _write_result(project_root, result, trial_run_id=trial_run_id)
+    if trial_run_id is not None:
+        _write_result(project_root, result, trial_run_id=trial_run_id)
     return result
 
 
 def _write_result(
     project_root: Path,
     result: dict,
-    trial_run_id: str | None = None,
+    trial_run_id: str,
 ) -> Path:
     """Write recovery result to disk.
 
-    If *trial_run_id* is provided, the file is named
-    ``recovery_<trial_run_id>.yaml`` so re-verification overwrites
-    in place (idempotent).  Otherwise falls back to ``<run_id>.yaml``.
+    The file is named ``recovery_<trial_run_id>.yaml`` so
+    re-verification overwrites in place (idempotent).
+
+    Only called when *trial_run_id* is not None — standalone
+    verification calls do not write to disk.
     """
     results_dir = project_root / "results" / result["case_id"]
     results_dir.mkdir(parents=True, exist_ok=True)
-    if trial_run_id is not None:
-        filename = f"recovery_{trial_run_id}.yaml"
-    else:
-        filename = f"{result['run_id']}.yaml"
+    filename = f"recovery_{trial_run_id}.yaml"
     result_path = results_dir / filename
     with open(result_path, "w") as f:
         yaml.dump(result, f, default_flow_style=False, sort_keys=False)

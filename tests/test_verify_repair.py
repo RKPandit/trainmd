@@ -441,8 +441,12 @@ def test_reject_value_type_invalid(built_case):
 # Result structure and output
 # --------------------------------------------------------------------------
 
-def test_result_written_to_disk(built_case):
-    """Result must be written to results/<case_id>/<run_id>.yaml."""
+def test_standalone_does_not_write_to_disk(built_case):
+    """Standalone verify_repair (no trial_run_id) must NOT write a result file.
+
+    Regression: standalone calls previously wrote <run_id>.yaml directly
+    into results/<case_id>/, creating orphans invisible to C8.
+    """
     case_dir, project_root = built_case
     repair = {
         "repair_type": "config_patch",
@@ -451,13 +455,32 @@ def test_result_written_to_disk(built_case):
     result = verify_repair(case_dir, repair, project_root)
 
     result_dir = project_root / "results" / result["case_id"]
-    result_path = result_dir / f"{result['run_id']}.yaml"
+    # No file with the run_id should exist
+    orphan_path = result_dir / f"{result['run_id']}.yaml"
+    assert not orphan_path.exists(), (
+        f"Standalone verify_repair wrote orphan file {orphan_path}"
+    )
+
+
+def test_trial_linked_result_written_to_disk(built_case):
+    """verify_repair WITH trial_run_id writes recovery_<id>.yaml."""
+    case_dir, project_root = built_case
+    repair = {
+        "repair_type": "config_patch",
+        "patches": {"training.lr": 0.01},
+    }
+    trial_id = "test_trial_linked_000000"
+    result = verify_repair(case_dir, repair, project_root, trial_run_id=trial_id)
+
+    result_dir = project_root / "results" / result["case_id"]
+    result_path = result_dir / f"recovery_{trial_id}.yaml"
     assert result_path.exists()
 
     with open(result_path) as f:
         written = yaml.safe_load(f)
     assert written["case_id"] == result["case_id"]
     assert written["verdict"] == result["verdict"]
+    assert written["trial_run_id"] == trial_id
 
 
 def test_result_structure(built_case):
