@@ -39,6 +39,7 @@ def _to_yaml_safe(obj):
     if isinstance(obj, (list, tuple)):
         return [_to_yaml_safe(item) for item in obj]
     return obj
+from operators.silent.label_corruption import LabelCorruptionOperator
 from operators.silent.lr_warmup import LrWarmupOperator
 
 
@@ -48,6 +49,7 @@ from operators.silent.lr_warmup import LrWarmupOperator
 
 _OPERATOR_REGISTRY: dict[str, type] = {
     "silent.lr_warmup.v1": LrWarmupOperator,
+    "silent.label_corruption.v1": LabelCorruptionOperator,
 }
 
 

@@ -109,7 +109,24 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
 
     # ---- load visible data only (train + val) ----------------------------
     X_train = torch.from_numpy(np.load(data_dir / "X_train.npy"))
-    y_train = torch.from_numpy(np.load(data_dir / "y_train.npy"))
+    y_train_np = np.load(data_dir / "y_train.npy")
+
+    # ---- apply label corruption if configured (default: no corruption) ----
+    noise_frac = config.get("data", {}).get("label_noise_fraction", 0.0)
+    if noise_frac > 0:
+        n_corrupt = int(len(y_train_np) * noise_frac)
+        # Fixed corruption seed: function of (data length, fraction) ONLY,
+        # not the training seed.  The evaluator reruns with hidden seeds
+        # 100/101/102 — corruption must be the same set of flipped labels
+        # every time, regardless of training seed.
+        corrupt_seed = hash((len(y_train_np), noise_frac, 0xDEAD_BEEF)) & 0xFFFF_FFFF
+        corrupt_rng = np.random.RandomState(corrupt_seed)
+        corrupt_idx = corrupt_rng.choice(
+            len(y_train_np), size=n_corrupt, replace=False,
+        )
+        y_train_np[corrupt_idx] = 1.0 - y_train_np[corrupt_idx]
+
+    y_train = torch.from_numpy(y_train_np)
     X_val = torch.from_numpy(np.load(data_dir / "X_val.npy"))
     y_val = torch.from_numpy(np.load(data_dir / "y_val.npy"))
 

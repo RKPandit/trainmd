@@ -15,6 +15,9 @@ training:
   optimizer: adam
   weight_decay: 0.0001
 
+data:
+  label_noise_fraction: 0.0
+
 metrics:
   visible: metric_visible_val_acc      # agent sees this during investigation
 
