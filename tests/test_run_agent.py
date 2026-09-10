@@ -151,6 +151,29 @@ class TestRunTrial:
         assert transcript[1]["tool_name"] == "query_metrics"
         assert transcript[2]["tool_name"] == "submit"
 
+    def test_trial_path_matches_disk(self, built_case):
+        """Printed trial path must match actual file on disk (no 'unknown' prefix)."""
+        case_dir, project_root = built_case
+        from agents.stub_agent import StubAgent
+        from harness.run_agent import run_trial
+
+        record = run_trial(StubAgent(), case_dir, project_root)
+
+        # Reconstruct the path the same way main() does
+        case_id = record.get("case_id", "unknown")
+        run_id = record.get("run_id", "unknown")
+        agent_name = record.get("agent_name", "unknown")
+        constructed = f"results/{case_id}/trials/{agent_name}_{run_id}.yaml"
+
+        # The file must exist on disk at this path
+        actual_path = project_root / constructed
+        assert actual_path.exists(), (
+            f"Constructed path {constructed} does not exist on disk"
+        )
+        assert "unknown" not in constructed, (
+            f"Trial path contains 'unknown': {constructed}"
+        )
+
     def test_stub_degenerate_submission(self, built_case):
         """StubDegenerateAgent submission has correct shape (empty evidence)."""
         case_dir, project_root = built_case

@@ -273,7 +273,7 @@ def main() -> int:
     # Store trial path for summary display
     case_id = record.get("case_id", "unknown")
     run_id = record.get("run_id", "unknown")
-    agent_name = record.get("agent", "unknown")
+    agent_name = record.get("agent_name", "unknown")
     record["_trial_path"] = (
         f"results/{case_id}/trials/{agent_name}_{run_id}.yaml"
     )
