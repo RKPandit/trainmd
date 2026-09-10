@@ -77,6 +77,7 @@ _CASE_FORBIDDEN_TOKENS = _BASE_FORBIDDEN_TOKENS + [
 _PUBLIC_CARD_FORBIDDEN_TOKENS = [
     "lr_warmup", "silent", "dynamics", "operator", "mutation",
     "manifest", "incident", "strength", "severe", "moderate", "mild",
+    "execution", "crash", "shape_mismatch",
 ]
 
 _BINARY_EXTENSIONS = frozenset({".pt", ".npy", ".npz"})
@@ -94,7 +95,6 @@ _REQUIRED_FILES = [
     "workspace/run_output/logs/stdout.log",
     "workspace/run_output/config.resolved.yaml",
     "workspace/run_output/exitcode",
-    "workspace/run_output/checkpoints/ckpt_final.pt",
 ]
 
 _HIDDEN_CARD_REQUIRED_FIELDS = [
@@ -298,10 +298,21 @@ def _check_c4(verify: dict, project_root: Path, workload_name: str) -> CheckResu
     return CheckResult("C4_tolerance_matches_reference", True, "", "CONSISTENCY")
 
 
-def _check_c5(verify: dict) -> CheckResult:
-    """C5: faulty_value_below_tolerance."""
+def _check_c5(verify: dict, hidden_card: dict) -> CheckResult:
+    """C5: faulty_value_below_tolerance.
+
+    For execution-tier operators, faulty_value is null (no checkpoint to
+    evaluate).  The crash trivially "fails" tolerance, so C5 passes.
+    For dynamics-tier operators, faulty_value must be a number below tolerance.
+    """
     faulty = verify.get("faulty_value")
     tolerance = verify.get("tolerance_lower")
+    layer = hidden_card.get("layer", "dynamics")
+
+    if layer == "execution" and faulty is None:
+        # Crash tier: no checkpoint → no accuracy → trivially below tolerance.
+        return CheckResult("C5_faulty_value_below_tolerance", True, "", "CONSISTENCY")
+
     if faulty is None or tolerance is None:
         detail = "verify.yaml missing faulty_value or tolerance_lower"
         return CheckResult("C5_faulty_value_below_tolerance", False, detail, "CONSISTENCY")
@@ -468,8 +479,9 @@ def _check_f3(verify: dict) -> CheckResult:
     issues = []
     if not isinstance(verify.get("tolerance_lower"), (int, float)):
         issues.append("tolerance_lower must be a number")
-    if not isinstance(verify.get("faulty_value"), (int, float)):
-        issues.append("faulty_value must be a number")
+    fv = verify.get("faulty_value")
+    if fv is not None and not isinstance(fv, (int, float)):
+        issues.append("faulty_value must be a number or null")
     seeds = verify.get("hidden_eval_seeds")
     if not isinstance(seeds, list) or not all(isinstance(s, int) for s in seeds):
         issues.append("hidden_eval_seeds must be a list of ints")
@@ -505,6 +517,27 @@ def _check_f4(hidden_card: dict) -> CheckResult:
         detail = "accepted_classes must be a list of strings"
         return CheckResult("F4_accepted_classes", False, detail, "WELL_FORMEDNESS")
     return CheckResult("F4_accepted_classes", True, "", "WELL_FORMEDNESS")
+
+
+def _check_f5(case_dir: Path, hidden_card: dict) -> CheckResult:
+    """F5: checkpoint presence matches tier.
+
+    Dynamics tier must have ckpt_final.pt (training completes).
+    Execution tier must NOT have ckpt_final.pt (training crashes).
+    """
+    ckpt = case_dir / "workspace" / "run_output" / "checkpoints" / "ckpt_final.pt"
+    layer = hidden_card.get("layer", "dynamics")
+    if layer == "dynamics" and not ckpt.exists():
+        return CheckResult(
+            "F5_checkpoint_tier_match", False,
+            "dynamics tier: ckpt_final.pt missing", "WELL_FORMEDNESS",
+        )
+    if layer == "execution" and ckpt.exists():
+        return CheckResult(
+            "F5_checkpoint_tier_match", False,
+            "execution tier: ckpt_final.pt should not exist", "WELL_FORMEDNESS",
+        )
+    return CheckResult("F5_checkpoint_tier_match", True, "", "WELL_FORMEDNESS")
 
 
 # ---------------------------------------------------------------------------
@@ -565,6 +598,7 @@ def validate_case(
     checks.append(_check_f2(hidden_card))
     checks.append(_check_f3(verify))
     checks.append(_check_f4(hidden_card))
+    checks.append(_check_f5(case_dir, hidden_card))
 
     # WALL
     checks.append(_check_w1(case_dir, hidden_card))
@@ -576,7 +610,7 @@ def validate_case(
     checks.append(_check_c2(public_card, hidden_card, registry, case_id))
     checks.append(_check_c3(registry, case_id, hidden_card))
     checks.append(_check_c4(verify, project_root, workload_name))
-    checks.append(_check_c5(verify))
+    checks.append(_check_c5(verify, hidden_card))
 
     if deep:
         checks.append(_check_c6(case_dir, hidden_card))

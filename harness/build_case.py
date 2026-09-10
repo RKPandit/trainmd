@@ -39,6 +39,7 @@ def _to_yaml_safe(obj):
     if isinstance(obj, (list, tuple)):
         return [_to_yaml_safe(item) for item in obj]
     return obj
+from operators.crash.shape_mismatch import ShapeMismatchOperator
 from operators.silent.label_corruption import LabelCorruptionOperator
 from operators.silent.lr_warmup import LrWarmupOperator
 
@@ -50,6 +51,7 @@ from operators.silent.lr_warmup import LrWarmupOperator
 _OPERATOR_REGISTRY: dict[str, type] = {
     "silent.lr_warmup.v1": LrWarmupOperator,
     "silent.label_corruption.v1": LabelCorruptionOperator,
+    "crash.shape_mismatch.v1": ShapeMismatchOperator,
 }
 
 
@@ -250,26 +252,39 @@ def build_case(
                             "silent operators must produce finite metrics."
                         )
 
+    elif op.layer == "execution":
+        # Crash operators must FAIL (non-zero exitcode)
+        if result.returncode == 0:
+            shutil.rmtree(case_dir)
+            raise RuntimeError(
+                "Faulty run completed (exitcode=0); "
+                "crash operators must fail."
+            )
+
     # ---- evaluate checkpoint (hidden metric) ------------------------------
-    from harness.evaluator.evaluate_checkpoint import evaluate_checkpoint
-
-    hidden_data_dir = workload_dir / ".hidden_data"
-    ckpt_path = run_output / "checkpoints" / "ckpt_final.pt"
-    eval_result = evaluate_checkpoint(ckpt_path, hidden_data_dir, config)
-    hidden_acc = eval_result["metric_hidden_test_acc"]
-
-    # Load tolerance from reference stats
     stats_path = workload_dir / "reference" / "stats.yaml"
     with open(stats_path) as f:
         stats = yaml.safe_load(f)
     tolerance_lower = stats["metric_hidden_test_acc"]["tolerance_lower"]
 
-    if hidden_acc >= tolerance_lower:
-        shutil.rmtree(case_dir)
-        raise RuntimeError(
-            f"Faulty run acc={hidden_acc:.6f} >= tolerance={tolerance_lower:.6f}; "
-            f"operator must reliably degrade accuracy below tolerance."
-        )
+    if op.layer == "dynamics":
+        from harness.evaluator.evaluate_checkpoint import evaluate_checkpoint
+
+        hidden_data_dir = workload_dir / ".hidden_data"
+        ckpt_path = run_output / "checkpoints" / "ckpt_final.pt"
+        eval_result = evaluate_checkpoint(ckpt_path, hidden_data_dir, config)
+        hidden_acc = eval_result["metric_hidden_test_acc"]
+
+        if hidden_acc >= tolerance_lower:
+            shutil.rmtree(case_dir)
+            raise RuntimeError(
+                f"Faulty run acc={hidden_acc:.6f} >= tolerance={tolerance_lower:.6f}; "
+                f"operator must reliably degrade accuracy below tolerance."
+            )
+    else:
+        # Execution tier: no checkpoint → no accuracy to evaluate.
+        # Crash trivially "fails" tolerance.
+        hidden_acc = None
 
     # ---- read workload family from config ---------------------------------
     with open(workload_dir / "config.yaml") as f:
@@ -293,13 +308,16 @@ def build_case(
             "max_submissions": 1,
         },
         "artifact_inventory": [
-            "workspace/run_output/metrics.jsonl",
-            "workspace/run_output/logs/stdout.log",
-            "workspace/run_output/config.resolved.yaml",
-            "workspace/run_output/checkpoints/ckpt_final.pt",
-            "workspace/run_output/exitcode",
-            "workspace/config.yaml",
-            "workspace/train.py",
+            a for a in [
+                "workspace/run_output/metrics.jsonl",
+                "workspace/run_output/logs/stdout.log",
+                "workspace/run_output/config.resolved.yaml",
+                "workspace/run_output/checkpoints/ckpt_final.pt"
+                if op.layer == "dynamics" else None,
+                "workspace/run_output/exitcode",
+                "workspace/config.yaml",
+                "workspace/train.py",
+            ] if a is not None
         ],
     }
     with open(case_dir / "card.public.yaml", "w") as f:
@@ -348,7 +366,10 @@ def build_case(
 
     print(f"Case {case_id} built at {case_dir}")
     print(f"  operator={operator_id}  strength={strength}  seed={seed}")
-    print(f"  hidden_acc={hidden_acc:.6f}  tolerance={tolerance_lower:.6f}")
+    if hidden_acc is not None:
+        print(f"  hidden_acc={hidden_acc:.6f}  tolerance={tolerance_lower:.6f}")
+    else:
+        print(f"  hidden_acc=N/A (crash tier)  tolerance={tolerance_lower:.6f}")
 
     return case_dir
 

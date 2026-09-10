@@ -179,6 +179,162 @@ def _make_case(
     return case_dir
 
 
+def _make_execution_case(
+    root: Path,
+    case_id: str = "case_0001",
+    *,
+    workload_name: str = "tabular_adult",
+    operator_id: str = "crash.shape_mismatch.v1",
+    strength: str = "moderate",
+    seed: int = 42,
+) -> Path:
+    """Build a synthetic execution-tier (crash) case for testing.
+
+    Key differences from _make_case:
+    - layer="execution"
+    - No ckpt_final.pt
+    - faulty_value=None (null in YAML)
+    - exitcode=1
+    - stdout.log has a traceback
+    - metrics.jsonl is empty
+    """
+    case_dir = root / "cases" / case_id
+    workspace = case_dir / "workspace"
+    run_output = workspace / "run_output"
+    hidden = case_dir / "hidden"
+
+    for d in [
+        hidden,
+        workspace,
+        run_output / "logs",
+        run_output / "checkpoints",
+    ]:
+        d.mkdir(parents=True, exist_ok=True)
+
+    # card.public.yaml — no ckpt_final.pt in inventory
+    public_card = {
+        "case_id": case_id,
+        "workload_family": "tabular",
+        "workload_name": workload_name,
+        "permitted_tools": ["read_log", "submit"],
+        "permitted_edit_paths": ["workspace/config.yaml"],
+        "agent_budget": {"max_tool_calls": 40},
+        "artifact_inventory": [
+            "workspace/config.yaml",
+            "workspace/run_output/exitcode",
+            "workspace/run_output/logs/stdout.log",
+        ],
+    }
+    with open(case_dir / "card.public.yaml", "w") as f:
+        yaml.dump(public_card, f)
+
+    # hidden/card.hidden.yaml
+    hidden_card = {
+        "case_id": case_id,
+        "workload_name": workload_name,
+        "operator_id": operator_id,
+        "layer": "execution",
+        "strength": strength,
+        "seed": seed,
+        "mutations": [{
+            "file": "config.yaml",
+            "key_path": "model.input_dim",
+            "original_value": None,
+            "mutated_value": 10,
+            "description": "test mutation",
+        }],
+        "accepted_classes": ["shape_mismatch", "dimension_mismatch",
+                             "input_dimension", "input_dim_mismatch",
+                             "model_shape_error"],
+    }
+    with open(hidden / "card.hidden.yaml", "w") as f:
+        yaml.dump(hidden_card, f)
+
+    # hidden/evidence.yaml
+    evidence = [
+        {"kind": "config_key", "artifact_id": "config.yaml",
+         "detail": {"key_path": "model.input_dim"}},
+        {"kind": "line_range", "artifact_id": "logs/stdout.log",
+         "detail": {"start_line": 2, "end_line": 24}},
+    ]
+    with open(hidden / "evidence.yaml", "w") as f:
+        yaml.dump(evidence, f)
+
+    # hidden/verify.yaml — faulty_value is null
+    verify = {
+        "tolerance_lower": _EXPECTED_TOLERANCE,
+        "hidden_eval_seeds": [100, 101, 102],
+        "faulty_value": None,
+        "reference_metric_mean": _REF_MEAN,
+        "reference_metric_std": _REF_STD,
+        "admissible_repairs": {
+            "repair_type": "config_patch",
+            "allowed_keys": ["model.input_dim"],
+            "value_ranges": {"model.input_dim": [90, 120]},
+        },
+    }
+    with open(hidden / "verify.yaml", "w") as f:
+        yaml.dump(verify, f)
+
+    # workspace files
+    (workspace / "train.py").write_text("# training script\nimport torch\n")
+    config = {
+        "workload": {"family": "tabular", "name": "tabular_adult"},
+        "model": {"type": "mlp", "hidden_dims": [64, 32], "input_dim": 10},
+        "training": {"epochs": 20, "batch_size": 256, "lr": 0.01},
+    }
+    with open(workspace / "config.yaml", "w") as f:
+        yaml.dump(config, f)
+
+    # run_output artifacts — crash: empty metrics, traceback log, no checkpoint
+    (run_output / "metrics.jsonl").write_text("")
+    (run_output / "logs" / "stdout.log").write_text(
+        "2026-01-01 [INFO] Training seed=42\n"
+        "2026-01-01 [ERROR] Training failed:\n"
+        "Traceback (most recent call last):\n"
+        "  File train.py, line 211, in train\n"
+        "RuntimeError: mat1 and mat2 shapes cannot be multiplied\n"
+    )
+
+    resolved_config = dict(config)
+    with open(run_output / "config.resolved.yaml", "w") as f:
+        yaml.dump(resolved_config, f)
+
+    (run_output / "exitcode").write_text("1\n")
+    # NO ckpt_final.pt — crash tier
+
+    # Registry
+    registry_path = root / "cases" / "registry.hidden.yaml"
+    registry = {}
+    if registry_path.exists():
+        with open(registry_path) as f:
+            registry = yaml.safe_load(f) or {}
+    registry[case_id] = {
+        "workload": workload_name,
+        "operator": operator_id,
+        "strength": strength,
+        "seed": seed,
+    }
+    with open(registry_path, "w") as f:
+        yaml.dump(registry, f)
+
+    # Reference stats
+    ref_dir = root / "workloads" / workload_name / "reference"
+    ref_dir.mkdir(parents=True, exist_ok=True)
+    stats = {
+        "workload": workload_name,
+        "metric_hidden_test_acc": {
+            "mean": _REF_MEAN,
+            "std": _REF_STD,
+            "tolerance_lower": _EXPECTED_TOLERANCE,
+        },
+    }
+    with open(ref_dir / "stats.yaml", "w") as f:
+        yaml.dump(stats, f)
+
+    return case_dir
+
+
 # ---------------------------------------------------------------------------
 # Happy path
 # ---------------------------------------------------------------------------
@@ -483,6 +639,62 @@ class TestWellFormednessChecks:
         report = validate_case(case_dir, project_root=tmp_path)
         failed_names = [c.name for c in report.failed]
         assert "F4_accepted_classes" in failed_names
+
+    def test_f5_dynamics_needs_checkpoint(self, tmp_path):
+        """Dynamics-tier case missing ckpt_final.pt fails F5."""
+        case_dir = _make_case(tmp_path)
+        # Remove checkpoint (dynamics tier should have it)
+        ckpt = case_dir / "workspace" / "run_output" / "checkpoints" / "ckpt_final.pt"
+        ckpt.unlink()
+
+        report = validate_case(case_dir, project_root=tmp_path)
+        failed_names = [c.name for c in report.failed]
+        assert "F5_checkpoint_tier_match" in failed_names
+
+    def test_f5_execution_no_checkpoint_passes(self, tmp_path):
+        """Execution-tier case without ckpt_final.pt passes F5."""
+        case_dir = _make_execution_case(tmp_path)
+        report = validate_case(case_dir, project_root=tmp_path)
+        f5 = [c for c in report.checks if c.name == "F5_checkpoint_tier_match"][0]
+        assert f5.passed
+
+    def test_f3_null_faulty_value_accepted(self, tmp_path):
+        """verify.yaml with faulty_value: null passes F3."""
+        case_dir = _make_execution_case(tmp_path)
+        report = validate_case(case_dir, project_root=tmp_path)
+        f3 = [c for c in report.checks if c.name == "F3_verify_yaml_required_fields"][0]
+        assert f3.passed
+
+    def test_c5_null_faulty_value_execution_passes(self, tmp_path):
+        """C5 passes for execution tier with faulty_value=null."""
+        case_dir = _make_execution_case(tmp_path)
+        report = validate_case(case_dir, project_root=tmp_path)
+        c5 = [c for c in report.checks if c.name == "C5_faulty_value_below_tolerance"][0]
+        assert c5.passed
+
+    def test_c5_null_faulty_value_dynamics_fails(self, tmp_path):
+        """C5 fails for dynamics tier with faulty_value=null."""
+        case_dir = _make_case(tmp_path)
+        # Set faulty_value to null on a dynamics-tier case
+        verify_path = case_dir / "hidden" / "verify.yaml"
+        with open(verify_path) as f:
+            verify = yaml.safe_load(f)
+        verify["faulty_value"] = None
+        with open(verify_path, "w") as f:
+            yaml.dump(verify, f)
+
+        report = validate_case(case_dir, project_root=tmp_path)
+        failed_names = [c.name for c in report.failed]
+        assert "C5_faulty_value_below_tolerance" in failed_names
+
+    def test_execution_case_passes_all(self, tmp_path):
+        """Known-good synthetic execution-tier case passes all checks."""
+        case_dir = _make_execution_case(tmp_path)
+        report = validate_case(case_dir, project_root=tmp_path)
+        assert report.passed, (
+            f"Expected all checks to pass but failed: "
+            + ", ".join(c.name + ": " + c.detail for c in report.failed)
+        )
 
 
 # ---------------------------------------------------------------------------

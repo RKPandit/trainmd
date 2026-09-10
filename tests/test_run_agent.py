@@ -132,7 +132,7 @@ class TestRunTrial:
         assert sub["diagnosis"]["detected"] is True
         assert sub["diagnosis"]["operator_class"] == "lr_misconfiguration"
         assert "evidence_refs" in sub
-        assert len(sub["evidence_refs"]) == 2
+        assert len(sub["evidence_refs"]) == 3
         assert "repair_spec" in sub
         assert sub["repair_spec"]["patches"]["training.lr"] == 0.01
 

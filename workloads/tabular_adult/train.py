@@ -158,6 +158,7 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
     # ---- model + optimizer -----------------------------------------------
     mcfg = config["model"]
     input_dim = X_train.shape[1]
+    input_dim = mcfg.get("input_dim", input_dim)
     model = MLP(input_dim, mcfg["hidden_dims"], mcfg.get("dropout", 0.0)).to(device)
 
     optimizer = torch.optim.Adam(

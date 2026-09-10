@@ -36,6 +36,11 @@ class StubAgent:
                     "artifact_id": "metrics.jsonl",
                     "detail": {"series": "train_loss", "start_epoch": 0, "end_epoch": 4},
                 },
+                {
+                    "kind": "metric_window",
+                    "artifact_id": "metrics.jsonl",
+                    "detail": {"series": "metric_visible_val_acc", "start_epoch": 0},
+                },
             ],
             repair_spec={
                 "repair_type": "config_patch",
