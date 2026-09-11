@@ -758,3 +758,53 @@ class TestValidateAll:
         by_id = {r.case_id: r for r in reports}
         assert by_id["case_0001"].passed
         assert not by_id["case_0002"].passed
+
+
+# ---------------------------------------------------------------------------
+# F3: allowed_values support
+# ---------------------------------------------------------------------------
+
+class TestF3AllowedValues:
+
+    def test_f3_allowed_values_accepted(self, tmp_path):
+        """verify.yaml with allowed_values (no value_ranges) passes F3."""
+        case_dir = _make_case(tmp_path)
+        # Replace value_ranges with allowed_values in verify.yaml
+        verify_path = case_dir / "hidden" / "verify.yaml"
+        with open(verify_path) as f:
+            verify = yaml.safe_load(f)
+        del verify["admissible_repairs"]["value_ranges"]
+        verify["admissible_repairs"]["allowed_values"] = {
+            "data.include_aux_feature": [False],
+        }
+        verify["admissible_repairs"]["allowed_keys"] = ["data.include_aux_feature"]
+        with open(verify_path, "w") as f:
+            yaml.dump(verify, f)
+
+        report = validate_case(case_dir)
+        f3 = [c for c in report.checks if c.name == "F3_verify_yaml_required_fields"]
+        assert len(f3) == 1
+        assert f3[0].passed, f"F3 failed: {f3[0].detail}"
+
+    def test_f3_requires_ranges_or_values(self, tmp_path):
+        """verify.yaml missing both value_ranges and allowed_values fails F3."""
+        case_dir = _make_case(tmp_path)
+        verify_path = case_dir / "hidden" / "verify.yaml"
+        with open(verify_path) as f:
+            verify = yaml.safe_load(f)
+        del verify["admissible_repairs"]["value_ranges"]
+        with open(verify_path, "w") as f:
+            yaml.dump(verify, f)
+
+        report = validate_case(case_dir)
+        f3 = [c for c in report.checks if c.name == "F3_verify_yaml_required_fields"]
+        assert len(f3) == 1
+        assert not f3[0].passed
+
+    def test_f3_value_ranges_still_accepted(self, tmp_path):
+        """Existing verify.yaml format with value_ranges still passes (backward compat)."""
+        case_dir = _make_case(tmp_path)
+        report = validate_case(case_dir)
+        f3 = [c for c in report.checks if c.name == "F3_verify_yaml_required_fields"]
+        assert len(f3) == 1
+        assert f3[0].passed

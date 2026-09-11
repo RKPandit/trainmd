@@ -77,7 +77,7 @@ _CASE_FORBIDDEN_TOKENS = _BASE_FORBIDDEN_TOKENS + [
 _PUBLIC_CARD_FORBIDDEN_TOKENS = [
     "lr_warmup", "silent", "dynamics", "operator", "mutation",
     "manifest", "incident", "strength", "severe", "moderate", "mild",
-    "execution", "crash", "shape_mismatch",
+    "execution", "crash", "shape_mismatch", "data_leakage",
 ]
 
 _BINARY_EXTENSIONS = frozenset({".pt", ".npy", ".npz"})
@@ -509,9 +509,11 @@ def _check_f3(verify: dict) -> CheckResult:
     if not isinstance(repairs, dict):
         issues.append("admissible_repairs must be a dict")
     else:
-        for key in ("repair_type", "allowed_keys", "value_ranges"):
+        for key in ("repair_type", "allowed_keys"):
             if key not in repairs:
                 issues.append(f"admissible_repairs missing '{key}'")
+        if "value_ranges" not in repairs and "allowed_values" not in repairs:
+            issues.append("admissible_repairs must have 'value_ranges' or 'allowed_values'")
 
     if issues:
         detail = "verify.yaml schema issues: " + "; ".join(issues)

@@ -40,6 +40,7 @@ def _to_yaml_safe(obj):
         return [_to_yaml_safe(item) for item in obj]
     return obj
 from operators.crash.shape_mismatch import ShapeMismatchOperator
+from operators.silent.data_leakage import DataLeakageOperator
 from operators.silent.label_corruption import LabelCorruptionOperator
 from operators.silent.lr_warmup import LrWarmupOperator
 
@@ -51,6 +52,7 @@ from operators.silent.lr_warmup import LrWarmupOperator
 _OPERATOR_REGISTRY: dict[str, type] = {
     "silent.lr_warmup.v1": LrWarmupOperator,
     "silent.label_corruption.v1": LabelCorruptionOperator,
+    "silent.data_leakage.v1": DataLeakageOperator,
     "crash.shape_mismatch.v1": ShapeMismatchOperator,
 }
 
@@ -261,10 +263,20 @@ def build_case(
                 "crash operators must fail."
             )
 
-    # ---- evaluate checkpoint (hidden metric) ------------------------------
+    # ---- operator-specific build-time checks --------------------------------
     stats_path = workload_dir / "reference" / "stats.yaml"
     with open(stats_path) as f:
         stats = yaml.safe_load(f)
+
+    if hasattr(op, "build_guard_checks"):
+        errors = op.build_guard_checks(run_output, stats)
+        if errors:
+            shutil.rmtree(case_dir)
+            raise RuntimeError(
+                "Operator build_guard_checks failed:\n" + "\n".join(errors)
+            )
+
+    # ---- evaluate checkpoint (hidden metric) ------------------------------
     tolerance_lower = stats["metric_hidden_test_acc"]["tolerance_lower"]
 
     if op.layer == "dynamics":

@@ -141,6 +141,7 @@ def validate_repair(
 
     allowed_keys = set(admissible.get("allowed_keys", []))
     value_ranges = admissible.get("value_ranges", {})
+    allowed_values = admissible.get("allowed_values", {})
 
     for key, value in spec.patches.items():
         # Key allowed?
@@ -149,9 +150,9 @@ def validate_repair(
             details.append(
                 f"Key {key!r} not in allowed_keys {sorted(allowed_keys)}"
             )
-            continue  # skip range check for disallowed keys
+            continue  # skip value check for disallowed keys
 
-        # Value type check (must be numeric for ranged keys)
+        # Value check: numeric range (value_ranges) or discrete set (allowed_values)
         if key in value_ranges:
             # Reject bool explicitly (bool is a subclass of int in Python)
             if isinstance(value, bool):
@@ -183,6 +184,22 @@ def validate_repair(
                 codes.append(VALUE_OUT_OF_RANGE)
                 details.append(
                     f"Value {value} for {key!r} outside range [{lo}, {hi}]"
+                )
+
+        elif key in allowed_values:
+            # Type-safe membership: Python treats 0 == False and
+            # 0.0 == False, so ``0 in [False]`` is True.  Require
+            # matching type AND value to prevent type confusion.
+            expected = allowed_values[key]
+            type_match = any(
+                value is v or (type(value) is type(v) and value == v)
+                for v in expected
+            )
+            if not type_match:
+                codes.append(VALUE_OUT_OF_RANGE)
+                details.append(
+                    f"Value {value!r} (type {type(value).__name__}) for "
+                    f"{key!r} not in allowed set {expected}"
                 )
 
     return ValidationResult(

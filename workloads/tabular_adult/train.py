@@ -48,6 +48,22 @@ def set_seed(seed: int) -> None:
     os.environ["PYTHONHASHSEED"] = str(seed)
 
 
+def _compute_aux_column(labels: np.ndarray, split_name: str, p: float) -> np.ndarray:
+    """Precomputed upstream auxiliary score for the given data split.
+
+    Returns a binary column derived from *labels* and a noise parameter *p*.
+    Seed is deterministic from (split_name, n_samples, p) — independent of
+    the training seed so re-runs produce identical columns.
+    """
+    seed = int.from_bytes(
+        hashlib.sha256(f"{split_name}:{len(labels)}:{p}".encode()).digest()[:4],
+        "big",
+    )
+    rng = np.random.RandomState(seed)
+    noise = rng.binomial(1, p, size=len(labels)).astype(np.float32)
+    return np.abs(labels - noise)
+
+
 # ---------------------------------------------------------------------------
 # Model
 # ---------------------------------------------------------------------------
@@ -136,6 +152,19 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
     y_train = torch.from_numpy(y_train_np)
     X_val = torch.from_numpy(np.load(data_dir / "X_val.npy"))
     y_val = torch.from_numpy(np.load(data_dir / "y_val.npy"))
+
+    # ---- apply aux feature if configured (default: disabled) ----------------
+    dcfg = config.get("data", {})
+    if dcfg.get("include_aux_feature", False):
+        _p = dcfg.get("aux_feature_strength", 0.0)
+        aux_train = _compute_aux_column(y_train_np, "train", _p)
+        X_train = torch.cat(
+            [X_train, torch.from_numpy(aux_train).unsqueeze(1)], dim=1,
+        )
+        aux_val = _compute_aux_column(y_val.numpy(), "val", _p)
+        X_val = torch.cat(
+            [X_val, torch.from_numpy(aux_val).unsqueeze(1)], dim=1,
+        )
 
     tcfg = config["training"]
 

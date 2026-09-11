@@ -64,6 +64,7 @@ class RepairSpecSchema:
     repair_type: Literal["config_patch", "code_patch", "data_fix"]
     allowed_keys: list[str] = field(default_factory=list)
     value_ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
+    allowed_values: dict[str, list[Any]] = field(default_factory=dict)
     allowed_paths: list[str] = field(default_factory=list)
     description: str = ""
 

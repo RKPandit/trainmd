@@ -10,6 +10,7 @@ so the evaluator image does not depend on workspace code.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import sys
 from pathlib import Path
 
@@ -52,6 +53,17 @@ def evaluate_checkpoint(
     # ---- load hidden evaluation data --------------------------------------
     X = torch.from_numpy(np.load(hidden_data_dir / "X_test.npy"))
     y = torch.from_numpy(np.load(hidden_data_dir / "y_test.npy"))
+
+    # When aux feature is enabled, the model expects one extra column.
+    # At test time the upstream signal is unavailable — substitute noise.
+    dcfg = config.get("data", {})
+    if dcfg.get("include_aux_feature", False):
+        noise_seed = int.from_bytes(
+            hashlib.sha256(f"test:{len(X)}".encode()).digest()[:4], "big",
+        )
+        noise_rng = np.random.RandomState(noise_seed)
+        noise_col = noise_rng.binomial(1, 0.5, size=len(X)).astype(np.float32)
+        X = torch.cat([X, torch.from_numpy(noise_col).unsqueeze(1)], dim=1)
 
     loader = DataLoader(
         TensorDataset(X, y),
