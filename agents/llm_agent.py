@@ -155,8 +155,9 @@ TOOLS_SCHEMA: list[dict] = [
                         "operator_class": {
                             "type": "string",
                             "description": (
-                                "Category of the fault, e.g. 'lr_misconfiguration', "
-                                "'data_corruption', 'none'"
+                                "A short, specific snake_case name for the fault "
+                                "category you identified — name the mechanism, not "
+                                "a generic term. Use 'none' if no incident occurred."
                             ),
                         },
                     },
@@ -250,8 +251,8 @@ for an error/traceback in a log file (e.g. logs/stdout.log).
 
 When ready, call submit with:
 - diagnosis.detected: true/false
-- diagnosis.operator_class: category string (e.g. "lr_misconfiguration", \
-"data_corruption", "none")
+- diagnosis.operator_class: a short, specific snake_case fault-category name \
+(name the mechanism, not a generic term); use "none" if no incident occurred
 - evidence_refs: list of evidence references
 - repair_spec.repair_type: "config_patch"
 - repair_spec.patches: dict mapping dotted key paths to corrected values

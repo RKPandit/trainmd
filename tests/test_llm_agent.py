@@ -559,6 +559,40 @@ class TestMaxTokensContinuation:
         assert client.seen_max_tokens == [8192]
 
 
+class TestOperatorClassNotAnchored:
+
+    def test_schema_operator_class_has_no_fault_name_examples(self):
+        """The operator_class description must not list real fault names.
+
+        Example labels in the schema anchor the structured output: a model
+        copied 'data_corruption' verbatim for two different faults while its
+        reasoning named them correctly.  The description gives neutral
+        guidance and documents only 'none'.
+        """
+        from agents.llm_agent import TOOLS_SCHEMA
+
+        submit = next(t for t in TOOLS_SCHEMA if t["name"] == "submit")
+        desc = submit["input_schema"]["properties"]["diagnosis"]["properties"][
+            "operator_class"
+        ]["description"]
+
+        for banned in (
+            "lr_misconfiguration", "data_corruption", "data_leakage",
+            "label_corruption", "shape_mismatch",
+        ):
+            assert banned not in desc, f"schema anchors operator_class with {banned!r}"
+        assert "none" in desc  # healthy-case label still documented
+
+    def test_prompt_operator_class_has_no_fault_name_examples(self, built_case):
+        """The system prompt must not list real fault names for operator_class."""
+        from agents.llm_agent import _build_system_prompt
+
+        case_dir, _ = built_case
+        prompt = _build_system_prompt(case_dir)
+        for banned in ("lr_misconfiguration", "data_corruption"):
+            assert banned not in prompt, f"prompt anchors operator_class with {banned!r}"
+
+
 class TestSystemPromptAnchor:
 
     def test_prompt_includes_reference_band(self, built_case):

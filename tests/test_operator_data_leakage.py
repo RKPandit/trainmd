@@ -233,19 +233,24 @@ class TestApply:
 class TestEvidence:
     """Verify evidence() returns correct structural refs."""
 
-    def test_returns_config_key_and_metric_window(self):
+    def test_returns_both_config_keys_and_metric_window(self):
         refs = DataLeakageOperator().evidence()
-        assert len(refs) == 2
+        assert len(refs) == 3
         assert all(isinstance(r, EvidenceRef) for r in refs)
 
         kinds = [r.kind for r in refs]
-        assert kinds == ["config_key", "metric_window"]
+        assert kinds == ["config_key", "config_key", "metric_window"]
 
-    def test_config_key_ref(self):
+    def test_config_key_refs_cover_both_mutated_keys(self):
         refs = DataLeakageOperator().evidence()
-        config_ref = [r for r in refs if r.kind == "config_key"][0]
-        assert config_ref.artifact_id == "config.yaml"
-        assert config_ref.detail["key_path"] == "data.include_aux_feature"
+        config_refs = [r for r in refs if r.kind == "config_key"]
+        assert all(r.artifact_id == "config.yaml" for r in config_refs)
+        key_paths = {r.detail["key_path"] for r in config_refs}
+        # Both keys the operator mutates must be cited.
+        assert key_paths == {
+            "data.include_aux_feature",
+            "data.aux_feature_strength",
+        }
 
     def test_metric_window_ref(self):
         refs = DataLeakageOperator().evidence()

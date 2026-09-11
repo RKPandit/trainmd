@@ -55,6 +55,45 @@ SAMPLE_VERIFY = {
 
 
 # ==========================================================================
+# Fast tests — _set_nested (mutation replay / repair-patch applier)
+# ==========================================================================
+
+class TestSetNested:
+    """_set_nested must create missing parent sections (absent-when-clean)."""
+
+    def test_existing_path_overwrites(self):
+        from harness.evaluator.verify_repair import _set_nested
+        d = {"training": {"lr": 0.01}}
+        _set_nested(d, "training.lr", 0.1)
+        assert d["training"]["lr"] == 0.1
+
+    def test_absent_parent_is_created(self):
+        """Replaying data.include_aux_feature into a config with no data:.
+
+        This is the exact regression from the absent-when-clean change:
+        the clean config no longer carries a data: block, so the parent
+        section must be created on replay rather than KeyError.
+        """
+        from harness.evaluator.verify_repair import _set_nested
+        config = {"training": {"lr": 0.01}}  # no "data" key
+        _set_nested(config, "data.include_aux_feature", False)
+        assert config["data"]["include_aux_feature"] is False
+
+    def test_deep_missing_chain_is_created(self):
+        from harness.evaluator.verify_repair import _set_nested
+        d = {}
+        _set_nested(d, "a.b.c", 1)
+        assert d["a"]["b"]["c"] == 1
+
+    def test_non_dict_intermediate_is_replaced(self):
+        """An empty data: that parses to None is replaced with a fresh dict."""
+        from harness.evaluator.verify_repair import _set_nested
+        d = {"data": None}
+        _set_nested(d, "data.label_noise_fraction", 0.0)
+        assert d["data"]["label_noise_fraction"] == 0.0
+
+
+# ==========================================================================
 # Fast tests — parse_repair_spec
 # ==========================================================================
 
@@ -598,3 +637,87 @@ def test_tampered_public_card_no_effect(built_case):
     finally:
         with open(public_card_path, "w") as f:
             yaml.dump(original, f, default_flow_style=False, sort_keys=False)
+
+
+# ==========================================================================
+# Invariant: EVERY registered operator round-trips through the evaluator
+# ==========================================================================
+#
+# A convention change anywhere (e.g. absent-when-clean removing a config
+# section) must not silently break mutation replay or repair for any
+# operator.  For each registered operator we build a real case and run its
+# oracle repair through verify_repair end-to-end, asserting recovered.
+#
+# The oracle repair per operator is enumerated here; iterating the registry
+# means a newly-registered operator with no oracle entry fails loudly rather
+# than being skipped.
+
+# operator_id -> (strength, oracle repair patches)
+_ORACLE_REPAIRS = {
+    "silent.lr_warmup.v1": ("moderate", {"training.lr": 0.01}),
+    "silent.label_corruption.v1": ("moderate", {"data.label_noise_fraction": 0.0}),
+    "silent.data_leakage.v1": ("moderate", {"data.include_aux_feature": False}),
+    "crash.shape_mismatch.v1": ("moderate", {"model.input_dim": 105}),
+}
+
+
+def _setup_tmp_workload(tmp: Path) -> Path:
+    """Mirror the tabular_adult workload into a temp project root."""
+    data_dir = WORKLOAD_DIR / ".data"
+    hidden_dir = WORKLOAD_DIR / ".hidden_data"
+    if not data_dir.exists() or not hidden_dir.exists():
+        pytest.skip("Data not prepared; run `make data` first.")
+
+    wl = tmp / "workloads" / "tabular_adult"
+    wl.mkdir(parents=True)
+    for fname in ["train.py", "config.yaml"]:
+        shutil.copy2(WORKLOAD_DIR / fname, wl / fname)
+    (wl / "reference").mkdir()
+    shutil.copy2(WORKLOAD_DIR / "reference" / "stats.yaml", wl / "reference" / "stats.yaml")
+    (wl / ".data").symlink_to(data_dir.resolve())
+    (wl / ".hidden_data").symlink_to(hidden_dir.resolve())
+    return wl
+
+
+def _all_registered_operators():
+    from harness.build_case import _OPERATOR_REGISTRY
+    return sorted(_OPERATOR_REGISTRY)
+
+
+@pytest.mark.parametrize("operator_id", _all_registered_operators())
+def test_every_operator_oracle_round_trips(operator_id, tmp_path):
+    """Build each operator's case and confirm its oracle repair recovers.
+
+    This is the invariant that catches convention changes (like
+    absent-when-clean) that break mutation replay for a specific operator.
+    """
+    assert operator_id in _ORACLE_REPAIRS, (
+        f"{operator_id} has no oracle repair in _ORACLE_REPAIRS; add one so "
+        f"the every-operator round-trip invariant covers it"
+    )
+    strength, patch = _ORACLE_REPAIRS[operator_id]
+
+    _setup_tmp_workload(tmp_path)
+    from harness.build_case import build_case
+
+    case_dir = build_case(
+        workload_name="tabular_adult",
+        operator_id=operator_id,
+        strength=strength,
+        seed=42,
+        project_root=tmp_path,
+    )
+
+    result = verify_repair(
+        case_dir,
+        {"repair_type": "config_patch", "patches": patch},
+        tmp_path,
+    )
+
+    assert result["verdict"] == "recovered", (
+        f"{operator_id} oracle repair {patch} did not recover: {result}"
+    )
+    assert len(result["per_seed_hidden_metrics"]) == 3
+    for seed_result in result["per_seed_hidden_metrics"]:
+        assert seed_result["exitcode"] == 0
+        assert seed_result["metric_hidden_test_acc"] is not None

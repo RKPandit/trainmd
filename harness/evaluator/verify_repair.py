@@ -53,14 +53,32 @@ def _hash_file(path: Path) -> str:
 def _set_nested(d: dict, key_path: str, value: Any) -> None:
     """Set a value in a nested dict using a dot-separated key path.
 
+    Missing intermediate dicts are created on the way down.  This is required
+    by the absent-when-clean convention: an operator knob's parent section
+    (e.g. ``data``) may be absent in the clean config, so replaying a mutation
+    or applying a repair patch into it must create the section rather than
+    KeyError.  A pre-existing non-dict value at an intermediate key (e.g. an
+    empty ``data:`` that parses to ``None``) is replaced with a fresh dict.
+
+    Used for BOTH the operator-mutation replay and the repair-patch applier,
+    so the convention is honored on every config-writing path here.
+
     >>> d = {"training": {"lr": 0.01}}
     >>> _set_nested(d, "training.lr", 0.1)
     >>> d["training"]["lr"]
     0.1
+    >>> d = {}
+    >>> _set_nested(d, "data.include_aux_feature", False)
+    >>> d["data"]["include_aux_feature"]
+    False
     """
     keys = key_path.split(".")
     for k in keys[:-1]:
-        d = d[k]
+        nxt = d.get(k)
+        if not isinstance(nxt, dict):
+            nxt = {}
+            d[k] = nxt
+        d = nxt
     d[keys[-1]] = value
 
 

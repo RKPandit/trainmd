@@ -118,14 +118,25 @@ class DataLeakageOperator:
 
         A correct diagnosis should cite:
         1. The config key ``data.include_aux_feature`` (the root cause).
-        2. Anomalous metric_visible_val_acc — the leaked feature inflates
+        2. The config key ``data.aux_feature_strength`` — the operator mutates
+           this key too, so per the "enumerate every artifact the fault
+           touches" principle it is part of the root-cause ground truth.
+        3. Anomalous metric_visible_val_acc — the leaked feature inflates
            visible accuracy above the healthy reference range.
+
+        Both mutated config keys appear here: an operator's mutated keys are
+        always evidence (code_spans remain excluded as mechanism).
         """
         return [
             EvidenceRef(
                 kind="config_key",
                 artifact_id="config.yaml",
                 detail={"key_path": "data.include_aux_feature"},
+            ),
+            EvidenceRef(
+                kind="config_key",
+                artifact_id="config.yaml",
+                detail={"key_path": "data.aux_feature_strength"},
             ),
             EvidenceRef(
                 kind="metric_window",
