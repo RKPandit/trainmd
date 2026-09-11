@@ -27,6 +27,10 @@ _REF_MEAN = 0.847
 _REF_STD = 0.002
 _EXPECTED_TOLERANCE = round(_REF_MEAN - 2 * _REF_STD, 6)  # 0.843
 
+# Visible-metric reference band (public-card healthy-run anchor).
+_REF_VIS_MEAN = 0.856848
+_REF_VIS_STD = 0.001512
+
 
 def _make_case(
     root: Path,
@@ -70,6 +74,11 @@ def _make_case(
         "workload_name": workload_name,
         "permitted_tools": ["read_log", "submit"],
         "permitted_edit_paths": ["workspace/config.yaml"],
+        "reference_visible_metric": {
+            "series": "metric_visible_val_acc",
+            "mean": _REF_VIS_MEAN,
+            "std": _REF_VIS_STD,
+        },
         "agent_budget": {"max_tool_calls": 40},
         "artifact_inventory": ["workspace/config.yaml"],
     }
@@ -167,6 +176,10 @@ def _make_case(
     ref_dir.mkdir(parents=True, exist_ok=True)
     stats = {
         "workload": workload_name,
+        "metric_visible_val_acc": {
+            "mean": _REF_VIS_MEAN,
+            "std": _REF_VIS_STD,
+        },
         "metric_hidden_test_acc": {
             "mean": _REF_MEAN,
             "std": _REF_STD,
@@ -219,6 +232,11 @@ def _make_execution_case(
         "permitted_tools": ["read_log", "submit"],
         "permitted_edit_paths": ["workspace/config.yaml"],
         "agent_budget": {"max_tool_calls": 40},
+        "reference_visible_metric": {
+            "series": "metric_visible_val_acc",
+            "mean": _REF_VIS_MEAN,
+            "std": _REF_VIS_STD,
+        },
         "artifact_inventory": [
             "workspace/config.yaml",
             "workspace/run_output/exitcode",
@@ -323,6 +341,10 @@ def _make_execution_case(
     ref_dir.mkdir(parents=True, exist_ok=True)
     stats = {
         "workload": workload_name,
+        "metric_visible_val_acc": {
+            "mean": _REF_VIS_MEAN,
+            "std": _REF_VIS_STD,
+        },
         "metric_hidden_test_acc": {
             "mean": _REF_MEAN,
             "std": _REF_STD,
@@ -480,6 +502,61 @@ class TestConsistencyChecks:
         report = validate_case(case_dir, project_root=tmp_path, deep=False)
         check_names = [c.name for c in report.checks]
         assert "C6_mutations_applied_in_config" not in check_names
+
+
+# ---------------------------------------------------------------------------
+# CONSISTENCY — reference band anchor (C9)
+# ---------------------------------------------------------------------------
+
+class TestReferenceBandCheck:
+
+    def test_c9_band_matches_reference(self, tmp_path):
+        """A card band equal to the visible reference stats passes C9."""
+        case_dir = _make_case(tmp_path)
+        report = validate_case(case_dir, project_root=tmp_path)
+        c9 = [c for c in report.checks if c.name == "C9_reference_band_matches_reference"][0]
+        assert c9.passed, c9.detail
+
+    def test_c9_band_mismatch_fails(self, tmp_path):
+        """A perturbed band mean fails C9."""
+        case_dir = _make_case(tmp_path)
+        card_path = case_dir / "card.public.yaml"
+        with open(card_path) as f:
+            card = yaml.safe_load(f)
+        card["reference_visible_metric"]["mean"] = 0.5  # wrong
+        with open(card_path, "w") as f:
+            yaml.dump(card, f)
+
+        report = validate_case(case_dir, project_root=tmp_path)
+        failed_names = [c.name for c in report.failed]
+        assert "C9_reference_band_matches_reference" in failed_names
+
+    def test_c9_band_missing_fails(self, tmp_path):
+        """A card without the band fails C9 (every case must carry the anchor)."""
+        case_dir = _make_case(tmp_path)
+        card_path = case_dir / "card.public.yaml"
+        with open(card_path) as f:
+            card = yaml.safe_load(f)
+        card.pop("reference_visible_metric", None)
+        with open(card_path, "w") as f:
+            yaml.dump(card, f)
+
+        report = validate_case(case_dir, project_root=tmp_path)
+        failed_names = [c.name for c in report.failed]
+        assert "C9_reference_band_matches_reference" in failed_names
+
+    def test_public_card_excludes_hidden_metrics(self, tmp_path):
+        """Public card carries the visible band but no hidden mean/tolerance."""
+        case_dir = _make_case(tmp_path)
+        text = (case_dir / "card.public.yaml").read_text()
+        # Visible anchor present.
+        assert "metric_visible_val_acc" in text
+        assert str(_REF_VIS_MEAN) in text
+        # Hidden numbers absent.
+        assert str(_REF_MEAN) not in text
+        assert str(_EXPECTED_TOLERANCE) not in text
+        assert "tolerance" not in text.lower()
+        assert "hidden" not in text.lower()
 
 
 # ---------------------------------------------------------------------------

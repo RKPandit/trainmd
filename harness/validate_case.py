@@ -461,6 +461,50 @@ def _check_c8(case_id: str, project_root: Path) -> CheckResult:
     return CheckResult("C8_recovery_files_linked", True, "", "CONSISTENCY")
 
 
+def _check_c9(
+    public_card: dict, project_root: Path, workload_name: str,
+) -> CheckResult:
+    """C9: reference_band_matches_reference.
+
+    The public card's healthy-run anchor (``reference_visible_metric``) must
+    match the workload's reference/stats.yaml visible-metric mean/std within
+    epsilon.  A missing band fails: every case must carry the anchor so the
+    agent has a healthy reference, and only the VISIBLE metric may appear.
+    """
+    band = public_card.get("reference_visible_metric")
+    if not band:
+        detail = (
+            "card.public.yaml missing 'reference_visible_metric'; "
+            "rebuild the case so it carries the healthy-run anchor"
+        )
+        return CheckResult("C9_reference_band_matches_reference", False, detail, "CONSISTENCY")
+
+    stats_path = project_root / "workloads" / workload_name / "reference" / "stats.yaml"
+    if not stats_path.exists():
+        detail = f"Reference stats not found: {stats_path}"
+        return CheckResult("C9_reference_band_matches_reference", False, detail, "CONSISTENCY")
+
+    stats = _load_yaml(stats_path)
+    vis = stats.get("metric_visible_val_acc", {})
+    exp_mean, exp_std = vis.get("mean"), vis.get("std")
+    if exp_mean is None or exp_std is None:
+        detail = "Reference stats missing mean or std for metric_visible_val_acc"
+        return CheckResult("C9_reference_band_matches_reference", False, detail, "CONSISTENCY")
+
+    issues = []
+    if band.get("series") != "metric_visible_val_acc":
+        issues.append(f"series={band.get('series')!r} != 'metric_visible_val_acc'")
+    if band.get("mean") is None or abs(band["mean"] - exp_mean) > 1e-9:
+        issues.append(f"mean={band.get('mean')} != reference {exp_mean}")
+    if band.get("std") is None or abs(band["std"] - exp_std) > 1e-9:
+        issues.append(f"std={band.get('std')} != reference {exp_std}")
+
+    if issues:
+        detail = "Reference band mismatch: " + "; ".join(issues)
+        return CheckResult("C9_reference_band_matches_reference", False, detail, "CONSISTENCY")
+    return CheckResult("C9_reference_band_matches_reference", True, "", "CONSISTENCY")
+
+
 def _check_f1(case_dir: Path) -> CheckResult:
     """F1: required_files_exist."""
     missing = []
@@ -639,6 +683,7 @@ def validate_case(
 
     checks.append(_check_c7(case_id, project_root))
     checks.append(_check_c8(case_id, project_root))
+    checks.append(_check_c9(public_card, project_root, workload_name))
 
     return ValidationReport(case_id, checks)
 

@@ -380,3 +380,30 @@ def test_verify_yaml_has_oracle_params(built_case):
         f"faulty_value={verify['faulty_value']} >= "
         f"tolerance_lower={verify['tolerance_lower']}"
     )
+
+
+# --------------------------------------------------------------------------
+# Clean-config convention: absent-when-clean for every operator knob
+# --------------------------------------------------------------------------
+
+# Config keys that only an operator should ever introduce.  The clean
+# workload config must contain none of them — a knob's presence in a case
+# is then itself a signal that an operator set it.
+_OPERATOR_KNOB_KEYS = {
+    "label_noise_fraction",
+    "include_aux_feature",
+    "aux_feature_strength",
+}
+
+
+def test_clean_config_has_no_operator_knobs():
+    """workloads/tabular_adult/config.yaml carries no operator knob keys."""
+    with open(WORKLOAD_DIR / "config.yaml") as f:
+        config = yaml.safe_load(f)
+
+    data_section = config.get("data") or {}
+    present = _OPERATOR_KNOB_KEYS & set(data_section)
+    assert not present, (
+        f"Clean config leaks operator knob(s) {sorted(present)}; "
+        f"knobs must be absent-when-clean"
+    )

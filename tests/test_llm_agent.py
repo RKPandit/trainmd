@@ -432,3 +432,140 @@ class TestSetRecord:
         assert record["status"] == "completed"
         assert record["model"]["model_id"] is None
         assert record["usage"]["llm_calls"] == 0
+
+
+# ---------------------------------------------------------------------------
+# max_tokens truncation → continuation (not silent completion)
+# ---------------------------------------------------------------------------
+
+def _submit_response(usage=Usage(input_tokens=120, output_tokens=40)):
+    """A well-formed submit response."""
+    return LLMResponse(
+        text="Submitting.",
+        tool_calls=[
+            ToolCallRequest(
+                id="tc_submit",
+                name="submit",
+                arguments={
+                    "diagnosis": {"detected": False, "operator_class": "none"},
+                    "evidence_refs": [],
+                    "repair_spec": {"repair_type": "config_patch", "patches": {}},
+                },
+            ),
+        ],
+        stop_reason="tool_use",
+        usage=usage,
+    )
+
+
+class TestMaxTokensContinuation:
+
+    def test_max_tokens_no_toolcall_continues_then_submits(self, built_case):
+        """A truncated response with no tool call must NOT end the trial."""
+        responses = [
+            LLMResponse(
+                text="Long reasoning that got cut off mid-sen",
+                tool_calls=[],
+                stop_reason="max_tokens",
+                usage=Usage(input_tokens=100, output_tokens=50),
+            ),
+            _submit_response(),
+        ]
+
+        client = FakeLLMClient(responses)
+        record = _run_llm_trial(built_case, client)
+
+        # The trial continued and submitted rather than ending at turn 0.
+        assert record["submission"] is not None
+        assert record["usage"]["llm_calls"] == 2
+        assert record["usage"]["max_tokens_truncations"] == 1
+        assert record["llm_transcript"][0]["truncated"] is True
+        assert record["status"] == "completed"
+
+    def test_continuation_cap_enforced(self, built_case):
+        """Four consecutive truncations end cleanly after the cap of 3."""
+        responses = [
+            LLMResponse(
+                text=f"Cut off attempt {i}",
+                tool_calls=[],
+                stop_reason="max_tokens",
+                usage=Usage(input_tokens=50, output_tokens=30),
+            )
+            for i in range(4)
+        ]
+
+        client = FakeLLMClient(responses)
+        record = _run_llm_trial(built_case, client, max_turns=6)
+
+        assert record["submission"] is None
+        assert record["usage"]["llm_calls"] == 4
+        assert record["usage"]["max_tokens_truncations"] == 4
+        assert record["llm_transcript"][-1].get("continuation_capped") is True
+        assert record["status"] == "completed"
+
+    def test_truncation_counter_only_on_max_tokens(self, built_case):
+        """Truncation with a tool call counts but injects no continuation."""
+        responses = [
+            LLMResponse(
+                text="Reading config.",
+                tool_calls=[
+                    ToolCallRequest(id="tc1", name="read_config", arguments={}),
+                ],
+                stop_reason="tool_use",
+                usage=Usage(input_tokens=100, output_tokens=50),
+            ),
+            LLMResponse(
+                text="Checking metrics (truncated but tool call present).",
+                tool_calls=[
+                    ToolCallRequest(
+                        id="tc2", name="query_metrics",
+                        arguments={"series": "train_loss"},
+                    ),
+                ],
+                stop_reason="max_tokens",
+                usage=Usage(input_tokens=150, output_tokens=60),
+            ),
+            _submit_response(),
+        ]
+
+        client = FakeLLMClient(responses)
+        record = _run_llm_trial(built_case, client)
+
+        # All three responses consumed as real calls (no continuation turn
+        # was injected), truncation counted once, submission present.
+        assert record["usage"]["llm_calls"] == 3
+        assert record["usage"]["max_tokens_truncations"] == 1
+        assert record["llm_transcript"][1]["truncated"] is True
+        assert "truncated" not in record["llm_transcript"][0]
+        assert record["submission"] is not None
+
+    def test_default_max_response_tokens_is_8192(self, built_case):
+        """The default per-response max_tokens (8192) reaches the client."""
+        class CapturingClient:
+            def __init__(self, responses):
+                self._responses = responses
+                self._i = 0
+                self.seen_max_tokens: list[int] = []
+
+            def complete(self, messages, tools_schema, *, max_tokens=4096):
+                self.seen_max_tokens.append(max_tokens)
+                resp = self._responses[self._i]
+                self._i += 1
+                return resp
+
+        client = CapturingClient([_submit_response()])
+        _run_llm_trial(built_case, client)
+
+        assert client.seen_max_tokens == [8192]
+
+
+class TestSystemPromptAnchor:
+
+    def test_prompt_includes_reference_band(self, built_case):
+        """The system prompt states the healthy-run visible-metric band."""
+        from agents.llm_agent import _build_system_prompt
+
+        case_dir, _ = built_case
+        prompt = _build_system_prompt(case_dir)
+        assert "Healthy runs on this workload" in prompt
+        assert "metric_visible_val_acc" in prompt

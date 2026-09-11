@@ -236,6 +236,10 @@ def main() -> int:
         help="Max agent turns (default: 15)",
     )
     parser.add_argument(
+        "--max-response-tokens", type=int, default=8192,
+        help="Max tokens per LLM response (default: 8192)",
+    )
+    parser.add_argument(
         "--project-root", type=Path, default=None,
         help="Project root directory (default: auto-detect)",
     )
@@ -263,6 +267,7 @@ def main() -> int:
             model_id=args.model,
             temperature=args.temperature,
             max_turns=args.max_turns,
+            max_response_tokens=args.max_response_tokens,
             provider=args.provider,
         )
     else:

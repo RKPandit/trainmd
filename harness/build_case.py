@@ -313,6 +313,14 @@ def build_case(
             "read_code", "list_files", "run_training", "submit",
         ],
         "permitted_edit_paths": ["workspace/config.yaml"],
+        # Healthy-run anchor: the VISIBLE validation metric's reference band
+        # (mean/std) that a real engineer would know.  NEVER the hidden test
+        # metric's mean/std or tolerance_lower — those stay hidden.
+        "reference_visible_metric": {
+            "series": "metric_visible_val_acc",
+            "mean": stats["metric_visible_val_acc"]["mean"],
+            "std": stats["metric_visible_val_acc"]["std"],
+        },
         "agent_budget": {
             "max_tool_calls": 40,
             "max_reruns": 2,

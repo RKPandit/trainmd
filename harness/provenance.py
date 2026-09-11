@@ -122,6 +122,7 @@ def build_empty_record(
             "output_tokens": 0,
             "cached_tokens": 0,
             "total_tokens": 0,
+            "max_tokens_truncations": 0,
             "estimated_cost_usd": None,
         },
 

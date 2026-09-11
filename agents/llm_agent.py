@@ -272,6 +272,14 @@ def _build_system_prompt(case_dir: Path) -> str:
     if "description" in card:
         case_info_parts.append(f"Description: {card['description']}")
 
+    ref = card.get("reference_visible_metric")
+    if ref:
+        case_info_parts.append(
+            f"Healthy runs on this workload achieve {ref['series']} "
+            f"≈ {ref['mean']:.4f} ± {ref['std']:.4f}; treat values "
+            f"well outside this band (above OR below) as anomalous."
+        )
+
     return _SYSTEM_PROMPT_TEMPLATE.format(case_info="\n".join(case_info_parts))
 
 
@@ -293,6 +301,7 @@ class LLMAgent:
         temperature: float = 1.0,
         max_turns: int = 15,
         max_total_tokens: int = 200_000,
+        max_response_tokens: int = 8192,
         provider: str = "anthropic",
     ) -> None:
         self._client = client
@@ -300,6 +309,7 @@ class LLMAgent:
         self._temperature = temperature
         self._max_turns = max_turns
         self._max_total_tokens = max_total_tokens
+        self._max_response_tokens = max_response_tokens
         self._provider = provider
         self._record: dict | None = None
 
@@ -319,6 +329,7 @@ class LLMAgent:
                 "model_id": self._model_id,
                 "provider": self._provider,
                 "temperature": self._temperature,
+                "max_tokens": self._max_response_tokens,
             })
 
         # 2. Build system prompt
@@ -329,6 +340,7 @@ class LLMAgent:
 
         # 4. ReAct loop
         submitted = False
+        consecutive_continuations = 0
         for turn in range(self._max_turns):
             # Token budget check
             if self._record is not None:
@@ -340,7 +352,9 @@ class LLMAgent:
                     break
 
             # Call LLM
-            response = self._client.complete(messages, TOOLS_SCHEMA)
+            response = self._client.complete(
+                messages, TOOLS_SCHEMA, max_tokens=self._max_response_tokens,
+            )
 
             # Incremental usage capture (CRITICAL — crash safety)
             if self._record is not None:
@@ -364,6 +378,12 @@ class LLMAgent:
                         "output_tokens": response.usage.output_tokens,
                     },
                 })
+                # Truncation is a per-model behavior worth reporting: count it
+                # and flag the affected entry, whether or not tool calls came
+                # back with the truncated response.
+                if response.stop_reason == "max_tokens":
+                    self._record["usage"]["max_tokens_truncations"] += 1
+                    self._record["llm_transcript"][-1]["truncated"] = True
 
             # Build assistant message for conversation history
             assistant_content: list[dict] = []
@@ -380,9 +400,34 @@ class LLMAgent:
                 break  # model returned nothing
             messages.append({"role": "assistant", "content": assistant_content})
 
-            # If no tool calls, model is done thinking
+            # If no tool calls, the model is either done thinking (end_turn)
+            # or was silenced mid-sentence by the output limit (max_tokens).
+            # Truncation must not end the trial: prompt a continuation so a
+            # verbose model is not penalized by the plumbing.  The partial
+            # assistant text is already appended to `messages` above.
             if not response.tool_calls:
+                if response.stop_reason == "max_tokens":
+                    if consecutive_continuations >= 3:
+                        # Cap exceeded — end cleanly with no submission.
+                        if self._record is not None:
+                            self._record["llm_transcript"][-1][
+                                "continuation_capped"
+                            ] = True
+                        break
+                    consecutive_continuations += 1
+                    messages.append({
+                        "role": "user",
+                        "content": (
+                            "Your previous response was cut off by the output "
+                            "limit. Continue from where you stopped. You must "
+                            "finish by calling a tool (for example, submit)."
+                        ),
+                    })
+                    continue  # consumes a turn via the for-loop bound
                 break
+
+            # Tool calls came back — the model made progress; reset the counter.
+            consecutive_continuations = 0
 
             # Execute tool calls
             tool_results: list[dict] = []
