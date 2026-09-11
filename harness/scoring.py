@@ -304,7 +304,7 @@ def score_recovery_standalone(
     6. Update ``index.jsonl`` recovery_verdict.
     7. Return the updated record.
     """
-    from harness.provenance import update_index
+    from harness.provenance import mark_card_superseded, update_index
 
     record_path = Path(record_path).resolve()
     case_dir = Path(case_dir).resolve()
@@ -327,6 +327,9 @@ def score_recovery_standalone(
     if record.get("scores") is None:
         record["scores"] = {}
     record["scores"]["recovery"] = recovery
+
+    # Flag whether this trial was scored against a stale case build.
+    mark_card_superseded(record, case_dir)
 
     # Overwrite the record file
     with open(record_path, "w") as f:

@@ -310,7 +310,7 @@ def built_case(tmp_path_factory):
     # Mirror workload directory
     wl = tmp / "workloads" / "tabular_adult"
     wl.mkdir(parents=True)
-    for fname in ["train.py", "config.yaml"]:
+    for fname in ["train.py", "config.yaml", "datautil.py"]:
         shutil.copy2(WORKLOAD_DIR / fname, wl / fname)
 
     ref = wl / "reference"
@@ -355,7 +355,7 @@ def test_oracle_repair_recovers(built_case):
 
     assert result["integrity"]["hash_verified"] is True
     assert "hashes" in result["integrity"]
-    assert len(result["integrity"]["hashes"]) == 4
+    assert len(result["integrity"]["hashes"]) == 5
     assert result["compute_spent_sec"] > 0
 
 
@@ -670,7 +670,7 @@ def _setup_tmp_workload(tmp: Path) -> Path:
 
     wl = tmp / "workloads" / "tabular_adult"
     wl.mkdir(parents=True)
-    for fname in ["train.py", "config.yaml"]:
+    for fname in ["train.py", "config.yaml", "datautil.py"]:
         shutil.copy2(WORKLOAD_DIR / fname, wl / fname)
     (wl / "reference").mkdir()
     shutil.copy2(WORKLOAD_DIR / "reference" / "stats.yaml", wl / "reference" / "stats.yaml")

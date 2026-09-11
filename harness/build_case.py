@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import hashlib
 import json
 import math
 import os
@@ -30,6 +31,40 @@ from random import Random
 import yaml
 
 from operators.base import IncidentOperator, Manifest
+
+# Workload source files copied verbatim into every case workspace.  ``datautil``
+# is a self-contained sibling module imported by ``train.py`` for deterministic
+# data subselection; it must travel with the workspace so the copy is portable.
+_WORKLOAD_FILES = ["train.py", "config.yaml", "datautil.py"]
+
+
+def _sha256_file(path: Path) -> str:
+    """SHA-256 hex digest of a file's contents."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _compute_build_id(manifest: Manifest, seed: int, workload_dir: Path) -> str:
+    """Content-derived case build id (spec §5, §7).
+
+    A SHA-256 over the canonical ground-truth content (operator, strength,
+    seed, mutations) plus the workload source hashes.  Content-derived, not a
+    UUID: a no-op rebuild with identical inputs yields the identical build id
+    (so it does NOT strand prior trials), while any material change to the
+    mutation set or workload source produces a different id.
+    """
+    payload = {
+        "operator_id": manifest.operator_id,
+        "layer": manifest.layer,
+        "strength": manifest.strength,
+        "seed": seed,
+        "mutations": [dataclasses.asdict(m) for m in manifest.mutations],
+        "sources": {
+            fname: _sha256_file(workload_dir / fname)
+            for fname in _WORKLOAD_FILES
+        },
+    }
+    blob = json.dumps(payload, sort_keys=True, default=str).encode()
+    return hashlib.sha256(blob).hexdigest()
 
 
 def _to_yaml_safe(obj):
@@ -190,7 +225,7 @@ def build_case(
     hidden.mkdir()
 
     # ---- copy workload source to workspace --------------------------------
-    for fname in ["train.py", "config.yaml"]:
+    for fname in _WORKLOAD_FILES:
         shutil.copy2(workload_dir / fname, workspace / fname)
 
     # Symlink visible data (matches Docker mount model; spec §2)
@@ -303,9 +338,13 @@ def build_case(
         workload_config = yaml.safe_load(f)
     workload_family = workload_config["workload"]["family"]
 
+    # ---- content-derived build id (opaque; safe on both cards) ------------
+    build_id = _compute_build_id(manifest, seed, workload_dir)
+
     # ---- write card.public.yaml (NO incident info) ------------------------
     public_card = {
         "case_id": case_id,
+        "case_build_id": build_id,
         "workload_family": workload_family,
         "workload_name": workload_name,
         "permitted_tools": [
@@ -337,6 +376,7 @@ def build_case(
                 "workspace/run_output/exitcode",
                 "workspace/config.yaml",
                 "workspace/train.py",
+                "workspace/datautil.py",
             ] if a is not None
         ],
     }
@@ -346,6 +386,7 @@ def build_case(
     # ---- write hidden/card.hidden.yaml ------------------------------------
     hidden_card = {
         "case_id": case_id,
+        "case_build_id": build_id,
         "workload_name": workload_name,
         "operator_id": manifest.operator_id,
         "layer": manifest.layer,

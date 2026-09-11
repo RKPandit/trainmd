@@ -73,10 +73,22 @@ def capture_environment(project_root: Path, case_dir: Path) -> dict:
     card_hash = _sha256_file(case_dir / "card.public.yaml") or "unknown"
     uv_lock_hash = _sha256_file(project_root / "uv.lock")
 
+    # Content-derived build id from the public card (opaque, no incident info).
+    # Enables supersession detection: a trial scored against a stale build.
+    build_id = "unknown"
+    public_card_path = case_dir / "card.public.yaml"
+    if public_card_path.is_file():
+        try:
+            with open(public_card_path) as f:
+                build_id = (yaml.safe_load(f) or {}).get("case_build_id", "unknown")
+        except Exception:
+            build_id = "unknown"
+
     return {
         "harness_git_commit": commit_hash,
         "git_dirty": is_dirty,
         "case_card_hash": card_hash,
+        "case_build_id": build_id,
         "python_version": sys.version,
         "platform": platform_mod.platform(),
         "uv_lock_hash": uv_lock_hash,
@@ -254,7 +266,33 @@ def _index_line(record: dict) -> dict:
         "harness_git_commit": record.get("environment", {}).get("harness_git_commit"),
         "status": record.get("status", "unknown"),
         "timestamp_utc": record.get("environment", {}).get("timestamp_utc"),
+        "card_superseded": record.get("card_superseded"),
     }
+
+
+def mark_card_superseded(record: dict, case_dir: Path) -> bool:
+    """Set ``record['card_superseded']`` by comparing build ids.
+
+    Compares the build id the trial recorded (``environment.case_build_id``)
+    against the case's CURRENT ``card.public.yaml`` build id.  Because the id
+    is content-derived, a no-op rebuild with identical inputs yields the same
+    id and is NOT flagged; only a materially changed case is.  A missing or
+    ``"unknown"`` id on either side is treated as superseded (unverifiable),
+    which covers trials that predate the build-id field.  Returns the value.
+    """
+    current = "unknown"
+    p = Path(case_dir) / "card.public.yaml"
+    if p.is_file():
+        try:
+            current = (yaml.safe_load(p.read_text()) or {}).get("case_build_id", "unknown")
+        except Exception:
+            current = "unknown"
+    recorded = (record.get("environment") or {}).get("case_build_id", "unknown")
+    superseded = (
+        recorded == "unknown" or current == "unknown" or recorded != current
+    )
+    record["card_superseded"] = superseded
+    return superseded
 
 
 def append_index(project_root: Path, record: dict) -> None:

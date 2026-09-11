@@ -44,7 +44,7 @@ def _make_workspace(tmp_path: Path) -> Path:
     """Copy workload source files to a temp workspace directory."""
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    for fname in ["train.py", "config.yaml"]:
+    for fname in ["train.py", "config.yaml", "datautil.py"]:
         shutil.copy2(WORKLOAD_DIR / fname, workspace / fname)
     return workspace
 

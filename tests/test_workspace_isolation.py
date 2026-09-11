@@ -217,7 +217,7 @@ def built_case(tmp_path_factory):
     # Mirror the workload directory structure
     wl = tmp / "workloads" / "tabular_adult"
     wl.mkdir(parents=True)
-    for fname in ["train.py", "config.yaml"]:
+    for fname in ["train.py", "config.yaml", "datautil.py"]:
         shutil.copy2(WORKLOAD_DIR / fname, wl / fname)
 
     # Copy reference stats (needed for tolerance check)
@@ -407,3 +407,28 @@ def test_clean_config_has_no_operator_knobs():
         f"Clean config leaks operator knob(s) {sorted(present)}; "
         f"knobs must be absent-when-clean"
     )
+
+
+# --------------------------------------------------------------------------
+# datautil workspace copy fidelity
+# --------------------------------------------------------------------------
+
+def test_datautil_copied_byte_identical(built_case):
+    """The workspace datautil.py must be byte-identical to the workload source.
+
+    train.py imports it as a sibling; a drifted copy would silently change the
+    deterministic selection the evaluator relies on.
+    """
+    ws_copy = built_case / "workspace" / "datautil.py"
+    source = WORKLOAD_DIR / "datautil.py"
+    assert ws_copy.is_file(), "workspace/datautil.py missing"
+    assert ws_copy.read_bytes() == source.read_bytes(), (
+        "workspace datautil.py differs from workload source"
+    )
+
+
+def test_datautil_has_no_forbidden_tokens(built_case):
+    """datautil.py is agent-visible; it must trip no isolation tokens (W1)."""
+    text = (built_case / "workspace" / "datautil.py").read_text()
+    violations = _scan_file(built_case / "workspace" / "datautil.py", _CASE_FORBIDDEN_TOKENS)
+    assert not violations, "datautil.py contains forbidden tokens:\n" + "\n".join(violations)

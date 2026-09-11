@@ -12,7 +12,6 @@ and evaluate checkpoints against the reference tolerance.
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import shutil
@@ -43,11 +42,26 @@ def _load_tolerance() -> float:
     return stats["metric_hidden_test_acc"]["tolerance_lower"]
 
 
+def _load_margin_threshold() -> float:
+    """Calibration margin: tolerance_lower - 2*std (reference hidden metric).
+
+    Calibration discipline: a silent strength is valid only if it fails
+    tolerance by at least 2x the reference std on EVERY calibration seed.
+    A single seed dipping just under tolerance is inside seed variance and
+    does NOT count as reliably failing.
+    """
+    stats_path = WORKLOAD_DIR / "reference" / "stats.yaml"
+    with open(stats_path) as f:
+        stats = yaml.safe_load(f)
+    h = stats["metric_hidden_test_acc"]
+    return round(h["tolerance_lower"] - 2 * h["std"], 6)
+
+
 def _make_workspace(tmp_path: Path) -> Path:
     """Copy workload source files to a temp workspace directory."""
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    for fname in ["train.py", "config.yaml"]:
+    for fname in ["train.py", "config.yaml", "datautil.py"]:
         shutil.copy2(WORKLOAD_DIR / fname, workspace / fname)
     return workspace
 
@@ -203,41 +217,58 @@ class TestAdmissibleRepairs:
 # Corruption seed-independence test (fast, no training)
 # --------------------------------------------------------------------------
 
-def test_corruption_indices_seed_independent():
-    """Same noise_fraction, different training seeds → identical corrupted indices.
+def _load_datautil():
+    """Import the workload's datautil.py sibling module by path."""
+    import importlib.util
 
-    The corruption RNG is derived from (data_length, noise_fraction) only,
-    NOT the training seed.  This ensures the evaluator sees the same
-    corruption when it reruns with hidden eval seeds.
+    spec = importlib.util.spec_from_file_location(
+        "datautil_under_test", WORKLOAD_DIR / "datautil.py",
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_flip_indices_seed_independent():
+    """The flipped index set depends only on (n, fraction) — not any seed (L5).
+
+    The nested-prefix selection takes no training-seed argument, so the
+    evaluator's hidden-seed reruns see the same flipped set every time.
     """
     _skip_if_no_data()
+    datautil = _load_datautil()
 
     y_train = np.load(WORKLOAD_DIR / ".data" / "y_train.npy")
-    noise_frac = 0.15
-    n_corrupt = int(len(y_train) * noise_frac)
+    fraction = _STRENGTH_FRACTION["mild"]
 
-    indices_by_seed = []
-    for training_seed in [0, 42, 100, 101, 102]:
-        # Replicate the corruption logic from train.py — seed is independent.
-        # Uses hashlib (not hash()) for cross-process determinism.
-        corrupt_seed = int.from_bytes(
-            hashlib.sha256(f"{len(y_train)}:{noise_frac}".encode()).digest()[:4],
-            "big",
-        )
-        corrupt_rng = np.random.RandomState(corrupt_seed)
-        corrupt_idx = sorted(
-            corrupt_rng.choice(len(y_train), size=n_corrupt, replace=False)
-        )
-        indices_by_seed.append(corrupt_idx)
-
-    for i in range(1, len(indices_by_seed)):
+    baseline = datautil.nested_prefix_indices(len(y_train), fraction)
+    # Repeated calls (a training seed would change nothing — there is no seed
+    # parameter) are identical.
+    for _ in range(5):
         np.testing.assert_array_equal(
-            indices_by_seed[0], indices_by_seed[i],
-            err_msg=(
-                f"Corruption indices differ between training seed 0 and "
-                f"seed {[0, 42, 100, 101, 102][i]}"
-            ),
+            baseline, datautil.nested_prefix_indices(len(y_train), fraction),
         )
+
+
+def test_flip_sets_are_nested_supersets():
+    """A larger fraction's flipped set is a strict superset of a smaller one.
+
+    Monotone difficulty BY CONSTRUCTION: every fraction slices the same
+    data-derived permutation, so mild ⊂ moderate ⊂ severe.
+    """
+    _skip_if_no_data()
+    datautil = _load_datautil()
+
+    y_train = np.load(WORKLOAD_DIR / ".data" / "y_train.npy")
+    n = len(y_train)
+    mild = set(datautil.nested_prefix_indices(n, _STRENGTH_FRACTION["mild"]).tolist())
+    moderate = set(datautil.nested_prefix_indices(n, _STRENGTH_FRACTION["moderate"]).tolist())
+    severe = set(datautil.nested_prefix_indices(n, _STRENGTH_FRACTION["severe"]).tolist())
+
+    assert mild < moderate < severe, "flip sets must be strictly nested"
+    # Sizes match ceil(fraction * n).
+    assert len(mild) == math.ceil(_STRENGTH_FRACTION["mild"] * n)
+    assert len(severe) == math.ceil(_STRENGTH_FRACTION["severe"] * n)
 
 
 def test_corruption_deterministic_across_processes():
@@ -476,10 +507,12 @@ def test_mutated_run_fails_tolerance(tmp_path, strength, seed):
         f"Checkpoint missing (strength={strength}, seed={seed})"
     )
 
-    # Must fail tolerance
+    # Must fail tolerance WITH MARGIN on every calibration seed.
     acc = _evaluate_acc(output_dir, config)
-    assert acc < tolerance, (
-        f"Mutated run seed={seed} strength={strength} "
-        f"acc={acc:.6f} >= tolerance={tolerance:.6f} — "
-        "operator must reliably degrade accuracy below tolerance"
+    margin_thresh = _load_margin_threshold()
+    assert acc <= margin_thresh, (
+        f"Mutated run seed={seed} strength={strength} acc={acc:.6f} > "
+        f"margin_threshold={margin_thresh:.6f} (tolerance_lower {tolerance:.6f} "
+        f"- 2*std) — a strength must fail tolerance by >= 2x std on EVERY seed, "
+        f"not merely dip below tolerance on one"
     )

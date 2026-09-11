@@ -38,11 +38,24 @@ def _load_tolerance() -> float:
     return stats["metric_hidden_test_acc"]["tolerance_lower"]
 
 
+def _load_margin_threshold() -> float:
+    """Calibration margin: tolerance_lower - 2*std (reference hidden metric).
+
+    Calibration discipline: a silent strength is valid only if it fails
+    tolerance by at least 2x the reference std on EVERY calibration seed.
+    """
+    stats_path = WORKLOAD_DIR / "reference" / "stats.yaml"
+    with open(stats_path) as f:
+        stats = yaml.safe_load(f)
+    h = stats["metric_hidden_test_acc"]
+    return round(h["tolerance_lower"] - 2 * h["std"], 6)
+
+
 def _make_workspace(tmp_path: Path) -> Path:
     """Copy workload source files to a temp workspace directory."""
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    for fname in ["train.py", "config.yaml"]:
+    for fname in ["train.py", "config.yaml", "datautil.py"]:
         shutil.copy2(WORKLOAD_DIR / fname, workspace / fname)
     return workspace
 
@@ -287,10 +300,12 @@ def test_mutated_run_fails_tolerance(tmp_path, strength, seed):
         f"Checkpoint missing (strength={strength}, seed={seed})"
     )
 
-    # Must fail tolerance
+    # Must fail tolerance WITH MARGIN on every calibration seed.
     acc = _evaluate_acc(output_dir, config)
-    assert acc < tolerance, (
-        f"Mutated run seed={seed} strength={strength} "
-        f"acc={acc:.6f} >= tolerance={tolerance:.6f} — "
-        "operator must reliably degrade accuracy below tolerance"
+    margin_thresh = _load_margin_threshold()
+    assert acc <= margin_thresh, (
+        f"Mutated run seed={seed} strength={strength} acc={acc:.6f} > "
+        f"margin_threshold={margin_thresh:.6f} (tolerance_lower {tolerance:.6f} "
+        f"- 2*std) — a strength must fail tolerance by >= 2x std on EVERY seed, "
+        f"not merely dip below tolerance on one"
     )

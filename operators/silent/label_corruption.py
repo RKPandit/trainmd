@@ -11,24 +11,32 @@ this knob to a non-zero value; the repair is setting it back to ~0.  True
 ``data_fix`` repair types are deferred to a future operator.
 
 Strength mapping (fraction of training labels flipped):
-- mild:     0.15  (15%) — 5% and 10% did not reliably fail tolerance
-- moderate: 0.25  (25%)
-- severe:   0.35  (35%)
+- mild:     0.33  (33%)
+- moderate: 0.38  (38%)
+- severe:   0.42  (42%)
+
+Adult is robust to label noise, so this operator saturates: fractions below ~0.30
+do NOT reliably fail tolerance on every seed (the old 0.15/0.25/0.35 ladder left
+mild AND moderate above the margin on seed 2), and fractions >=0.45 destabilize
+(a seed collapses to the majority-class baseline or the model learns inverted
+labels).  The 0.33/0.38/0.42 band is the stable, monotone region where every
+strength clears tolerance by >=2x the reference std on all calibration seeds.
 
 The corrupted label set is a function of (data_length, noise_fraction) ONLY — NOT
 the training seed.  This ensures the evaluator sees the same corruption when it
 reruns with hidden eval seeds [100, 101, 102].
 
-Observed symptoms (empirically verified on moderate case, seed 42):
-- train_loss: ~100% higher than reference across all 20 epochs (strongest signal).
+Observed symptoms:
+- train_loss: markedly higher than reference across all 20 epochs (strongest signal).
   The model fits noisy targets, inflating cross-entropy.
-- metric_visible_val_acc: ~1.9% absolute degradation, all 20 epochs below reference min.
+- metric_visible_val_acc: degraded, all 20 epochs below reference min.
   The model trained on corrupted labels generalises poorly to clean validation data.
 
-Calibration (hidden_test_acc, tolerance=0.8435):
-- mild   (15%): 0.8355  gap=-0.0081
-- moderate(25%): 0.8338  gap=-0.0097
-- severe (35%): 0.8188  gap=-0.0247
+Calibration (worst-of-seeds{0,1,2} hidden_test_acc, tolerance_lower=0.843535,
+margin threshold tol-2*std=0.839421):
+- mild    (33%): worst 0.833112  (all seeds pass margin)
+- moderate(38%): worst 0.819107
+- severe  (42%): worst 0.807902
 """
 from __future__ import annotations
 
@@ -48,9 +56,9 @@ from operators.base import (
 
 # Fraction of training labels flipped per strength tier.
 _STRENGTH_FRACTION: dict[str, float] = {
-    "mild": 0.15,
-    "moderate": 0.25,
-    "severe": 0.35,
+    "mild": 0.33,
+    "moderate": 0.38,
+    "severe": 0.42,
 }
 
 

@@ -191,6 +191,7 @@ def verify_repair(
         "card.hidden.yaml": hidden_dir / "card.hidden.yaml",
         "workload/train.py": workload_dir / "train.py",
         "workload/config.yaml": workload_dir / "config.yaml",
+        "workload/datautil.py": workload_dir / "datautil.py",
     }
     hashes_before = {name: _hash_file(path) for name, path in integrity_files.items()}
 
@@ -235,8 +236,9 @@ def verify_repair(
         verify_ws = Path(tmpdir) / "workspace"
         verify_ws.mkdir()
 
-        # Copy clean workload source (NOT the agent's workspace)
-        for fname in ["train.py", "config.yaml"]:
+        # Copy clean workload source (NOT the agent's workspace).  datautil is
+        # the sibling module train.py imports for deterministic subselection.
+        for fname in ["train.py", "config.yaml", "datautil.py"]:
             shutil.copy2(workload_dir / fname, verify_ws / fname)
 
         # Symlink visible data

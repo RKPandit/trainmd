@@ -143,6 +143,10 @@ def run_trial(
         record = finalize_record(record, tools, scores, wall_sec)
         record["status"] = "crashed" if agent_error is not None else "completed"
 
+        # 7b. Flag supersession (False at trial time — built against current card)
+        from harness.provenance import mark_card_superseded
+        mark_card_superseded(record, case_dir)
+
         # 8. Overwrite the partial record
         write_record(project_root, record, overwrite_partial=True)
 

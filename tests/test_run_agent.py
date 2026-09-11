@@ -30,7 +30,7 @@ def built_case(tmp_path_factory):
 
     wl = tmp / "workloads" / "tabular_adult"
     wl.mkdir(parents=True)
-    for fname in ["train.py", "config.yaml"]:
+    for fname in ["train.py", "config.yaml", "datautil.py"]:
         shutil.copy2(WORKLOAD_DIR / fname, wl / fname)
 
     ref = wl / "reference"

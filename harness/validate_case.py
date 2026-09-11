@@ -505,6 +505,39 @@ def _check_c9(
     return CheckResult("C9_reference_band_matches_reference", True, "", "CONSISTENCY")
 
 
+def _check_c10(
+    case_id: str, public_card: dict, project_root: Path,
+) -> CheckResult:
+    """C10 (INFO): report trials scored against a superseded case build.
+
+    Compares each trial's recorded ``environment.case_build_id`` against the
+    case's CURRENT ``case_build_id`` (content-derived).  A mismatch means the
+    case was materially rebuilt after the trial ran, so the trial's ground
+    truth is stale.  Informational only — always passes; never fails a case.
+    """
+    current = public_card.get("case_build_id", "unknown")
+    trials_dir = project_root / "results" / case_id / "trials"
+    if not trials_dir.exists():
+        return CheckResult("C10_superseded_trials", True, "", "INFO")
+
+    superseded = []
+    for tp in sorted(trials_dir.glob("*.yaml")):
+        rec = _load_yaml(tp)
+        if not isinstance(rec, dict):
+            continue
+        recorded = (rec.get("environment") or {}).get("case_build_id", "unknown")
+        if recorded == "unknown" or current == "unknown" or recorded != current:
+            superseded.append(rec.get("run_id", tp.name))
+
+    if superseded:
+        detail = (
+            f"{len(superseded)} trial(s) scored against a superseded build "
+            f"(current build_id {current[:12]}...): " + ", ".join(superseded)
+        )
+        return CheckResult("C10_superseded_trials", True, detail, "INFO")
+    return CheckResult("C10_superseded_trials", True, "", "INFO")
+
+
 def _check_f1(case_dir: Path) -> CheckResult:
     """F1: required_files_exist."""
     missing = []
@@ -684,6 +717,7 @@ def validate_case(
     checks.append(_check_c7(case_id, project_root))
     checks.append(_check_c8(case_id, project_root))
     checks.append(_check_c9(public_card, project_root, workload_name))
+    checks.append(_check_c10(case_id, public_card, project_root))
 
     return ValidationReport(case_id, checks)
 
@@ -749,6 +783,10 @@ def main() -> int:
                 print(f"  [{check.category}] {check.name}:")
                 for line in check.detail.splitlines():
                     print(f"    {line}")
+        # Informational checks (never fail) — print any with content.
+        for check in report.checks:
+            if check.category == "INFO" and check.detail:
+                print(f"  [INFO] {check.name}: {check.detail}")
 
     if not reports:
         print("No cases found.")
