@@ -28,10 +28,21 @@ hypothesis is reported as a finding, not dropped.
 - **Factor under test:** reference anchor **on vs off** (the healthy-band line in the
   agent prompt) — one flag, two conditions.
 - **Model:** claude-haiku-4-5 only (Sweep 1 is single-model by design; H5 needs Sweep 2).
+- **Agents (two):** the **ReAct tool-using agent** and a **static full-context baseline**
+  (all artifacts — config, code, metrics, logs — concatenated into one prompt, one LLM
+  call, same submit schema, same reference band). The static baseline is the *control
+  condition* for tool-mediated investigation (H6); it is the only second agent in
+  Sweep 1. No additional strategies (Reflexion, plan-and-execute) — those are Sweep 2.
 - **Repeats:** 3 per cell, temperature 1.0.
-- **Trials:** ≈ 27 × 2 × 3 ≈ 160. Estimated cost ≈ $10 at measured $0.03–0.12/trial.
+- **Trials:** ≈ 27 cases × 2 anchor × 3 repeats × 2 agents ≈ 320. Estimated cost
+  ≈ $15–20 (the static baseline is one call per case, cheaper than ReAct).
 - **Gate before running:** known-answer gate green on all cases; audit-index clean;
   validate-all green; CI full suite green. No trial runs before the gate.
+- **Token-budget parity (deliberately NOT enforced):** the static agent sees every
+  artifact once; the ReAct agent has a tool/turn budget. They are not equal in tokens and
+  are not forced to be — both agents' token usage and cost are reported alongside every
+  score so the cost-vs-quality tradeoff is explicit (spec §12 open question, resolved by
+  reporting rather than equalizing).
 - **Reporting:** all four axes + safety per cell; macro-average per operator; controls
   reported via detection false-positive rate and false-intervention rate; superseded and
   trusted records excluded (counts printed).
@@ -171,8 +182,43 @@ expected one.
 
 ---
 
+## H6 — Tool-mediated investigation vs static full context
+
+**Claim.** The ReAct tool-using agent out-scores a static full-context baseline (all
+artifacts in one prompt, one call, same model) on evidence and recovery — *but* the
+advantage is smallest, and possibly reversed, on data_leakage, where seeing everything at
+once may avoid the distractor paths that step-by-step investigation follows.
+
+**Prior evidence.** The ReAct agent burned turns on the `input_dim` red herring (another
+operator's hook) and the reference-seeds list before reaching the aux feature; a static view
+of `train.py` and the config has no path to wander down. Conversely, ReAct's targeted
+metric queries (epochs 15–19) found evidence a single-shot read might skim past.
+
+**Predicted direction.** Two-sided by design. Overall: ReAct ≥ static on evidence F1 and
+recovery. On data_leakage specifically: the ReAct advantage shrinks to ≈ 0 or reverses.
+
+**Confirming metric.** Per-operator (ReAct − static) on each axis, anchor condition held
+fixed. Confirmed (tools help) if ReAct is ≥ +10 points on evidence F1 averaged over
+operators. The leakage sub-claim is confirmed if the ReAct − static gap on data_leakage is
+≤ 0 while the gap on the negative-symptom operators is > 0.
+
+**Refuting outcome.** static ≈ ReAct everywhere — tool-mediated investigation does not
+help at this scale, a real negative about the cost of agentic diagnosis. Reported with the
+cost ratio, which then becomes the headline: equal quality at a fraction of the cost.
+
+**Sweep factor.** Agent (ReAct vs static) × operator × anchor × repeats.
+
+**Why this is the control, not an extra.** RQ2 ("does tool use matter?") is unanswerable
+with one agent — every ReAct score could be explained by model capability alone. The static
+baseline isolates the effect of investigation. It is the missing half of a comparison the
+benchmark already claims to make, which is why it is the only second agent in Sweep 1.
+
+---
+
 ## Secondary observations to record (not hypotheses, but report them)
 
+- **Cost ratio ReAct : static** per operator (tokens and $). "ReAct is 3× the cost for
+  N points of evidence" is a result in its own right.
 - **Investigation cost by difficulty:** tokens/cost per trial by operator and strength
   (hard cases cost 2–3× in prior trials). Report the ratio.
 - **Evidence padding:** precision < recall pattern (agents cite extra, plausible-but-
@@ -187,7 +233,8 @@ expected one.
 ## What would make Sweep 1 a strong paper vs a weak one
 
 - **Strong:** H1 confirmed with the anchor intervention (finding + cause + fix), plus an
-  H2 threshold curve. That is a mechanism and a number — citable.
+  H2 threshold curve, plus H6 showing *where* tools help and where they don't. That is a
+  mechanism, a number, and a cost-quality map — citable.
 - **Adequate:** H1 refuted but H2/H3/H4 give a quantitative characterization no prior
   benchmark provides.
 - **Weak:** everything near ceiling (Haiku solves all cases in all conditions). Then the
