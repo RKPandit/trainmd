@@ -274,10 +274,12 @@ def _build_system_prompt(case_dir: Path) -> str:
 
     ref = card.get("reference_visible_metric")
     if ref:
+        mean, std = ref["mean"], ref["std"]
+        low, high = mean - 2 * std, mean + 2 * std
         case_info_parts.append(
-            f"Healthy runs on this workload achieve {ref['series']} "
-            f"≈ {ref['mean']:.4f} ± {ref['std']:.4f}; treat values "
-            f"well outside this band (above OR below) as anomalous."
+            f"Healthy runs achieve {ref['series']} ≈ {mean:.4f} "
+            f"(healthy range roughly {low:.4f}–{high:.4f}); values clearly "
+            f"outside this range, above OR below, are anomalous."
         )
 
     return _SYSTEM_PROMPT_TEMPLATE.format(case_info="\n".join(case_info_parts))
