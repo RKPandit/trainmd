@@ -472,6 +472,66 @@ def _check_c8(case_id: str, project_root: Path) -> CheckResult:
     return CheckResult("C8_recovery_files_linked", True, "", "CONSISTENCY")
 
 
+def _check_c11_effect_size(
+    hidden_card: dict, verify: dict, project_root: Path, workload_name: str,
+) -> CheckResult:
+    """C11: hidden-card effect-size labels agree with the reference stats.
+
+    Recomputes visible/hidden sigma-distance and symptom_direction (against the
+    BAND) from stats.yaml + the stored faulty values, and asserts the stored
+    hidden-card labels match.  This is H1/H2's x-axis; a wrong label silently
+    mis-bins the whole analysis.
+    """
+    stats_path = project_root / "workloads" / workload_name / "reference" / "stats.yaml"
+    if not stats_path.exists():
+        return CheckResult("C11_effect_size", False, f"stats not found: {stats_path}", "CONSISTENCY")
+    stats = _load_yaml(stats_path)
+    vis = stats.get("metric_visible_val_acc", {})
+    hid = stats.get("metric_hidden_test_acc", {})
+    vm, vs = vis.get("mean"), vis.get("std")
+    hm, hs = hid.get("mean"), hid.get("std")
+    if None in (vm, vs, hm, hs):
+        return CheckResult("C11_effect_size", False, "stats missing mean/std", "CONSISTENCY")
+
+    layer = hidden_card.get("layer", "dynamics")
+    fv = hidden_card.get("faulty_visible_value")
+    fh = verify.get("faulty_value")
+
+    exp_vsig = None if fv is None else round((vm - fv) / vs, 6)
+    exp_hsig = None if fh is None else round((hm - fh) / hs, 6)
+    if layer == "execution":
+        exp_sym = "crash"
+    elif layer == "control":
+        exp_sym = "none"
+    elif fv is None:
+        exp_sym = "within_band"
+    elif fv > vm + 2 * vs:
+        exp_sym = "positive"
+    elif fv < vm - 2 * vs:
+        exp_sym = "negative"
+    else:
+        exp_sym = "within_band"
+
+    def _mismatch(stored, exp):
+        if stored is None and exp is None:
+            return False
+        if stored is None or exp is None:
+            return True
+        return abs(stored - exp) > 1e-6
+
+    issues = []
+    if _mismatch(hidden_card.get("visible_sigma_distance"), exp_vsig):
+        issues.append(f"visible_sigma_distance={hidden_card.get('visible_sigma_distance')} != {exp_vsig}")
+    if _mismatch(hidden_card.get("hidden_sigma_distance"), exp_hsig):
+        issues.append(f"hidden_sigma_distance={hidden_card.get('hidden_sigma_distance')} != {exp_hsig}")
+    if hidden_card.get("symptom_direction") != exp_sym:
+        issues.append(f"symptom_direction={hidden_card.get('symptom_direction')!r} != {exp_sym!r}")
+
+    if issues:
+        return CheckResult("C11_effect_size", False, "; ".join(issues), "CONSISTENCY")
+    return CheckResult("C11_effect_size", True, "", "CONSISTENCY")
+
+
 def _check_w4(case_dir: Path, verify: dict) -> CheckResult:
     """W4: hidden_values_not_in_workspace — scan for FORMATTED hidden values.
 
@@ -816,6 +876,7 @@ def validate_case(
     checks.append(_check_c8(case_id, project_root))
     checks.append(_check_c9(public_card, project_root, workload_name))
     checks.append(_check_c10(case_id, public_card, project_root))
+    checks.append(_check_c11_effect_size(hidden_card, verify, project_root, workload_name))
 
     return ValidationReport(case_id, checks)
 

@@ -593,6 +593,36 @@ class TestOperatorClassNotAnchored:
             assert banned not in prompt, f"prompt anchors operator_class with {banned!r}"
 
 
+class TestTerminationReason:
+
+    def test_submitted(self, built_case):
+        record = _run_llm_trial(built_case, FakeLLMClient([_submit_response()]))
+        assert record["termination_reason"] == "submitted"
+
+    def test_ended_without_submit(self, built_case):
+        resp = LLMResponse(text="I don't know.", tool_calls=[], stop_reason="end_turn",
+                           usage=Usage(input_tokens=100, output_tokens=20))
+        record = _run_llm_trial(built_case, FakeLLMClient([resp]))
+        assert record["termination_reason"] == "ended_without_submit"
+
+    def test_token_budget_stop(self, built_case):
+        first = LLMResponse(
+            text="reading", tool_calls=[
+                ToolCallRequest(id="tc1", name="read_config", arguments={})],
+            stop_reason="tool_use", usage=Usage(input_tokens=150, output_tokens=100))
+        record = _run_llm_trial(built_case, FakeLLMClient([first, _submit_response()]),
+                                max_total_tokens=250)
+        assert record["termination_reason"] == "token_budget_stop"
+        assert record["usage"]["llm_calls"] == 1  # second call never made
+
+    def test_prompt_block_and_transcript_fields(self, built_case):
+        record = _run_llm_trial(built_case, FakeLLMClient([_submit_response()]))
+        assert record["prompt"]["prompt_version"] == "react-1"
+        assert len(record["prompt"]["prompt_hash"]) == 64
+        entry = record["llm_transcript"][0]
+        assert "api_model" in entry and isinstance(entry["latency_sec"], float)
+
+
 class TestSystemPromptAnchor:
 
     def test_prompt_includes_reference_band(self, built_case):

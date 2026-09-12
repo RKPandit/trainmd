@@ -14,6 +14,8 @@ outside the sealed workspace).
 """
 from __future__ import annotations
 
+import hashlib
+import time
 from pathlib import Path
 
 import yaml
@@ -26,6 +28,10 @@ from agents.llm_agent import (
 )
 from harness.llm.client import LLMClient
 from harness.tools.tool_context import ToolContext
+
+# Prompt version — bump whenever the static prompt template text changes (the
+# drift guard in test_prompt_versioning asserts the template hash matches).
+STATIC_PROMPT_VERSION = "static-1"
 
 # Static intro — the ONLY textual difference from the ReAct prompt (investigation
 # mode). Everything after it (case info, healthy runs, submit format) is shared.
@@ -201,6 +207,7 @@ class StaticContextAgent:
                     "assembly_failed": f"budget exhausted during context assembly: {e}",
                     "assembly_tool_calls": len(tools.transcript) - n_before,
                 })
+                self._record["termination_reason"] = "assembly_failed"
             return  # HARD FAIL — never diagnose on partial context; submission stays None
         finally:
             tools.set_phase(None)
@@ -215,24 +222,35 @@ class StaticContextAgent:
             })
 
         # 2. Single message = shared instructions + the assembled artifacts.
-        full = self._system_prompt(case_dir) + "\n\n" + user_message
+        system_prompt = self._system_prompt(case_dir)
+        if self._record is not None:
+            self._record["prompt"] = {
+                "system_prompt_text": system_prompt,
+                "prompt_hash": hashlib.sha256(system_prompt.encode()).hexdigest(),
+                "prompt_version": STATIC_PROMPT_VERSION,
+            }
+        full = system_prompt + "\n\n" + user_message
         messages: list[dict] = [{"role": "user", "content": full}]
 
         # 3. One LLM call (+ at most one bounded follow-up), submit exactly once.
         first_input_tokens: int | None = None
+        termination = "no_submit_after_followup"  # default if neither call submits
         for attempt in range(2):
+            _t0 = time.monotonic()
             response = self._client.complete(
                 messages, [SUBMIT_SCHEMA], max_tokens=self._max_response_tokens,
             )
+            _latency = time.monotonic() - _t0
             if first_input_tokens is None:
                 first_input_tokens = response.usage.input_tokens
-            self._capture(response, attempt)
+            self._capture(response, attempt, _latency)
 
             submit_calls = [tc for tc in response.tool_calls if tc.name == "submit"]
             if submit_calls:
                 tc = submit_calls[0]
                 if isinstance(tc.arguments, dict):
                     tools.call("submit", **tc.arguments)
+                termination = "submitted"
                 break
 
             # No submit yet. One bounded follow-up (also the max_tokens continuation).
@@ -252,8 +270,9 @@ class StaticContextAgent:
 
         if self._record is not None:
             self._record["static_context"]["context_tokens_sent"] = first_input_tokens
+            self._record["termination_reason"] = termination
 
-    def _capture(self, response, turn: int) -> None:
+    def _capture(self, response, turn: int, latency_sec: float = 0.0) -> None:
         if self._record is None:
             return
         u = self._record["usage"]
@@ -269,6 +288,8 @@ class StaticContextAgent:
                 for tc in response.tool_calls
             ],
             "stop_reason": response.stop_reason,
+            "api_model": (response.raw or {}).get("model"),
+            "latency_sec": round(latency_sec, 4),
             "usage": {
                 "input_tokens": response.usage.input_tokens,
                 "output_tokens": response.usage.output_tokens,

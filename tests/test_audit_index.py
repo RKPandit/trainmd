@@ -113,6 +113,23 @@ def test_r8_cost_price_mismatch(tmp_path):
     assert _fail_rules_fired(by_name) == {"R8_cost_price_mismatch"}
 
 
+def test_r11_confidence_out_of_range(tmp_path):
+    """Out-of-range confidence fires R11 (INFO); in-range does not."""
+    rec = _base()
+    rec["submission"]["confidence"] = 1.5  # stored raw, un-clamped
+    by_name, fail_count = _write_and_audit(tmp_path, rec)
+    assert by_name["R11_confidence_out_of_range"]["count"] == 1
+    assert by_name["R11_confidence_out_of_range"]["severity"] == "INFO"
+    assert fail_count == 0  # INFO does not fail
+
+
+def test_r11_in_range_confidence_ok(tmp_path):
+    rec = _base()
+    rec["submission"]["confidence"] = 0.8
+    by_name, _ = _write_and_audit(tmp_path, rec)
+    assert by_name["R11_confidence_out_of_range"]["count"] == 0
+
+
 def test_assert_clean_refuses_on_fail(tmp_path):
     rec = _base(submission=None)  # fires R2 (FAIL)
     _write_and_audit(tmp_path, rec)

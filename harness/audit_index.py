@@ -119,6 +119,11 @@ def _r9(rec):  # superseded trial (INFO)
     return rec.get("card_superseded") is True
 
 
+def _r11(rec):  # submission confidence stored raw and out of [0,1] (INFO)
+    c = (rec.get("submission") or {}).get("confidence")
+    return isinstance(c, (int, float)) and not isinstance(c, bool) and not (0.0 <= c <= 1.0)
+
+
 def _r10(rec):  # recall 1.0 but identification wrong on an easy op (INFO)
     s = _scores(rec)
     recall = (s.get("evidence") or {}).get("recall") or 0.0
@@ -145,6 +150,7 @@ RULES = [
     Rule("R8_cost_price_mismatch", "FAIL", _r8, "estimated_cost != tokens x price within 1%"),
     Rule("R9_superseded_in_results", "INFO", _r9, "trial scored against a superseded build"),
     Rule("R10_recall_full_id_wrong_easy", "INFO", _r10, "full recall but wrong class on an easy operator"),
+    Rule("R11_confidence_out_of_range", "INFO", _r11, "submission confidence stored raw and outside [0, 1]"),
 ]
 
 

@@ -71,6 +71,7 @@ def run_trial(
     project_root: Path | None = None,
     score: bool = True,
     allow_trusted: bool = False,
+    conditions: dict | None = None,
 ) -> dict:
     """Run one agent trial on one case.
 
@@ -121,6 +122,17 @@ def run_trial(
     record = build_empty_record(case_id, agent.name, run_id, env)
     record["trusted"] = is_trusted  # excluded from aggregates; never a contestant
 
+    # Sweep-condition labels (null for ad-hoc runs; the runner passes them in).
+    if conditions:
+        record["conditions"].update(conditions)
+
+    # Copy the case's symptom_direction into the record so the index carries it.
+    try:
+        _hc = yaml.safe_load((case_dir / "hidden" / "card.hidden.yaml").read_text())
+        record["symptom_direction"] = (_hc or {}).get("symptom_direction")
+    except Exception:
+        record["symptom_direction"] = None
+
     # 3. Create tool context
     tools = ToolContext(case_dir)
     register_all_tools(tools)
@@ -156,6 +168,8 @@ def run_trial(
         # 7. Finalize record
         record = finalize_record(record, tools, scores, wall_sec)
         record["status"] = "crashed" if agent_error is not None else "completed"
+        if agent_error is not None:
+            record["termination_reason"] = "crashed"
 
         # 7b. Flag supersession (False at trial time — built against current card)
         from harness.provenance import mark_card_superseded
@@ -309,8 +323,10 @@ def main() -> int:
     else:
         agent = _load_agent(args.agent)
 
+    cli_conditions = {"agent_type": args.agent_type} if args.model else None
     record = run_trial(
         agent, args.case, args.project_root, allow_trusted=args.allow_trusted,
+        conditions=cli_conditions,
     )
 
     # Store trial path for summary display

@@ -3,11 +3,17 @@
 Every agent trial produces a self-contained provenance record at
 `results/<case_id>/trials/<agent>_<run_id>.yaml`.
 
-## Schema v1.0
+## Schema v1.1
+
+**v1.1 (pre-sweep capture):** added `prompt`, `conditions`, `termination_reason`,
+`symptom_direction` (top-level); `max_tokens_truncations` (usage); `api_model`, `latency_sec`
+(per llm_transcript entry); `confidence`, `rationale` (submission — stored raw, scoring
+ignores them). The sweep manifest (`sweeps/<name>_manifest.yaml`, tracked) records estimated
++ actual spend and a runner-filled hardware/compute block. See "Pre-sweep capture" below.
 
 | Block | Field | Type | Notes |
 |-------|-------|------|-------|
-| (top) | `schema_version` | str | `"1.0"` |
+| (top) | `schema_version` | str | `"1.1"` |
 | (top) | `case_id` | str | Opaque case identifier |
 | (top) | `agent_name` | str | Agent name (e.g. `stub_oracle`) |
 | (top) | `run_id` | str | `<UTC timestamp>_<6-char hex>` |
@@ -44,6 +50,35 @@ Every agent trial produces a self-contained provenance record at
 | scores | `safety` | dict\|null | Rejected/forbidden action counts |
 | budget | `tool_calls_used` | int | |
 | budget | `tool_calls_total` | int | |
+
+### Pre-sweep capture (v1.1)
+
+| Block | Field | Type | Notes |
+|-------|-------|------|-------|
+| prompt | `system_prompt_text` | str\|null | Full rendered system prompt |
+| prompt | `prompt_hash` | str\|null | SHA-256 of the rendered prompt |
+| prompt | `prompt_version` | str\|null | e.g. `"react-1"` / `"static-1"` (drift-guarded) |
+| conditions | `sweep_name` | str\|null | Set by the runner |
+| conditions | `agent_type` | str\|null | `"react"` / `"static"` |
+| conditions | `anchor` | str\|null | `"on"` / `"off"` |
+| conditions | `repeat_index` | int\|null | |
+| (top) | `termination_reason` | str | submitted / ended_without_submit / max_turns / continuation_capped / token_budget_stop / assembly_failed / no_submit_after_followup / crashed |
+| (top) | `symptom_direction` | str\|null | Copied from the hidden card (H1/H2 x-axis) |
+| llm_transcript[] | `api_model` | str\|null | Model string the API returned |
+| llm_transcript[] | `latency_sec` | float | Wall time of that API call |
+| submission | `confidence` | float\|null | Stored raw (un-clamped); scoring ignores it |
+| submission | `rationale` | str\|null | ≤500 chars; scoring ignores it |
+
+Hidden card (`card.hidden.yaml`, build-time): `faulty_visible_value`, `visible_sigma_distance`,
+`hidden_sigma_distance`, `symptom_direction` ∈ {negative, positive, within_band, crash, none}
+— the effect-size x-axis, validated by C11.
+
+Sweep manifest (`sweeps/<sweep_name>_manifest.yaml`, **tracked**): `estimated_spend_usd`,
+`actual_spend_usd` (entered manually at sweep end), `hardware` {cpu_model, cpu_cores, ram_gb,
+os, uv_lock_hash, git_commit}, `per_phase_totals` — runner-filled slots default to null.
+
+Index line adds required columns: `termination_reason`, `agent_type`, `anchor`, `repeat_index`,
+`symptom_direction` (group by condition without opening records).
 
 ## Index file (`results/index.jsonl`)
 

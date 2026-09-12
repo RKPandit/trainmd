@@ -102,6 +102,11 @@ def _make_case(
         }],
         "accepted_classes": ["lr_misconfiguration", "learning_rate",
                              "lr_too_high", "lr_warmup"],
+        # Effect-size labels (negative-symptom: visible acc well below the band).
+        "faulty_visible_value": 0.80,
+        "visible_sigma_distance": round((_REF_VIS_MEAN - 0.80) / _REF_VIS_STD, 6),
+        "hidden_sigma_distance": round((_REF_MEAN - faulty_value) / _REF_STD, 6),
+        "symptom_direction": "negative",
     }
     with open(hidden / "card.hidden.yaml", "w") as f:
         yaml.dump(hidden_card, f)
@@ -265,6 +270,11 @@ def _make_execution_case(
         "accepted_classes": ["shape_mismatch", "dimension_mismatch",
                              "input_dimension", "input_dim_mismatch",
                              "model_shape_error"],
+        # Crash tier: no visible metrics → sigma distances null, symptom "crash".
+        "faulty_visible_value": None,
+        "visible_sigma_distance": None,
+        "hidden_sigma_distance": None,
+        "symptom_direction": "crash",
     }
     with open(hidden / "card.hidden.yaml", "w") as f:
         yaml.dump(hidden_card, f)
@@ -379,20 +389,25 @@ def _make_control_case(
     case_dir = _make_case(root, case_id)
     hidden = case_dir / "hidden"
 
-    hc = yaml.safe_load((hidden / "card.hidden.yaml").read_text())
-    hc["layer"] = "control"
-    hc["operator_id"] = "control.healthy.v1"
-    hc["mutations"] = []
-    hc["accepted_classes"] = ["none", "healthy", "no_incident", "no_fault", "nothing_wrong"]
-    (hidden / "card.hidden.yaml").write_text(yaml.dump(hc))
-
-    (hidden / "evidence.yaml").write_text(yaml.dump(evidence if evidence is not None else []))
-
     v = yaml.safe_load((hidden / "verify.yaml").read_text())
     v["faulty_value"] = faulty_value if faulty_value is not None else _REF_MEAN  # >= tolerance
     v["admissible_repairs"] = dataclasses.asdict(HealthyControlOperator().admissible_repairs())
     v["oracle_repair"] = None
     (hidden / "verify.yaml").write_text(yaml.dump(v))
+
+    hc = yaml.safe_load((hidden / "card.hidden.yaml").read_text())
+    hc["layer"] = "control"
+    hc["operator_id"] = "control.healthy.v1"
+    hc["mutations"] = []
+    hc["accepted_classes"] = ["none", "healthy", "no_incident", "no_fault", "nothing_wrong"]
+    # Control effect fields: a healthy visible value; symptom_direction "none".
+    hc["faulty_visible_value"] = _REF_VIS_MEAN
+    hc["visible_sigma_distance"] = 0.0
+    hc["hidden_sigma_distance"] = round((_REF_MEAN - v["faulty_value"]) / _REF_STD, 6)
+    hc["symptom_direction"] = "none"
+    (hidden / "card.hidden.yaml").write_text(yaml.dump(hc))
+
+    (hidden / "evidence.yaml").write_text(yaml.dump(evidence if evidence is not None else []))
 
     reg_path = root / "cases" / "registry.hidden.yaml"
     reg = yaml.safe_load(reg_path.read_text())
@@ -429,6 +444,48 @@ class TestW4HiddenValueScan:
         assert not w4.passed
         assert "tolerance_lower" in w4.detail
         assert "stdout.log" in w4.detail
+
+
+class TestEffectSize:
+
+    def test_c11_passes_on_valid_case(self, tmp_path):
+        case_dir = _make_case(tmp_path)
+        report = validate_case(case_dir, project_root=tmp_path)
+        c11 = [c for c in report.checks if c.name == "C11_effect_size"][0]
+        assert c11.passed, c11.detail
+
+    def test_c11_flipped_symptom_fails(self, tmp_path):
+        """Planted: a flipped symptom_direction is caught and named."""
+        case_dir = _make_case(tmp_path)
+        hc_path = case_dir / "hidden" / "card.hidden.yaml"
+        hc = yaml.safe_load(hc_path.read_text())
+        hc["symptom_direction"] = "positive"  # actually negative
+        hc_path.write_text(yaml.dump(hc))
+        report = validate_case(case_dir, project_root=tmp_path)
+        assert "C11_effect_size" in [c.name for c in report.failed]
+
+    def test_c11_perturbed_sigma_fails(self, tmp_path):
+        """Planted: a wrong stored sigma-distance is caught."""
+        case_dir = _make_case(tmp_path)
+        hc_path = case_dir / "hidden" / "card.hidden.yaml"
+        hc = yaml.safe_load(hc_path.read_text())
+        hc["visible_sigma_distance"] = 0.0  # wrong
+        hc_path.write_text(yaml.dump(hc))
+        report = validate_case(case_dir, project_root=tmp_path)
+        assert "C11_effect_size" in [c.name for c in report.failed]
+
+    def test_c11_within_band_direction(self, tmp_path):
+        """A faulty visible value inside the band → symptom_direction within_band."""
+        case_dir = _make_case(tmp_path)
+        hc_path = case_dir / "hidden" / "card.hidden.yaml"
+        hc = yaml.safe_load(hc_path.read_text())
+        hc["faulty_visible_value"] = _REF_VIS_MEAN  # inside the band
+        hc["visible_sigma_distance"] = 0.0
+        hc["symptom_direction"] = "within_band"
+        hc_path.write_text(yaml.dump(hc))
+        report = validate_case(case_dir, project_root=tmp_path)
+        c11 = [c for c in report.checks if c.name == "C11_effect_size"][0]
+        assert c11.passed, c11.detail
 
 
 class TestControlTier:

@@ -43,6 +43,37 @@ def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _final_visible_val_acc(run_output: Path) -> float | None:
+    """Final end-of-epoch metric_visible_val_acc, or None if unavailable (crash)."""
+    metrics_path = run_output / "metrics.jsonl"
+    if not metrics_path.exists():
+        return None
+    last = None
+    for line in metrics_path.read_text().splitlines():
+        if not line.strip():
+            continue
+        rec = json.loads(line)
+        if rec.get("end_of_epoch") and "metric_visible_val_acc" in rec:
+            last = rec["metric_visible_val_acc"]
+    return last
+
+
+def _symptom_direction(layer: str, faulty_visible: float | None,
+                       vis_mean: float, vis_std: float) -> str:
+    """Symptom direction measured against the healthy BAND (mean ± 2σ)."""
+    if layer == "execution":
+        return "crash"
+    if layer == "control":
+        return "none"
+    if faulty_visible is None:
+        return "within_band"
+    if faulty_visible > vis_mean + 2 * vis_std:
+        return "positive"  # accuracy inflated above the band (e.g. data leakage)
+    if faulty_visible < vis_mean - 2 * vis_std:
+        return "negative"  # accuracy depressed below the band
+    return "within_band"   # invisible in aggregate — the floor H2 measures
+
+
 def _compute_build_id(manifest: Manifest, seed: int, workload_dir: Path) -> str:
     """Content-derived case build id (spec §5, §7).
 
@@ -392,6 +423,22 @@ def build_case(
     with open(case_dir / "card.public.yaml", "w") as f:
         yaml.dump(public_card, f, default_flow_style=False, sort_keys=False)
 
+    # ---- effect-size labels (H1/H2 x-axis; unrecoverable post-hoc) ---------
+    vis_mean = stats["metric_visible_val_acc"]["mean"]
+    vis_std = stats["metric_visible_val_acc"]["std"]
+    hid_mean = stats["metric_hidden_test_acc"]["mean"]
+    hid_std = stats["metric_hidden_test_acc"]["std"]
+    faulty_visible = None if op.layer == "execution" else _final_visible_val_acc(run_output)
+    visible_sigma = (
+        None if faulty_visible is None
+        else round((vis_mean - faulty_visible) / vis_std, 6)
+    )
+    hidden_sigma = (
+        None if hidden_acc is None
+        else round((hid_mean - hidden_acc) / hid_std, 6)
+    )
+    symptom_direction = _symptom_direction(op.layer, faulty_visible, vis_mean, vis_std)
+
     # ---- write hidden/card.hidden.yaml ------------------------------------
     hidden_card = {
         "case_id": case_id,
@@ -403,6 +450,10 @@ def build_case(
         "seed": seed,
         "mutations": [dataclasses.asdict(m) for m in manifest.mutations],
         "accepted_classes": sorted(op.accepted_classes()),
+        "faulty_visible_value": faulty_visible,
+        "visible_sigma_distance": visible_sigma,
+        "hidden_sigma_distance": hidden_sigma,
+        "symptom_direction": symptom_direction,
     }
     with open(hidden / "card.hidden.yaml", "w") as f:
         yaml.dump(hidden_card, f, default_flow_style=False, sort_keys=False)

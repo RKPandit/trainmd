@@ -185,6 +185,55 @@ class TestVerbatimSharedSections:
             assert text in static_prompt
 
 
+class TestCaptureFields:
+
+    def test_termination_submitted(self):
+        _, _, rec, _ = _run("case_0001", CapturingClient([_submit_response()]))
+        assert rec["termination_reason"] == "submitted"
+
+    def test_termination_no_submit_after_followup(self):
+        _, _, rec, _ = _run("case_0001", CapturingClient([_no_submit(), _no_submit()]))
+        assert rec["termination_reason"] == "no_submit_after_followup"
+
+    def test_termination_assembly_failed(self):
+        case_dir, tools = _tools("case_0001")
+        tools._max_tool_calls = 3
+        rec = _blank_record()
+        agent = StaticContextAgent(CapturingClient([_submit_response()]), model_id="fake")
+        agent.set_record(rec)
+        agent.run(case_dir, tools)
+        assert rec["termination_reason"] == "assembly_failed"
+
+    def test_prompt_block_recorded(self):
+        _, _, rec, _ = _run("case_0001", CapturingClient([_submit_response()]))
+        assert rec["prompt"]["prompt_version"] == "static-1"
+        assert rec["prompt"]["system_prompt_text"]
+        assert len(rec["prompt"]["prompt_hash"]) == 64
+
+    def test_transcript_has_api_model_and_latency(self):
+        _, _, rec, _ = _run("case_0001", CapturingClient([_submit_response()]))
+        entry = rec["llm_transcript"][0]
+        assert "api_model" in entry           # None for the fake client
+        assert isinstance(entry["latency_sec"], float)
+
+    def test_confidence_rationale_stored_raw(self):
+        resp = LLMResponse(
+            text="done",
+            tool_calls=[ToolCallRequest(id="s1", name="submit", arguments={
+                "diagnosis": {"detected": True, "operator_class": "lr_misconfiguration"},
+                "evidence_refs": [],
+                "repair_spec": None,
+                "confidence": 1.5,          # deliberately out of range — stored raw
+                "rationale": "high lr",
+            })],
+            stop_reason="tool_use",
+            usage=Usage(input_tokens=1500, output_tokens=40),
+        )
+        _, tools, _, _ = _run("case_0001", CapturingClient([resp]))
+        assert tools.submission["confidence"] == 1.5  # not clamped
+        assert tools.submission["rationale"] == "high lr"
+
+
 class TestControlCase:
 
     def test_no_repair_submission_on_control(self):

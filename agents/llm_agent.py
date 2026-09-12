@@ -6,7 +6,9 @@ crashes.  All agent logic is testable at zero cost via :class:`FakeLLMClient`.
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +16,10 @@ import yaml
 
 from harness.llm.client import LLMClient, LLMResponse, Usage
 from harness.tools.tool_context import ToolContext
+
+# Prompt version — bump whenever the ReAct prompt template text changes (the
+# drift guard in test_prompt_versioning asserts the template hash matches).
+REACT_PROMPT_VERSION = "react-1"
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +219,18 @@ TOOLS_SCHEMA: list[dict] = [
                     },
                     "required": ["repair_type", "patches"],
                 },
+                "confidence": {
+                    "type": "number",
+                    "description": (
+                        "Optional. Your confidence in this diagnosis, from 0.0 to 1.0."
+                    ),
+                },
+                "rationale": {
+                    "type": "string",
+                    "description": (
+                        "Optional. One-sentence justification (<= 500 characters)."
+                    ),
+                },
             },
             "required": ["diagnosis", "evidence_refs"],
         },
@@ -372,14 +390,21 @@ class LLMAgent:
                 "max_tokens": self._max_response_tokens,
             })
 
-        # 2. Build system prompt
+        # 2. Build system prompt (record it + its hash + version)
         system_prompt = _build_system_prompt(case_dir)
+        if self._record is not None:
+            self._record["prompt"] = {
+                "system_prompt_text": system_prompt,
+                "prompt_hash": hashlib.sha256(system_prompt.encode()).hexdigest(),
+                "prompt_version": REACT_PROMPT_VERSION,
+            }
 
         # 3. Initialize messages
         messages: list[dict] = [{"role": "user", "content": system_prompt}]
 
         # 4. ReAct loop
         submitted = False
+        termination = "max_turns"  # default: loop exhausted without an earlier exit
         consecutive_continuations = 0
         for turn in range(self._max_turns):
             # Token budget check
@@ -389,12 +414,15 @@ class LLMAgent:
                     + self._record["usage"]["output_tokens"]
                 )
                 if total >= self._max_total_tokens:
+                    termination = "token_budget_stop"
                     break
 
-            # Call LLM
+            # Call LLM (timed for latency capture)
+            _t0 = time.monotonic()
             response = self._client.complete(
                 messages, TOOLS_SCHEMA, max_tokens=self._max_response_tokens,
             )
+            _latency = time.monotonic() - _t0
 
             # Incremental usage capture (CRITICAL — crash safety)
             if self._record is not None:
@@ -413,6 +441,8 @@ class LLMAgent:
                         for tc in response.tool_calls
                     ],
                     "stop_reason": response.stop_reason,
+                    "api_model": (response.raw or {}).get("model"),
+                    "latency_sec": round(_latency, 4),
                     "usage": {
                         "input_tokens": response.usage.input_tokens,
                         "output_tokens": response.usage.output_tokens,
@@ -437,7 +467,8 @@ class LLMAgent:
                     "input": tc.arguments,
                 })
             if not assistant_content:
-                break  # model returned nothing
+                termination = "ended_without_submit"  # model returned nothing
+                break
             messages.append({"role": "assistant", "content": assistant_content})
 
             # If no tool calls, the model is either done thinking (end_turn)
@@ -453,6 +484,7 @@ class LLMAgent:
                             self._record["llm_transcript"][-1][
                                 "continuation_capped"
                             ] = True
+                        termination = "continuation_capped"
                         break
                     consecutive_continuations += 1
                     messages.append({
@@ -464,6 +496,7 @@ class LLMAgent:
                         ),
                     })
                     continue  # consumes a turn via the for-loop bound
+                termination = "ended_without_submit"  # end_turn, no tool call
                 break
 
             # Tool calls came back — the model made progress; reset the counter.
@@ -497,4 +530,8 @@ class LLMAgent:
             messages.append({"role": "user", "content": tool_results})
 
             if submitted:
+                termination = "submitted"
                 break
+
+        if self._record is not None:
+            self._record["termination_reason"] = termination

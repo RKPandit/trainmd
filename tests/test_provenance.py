@@ -83,7 +83,15 @@ class TestSchemaConformance:
 
     def test_schema_version(self, trial_record):
         record, _ = trial_record
-        assert record["schema_version"] == "1.0"
+        assert record["schema_version"] == "1.1"
+
+    def test_capture_blocks_present(self, trial_record):
+        """Schema 1.1 pre-sweep capture blocks are present."""
+        record, _ = trial_record
+        assert set(record["prompt"]) == {"system_prompt_text", "prompt_hash", "prompt_version"}
+        assert set(record["conditions"]) == {"sweep_name", "agent_type", "anchor", "repeat_index"}
+        assert "termination_reason" in record
+        assert "symptom_direction" in record
 
     def test_status_completed(self, trial_record):
         record, _ = trial_record
@@ -241,7 +249,10 @@ class TestIndex:
                              "detection_correct", "identification_correct",
                              "evidence_f1", "recovery_verdict",
                              "total_tokens", "estimated_cost_usd",
-                             "harness_git_commit", "status", "timestamp_utc"):
+                             "harness_git_commit", "status", "timestamp_utc",
+                             # Schema 1.1 required condition columns.
+                             "termination_reason", "agent_type", "anchor",
+                             "repeat_index", "symptom_direction"):
                     assert key in entry, f"Missing index field: {key}"
                 break
         else:
@@ -260,7 +271,7 @@ class TestRecordPersistence:
         path = trials_dir / f"{record['agent_name']}_{record['run_id']}.yaml"
         assert path.exists()
         loaded = yaml.safe_load(path.read_text())
-        assert loaded["schema_version"] == "1.0"
+        assert loaded["schema_version"] == "1.1"
         assert loaded["case_id"] == record["case_id"]
 
     def test_no_overwrite_final(self, trial_record):

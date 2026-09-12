@@ -24,7 +24,7 @@ import yaml
 
 from harness.pricing import estimate_cost
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +116,30 @@ def build_empty_record(
         "status": "partial",
 
         "environment": dict(environment),
+
+        # Full prompt sent to the model, its hash, and a version constant so a
+        # text change without a version bump is caught (see prompt-version test).
+        "prompt": {
+            "system_prompt_text": None,
+            "prompt_hash": None,
+            "prompt_version": None,
+        },
+
+        # Sweep condition labels (null for ad-hoc runs; set by the runner).
+        "conditions": {
+            "sweep_name": None,
+            "agent_type": None,
+            "anchor": None,
+            "repeat_index": None,
+        },
+
+        # Precise exit reason — distinguishes the model's choice from the harness
+        # stopping it.  See run_agent / the agents.
+        "termination_reason": None,
+
+        # Case effect-size label, copied from card.hidden at trial time so the
+        # index can group by it (H1/H2 x-axis).
+        "symptom_direction": None,
 
         "model": {
             "model_id": None,
@@ -267,6 +291,12 @@ def _index_line(record: dict) -> dict:
         "status": record.get("status", "unknown"),
         "timestamp_utc": record.get("environment", {}).get("timestamp_utc"),
         "card_superseded": record.get("card_superseded"),
+        # Required condition columns — analysis groups by these without opening records.
+        "termination_reason": record.get("termination_reason"),
+        "agent_type": (record.get("conditions") or {}).get("agent_type"),
+        "anchor": (record.get("conditions") or {}).get("anchor"),
+        "repeat_index": (record.get("conditions") or {}).get("repeat_index"),
+        "symptom_direction": record.get("symptom_direction"),
     }
 
 
