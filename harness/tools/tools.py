@@ -213,8 +213,13 @@ def list_files(ctx: ToolContext, *, pattern: str = "**/*") -> dict:
 
 
 def submit(ctx: ToolContext, *, diagnosis: dict,
-           evidence_refs: list, repair_spec: dict) -> dict:
-    """Record the agent's submission."""
+           evidence_refs: list, repair_spec: dict | None = None) -> dict:
+    """Record the agent's submission.
+
+    ``repair_spec`` may be ``None`` (or ``{"repair_type": "none", "patches": {}}``)
+    to submit NO repair — the correct action on a healthy run.  Any other case
+    expects a ``config_patch`` repair.
+    """
     if ctx.submission_count >= ctx.max_submissions:
         return _error(
             "SUBMISSION_LIMIT_REACHED",

@@ -196,11 +196,15 @@ TOOLS_SCHEMA: list[dict] = [
                 },
                 "repair_spec": {
                     "type": "object",
-                    "description": "Proposed config repair.",
+                    "description": (
+                        "Proposed config repair. OMIT this field entirely (or send "
+                        "{\"repair_type\": \"none\", \"patches\": {}}) to submit NO "
+                        "repair — the correct action when the run is healthy."
+                    ),
                     "properties": {
                         "repair_type": {
                             "type": "string",
-                            "description": "Always 'config_patch' for now.",
+                            "description": "'config_patch' for a fix, or 'none' for no repair.",
                         },
                         "patches": {
                             "type": "object",
@@ -210,7 +214,7 @@ TOOLS_SCHEMA: list[dict] = [
                     "required": ["repair_type", "patches"],
                 },
             },
-            "required": ["diagnosis", "evidence_refs", "repair_spec"],
+            "required": ["diagnosis", "evidence_refs"],
         },
     },
 ]
@@ -247,15 +251,24 @@ a config_key ref pointing to the faulty parameter, plus whichever fits the \
 symptom — a metric_window for anomalous training curves, or a line_range \
 for an error/traceback in a log file (e.g. logs/stdout.log).
 
+## Healthy runs
+
+Some runs are healthy — there is no incident. Do not invent one. If your \
+investigation finds nothing anomalous, the correct submission is \
+detected=false, operator_class "none", an EMPTY evidence list, and NO repair \
+(omit repair_spec, or send repair_type "none" with empty patches). Submitting \
+a repair or evidence on a healthy run counts against you.
+
 ## Submit format
 
 When ready, call submit with:
 - diagnosis.detected: true/false
 - diagnosis.operator_class: a short, specific snake_case fault-category name \
 (name the mechanism, not a generic term); use "none" if no incident occurred
-- evidence_refs: list of evidence references
-- repair_spec.repair_type: "config_patch"
-- repair_spec.patches: dict mapping dotted key paths to corrected values
+- evidence_refs: list of evidence references (empty if the run is healthy)
+- repair_spec: for a fix, repair_type "config_patch" + patches (dotted key \
+paths → corrected values); for a healthy run, omit repair_spec or send \
+repair_type "none" with empty patches
 """
 
 

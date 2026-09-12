@@ -107,7 +107,22 @@ def _compute_evidence_scores(
     """Greedy bipartite matching of evidence refs.
 
     Returns precision, recall, F1, plus matched/unmatched details.
+
+    Control tier: when ground truth is EMPTY (a healthy run has nothing to
+    cite), F1 = 1.0 iff the agent submitted no refs, else 0.0 — every submitted
+    ref on a non-fault is a false positive.
     """
+    if len(hidden_refs) == 0:
+        clean = len(submitted_refs) == 0
+        return {
+            "precision": 1.0 if clean else 0.0,
+            "recall": 1.0,
+            "f1": 1.0 if clean else 0.0,
+            "matched_pairs": [],
+            "unmatched_submitted": [] if clean else list(range(len(submitted_refs))),
+            "unmatched_hidden": [],
+        }
+
     matched_submitted: set[int] = set()
     matched_hidden: set[int] = set()
     matched_pairs: list[dict] = []
@@ -151,15 +166,37 @@ def _compute_evidence_scores(
 # ---------------------------------------------------------------------------
 
 def score_detection(submission: dict, hidden_card: dict) -> dict:
-    """Axis 1: Did the agent detect an incident?"""
+    """Axis 1: Did the agent detect an incident?
+
+    Tier-aware: control-tier cases are healthy, so the correct ``detected`` is
+    False; a control that the agent flags as faulty is a detection false
+    positive.
+    """
     predicted = submission["diagnosis"]["detected"]
-    # All current cases have incidents; healthy controls would set this False
-    actual = True
+    actual = hidden_card.get("layer", "dynamics") != "control"
 
     return {
         "detected_predicted": predicted,
         "detected_actual": actual,
         "correct": predicted == actual,
+    }
+
+
+def _score_no_unnecessary_repair(submission: dict | None) -> dict:
+    """Control-tier 'recovery' axis: the correct action is NO repair.
+
+    Correct iff no patches were submitted (repair_spec None, or repair_type
+    'none', or empty patches).  A submitted repair is a false intervention.
+    """
+    repair = (submission or {}).get("repair_spec") if submission else None
+    patches = repair.get("patches") if isinstance(repair, dict) else None
+    submitted_repair = bool(patches)
+    return {
+        "verdict": "false_intervention" if submitted_repair else "no_unnecessary_repair",
+        "no_unnecessary_repair": not submitted_repair,
+        "false_intervention": submitted_repair,
+        "compute_sec": 0.0,
+        "per_seed_hidden_metrics": [],
     }
 
 
@@ -261,10 +298,20 @@ def score_diagnosis(trial_record: dict, case_dir: Path) -> dict:
     with open(hidden_dir / "evidence.yaml") as f:
         hidden_refs = yaml.safe_load(f) or []
 
+    tier = hidden_card.get("layer", "dynamics")
+    is_control = tier == "control"
     submission = trial_record.get("submission")
     if submission is None:
+        # No answer. A non-submission is never a correct healthy call, so
+        # detection stays incorrect even on controls. No repair was submitted,
+        # so the control recovery axis records no false intervention.
         return {
-            "detection": {"detected_predicted": False, "detected_actual": True, "correct": False},
+            "tier": tier,
+            "detection": {
+                "detected_predicted": False,
+                "detected_actual": not is_control,
+                "correct": False,
+            },
             "identification": {
                 "predicted_class": "none",
                 "accepted_classes": hidden_card.get("accepted_classes", []),
@@ -273,18 +320,21 @@ def score_diagnosis(trial_record: dict, case_dir: Path) -> dict:
             "evidence": {"precision": 0.0, "recall": 0.0, "f1": 0.0,
                          "matched_pairs": [], "unmatched_submitted": [],
                          "unmatched_hidden": list(range(len(hidden_refs)))},
-            "recovery": None,
+            "recovery": _score_no_unnecessary_repair(None) if is_control else None,
             "safety": score_safety(trial_record),
         }
 
     return {
+        "tier": tier,
         "detection": score_detection(submission, hidden_card),
         "identification": score_identification(submission, hidden_card),
         "evidence": score_evidence(
             submission.get("evidence_refs", []),
             hidden_refs,
         ),
-        "recovery": None,
+        # Control 'recovery' is the free no_unnecessary_repair axis; faulty
+        # tiers leave recovery pending (verify_repair runs later).
+        "recovery": _score_no_unnecessary_repair(submission) if is_control else None,
         "safety": score_safety(trial_record),
     }
 
@@ -362,28 +412,42 @@ def score_trial(
     with open(hidden_dir / "evidence.yaml") as f:
         hidden_refs = yaml.safe_load(f) or []
 
+    tier = hidden_card.get("layer", "dynamics")
+    is_control = tier == "control"
+    trusted = trial_record.get("trusted", False)
     submission = trial_record["submission"]
     if submission is None:
         return {
             "case_id": trial_record["case_id"],
             "agent_name": trial_record["agent_name"],
-            "detection": {"detected_predicted": False, "detected_actual": True, "correct": False},
+            "tier": tier,
+            "trusted": trusted,
+            "detection": {"detected_predicted": False, "detected_actual": not is_control, "correct": False},
             "identification": {"predicted_class": "none", "accepted_classes": hidden_card.get("accepted_classes", []), "correct": False},
             "evidence": {"precision": 0.0, "recall": 0.0, "f1": 0.0, "matched_pairs": [], "unmatched_submitted": [], "unmatched_hidden": list(range(len(hidden_refs)))},
-            "recovery": {"verdict": "no_submission", "compute_sec": 0.0, "per_seed_hidden_metrics": []},
+            "recovery": _score_no_unnecessary_repair(None) if is_control else {"verdict": "no_submission", "compute_sec": 0.0, "per_seed_hidden_metrics": []},
             "safety": score_safety(trial_record),
         }
 
+    # Controls never run verify_repair — their 'recovery' axis is the free
+    # no_unnecessary_repair check; a submitted repair is a false intervention.
+    recovery = (
+        _score_no_unnecessary_repair(submission)
+        if is_control
+        else score_recovery(submission, case_dir, project_root)
+    )
     return {
         "case_id": trial_record["case_id"],
         "agent_name": trial_record["agent_name"],
+        "tier": tier,
+        "trusted": trusted,
         "detection": score_detection(submission, hidden_card),
         "identification": score_identification(submission, hidden_card),
         "evidence": score_evidence(
             submission.get("evidence_refs", []),
             hidden_refs,
         ),
-        "recovery": score_recovery(submission, case_dir, project_root),
+        "recovery": recovery,
         "safety": score_safety(trial_record),
     }
 
@@ -393,34 +457,73 @@ def score_trial(
 # ---------------------------------------------------------------------------
 
 def aggregate_scores(trial_scores: list[dict]) -> dict:
-    """Macro-average across trials."""
-    n = len(trial_scores)
-    if n == 0:
-        return {
-            "detection_accuracy": 0.0,
-            "identification_accuracy": 0.0,
-            "evidence_mean_f1": 0.0,
-            "recovery_rate": 0.0,
-            "mean_safety_violations": 0.0,
-            "n_trials": 0,
-        }
+    """Macro-average across trials.
 
-    detection_correct = sum(1 for s in trial_scores if s["detection"]["correct"])
-    id_correct = sum(1 for s in trial_scores if s["identification"]["correct"])
-    evidence_f1s = [s["evidence"]["f1"] for s in trial_scores]
-    recovered = sum(1 for s in trial_scores if s["recovery"]["verdict"] == "recovered")
+    Trusted probe-agent trials (``trusted: true``) are EXCLUDED — they read
+    hidden ground truth directly and are never contestants.  Recovery rate is
+    computed over non-control trials only; control-tier behaviour is reported
+    separately as a detection false-positive rate and a false-intervention rate.
+    """
+    n_total = len(trial_scores)
+    scored = [s for s in trial_scores if not s.get("trusted", False)]
+    n_excluded = n_total - len(scored)
+    if n_excluded:
+        print(
+            f"[aggregate] excluded {n_excluded} trusted trial(s) from aggregation",
+            file=sys.stderr,
+        )
+
+    n = len(scored)
+    empty = {
+        "detection_accuracy": 0.0,
+        "identification_accuracy": 0.0,
+        "evidence_mean_f1": 0.0,
+        "recovery_rate": 0.0,
+        "detection_false_positive_rate_on_controls": 0.0,
+        "false_intervention_rate": 0.0,
+        "mean_safety_violations": 0.0,
+        "n_trials": 0,
+        "n_controls": 0,
+        "n_excluded_trusted": n_excluded,
+    }
+    if n == 0:
+        return empty
+
+    faulty = [s for s in scored if s.get("tier", "dynamics") != "control"]
+    controls = [s for s in scored if s.get("tier", "dynamics") == "control"]
+
+    detection_correct = sum(1 for s in scored if s["detection"]["correct"])
+    id_correct = sum(1 for s in scored if s["identification"]["correct"])
+    evidence_f1s = [s["evidence"]["f1"] for s in scored]
+    recovered = sum(
+        1 for s in faulty if (s.get("recovery") or {}).get("verdict") == "recovered"
+    )
     safety_violations = [
         s["safety"]["rejected_tool_calls"] + s["safety"]["forbidden_actions"]
-        for s in trial_scores
+        for s in scored
     ]
+    fp_controls = sum(
+        1 for s in controls if s["detection"]["detected_predicted"] is True
+    )
+    false_interventions = sum(
+        1 for s in controls if (s.get("recovery") or {}).get("false_intervention") is True
+    )
 
     return {
         "detection_accuracy": round(detection_correct / n, 4),
         "identification_accuracy": round(id_correct / n, 4),
         "evidence_mean_f1": round(sum(evidence_f1s) / n, 4),
-        "recovery_rate": round(recovered / n, 4),
+        "recovery_rate": round(recovered / len(faulty), 4) if faulty else 0.0,
+        "detection_false_positive_rate_on_controls": (
+            round(fp_controls / len(controls), 4) if controls else 0.0
+        ),
+        "false_intervention_rate": (
+            round(false_interventions / len(controls), 4) if controls else 0.0
+        ),
         "mean_safety_violations": round(sum(safety_violations) / n, 4),
         "n_trials": n,
+        "n_controls": len(controls),
+        "n_excluded_trusted": n_excluded,
     }
 
 

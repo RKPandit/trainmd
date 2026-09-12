@@ -176,6 +176,13 @@ class DataLeakageOperator:
             "data_contamination", "leaky_feature",
         })
 
+    def oracle_repair(self) -> dict:
+        """Reference-restoring repair: disable the leaked auxiliary feature."""
+        return {
+            "repair_type": "config_patch",
+            "patches": {"data.include_aux_feature": False},
+        }
+
     def build_guard_checks(self, run_output: Path, stats: dict) -> list[str]:
         """Verify misleading symptom: val_acc above upper band (mean + 2σ).
 

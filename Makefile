@@ -66,6 +66,14 @@ validate:
 validate-all:
 	uv run python -m harness.validate_case --all
 
+# G1 hardening gates (free — no paid trials).
+# Fast by default (skips recovery reruns); FULL=1 runs recovery.
+gate-known-answer:
+	uv run python -m harness.gate_known_answer $(if $(FULL),--full,--fast)
+
+audit-index:
+	uv run python -m harness.audit_index
+
 clean:
 	rm -rf $(WORKLOAD_DIR)/reference/runs
 	rm -rf $(WORKLOAD_DIR)/.data

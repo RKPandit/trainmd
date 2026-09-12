@@ -67,6 +67,8 @@ class ValidationReport:
 _BASE_FORBIDDEN_TOKENS = [
     "test_acc", "test_loss", "X_test", "y_test",
     "hidden_test", "hidden_data", "holdout",
+    # Control-tier identity must not leak into any agent-visible byte.
+    "control", "healthy",
 ]
 
 _CASE_FORBIDDEN_TOKENS = _BASE_FORBIDDEN_TOKENS + [
@@ -78,6 +80,7 @@ _PUBLIC_CARD_FORBIDDEN_TOKENS = [
     "lr_warmup", "silent", "dynamics", "operator", "mutation",
     "manifest", "incident", "strength", "severe", "moderate", "mild",
     "execution", "crash", "shape_mismatch", "data_leakage",
+    "control", "healthy",
 ]
 
 _BINARY_EXTENSIONS = frozenset({".pt", ".npy", ".npz"})
@@ -104,7 +107,7 @@ _HIDDEN_CARD_REQUIRED_FIELDS = [
 
 _VERIFY_REQUIRED_FIELDS = [
     "tolerance_lower", "hidden_eval_seeds", "faulty_value",
-    "admissible_repairs",
+    "admissible_repairs", "oracle_repair",
 ]
 
 
@@ -316,6 +319,14 @@ def _check_c5(verify: dict, hidden_card: dict) -> CheckResult:
     if faulty is None or tolerance is None:
         detail = "verify.yaml missing faulty_value or tolerance_lower"
         return CheckResult("C5_faulty_value_below_tolerance", False, detail, "CONSISTENCY")
+
+    if layer == "control":
+        # Control tier (inverted): a healthy run must CLEAR tolerance.
+        if faulty < tolerance:
+            detail = f"control faulty_value={faulty} < tolerance_lower={tolerance} (must clear)"
+            return CheckResult("C5_faulty_value_below_tolerance", False, detail, "CONSISTENCY")
+        return CheckResult("C5_faulty_value_below_tolerance", True, "", "CONSISTENCY")
+
     if faulty >= tolerance:
         detail = f"faulty_value={faulty} >= tolerance_lower={tolerance}"
         return CheckResult("C5_faulty_value_below_tolerance", False, detail, "CONSISTENCY")
@@ -461,6 +472,55 @@ def _check_c8(case_id: str, project_root: Path) -> CheckResult:
     return CheckResult("C8_recovery_files_linked", True, "", "CONSISTENCY")
 
 
+def _check_w4(case_dir: Path, verify: dict) -> CheckResult:
+    """W4: hidden_values_not_in_workspace — scan for FORMATTED hidden values.
+
+    An agent-visible byte (workspace files, public card) must not contain the
+    6-decimal string forms of the hidden numbers (faulty_value, tolerance_lower,
+    hidden mean/std) or the exact hidden-seed list literals.  Bare integers are
+    NOT scanned (``100`` false-positives on step counts).  Reports file + byte
+    offset + which value leaked.
+    """
+    targets: dict[str, str] = {}
+    for field, label in (
+        ("tolerance_lower", "tolerance_lower"),
+        ("faulty_value", "faulty_value"),
+        ("reference_metric_mean", "hidden_mean"),
+        ("reference_metric_std", "hidden_std"),
+    ):
+        val = verify.get(field)
+        if isinstance(val, (int, float)):
+            targets[f"{val:.6f}"] = label
+    seeds = verify.get("hidden_eval_seeds")
+    if isinstance(seeds, list) and seeds:
+        targets[str(seeds)] = "hidden_eval_seeds"  # "[100, 101, 102]"
+        targets[", ".join(str(s) for s in seeds)] = "hidden_eval_seeds"  # "100, 101, 102"
+
+    scan_paths = [case_dir / "card.public.yaml"]
+    workspace = case_dir / "workspace"
+    if workspace.exists():
+        scan_paths += [p for p in workspace.rglob("*") if p.is_file()]
+
+    violations = []
+    for p in scan_paths:
+        if p.suffix in _BINARY_EXTENSIONS:
+            continue
+        try:
+            text = p.read_text()
+        except (UnicodeDecodeError, FileNotFoundError):
+            continue
+        rel = p.relative_to(case_dir)
+        for needle, label in targets.items():
+            off = text.find(needle)
+            if off != -1:
+                violations.append(f"{rel} @byte {off}: leaks {label} ({needle!r})")
+
+    if violations:
+        detail = f"{len(violations)} hidden-value leak(s):\n" + "\n".join(violations[:10])
+        return CheckResult("W4_hidden_values_not_in_workspace", False, detail, "WALL")
+    return CheckResult("W4_hidden_values_not_in_workspace", True, "", "WALL")
+
+
 def _check_c9(
     public_card: dict, project_root: Path, workload_name: str,
 ) -> CheckResult:
@@ -558,8 +618,15 @@ def _check_f2(hidden_card: dict) -> CheckResult:
         return CheckResult("F2_hidden_card_required_fields", False, detail, "WELL_FORMEDNESS")
 
     mutations = hidden_card.get("mutations")
-    if not isinstance(mutations, list) or len(mutations) < 1:
-        detail = "card.hidden.yaml mutations must be a non-empty list"
+    layer = hidden_card.get("layer", "dynamics")
+    # Control tier makes no mutation, so an empty list is correct there; every
+    # other tier must record at least one mutation.
+    min_mutations = 0 if layer == "control" else 1
+    if not isinstance(mutations, list) or len(mutations) < min_mutations:
+        detail = (
+            "card.hidden.yaml mutations must be a list"
+            + ("" if layer == "control" else " with at least one entry")
+        )
         return CheckResult("F2_hidden_card_required_fields", False, detail, "WELL_FORMEDNESS")
 
     return CheckResult("F2_hidden_card_required_fields", True, "", "WELL_FORMEDNESS")
@@ -621,15 +688,15 @@ def _check_f4(hidden_card: dict) -> CheckResult:
 def _check_f5(case_dir: Path, hidden_card: dict) -> CheckResult:
     """F5: checkpoint presence matches tier.
 
-    Dynamics tier must have ckpt_final.pt (training completes).
+    Dynamics and control tiers must have ckpt_final.pt (training completes).
     Execution tier must NOT have ckpt_final.pt (training crashes).
     """
     ckpt = case_dir / "workspace" / "run_output" / "checkpoints" / "ckpt_final.pt"
     layer = hidden_card.get("layer", "dynamics")
-    if layer == "dynamics" and not ckpt.exists():
+    if layer in ("dynamics", "control") and not ckpt.exists():
         return CheckResult(
             "F5_checkpoint_tier_match", False,
-            "dynamics tier: ckpt_final.pt missing", "WELL_FORMEDNESS",
+            f"{layer} tier: ckpt_final.pt missing", "WELL_FORMEDNESS",
         )
     if layer == "execution" and ckpt.exists():
         return CheckResult(
@@ -637,6 +704,35 @@ def _check_f5(case_dir: Path, hidden_card: dict) -> CheckResult:
             "execution tier: ckpt_final.pt should not exist", "WELL_FORMEDNESS",
         )
     return CheckResult("F5_checkpoint_tier_match", True, "", "WELL_FORMEDNESS")
+
+
+def _check_f6_control_shape(
+    case_dir: Path, hidden_card: dict, verify: dict,
+) -> CheckResult:
+    """F6: control-tier ground truth is well-shaped (no fault to diagnose).
+
+    A control must have EMPTY evidence, NO admissible repair keys, and a null
+    oracle_repair — otherwise the scorer would credit/penalise a phantom fault.
+    Passes trivially for non-control tiers.
+    """
+    if hidden_card.get("layer") != "control":
+        return CheckResult("F6_control_shape", True, "", "WELL_FORMEDNESS")
+
+    issues = []
+    evidence = _load_yaml(case_dir / "hidden" / "evidence.yaml") or []
+    if evidence:
+        issues.append(f"evidence.yaml must be empty for a control (has {len(evidence)} ref(s))")
+    repairs = verify.get("admissible_repairs") or {}
+    if repairs.get("allowed_keys"):
+        issues.append(f"control admissible_repairs must have no allowed_keys ({repairs.get('allowed_keys')})")
+    if verify.get("oracle_repair") is not None:
+        issues.append("control oracle_repair must be null")
+
+    if issues:
+        return CheckResult(
+            "F6_control_shape", False, "; ".join(issues), "WELL_FORMEDNESS",
+        )
+    return CheckResult("F6_control_shape", True, "", "WELL_FORMEDNESS")
 
 
 # ---------------------------------------------------------------------------
@@ -698,11 +794,13 @@ def validate_case(
     checks.append(_check_f3(verify))
     checks.append(_check_f4(hidden_card))
     checks.append(_check_f5(case_dir, hidden_card))
+    checks.append(_check_f6_control_shape(case_dir, hidden_card, verify))
 
     # WALL
     checks.append(_check_w1(case_dir, hidden_card))
     checks.append(_check_w2(case_dir))
     checks.append(_check_w3(verify))
+    checks.append(_check_w4(case_dir, verify))
 
     # CONSISTENCY
     checks.append(_check_c1(case_dir, public_card, hidden_card))

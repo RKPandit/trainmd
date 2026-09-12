@@ -74,6 +74,7 @@ def _to_yaml_safe(obj):
     if isinstance(obj, (list, tuple)):
         return [_to_yaml_safe(item) for item in obj]
     return obj
+from operators.control.healthy import HealthyControlOperator
 from operators.crash.shape_mismatch import ShapeMismatchOperator
 from operators.silent.data_leakage import DataLeakageOperator
 from operators.silent.label_corruption import LabelCorruptionOperator
@@ -89,6 +90,7 @@ _OPERATOR_REGISTRY: dict[str, type] = {
     "silent.label_corruption.v1": LabelCorruptionOperator,
     "silent.data_leakage.v1": DataLeakageOperator,
     "crash.shape_mismatch.v1": ShapeMismatchOperator,
+    "control.healthy.v1": HealthyControlOperator,
 }
 
 
@@ -256,8 +258,8 @@ def build_case(
         text=True,
     )
 
-    # ---- silent-layer build-time guards -----------------------------------
-    if op.layer == "dynamics":
+    # ---- completed-run guards (silent + control both must complete) -------
+    if op.layer in ("dynamics", "control"):
         # Guard 1: run must complete
         if result.returncode != 0:
             shutil.rmtree(case_dir)
@@ -314,7 +316,7 @@ def build_case(
     # ---- evaluate checkpoint (hidden metric) ------------------------------
     tolerance_lower = stats["metric_hidden_test_acc"]["tolerance_lower"]
 
-    if op.layer == "dynamics":
+    if op.layer in ("dynamics", "control"):
         from harness.evaluator.evaluate_checkpoint import evaluate_checkpoint
 
         hidden_data_dir = workload_dir / ".hidden_data"
@@ -322,11 +324,18 @@ def build_case(
         eval_result = evaluate_checkpoint(ckpt_path, hidden_data_dir, config)
         hidden_acc = eval_result["metric_hidden_test_acc"]
 
-        if hidden_acc >= tolerance_lower:
+        if op.layer == "dynamics" and hidden_acc >= tolerance_lower:
             shutil.rmtree(case_dir)
             raise RuntimeError(
                 f"Faulty run acc={hidden_acc:.6f} >= tolerance={tolerance_lower:.6f}; "
                 f"operator must reliably degrade accuracy below tolerance."
+            )
+        # Control guard (inverted): a healthy run must PASS tolerance.
+        if op.layer == "control" and hidden_acc < tolerance_lower:
+            shutil.rmtree(case_dir)
+            raise RuntimeError(
+                f"Control run acc={hidden_acc:.6f} < tolerance={tolerance_lower:.6f}; "
+                f"a healthy control must clear tolerance (no genuine fault)."
             )
     else:
         # Execution tier: no checkpoint → no accuracy to evaluate.
@@ -372,7 +381,7 @@ def build_case(
                 "workspace/run_output/logs/stdout.log",
                 "workspace/run_output/config.resolved.yaml",
                 "workspace/run_output/checkpoints/ckpt_final.pt"
-                if op.layer == "dynamics" else None,
+                if op.layer in ("dynamics", "control") else None,
                 "workspace/run_output/exitcode",
                 "workspace/config.yaml",
                 "workspace/train.py",
@@ -412,6 +421,8 @@ def build_case(
         "reference_metric_mean": stats["metric_hidden_test_acc"]["mean"],
         "reference_metric_std": stats["metric_hidden_test_acc"]["std"],
         "admissible_repairs": _to_yaml_safe(dataclasses.asdict(op.admissible_repairs())),
+        # Hidden-side ground-truth repair (never on the public card). None for controls.
+        "oracle_repair": _to_yaml_safe(op.oracle_repair()),
     }
     with open(hidden / "verify.yaml", "w") as f:
         yaml.dump(verify, f, default_flow_style=False, sort_keys=False)

@@ -170,6 +170,10 @@ class ShapeMismatchOperator:
             "shape_error", "dimension_error",
         })
 
+    def oracle_repair(self) -> dict:
+        """Reference-restoring repair: set input_dim to the correct value (105)."""
+        return {"repair_type": "config_patch", "patches": {"model.input_dim": 105}}
+
 
 # Verify protocol conformance at import time.
 assert isinstance(ShapeMismatchOperator(), IncidentOperator), (

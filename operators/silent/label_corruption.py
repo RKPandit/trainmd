@@ -191,6 +191,13 @@ class LabelCorruptionOperator:
             "label_corruption", "data_corruption", "label_noise", "noisy_labels",
         })
 
+    def oracle_repair(self) -> dict:
+        """Reference-restoring repair: set the label noise fraction back to 0.0."""
+        return {
+            "repair_type": "config_patch",
+            "patches": {"data.label_noise_fraction": 0.0},
+        }
+
 
 # Verify protocol conformance at import time.
 assert isinstance(LabelCorruptionOperator(), IncidentOperator), (

@@ -31,7 +31,7 @@ class Manifest:
     """Ground-truth record of everything an operator changed."""
 
     operator_id: str
-    layer: Literal["dynamics", "execution"]
+    layer: Literal["dynamics", "execution", "control"]
     strength: str
     seed: int
     mutations: list[MutationRecord] = field(default_factory=list)
@@ -61,7 +61,7 @@ class RepairSpecSchema:
     before applying them to a fresh workspace.
     """
 
-    repair_type: Literal["config_patch", "code_patch", "data_fix"]
+    repair_type: Literal["config_patch", "code_patch", "data_fix", "none"]
     allowed_keys: list[str] = field(default_factory=list)
     value_ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
     allowed_values: dict[str, list[Any]] = field(default_factory=dict)
@@ -84,7 +84,7 @@ class IncidentOperator(Protocol):
     """
 
     id: str
-    layer: Literal["dynamics", "execution"]
+    layer: Literal["dynamics", "execution", "control"]
 
     def apply(self, workspace: Path, rng: Random, strength: str) -> Manifest:
         """Mutate the workspace copy deterministically under *rng*.
@@ -109,5 +109,17 @@ class IncidentOperator(Protocol):
         comparing the agent's predicted class against this set.  Include
         all synonyms an agent might reasonably use to name this fault
         category.
+        """
+        ...
+
+    def oracle_repair(self) -> dict | None:
+        """The repair that restores the reference behaviour (hidden ground truth).
+
+        Returns a ``RepairSubmission``-shaped dict
+        ``{"repair_type": ..., "patches": {...}}`` — the known-good fix for this
+        fault (e.g. ``{"repair_type": "config_patch", "patches": {"training.lr": 0.01}}``).
+        Must be admissible under :meth:`admissible_repairs` and must NOT be the
+        faulty value.  Returns ``None`` for the healthy control tier, where the
+        correct action is *no repair*.
         """
         ...

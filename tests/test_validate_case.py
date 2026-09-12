@@ -124,6 +124,7 @@ def _make_case(
             "allowed_keys": ["training.lr"],
             "value_ranges": {"training.lr": [0.001, 0.02]},
         },
+        "oracle_repair": {"repair_type": "config_patch", "patches": {"training.lr": 0.01}},
     }
     with open(hidden / "verify.yaml", "w") as f:
         yaml.dump(verify, f)
@@ -290,6 +291,7 @@ def _make_execution_case(
             "allowed_keys": ["model.input_dim"],
             "value_ranges": {"model.input_dim": [90, 120]},
         },
+        "oracle_repair": {"repair_type": "config_patch", "patches": {"model.input_dim": 105}},
     }
     with open(hidden / "verify.yaml", "w") as f:
         yaml.dump(verify, f)
@@ -355,6 +357,106 @@ def _make_execution_case(
         yaml.dump(stats, f)
 
     return case_dir
+
+
+def _make_control_case(
+    root: Path,
+    case_id: str = "case_0001",
+    *,
+    faulty_value: float | None = None,
+    evidence: list | None = None,
+    inject_public_token: str | None = None,
+) -> Path:
+    """Build a synthetic control-tier case by converting a dynamics scaffold.
+
+    Control invariants: layer=control, empty mutations, empty evidence, no
+    admissible repair, null oracle_repair, faulty_value >= tolerance (healthy).
+    """
+    import dataclasses
+
+    from operators.control.healthy import HealthyControlOperator
+
+    case_dir = _make_case(root, case_id)
+    hidden = case_dir / "hidden"
+
+    hc = yaml.safe_load((hidden / "card.hidden.yaml").read_text())
+    hc["layer"] = "control"
+    hc["operator_id"] = "control.healthy.v1"
+    hc["mutations"] = []
+    hc["accepted_classes"] = ["none", "healthy", "no_incident", "no_fault", "nothing_wrong"]
+    (hidden / "card.hidden.yaml").write_text(yaml.dump(hc))
+
+    (hidden / "evidence.yaml").write_text(yaml.dump(evidence if evidence is not None else []))
+
+    v = yaml.safe_load((hidden / "verify.yaml").read_text())
+    v["faulty_value"] = faulty_value if faulty_value is not None else _REF_MEAN  # >= tolerance
+    v["admissible_repairs"] = dataclasses.asdict(HealthyControlOperator().admissible_repairs())
+    v["oracle_repair"] = None
+    (hidden / "verify.yaml").write_text(yaml.dump(v))
+
+    reg_path = root / "cases" / "registry.hidden.yaml"
+    reg = yaml.safe_load(reg_path.read_text())
+    reg[case_id]["operator"] = "control.healthy.v1"
+    reg_path.write_text(yaml.dump(reg))
+
+    if inject_public_token is not None:
+        card_path = case_dir / "card.public.yaml"
+        card = yaml.safe_load(card_path.read_text())
+        card["description"] = f"this is a {inject_public_token} case"
+        card_path.write_text(yaml.dump(card))
+
+    return case_dir
+
+
+class TestW4HiddenValueScan:
+
+    def test_valid_case_has_no_hidden_value_leak(self, tmp_path):
+        case_dir = _make_case(tmp_path)
+        report = validate_case(case_dir, project_root=tmp_path)
+        w4 = [c for c in report.checks if c.name == "W4_hidden_values_not_in_workspace"][0]
+        assert w4.passed, w4.detail
+
+    def test_planted_tolerance_in_log_is_caught(self, tmp_path):
+        """Planted: the formatted tolerance_lower written into a workspace log →
+        W4 fails and names the file/offset/value."""
+        case_dir = _make_case(tmp_path)
+        formatted = f"{_EXPECTED_TOLERANCE:.6f}"
+        log = case_dir / "workspace" / "run_output" / "logs" / "stdout.log"
+        log.write_text(log.read_text() + f"\nDEBUG threshold={formatted}\n")
+
+        report = validate_case(case_dir, project_root=tmp_path)
+        w4 = [c for c in report.checks if c.name == "W4_hidden_values_not_in_workspace"][0]
+        assert not w4.passed
+        assert "tolerance_lower" in w4.detail
+        assert "stdout.log" in w4.detail
+
+
+class TestControlTier:
+
+    def test_valid_control_passes(self, tmp_path):
+        case_dir = _make_control_case(tmp_path)
+        report = validate_case(case_dir, project_root=tmp_path)
+        assert report.passed, [c.name + ":" + c.detail for c in report.failed]
+
+    def test_c5_control_below_tolerance_fails(self, tmp_path):
+        """Planted: a 'healthy' control whose metric is below tolerance is caught."""
+        case_dir = _make_control_case(tmp_path, faulty_value=0.5)  # below tolerance
+        report = validate_case(case_dir, project_root=tmp_path)
+        assert "C5_faulty_value_below_tolerance" in [c.name for c in report.failed]
+
+    def test_f6_control_with_evidence_fails(self, tmp_path):
+        """Planted: a control that ships non-empty evidence is caught."""
+        evidence = [{"kind": "config_key", "artifact_id": "config.yaml",
+                     "detail": {"key_path": "training.lr"}}]
+        case_dir = _make_control_case(tmp_path, evidence=evidence)
+        report = validate_case(case_dir, project_root=tmp_path)
+        assert "F6_control_shape" in [c.name for c in report.failed]
+
+    def test_w2_control_token_in_public_card_fails(self, tmp_path):
+        """Planted: the word 'control' leaking into the public card fails W2."""
+        case_dir = _make_control_case(tmp_path, inject_public_token="control")
+        report = validate_case(case_dir, project_root=tmp_path)
+        assert "W2_public_card_no_incident_info" in [c.name for c in report.failed]
 
 
 # ---------------------------------------------------------------------------

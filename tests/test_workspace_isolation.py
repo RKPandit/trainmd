@@ -33,6 +33,8 @@ FORBIDDEN_TOKENS = [
     "hidden_test",
     "hidden_data",
     "holdout",
+    "control",
+    "healthy",
 ]
 
 WORKLOAD_DIR = Path(__file__).resolve().parent.parent / "workloads" / "tabular_adult"
@@ -194,6 +196,8 @@ _PUBLIC_CARD_FORBIDDEN_TOKENS = [
     "severe",
     "moderate",
     "mild",
+    "control",
+    "healthy",
 ]
 
 

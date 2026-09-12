@@ -163,6 +163,10 @@ class LrWarmupOperator:
             "lr_misconfiguration", "learning_rate", "lr_too_high", "lr_warmup",
         })
 
+    def oracle_repair(self) -> dict:
+        """Reference-restoring repair: reset the learning rate to 0.01."""
+        return {"repair_type": "config_patch", "patches": {"training.lr": 0.01}}
+
 
 # Verify protocol conformance at import time.
 assert isinstance(LrWarmupOperator(), IncidentOperator), (

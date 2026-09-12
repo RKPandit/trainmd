@@ -690,7 +690,15 @@ def test_every_operator_oracle_round_trips(operator_id, tmp_path):
 
     This is the invariant that catches convention changes (like
     absent-when-clean) that break mutation replay for a specific operator.
+
+    Control-tier operators are exempt: they inject no fault and recover via the
+    free ``no_unnecessary_repair`` axis, not through ``verify_repair``.
     """
+    from harness.build_case import _OPERATOR_REGISTRY
+
+    if _OPERATOR_REGISTRY[operator_id]().layer == "control":
+        pytest.skip("control tier has no verify_repair recovery path")
+
     assert operator_id in _ORACLE_REPAIRS, (
         f"{operator_id} has no oracle repair in _ORACLE_REPAIRS; add one so "
         f"the every-operator round-trip invariant covers it"

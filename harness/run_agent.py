@@ -70,6 +70,7 @@ def run_trial(
     case_dir: Path,
     project_root: Path | None = None,
     score: bool = True,
+    allow_trusted: bool = False,
 ) -> dict:
     """Run one agent trial on one case.
 
@@ -93,6 +94,18 @@ def run_trial(
     if project_root is None:
         project_root = Path(__file__).resolve().parent.parent
 
+    # Trusted agents read hidden/ ground truth directly (bypassing the sealed
+    # tool layer).  They are diagnostic probes, NEVER contestants — refuse to
+    # run one unless the caller explicitly opts in, so a trusted result can
+    # never be produced (and later scored/aggregated) by accident.
+    is_trusted = getattr(agent, "is_trusted", False)
+    if is_trusted and not allow_trusted:
+        raise PermissionError(
+            f"Agent {getattr(agent, 'name', agent)!r} is trusted (reads hidden/ "
+            f"directly) and must not run as a contestant. Pass allow_trusted=True "
+            f"(CLI --allow-trusted) only for harness gates."
+        )
+
     case_dir = Path(case_dir).resolve()
 
     with open(case_dir / "card.public.yaml") as f:
@@ -106,6 +119,7 @@ def run_trial(
 
     # 2. Build empty record
     record = build_empty_record(case_id, agent.name, run_id, env)
+    record["trusted"] = is_trusted  # excluded from aggregates; never a contestant
 
     # 3. Create tool context
     tools = ToolContext(case_dir)
@@ -247,6 +261,10 @@ def main() -> int:
         "--project-root", type=Path, default=None,
         help="Project root directory (default: auto-detect)",
     )
+    parser.add_argument(
+        "--allow-trusted", action="store_true", default=False,
+        help="Permit a trusted (hidden-reading) probe agent to run — harness gates only",
+    )
     args = parser.parse_args()
 
     # Must specify either --agent or --model, not both, not neither
@@ -277,7 +295,9 @@ def main() -> int:
     else:
         agent = _load_agent(args.agent)
 
-    record = run_trial(agent, args.case, args.project_root)
+    record = run_trial(
+        agent, args.case, args.project_root, allow_trusted=args.allow_trusted,
+    )
 
     # Store trial path for summary display
     case_id = record.get("case_id", "unknown")
