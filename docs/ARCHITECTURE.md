@@ -143,3 +143,43 @@ end-to-end integrity, demonstrated on a real trial, is the contribution.
 | 1. Build | visible workspace + sealed key | completed-but-failed | CPU |
 | 2. Run agent | diagnosis, evidence, repair | sealed case + caps + token capture | **paid (LLM)** |
 | 3. Verify | recovered / not recovered | validate + trusted rebuild + all-seeds | CPU |
+
+---
+
+## The experiment layer (as of pre-sweep commit 75b6e2d)
+
+The three phases above are one *trial*. Around them sits the experiment layer that turns trials
+into a pre-registered, cost-capped sweep — and the pieces that make the comparison meaningful.
+
+**Two contestant agents** (they differ in ONE thing — how they investigate — sharing prompt
+text, submit schema, reference band, and healthy-runs guidance verbatim, so a score gap is
+attributable to tools, not wording):
+
+| | ReAct agent | Static baseline (the H6 control) |
+|---|---|---|
+| Investigation | a tool loop (read → reason → repeat) | one prompt with the whole run, one call |
+| Reads | on demand, through the sealed tools | all artifacts up front, through the sealed tools |
+| Cost | multiple calls; tokens grow with turns | one call |
+| Question it answers | how well an agent *investigates* | how far *seeing everything at once* gets you |
+
+**Three tiers of case** (the `layer` field): **dynamics** (silent — completes but bad),
+**execution** (crash — fails to complete), and **control** (healthy — no fault; a submitted
+repair is a scored *false intervention*, so over-eagerness is measurable). Trusted probe agents
+(oracle, degenerate) and an untrusted `always_broken` baseline are the floors/ceilings the gates
+check against; they never enter an aggregate (the `trusted` flag excludes them).
+
+**The pipeline** (each stage is free except "run agents"; every gate exits nonzero on a real
+problem and writes a dated table to `docs/audits/`):
+
+```
+gate-known-answer  →  sweep plan  →  (commit the plan)  →  run --phase agents  →  run --phase verify  →  report
+   (certify GT)      (pre-register)    (pre-registration)      (PAID, capped)         (free, CPU)        (H1–H6)
+        │                                                          │
+   audit-index ──────────── refuse to aggregate over a broken index ┘
+```
+
+`plan` writes the committed pre-registration (build_id-pinned cells + cost estimate); `run
+--phase agents` refuses unless the gates are green, the plan matches the built cases, and the plan
+is committed, then runs the paid trials with a hard cost cap, resume, and a circuit breaker;
+`run --phase verify` does the free recovery reruns; `report` computes the hypothesis metrics.
+The tracked `sweeps/<name>_manifest.yaml` is the paper's compute statement.
