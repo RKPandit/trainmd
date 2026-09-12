@@ -167,43 +167,7 @@ minutes while the surprise is vivid beats an hour of reconstruction later.
 
 ---
 
-## Part VI — The pre-sweep gate (Sep 11, 2026)
-
-### 20. Known-answer at scale — the first gate run
-
-Before spending a dollar on the sweep, we built the G1 gate: run an *oracle* (the exactly-correct
-answer), a *degenerate* (right recovery, wrong everything else), and an *always-broken* knob-scanner
-over every case, and assert what must hold if ground truth is right. Prediction logged before the
-run: the oracle passes everywhere; if it doesn't, ground truth — not the model — is wrong.
-
-First run (fast mode, 4 operators + 3 new healthy controls, 7 cases): **49 checks, 0 FAIL.** The
-oracle was exactly correct on every case and tier; the degenerate was strictly out-scored on
-identification and evidence on every faulty case and flagged as a false intervention on every
-control; the always-broken agent was caught by the controls (detection FPR = 1.0) and scored zero
-evidence everywhere. The impossible-combination audit over `results/` was likewise **0 FAIL**, with
-one INFO rule firing exactly as designed: 9 prior trials flagged as scored against a superseded
-build (the label_corruption re-ladder). A clean first table is not a boring result — it is the
-gate certifying that the ground truth the sweep will grade against is internally consistent.
-
-Three things this forced into existence, each of which had been latent:
-- **A healthy control tier.** Until now every case had a fault, so "false positive" and "false
-  intervention" were unmeasurable. Controls make over-eagerness a first-class, scored axis
-  (`no_unnecessary_repair`, `detection_false_positive_rate_on_controls`). The design bite: the
-  oracle can't read the same evidence file it is graded against, or a dropped ref mirrors on both
-  sides and hides — so the gate derives the oracle's evidence and class from the *operator* and the
-  repair from the *file*, which is what makes the planted-corruption tests actually catch drift.
-- **`oracle_repair()` as a protocol method.** The known-good fix was implicit; now it is declared,
-  admissibility-checked, and hidden-side only.
-- **A trusted/contestant boundary.** The probe agents read hidden ground truth, so `run_trial`
-  refuses them without `--allow-trusted` and aggregation excludes `trusted` records — a trusted
-  answer can never leak into a headline number by accident.
-
-Lesson: the gate's value is not the failures it finds on day one but that it converts "is the
-ground truth right?" from a hope into a command you can run for free before every sweep.
-
----
-
-## Part VII — Standing lessons (the ones that keep recurring)
+## Part VI — Standing lessons (the ones that keep recurring)
 
 - **Prove it on hard cases before scaling.** Three operators, roughly a dozen real bugs, every one found on a single deliberate case for pennies instead of across a hundred. The instinct to build two more operators before the sweep was right.
 - **Each new kind of thing exercises an untested path.** Silent-easy → silent-hard → crash → misleading-symptom: each surfaced a gap the previous ones structurally could not. Expect the vision and text workloads to do the same.
