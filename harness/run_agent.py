@@ -258,6 +258,10 @@ def main() -> int:
         help="Max tokens per LLM response (default: 8192)",
     )
     parser.add_argument(
+        "--agent-type", type=str, default="react", choices=["react", "static"],
+        help="LLM agent mode: react (tool loop) or static (one-shot full context)",
+    )
+    parser.add_argument(
         "--project-root", type=Path, default=None,
         help="Project root directory (default: auto-detect)",
     )
@@ -283,15 +287,25 @@ def main() -> int:
         else:
             parser.error(f"Unknown provider {args.provider!r}; supported: anthropic")
 
-        from agents.llm_agent import LLMAgent
-        agent: Agent = LLMAgent(
-            client,
-            model_id=args.model,
-            temperature=args.temperature,
-            max_turns=args.max_turns,
-            max_response_tokens=args.max_response_tokens,
-            provider=args.provider,
-        )
+        if args.agent_type == "static":
+            from agents.static_agent import StaticContextAgent
+            agent: Agent = StaticContextAgent(
+                client,
+                model_id=args.model,
+                temperature=args.temperature,
+                max_response_tokens=args.max_response_tokens,
+                provider=args.provider,
+            )
+        else:
+            from agents.llm_agent import LLMAgent
+            agent = LLMAgent(
+                client,
+                model_id=args.model,
+                temperature=args.temperature,
+                max_turns=args.max_turns,
+                max_response_tokens=args.max_response_tokens,
+                provider=args.provider,
+            )
     else:
         agent = _load_agent(args.agent)
 

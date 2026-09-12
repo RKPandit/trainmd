@@ -219,6 +219,11 @@ TOOLS_SCHEMA: list[dict] = [
     },
 ]
 
+# The submit tool alone — reused verbatim by the static-context baseline, whose
+# single LLM call exposes only submit (it reads artifacts itself, not via the model).
+SUBMIT_SCHEMA: dict = TOOLS_SCHEMA[-1]
+assert SUBMIT_SCHEMA["name"] == "submit"
+
 
 # ---------------------------------------------------------------------------
 # System prompt
@@ -272,31 +277,50 @@ repair_type "none" with empty patches
 """
 
 
-def _build_system_prompt(case_dir: Path) -> str:
-    """Build the system prompt from the public case card."""
-    card_path = case_dir / "card.public.yaml"
-    with open(card_path) as f:
-        card = yaml.safe_load(f)
+# Shared prompt sections, DERIVED from the single template source so the static
+# baseline reuses them VERBATIM — drift is impossible (they are literal slices).
+HEALTHY_RUNS_TEXT: str = _SYSTEM_PROMPT_TEMPLATE[
+    _SYSTEM_PROMPT_TEMPLATE.index("## Healthy runs"):
+    _SYSTEM_PROMPT_TEMPLATE.index("## Submit format")
+].rstrip("\n")
+SUBMIT_FORMAT_TEXT: str = _SYSTEM_PROMPT_TEMPLATE[
+    _SYSTEM_PROMPT_TEMPLATE.index("## Submit format"):
+].rstrip("\n")
 
-    case_info_parts = [
+
+def reference_band_line(card: dict) -> str | None:
+    """The healthy-band line for a case's public card (or None if no anchor)."""
+    ref = card.get("reference_visible_metric")
+    if not ref:
+        return None
+    mean, std = ref["mean"], ref["std"]
+    low, high = mean - 2 * std, mean + 2 * std
+    return (
+        f"Healthy runs achieve {ref['series']} ≈ {mean:.4f} "
+        f"(healthy range roughly {low:.4f}–{high:.4f}); values clearly "
+        f"outside this range, above OR below, are anomalous."
+    )
+
+
+def build_case_info(card: dict) -> str:
+    """The shared '## Case information' body (id, workload, description, band)."""
+    parts = [
         f"Case ID: {card.get('case_id', 'unknown')}",
         f"Workload: {card.get('workload_name', 'unknown')}",
     ]
-
     if "description" in card:
-        case_info_parts.append(f"Description: {card['description']}")
+        parts.append(f"Description: {card['description']}")
+    band = reference_band_line(card)
+    if band:
+        parts.append(band)
+    return "\n".join(parts)
 
-    ref = card.get("reference_visible_metric")
-    if ref:
-        mean, std = ref["mean"], ref["std"]
-        low, high = mean - 2 * std, mean + 2 * std
-        case_info_parts.append(
-            f"Healthy runs achieve {ref['series']} ≈ {mean:.4f} "
-            f"(healthy range roughly {low:.4f}–{high:.4f}); values clearly "
-            f"outside this range, above OR below, are anomalous."
-        )
 
-    return _SYSTEM_PROMPT_TEMPLATE.format(case_info="\n".join(case_info_parts))
+def _build_system_prompt(case_dir: Path) -> str:
+    """Build the ReAct system prompt from the public case card."""
+    with open(case_dir / "card.public.yaml") as f:
+        card = yaml.safe_load(f)
+    return _SYSTEM_PROMPT_TEMPLATE.format(case_info=build_case_info(card))
 
 
 # ---------------------------------------------------------------------------

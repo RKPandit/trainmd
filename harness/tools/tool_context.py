@@ -26,6 +26,7 @@ class ToolCall:
     arguments: dict
     result: dict
     timestamp: float
+    phase: str | None = None  # e.g. "context_assembly" — metadata, not counting
 
 
 # ---------------------------------------------------------------------------
@@ -60,6 +61,7 @@ class ToolContext:
         self._call_count: int = 0
         self._submission_count: int = 0
         self._submission: dict | None = None
+        self._phase: str | None = None  # tags subsequent calls; does not affect counting
 
         # Tool function registry — populated by register_tool()
         self._tool_fns: dict[str, Callable] = {}
@@ -69,6 +71,15 @@ class ToolContext:
     def register_tool(self, name: str, fn: Callable) -> None:
         """Register a tool function.  ``fn(ctx, **kwargs) -> dict``."""
         self._tool_fns[name] = fn
+
+    def set_phase(self, phase: str | None) -> None:
+        """Tag subsequent tool calls with a phase label (metadata only).
+
+        Used by the static-context agent to mark its context-assembly reads
+        (``"context_assembly"``) so analysis can net them out of
+        investigation-effort comparisons.  Does NOT change budget/counting.
+        """
+        self._phase = phase
 
     # -- public API ---------------------------------------------------------
 
@@ -181,6 +192,7 @@ class ToolContext:
             arguments=arguments,
             result=result,
             timestamp=time.monotonic(),
+            phase=self._phase,
         )
         self._call_log.append(tc)
         self._call_count += 1
