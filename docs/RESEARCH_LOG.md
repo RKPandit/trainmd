@@ -163,17 +163,66 @@ minutes while the surprise is vivid beats an hour of reconstruction later.
 **Decided:** (a) never tolerate a red test — it was telling the truth; (b) a strength is valid only if it fails on **all** calibration seeds with margin (~2× reference std), not on one seed; (c) **nested flip sets** — one fixed permutation of indices from the data alone, flip the first ⌈p·N⌉ — so difficulty is monotone in p by construction; (d) cap severe below 0.50 (symmetric noise at 0.5 is zero information — a different, degenerate fault, not "corruption"); (e) tolerance is a property of the *clean* reference and is never widened to accommodate a marginal fault.
 **The finding:** Adult + a small MLP is robust to symmetric label noise — a fifth of the labels wrong produces under a one-point degradation. Label corruption on tabular data is therefore a genuinely *subtle* silent operator, nearly invisible in aggregate accuracy. That motivates per-class metrics and predicts the vision workload will be far more noise-sensitive — a testable claim.
 **Principle:** Calibrating a ladder on one seed is not calibration. Taken seriously, a single failing test yielded both a real property of the workload and an infrastructure improvement (nested sets) every fractional operator will inherit.
-**Lives in:** DECISIONS (margin-across-seeds rule; nested flip sets; label-noise robustness finding; tolerance never widened). Re-ladder pending sweep 2.
+**Resolution (three sweeps):** the operator *saturates* — 0.30–0.40 all land in a compressed ~0.82–0.83 band — then *destabilizes*: at 0.45 one seed collapses to the 0.756 majority baseline, and at **0.50 two seeds invert to 0.244 = 1 − 0.756** (the model learned the *inverted* labels: zero-information noise is a different, degenerate fault). Final ladder **0.33 / 0.38 / 0.42**, worst-seed hidden accuracy 0.833 / 0.819 / 0.808 — monotone, ≥ 5× reference std below tolerance on every seed, and safely on the corruption side of the 0.5 boundary. Implemented with nested prefix sets in a shared `datautil.py` (innocuously named, since it sits in the agent-visible workspace).
+**Lives in:** DECISIONS (margin-across-seeds rule; nested flip sets; label-noise robustness finding; tolerance never widened; the 0.50 inversion as the severe cap rationale).
 
 ---
 
-## Part VI — Standing lessons (the ones that keep recurring)
+## Part VI — The pre-sweep gate (Sep 11, 2026)
+
+### 20. Known-answer at scale — the first gate run
+
+Before spending a dollar on the sweep, we built the G1 gate: run an *oracle* (the exactly-correct
+answer), a *degenerate* (right recovery, wrong everything else), and an *always-broken* knob-scanner
+over every case, and assert what must hold if ground truth is right. Prediction logged before the
+run: the oracle passes everywhere; if it doesn't, ground truth — not the model — is wrong.
+
+First run (fast mode, 4 operators + 3 new healthy controls, 7 cases): **49 checks, 0 FAIL.** The
+oracle was exactly correct on every case and tier; the degenerate was strictly out-scored on
+identification and evidence on every faulty case and flagged as a false intervention on every
+control; the always-broken agent was caught by the controls (detection FPR = 1.0) and scored zero
+evidence everywhere. The impossible-combination audit over `results/` was likewise **0 FAIL**, with
+one INFO rule firing exactly as designed: 9 prior trials flagged as scored against a superseded
+build (the label_corruption re-ladder). A clean first table is not a boring result — it is the
+gate certifying that the ground truth the sweep will grade against is internally consistent.
+
+Three things this forced into existence, each of which had been latent:
+- **A healthy control tier.** Until now every case had a fault, so "false positive" and "false
+  intervention" were unmeasurable. Controls make over-eagerness a first-class, scored axis
+  (`no_unnecessary_repair`, `detection_false_positive_rate_on_controls`). The design bite: the
+  oracle can't read the same evidence file it is graded against, or a dropped ref mirrors on both
+  sides and hides — so the gate derives the oracle's evidence and class from the *operator* and the
+  repair from the *file*, which is what makes the planted-corruption tests actually catch drift.
+- **`oracle_repair()` as a protocol method.** The known-good fix was implicit; now it is declared,
+  admissibility-checked, and hidden-side only.
+- **A trusted/contestant boundary.** The probe agents read hidden ground truth, so `run_trial`
+  refuses them without `--allow-trusted` and aggregation excludes `trusted` records — a trusted
+  answer can never leak into a headline number by accident.
+
+Lesson: the gate's value is not the failures it finds on day one but that it converts "is the
+ground truth right?" from a hope into a command you can run for free before every sweep.
+
+
+### 21. The gate found nothing — and my prediction was wrong
+**Believed (pre-registered by the mentor, not the author):** the first mechanical audit of ground truth across seven cases would name at least one deviation — a subtly wrong evidence set or accepted-class gap — because every manual audit before it had found something.
+**Happened:** 49 checks, 0 FAIL. Nothing was wrong.
+**What that actually means:** the manual line-by-line audits over the preceding two weeks had already found and fixed every ground-truth defect the gate could see. Before this run the honest claim was "we checked by hand"; after it the claim is "every case's ground truth is mechanically certified by a gate proven non-hollow" — a categorically stronger statement, and one a reviewer accepts rather than probes. The wrong prediction is recorded on purpose: a log that only records confirmed predictions is not a log.
+**Also this week — the H6 control condition:** a static full-context baseline agent (one call, every artifact concatenated, read only through the sealed tool layer). Two design decisions worth keeping: (a) the shared prompt sections are *literal slices of the single ReAct template*, so the two agents cannot drift on anything but investigation mode — structural, not tested-into-existence; (b) context assembly that runs out of tool budget is a **hard fail** (no model call on partial context), because a static agent that silently saw half the log would score badly and be misread as "static context doesn't help" — the max_tokens lesson (entry 16) in a new place.
+**And a process failure worth recording:** entries 20 and 21 were briefly LOST — a stale downloaded copy of this file was `cp`'d over the live repo version, silently deleting a co-author's entry. Recovered from git history (`3fcf46f`). Lesson: a file two parties append to must be edited in place (append-only prompts to the coding agent), never replaced by a downloaded copy. Git made the loss recoverable; the workflow made it possible.
+**Principle:** When a defense is proven non-hollow by planted violations, a clean result is a *certification*, not an absence of evidence. And: pre-register your expectations even for infrastructure checks — being wrong about "the gate will find something" is itself informative.
+**Lives in:** DECISIONS (gate certification; static baseline as H6 control; hard-fail on partial context); docs/audits/known_answer_*.md.
+
+---
+
+## Part VII — Standing lessons (the ones that keep recurring)
 
 - **Prove it on hard cases before scaling.** Three operators, roughly a dozen real bugs, every one found on a single deliberate case for pennies instead of across a hundred. The instinct to build two more operators before the sweep was right.
 - **Each new kind of thing exercises an untested path.** Silent-easy → silent-hard → crash → misleading-symptom: each surfaced a gap the previous ones structurally could not. Expect the vision and text workloads to do the same.
 - **Convert every manual find into a machine check, then keep reading.** Tests guard what you thought of; audits find what you didn't.
 - **Enumerate legitimate answers by principle; never tune ground truth to the test-taker.** Applied to evidence, config artifacts, identification, and repairs alike.
 - **Plumbing before conclusions.** The `unknown_` print, the max_tokens cutoff, the stale index — each looked like a result until it was recognized as infrastructure.
+- **A clean gate is a certification, not silence.** Only when every check has a planted-violation test proving it can see. Then "0 FAIL" is a claim you can make in a paper.
+- **Never replace a shared file with a downloaded copy.** Append in place; git recovers what the workflow loses.
 - **Know when to stop building.** The paper lives in the sweep results, not the operator count. After ~6–7 operators, run the experiment.
 - **Plumbing masquerades as model failure in both directions.** It can silence a correct diagnosis (truncation) or mislabel one (an example string in a schema). Rule out the harness before interpreting any score — and log a prediction before each decisive run so the result can't be rationalized afterward.
 - **Never tolerate a red test.** Three times a "pre-existing" failure was the truth trying to get through. One seed is not evidence; one run is not a finding.
