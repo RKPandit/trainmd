@@ -46,6 +46,29 @@ make audit-index                # impossible-combination audit over results/inde
 `--fast` (default) skips recovery reruns; `--full` / `FULL=1` includes them. CI
 runs fast on push, full nightly. Audit tables land in `docs/audits/`.
 
+## Running a sweep
+
+`harness/sweep.py` orchestrates a full experiment. The plan file is the committed
+pre-registration; the run is precondition-gated, resumable, and cost-capped.
+
+```
+# 1. Plan (writes sweeps/<name>_plan.yaml). --build-missing generates absent cases.
+python -m harness.sweep plan --name sweep1 [--build-missing]
+# 2. Commit sweeps/sweep1_plan.yaml — it is the pre-registration.
+# 3. Paid agent phase (refuses unless gate/audit/validate green, plan committed,
+#    build_ids match, API key set). --max-cost-usd is REQUIRED.
+python -m harness.sweep run --name sweep1 --phase agents --max-cost-usd 20
+# 4. Free recovery phase (CPU only), after all agent trials.
+python -m harness.sweep run --name sweep1 --phase verify
+# 5. Report → docs/audits/sweep_<name>_<date>.md
+python -m harness.sweep report --name sweep1
+```
+
+Safety: a hard `--max-cost-usd` stops before exceeding the cap; `--max-consecutive-failures`
+(default 3) stops on a systemic failure; progress files make every phase resumable (a crash
+costs one trial). The tracked `sweeps/<name>_manifest.yaml` is the compute statement (hardware
+captured once + per-phase token/cost/CPU totals; `actual_spend_usd` entered manually at end).
+
 ## Current milestone
 
 **M2.1** — repo scaffold, tabular workload, reference-run protocol green in CI.

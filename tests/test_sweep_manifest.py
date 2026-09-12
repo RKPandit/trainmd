@@ -11,10 +11,12 @@ def test_manifest_has_estimated_and_actual_and_hardware_nulls():
     assert m["sweep_name"] == "sweep1"
     assert m["estimated_spend_usd"] == 18.0
     assert m["actual_spend_usd"] is None  # entered manually at sweep end
-    # Runner-filled slots default to null (never invented).
+    # Runner-filled hardware slots default to null (never invented).
     for slot in ("cpu_model", "cpu_cores", "ram_gb", "os", "uv_lock_hash", "git_commit"):
         assert m["hardware"][slot] is None
-    assert m["per_phase_totals"] is None
+    # Per-phase total blocks are present (filled by the runner at phase end).
+    assert m["agent_phase"]["trials"] == 0
+    assert m["verify_phase"]["reruns"] == 0
 
 
 def test_actual_spend_is_settable():

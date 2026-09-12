@@ -276,6 +276,10 @@ def main() -> int:
         help="LLM agent mode: react (tool loop) or static (one-shot full context)",
     )
     parser.add_argument(
+        "--anchor", type=str, default="on", choices=["on", "off"],
+        help="Reference-band anchor in the prompt: on (default) or off",
+    )
+    parser.add_argument(
         "--project-root", type=Path, default=None,
         help="Project root directory (default: auto-detect)",
     )
@@ -309,6 +313,7 @@ def main() -> int:
                 temperature=args.temperature,
                 max_response_tokens=args.max_response_tokens,
                 provider=args.provider,
+                anchor=args.anchor,
             )
         else:
             from agents.llm_agent import LLMAgent
@@ -319,11 +324,14 @@ def main() -> int:
                 max_turns=args.max_turns,
                 max_response_tokens=args.max_response_tokens,
                 provider=args.provider,
+                anchor=args.anchor,
             )
     else:
         agent = _load_agent(args.agent)
 
-    cli_conditions = {"agent_type": args.agent_type} if args.model else None
+    cli_conditions = (
+        {"agent_type": args.agent_type, "anchor": args.anchor} if args.model else None
+    )
     record = run_trial(
         agent, args.case, args.project_root, allow_trusted=args.allow_trusted,
         conditions=cli_conditions,

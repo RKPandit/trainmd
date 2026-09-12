@@ -320,25 +320,32 @@ def reference_band_line(card: dict) -> str | None:
     )
 
 
-def build_case_info(card: dict) -> str:
-    """The shared '## Case information' body (id, workload, description, band)."""
+def build_case_info(card: dict, include_band: bool = True) -> str:
+    """The shared '## Case information' body (id, workload, description, band).
+
+    ``include_band=False`` is the anchor=off condition — the numeric reference-band
+    line is omitted entirely.
+    """
     parts = [
         f"Case ID: {card.get('case_id', 'unknown')}",
         f"Workload: {card.get('workload_name', 'unknown')}",
     ]
     if "description" in card:
         parts.append(f"Description: {card['description']}")
-    band = reference_band_line(card)
-    if band:
-        parts.append(band)
+    if include_band:
+        band = reference_band_line(card)
+        if band:
+            parts.append(band)
     return "\n".join(parts)
 
 
-def _build_system_prompt(case_dir: Path) -> str:
+def _build_system_prompt(case_dir: Path, include_band: bool = True) -> str:
     """Build the ReAct system prompt from the public case card."""
     with open(case_dir / "card.public.yaml") as f:
         card = yaml.safe_load(f)
-    return _SYSTEM_PROMPT_TEMPLATE.format(case_info=build_case_info(card))
+    return _SYSTEM_PROMPT_TEMPLATE.format(
+        case_info=build_case_info(card, include_band=include_band),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -361,6 +368,7 @@ class LLMAgent:
         max_total_tokens: int = 200_000,
         max_response_tokens: int = 8192,
         provider: str = "anthropic",
+        anchor: str = "on",
     ) -> None:
         self._client = client
         self._model_id = model_id
@@ -369,6 +377,7 @@ class LLMAgent:
         self._max_total_tokens = max_total_tokens
         self._max_response_tokens = max_response_tokens
         self._provider = provider
+        self._anchor = anchor  # "on" includes the reference band; "off" omits it
         self._record: dict | None = None
 
     @property
@@ -391,12 +400,13 @@ class LLMAgent:
             })
 
         # 2. Build system prompt (record it + its hash + version)
-        system_prompt = _build_system_prompt(case_dir)
+        include_band = self._anchor == "on"
+        system_prompt = _build_system_prompt(case_dir, include_band=include_band)
         if self._record is not None:
             self._record["prompt"] = {
                 "system_prompt_text": system_prompt,
                 "prompt_hash": hashlib.sha256(system_prompt.encode()).hexdigest(),
-                "prompt_version": REACT_PROMPT_VERSION,
+                "prompt_version": REACT_PROMPT_VERSION + ("" if include_band else "-noanchor"),
             }
 
         # 3. Initialize messages

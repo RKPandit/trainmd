@@ -60,6 +60,7 @@ class StaticContextAgent:
         max_response_tokens: int = 8192,
         max_log_chars: int = 20000,
         provider: str = "anthropic",
+        anchor: str = "on",
     ) -> None:
         self._client = client
         self._model_id = model_id
@@ -67,6 +68,7 @@ class StaticContextAgent:
         self._max_response_tokens = max_response_tokens
         self._max_log_chars = max_log_chars
         self._provider = provider
+        self._anchor = anchor  # "on" includes the reference band; "off" omits it
         self._record: dict | None = None
 
     @property
@@ -154,7 +156,7 @@ class StaticContextAgent:
         return (
             _STATIC_INTRO
             + "\n\n## Case information\n\n"
-            + build_case_info(card)
+            + build_case_info(card, include_band=self._anchor == "on")
             + "\n\n"
             + HEALTHY_RUNS_TEXT
             + "\n\n"
@@ -227,7 +229,8 @@ class StaticContextAgent:
             self._record["prompt"] = {
                 "system_prompt_text": system_prompt,
                 "prompt_hash": hashlib.sha256(system_prompt.encode()).hexdigest(),
-                "prompt_version": STATIC_PROMPT_VERSION,
+                "prompt_version": STATIC_PROMPT_VERSION + (
+                    "" if self._anchor == "on" else "-noanchor"),
             }
         full = system_prompt + "\n\n" + user_message
         messages: list[dict] = [{"role": "user", "content": full}]
