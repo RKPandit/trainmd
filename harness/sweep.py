@@ -520,9 +520,11 @@ def report(project_root, name):
              f"records={len(records)} excluded_trusted={excluded['trusted']} "
              f"excluded_superseded={excluded['superseded']}", ""]
 
-    # aggregate per (operator, agent, anchor)
+    # aggregate per (operator, agent, anchor). The recovery column shows the
+    # recovery rate for faulty tiers and the no_unnecessary_repair rate for controls
+    # (their recovery axis) — NOT a spurious 0.0.
     lines += ["## Scores by (operator, agent, anchor)", "",
-              "| operator | agent | anchor | n | detection | identification | evidence_f1 | recovery |",
+              "| operator | agent | anchor | n | detection | identification | evidence_f1 | recovery/no_unnec |",
               "|---|---|---|---|---|---|---|---|"]
     groups = {}
     for r in records:
@@ -532,8 +534,15 @@ def report(project_root, name):
     for key in sorted(groups, key=lambda k: tuple(str(x) for x in k)):
         agg = aggregate_scores(groups[key])
         op, ag, an = key
+        if op and _tier_of(op) == "control":
+            nur = [s for s in groups[key]
+                   if (s.get("recovery") or {}).get("no_unnecessary_repair") is not None]
+            recov = (round(sum(1 for s in nur if s["recovery"]["no_unnecessary_repair"]) / len(nur), 4)
+                     if nur else 0.0)
+        else:
+            recov = agg["recovery_rate"]
         lines.append(f"| {op} | {ag} | {an} | {agg['n_trials']} | {agg['detection_accuracy']} | "
-                     f"{agg['identification_accuracy']} | {agg['evidence_mean_f1']} | {agg['recovery_rate']} |")
+                     f"{agg['identification_accuracy']} | {agg['evidence_mean_f1']} | {recov} |")
 
     lines += ["", "## Hypothesis metrics", "", "```", yaml.dump(hypothesis_metrics(records, registry),
                                                                 default_flow_style=False, sort_keys=False), "```"]
@@ -587,6 +596,48 @@ def hypothesis_metrics(records, registry) -> dict:
         neg = detect_rate(group(lambda r: op(r) in ("silent.lr_warmup.v1", "silent.label_corruption.v1") and anchor(r) == an))
         h1[an] = {"leakage_detection": leak, "negative_symptom_detection": neg}
 
+    # H2: detection rate vs sigma-distance, split by anchor. Restored — this block
+    # was previously missing from the generator, silently dropping H2 from reports.
+    # Per silent (dynamics-tier) case: sigma distances + symptom_direction from the
+    # hidden card, detection rate overall / by anchor / by agent. The anchor split is
+    # the load-bearing comparison (does the numeric reference band substitute for
+    # sigma sensitivity?), so it is reported per case and summarized per anchor.
+    h2_cases = []
+    silent = [r for r in records if _tier_of(op(r) or "") == "dynamics"]
+    by_case = {}
+    for r in silent:
+        by_case.setdefault(r.get("case_id"), []).append(r)
+    for cid in sorted(by_case, key=lambda c: str(c)):
+        rs = by_case[cid]
+        card = hc(cid)
+        h2_cases.append({
+            "case_id": cid,
+            "operator": op(rs[0]),
+            "strength": (rs[0].get("conditions") or {}).get("strength")
+                        or rs[0].get("strength"),
+            "visible_sigma_distance": card.get("visible_sigma_distance"),
+            "hidden_sigma_distance": card.get("hidden_sigma_distance"),
+            "symptom_direction": card.get("symptom_direction"),
+            "detection_rate": detect_rate(rs),
+            "detection_rate_anchor_on": detect_rate([r for r in rs if anchor(r) == "on"]),
+            "detection_rate_anchor_off": detect_rate([r for r in rs if anchor(r) == "off"]),
+            "detection_rate_react": detect_rate([r for r in rs if agent(r) == "react"]),
+            "detection_rate_static": detect_rate([r for r in rs if agent(r) == "static"]),
+        })
+    h2 = {
+        "by_case": h2_cases,
+        "by_anchor": {
+            an: {
+                "detection_rate": detect_rate([r for r in silent if anchor(r) == an]),
+                "n": len([r for r in silent if anchor(r) == an]),
+            }
+            for an in ("on", "off")
+        },
+        "note": ("detection anchor-off tracks symptom_direction, not sigma magnitude — "
+                 "see by_case (positive-symptom cases stay near floor even at large "
+                 "sigma_hidden when anchor is off)"),
+    }
+
     # H3: recovery_rate - identification_rate per operator (recovery from record.scores)
     h3 = {}
     for o in sorted({op(r) for r in records if op(r)}):
@@ -629,6 +680,7 @@ def hypothesis_metrics(records, registry) -> dict:
 
     return {
         "H1_positive_symptom_blindness": h1,
+        "H2_detection_vs_sigma_by_anchor": h2,
         "H3_doing_understanding_gap": h3,
         "H4_repeat_agreement": h4,
         "H6_tools_vs_static": h6,
