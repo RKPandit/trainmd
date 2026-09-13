@@ -82,13 +82,17 @@ jobs:
       - run: make docker-data
       - name: Regenerate reference and assert it matches the committed canonical (BLOCKING)
         run: |
+          # Snapshot the committed reference OUTSIDE the repo, then mount it into
+          # the container (the container only sees /work, not the runner's /tmp).
           cp workloads/tabular_adult/reference/stats.yaml /tmp/stats_committed.yaml
           make docker-reference
           # The committed reference is the verified canonical (byte-identical
           # across two independent native runners AND identical to the original
           # macOS file once threading is pinned). Any drift now fails the build.
-          docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
-            python scripts/verify_reference.py /tmp/stats_committed.yaml \
+          docker run --rm --platform linux/amd64 \
+            -v "$PWD":/work -v /tmp/stats_committed.yaml:/committed.yaml:ro -w /work \
+            trainmd:canonical \
+            python scripts/verify_reference.py /committed.yaml \
             workloads/tabular_adult/reference/stats.yaml
           git checkout -- workloads/tabular_adult/reference/stats.yaml
       - name: Full test suite incl. slow (in container)
