@@ -45,6 +45,42 @@ def _normalize_class(name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Root-token identification (method "root_token_v1")
+# ---------------------------------------------------------------------------
+
+IDENTIFICATION_METHOD = "root_token_v1"
+
+# Stems this length or shorter match a WHOLE token only (guards against
+# substring bleed, e.g. "lr"/"dim"); longer stems match as a substring so
+# "leak"⊂"leakage" and "nois"⊂"noisy".
+_SHORT_STEM_MAX_LEN = 3
+
+
+def _stem_matches(stem: str, tokens: set[str], normalized_full: str) -> bool:
+    if len(stem) <= _SHORT_STEM_MAX_LEN:
+        return stem in tokens
+    return stem in normalized_full
+
+
+def _operator_matches(normalized_pred: str, groups: list) -> bool:
+    """A normalized label satisfies an operator iff EVERY group matches
+    (AND across groups); a group matches if ANY stem matches (OR within)."""
+    tokens = set(normalized_pred.split("_"))
+    return all(
+        any(_stem_matches(stem, tokens, normalized_pred) for stem in group)
+        for group in groups
+    )
+
+
+def _matched_operators(normalized_pred: str, specs: dict) -> list[str]:
+    """Every operator whose core-token spec the label satisfies."""
+    return sorted(
+        op_id for op_id, groups in specs.items()
+        if groups and _operator_matches(normalized_pred, groups)
+    )
+
+
+# ---------------------------------------------------------------------------
 # Evidence matching
 # ---------------------------------------------------------------------------
 
@@ -203,27 +239,57 @@ def _score_no_unnecessary_repair(submission: dict | None) -> dict:
 def score_identification(submission: dict, hidden_card: dict) -> dict:
     """Axis 2: Did the agent identify the correct operator class?
 
-    Matches the agent's predicted class against the operator's accepted
-    class set (written into ``card.hidden.yaml`` at case-build time).
-    Normalises case and separators before comparing.
+    Two-path match (method ``root_token_v1``), both normalised (lowercase,
+    separators→``_``):
+
+    1. EXACT path — normalized predicted ∈ the operator's ``accepted_classes``.
+    2. TOKEN path — the label satisfies the target operator's principled
+       ``core_tokens`` AND the target is the UNIQUE operator it satisfies (a
+       label naming two faults, e.g. ``lr_and_leakage``, matches two operators
+       and is rejected; ``none`` on a faulty case matches only control and is
+       rejected).
+
+    Token spec + absent-when-clean semantics are resolved from the operator
+    CODE at score time (single source of truth), so the result records
+    ``method`` and ``token_spec_sha256`` for reproducibility.
     """
+    from operators.registry import core_token_specs, token_spec_sha256
+
     predicted_class = submission["diagnosis"]["operator_class"]
     accepted = hidden_card.get("accepted_classes", [])
+    operator_id = hidden_card.get("operator_id")
+    normalized_predicted = _normalize_class(predicted_class)
 
     result: dict = {
         "predicted_class": predicted_class,
         "accepted_classes": accepted,
+        "method": IDENTIFICATION_METHOD,
+        "token_spec_sha256": token_spec_sha256(),
     }
 
-    if not accepted:
-        # Guard: flag missing accepted_classes so it's visible in results
-        result["correct"] = False
-        result["accepted_classes_missing"] = True
-        return result
-
+    # Path 1: exact membership (preserves oracle + hand-listed synonyms).
     normalized_accepted = {_normalize_class(c) for c in accepted}
-    normalized_predicted = _normalize_class(predicted_class)
-    result["correct"] = normalized_predicted in normalized_accepted
+    exact = normalized_predicted in normalized_accepted
+
+    # Path 2: principled root-token match with single-operator uniqueness.
+    specs = core_token_specs()
+    matched = _matched_operators(normalized_predicted, specs)
+    result["matched_operators"] = matched
+    token_correct = (
+        operator_id in matched and len(matched) == 1
+    )
+
+    if exact:
+        result["match_path"] = "exact"
+    elif token_correct:
+        result["match_path"] = "token"
+    else:
+        result["match_path"] = "none"
+
+    if not accepted:
+        result["accepted_classes_missing"] = True
+
+    result["correct"] = bool(exact or token_correct)
     return result
 
 

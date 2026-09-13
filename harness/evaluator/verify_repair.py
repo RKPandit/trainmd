@@ -82,6 +82,31 @@ def _set_nested(d: dict, key_path: str, value: Any) -> None:
     d[keys[-1]] = value
 
 
+def _unset_nested(d: dict, key_path: str) -> None:
+    """Delete a dot-separated key from a nested dict (no-op if absent).
+
+    Implements the "unset" repair for absent-when-clean keys: after the
+    operator mutation has injected the key, deleting it restores the clean
+    config so the workload derives its default value — oracle-equivalent to
+    patching the reference value.
+
+    >>> d = {"model": {"input_dim": 50, "hidden": 64}}
+    >>> _unset_nested(d, "model.input_dim")
+    >>> d
+    {'model': {'hidden': 64}}
+    >>> _unset_nested(d, "model.input_dim")  # already gone → no-op
+    >>> d
+    {'model': {'hidden': 64}}
+    """
+    keys = key_path.split(".")
+    for k in keys[:-1]:
+        nxt = d.get(k)
+        if not isinstance(nxt, dict):
+            return  # parent section absent → nothing to unset
+        d = nxt
+    d.pop(keys[-1], None)
+
+
 def _generate_run_id() -> str:
     """Generate a unique run ID from UTC timestamp + 6-char uuid4."""
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -218,7 +243,21 @@ def verify_repair(
             _write_result(project_root, result, trial_run_id=trial_run_id)
         return result
 
-    validation = validate_repair(submission, verify)
+    # Absent-when-clean keys resolved from the operator CODE (single source of
+    # truth), so existing sealed cases gain "unset" support without a card edit.
+    try:
+        from operators.registry import get_operator
+
+        absent_when_clean_keys = list(
+            get_operator(hidden_card["operator_id"]).admissible_repairs().absent_when_clean_keys
+        )
+    except Exception:
+        # Fall back to any inline declaration on the verify file.
+        absent_when_clean_keys = verify.get("admissible_repairs", {}).get(
+            "absent_when_clean_keys", []
+        )
+
+    validation = validate_repair(submission, verify, absent_when_clean_keys)
     if not validation.valid:
         result = _make_result(
             case_id, run_id, "rejected",
@@ -252,9 +291,14 @@ def verify_repair(
         for mutation in hidden_card["mutations"]:
             _set_nested(config, mutation["key_path"], mutation["mutated_value"])
 
-        # Step 4b: Apply the repair patch on top
+        # Step 4b: Apply the repair patch on top.  A null value on an
+        # absent-when-clean key is an "unset": delete the injected key so the
+        # workload derives its clean default (oracle-equivalent to the value).
         for key_path, new_value in submission.patches.items():
-            _set_nested(config, key_path, new_value)
+            if new_value is None and key_path in set(absent_when_clean_keys):
+                _unset_nested(config, key_path)
+            else:
+                _set_nested(config, key_path, new_value)
 
         with open(config_path, "w") as f:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False)

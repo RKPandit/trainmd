@@ -109,6 +109,7 @@ def parse_repair_spec(raw: Any) -> RepairSubmission:
 def validate_repair(
     spec: RepairSubmission,
     verify: dict,
+    absent_when_clean_keys: list[str] | None = None,
 ) -> ValidationResult:
     """Validate a parsed repair spec against a case's admissible_repairs.
 
@@ -131,6 +132,13 @@ def validate_repair(
     codes: list[str] = []
     details: list[str] = []
 
+    # Absent-when-clean keys accept a null "unset" value.  Resolved from the
+    # operator (single source of truth); fall back to the admissible schema for
+    # forward-built cases that carry it inline.
+    if absent_when_clean_keys is None:
+        absent_when_clean_keys = admissible.get("absent_when_clean_keys", [])
+    absent_keys = set(absent_when_clean_keys)
+
     # Check repair type
     if spec.repair_type != admissible["repair_type"]:
         codes.append(REPAIR_TYPE_UNSUPPORTED)
@@ -151,6 +159,19 @@ def validate_repair(
                 f"Key {key!r} not in allowed_keys {sorted(allowed_keys)}"
             )
             continue  # skip value check for disallowed keys
+
+        # Null = "unset" directive: valid ONLY on a declared absent-when-clean
+        # key (the evaluator deletes the key so the workload derives its clean
+        # default).  Null on any other key stays a type error.
+        if value is None:
+            if key in absent_keys:
+                continue  # valid unset; no value checks apply
+            codes.append(VALUE_TYPE_INVALID)
+            details.append(
+                f"Value for {key!r} is null but {key!r} is not an "
+                f"absent-when-clean key; null (unset) not allowed"
+            )
+            continue
 
         # Value check: numeric range (value_ranges) or discrete set (allowed_values)
         if key in value_ranges:

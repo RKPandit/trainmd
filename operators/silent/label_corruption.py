@@ -179,9 +179,11 @@ class LabelCorruptionOperator:
             repair_type="config_patch",
             allowed_keys=["data.label_noise_fraction"],
             value_ranges={"data.label_noise_fraction": (0.0, 0.02)},
+            # Absent in clean config; unset ≡ the clean default 0.0.
+            absent_when_clean_keys=["data.label_noise_fraction"],
             description=(
-                "Patch data.label_noise_fraction to a value in [0.0, 0.02]. "
-                "The reference value is 0.0."
+                "Patch data.label_noise_fraction to a value in [0.0, 0.02] "
+                "(reference 0.0), or null to unset it (delete the injected key)."
             ),
         )
 
@@ -190,6 +192,19 @@ class LabelCorruptionOperator:
         return frozenset({
             "label_corruption", "data_corruption", "label_noise", "noisy_labels",
         })
+
+    def core_tokens(self) -> list[frozenset[str]]:
+        """Concept = corrupted/noisy LABELS: {label} AND a corruption verb.
+
+        Requires the CONCEPT word ``label`` plus a corruption stem so that a
+        bare ``data_corruption`` (no label) or a bare ``noise`` does not match
+        the token path (both remain reachable via accepted_classes).  ``nois``
+        covers both ``noise`` and ``noisy``.
+        """
+        return [
+            frozenset({"label"}),
+            frozenset({"nois", "corrupt", "flip", "wrong", "incorrect", "mislabel"}),
+        ]
 
     def oracle_repair(self) -> dict:
         """Reference-restoring repair: set the label noise fraction back to 0.0."""

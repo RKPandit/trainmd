@@ -162,9 +162,11 @@ class DataLeakageOperator:
             repair_type="config_patch",
             allowed_keys=["data.include_aux_feature"],
             allowed_values={"data.include_aux_feature": [False]},
+            # Absent in clean config; unset ≡ the clean default (feature off).
+            absent_when_clean_keys=["data.include_aux_feature"],
             description=(
                 "Set data.include_aux_feature to false to disable the "
-                "auxiliary feature."
+                "auxiliary feature, or null to unset it (delete the injected key)."
             ),
         )
 
@@ -175,6 +177,16 @@ class DataLeakageOperator:
             "label_leakage", "information_leakage", "train_test_leakage",
             "data_contamination", "leaky_feature",
         })
+
+    def core_tokens(self) -> list[frozenset[str]]:
+        """Concept = leakage.  ``leak`` covers leak/leakage/leaky.
+
+        Deliberately NOT satisfied by mechanism-only labels that name the knob
+        (``aux_feature_enabled``, ``aux_feature_too_strong``) without the
+        concept: identification scores the fault CONCEPT; naming the knob is
+        what the EVIDENCE axis credits.  See docs/DECISIONS.md.
+        """
+        return [frozenset({"leak"})]
 
     def oracle_repair(self) -> dict:
         """Reference-restoring repair: disable the leaked auxiliary feature."""

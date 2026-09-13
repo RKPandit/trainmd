@@ -151,10 +151,13 @@ class ShapeMismatchOperator:
             repair_type="config_patch",
             allowed_keys=["model.input_dim"],
             value_ranges={"model.input_dim": (90, 120)},
+            # Absent in clean config; unset ≡ letting the model derive 105.
+            absent_when_clean_keys=["model.input_dim"],
             description=(
-                "Patch model.input_dim to a value in [90, 120]. "
-                "The correct value is 105 (derived from data). "
-                "Only exactly 105 avoids shape mismatch."
+                "Patch model.input_dim to a value in [90, 120] (correct 105, "
+                "derived from data), or null to unset it (delete the injected "
+                "override so the model derives the dimension). "
+                "Only 105 — or unset — avoids shape mismatch."
             ),
         )
 
@@ -169,6 +172,10 @@ class ShapeMismatchOperator:
             "input_dim_mismatch", "tensor_shape_error", "model_shape_error",
             "shape_error", "dimension_error",
         })
+
+    def core_tokens(self) -> list[frozenset[str]]:
+        """Concept = a shape/dimension mismatch."""
+        return [frozenset({"shape", "dimension", "dim", "input_dim"})]
 
     def oracle_repair(self) -> dict:
         """Reference-restoring repair: set input_dim to the correct value (105)."""

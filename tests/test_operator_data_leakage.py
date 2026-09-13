@@ -459,11 +459,13 @@ def test_validate_repair_allowed_values_rejects_true():
     assert "VALUE_OUT_OF_RANGE" in result.reason_codes
 
 
-@pytest.mark.parametrize("bad_value", [0, 0.0, "false", None])
+@pytest.mark.parametrize("bad_value", [0, 0.0, "false"])
 def test_validate_repair_type_safety(bad_value):
-    """Type-unsafe values (0, 0.0, 'false', None) must be rejected.
+    """Type-unsafe values (0, 0.0, 'false') must be rejected.
 
-    Python treats 0 == False, so naive `in` check would accept 0.
+    Python treats 0 == False, so naive `in` check would accept 0.  ``None`` is
+    NOT here: on ``data.include_aux_feature`` (an absent-when-clean key) null is
+    a valid "unset" directive, covered by ``test_null_unsets_absent_when_clean``.
     """
     import dataclasses
     from harness.evaluator.repair_spec import parse_repair_spec, validate_repair
@@ -484,6 +486,24 @@ def test_validate_repair_type_safety(bad_value):
         f"Expected rejection for {bad_value!r} (type {type(bad_value).__name__}), "
         f"but got valid"
     )
+
+
+def test_null_unsets_absent_when_clean():
+    """null on data.include_aux_feature is a valid unset (delete the injected key)."""
+    import dataclasses
+    from harness.evaluator.repair_spec import parse_repair_spec, validate_repair
+
+    op = DataLeakageOperator()
+    verify = {"admissible_repairs": _yaml_roundtrip(
+        dataclasses.asdict(op.admissible_repairs()))}
+    spec = parse_repair_spec({
+        "repair_type": "config_patch",
+        "patches": {"data.include_aux_feature": None},
+    })
+    result = validate_repair(
+        spec, verify, op.admissible_repairs().absent_when_clean_keys,
+    )
+    assert result.valid, result.reason_codes
 
 
 def test_lr_repair_rejected():

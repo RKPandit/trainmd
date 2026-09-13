@@ -245,5 +245,56 @@ benchmark already claims to make, which is why it is the only second agent in Sw
 
 ## Results (appended after Sweep 1 — do not edit above this line)
 
-_(empty — to be filled with the dated sweep table and, per hypothesis, confirmed /
-refuted / inconclusive with the measured metric.)_
+### Post-hoc scoring corrections
+
+Two Sweep-1 results were **scoring/schema artifacts, not model behaviour**, found in
+the diagnostics pass and corrected here **by principle** (never by copying observed model
+strings). Both are disclosed; the **original numbers are kept alongside the corrected ones**
+in the sweep report and diagnostics. Corrections re-score a free axis / re-verify via the
+standard evaluator; ground truth is unchanged. Each corrected record carries an audit trail
+(`method`, `token_spec_sha256`) and preserves its pre-correction result
+(`identification_original`). See docs/DECISIONS.md (2026-09-13) for the full judgment log.
+
+**Correction 1 — identification (root-token match, `root_token_v1`).** Membership against an
+enumerated `accepted_classes` scored correct synonyms (`excessive_learning_rate`,
+`auxiliary_feature_leakage`, `excessive_label_noise`) as wrong, driving identification to
+≈0 on all three silent operators. Fixed: each operator declares principled `core_tokens`
+(defined from the fault's meaning); a label is credited iff it matches the target operator and
+is the **unique** operator matched (so `lr_and_leakage` and `none`-on-faulty are rejected). The
+exact path is retained. Resolved from operator code — no sealed card edited, nothing superseded.
+
+**Correction 2 — shape recovery (unset repairs).** shape_mismatch/data_leakage/label_corruption
+each inject a key absent in the clean config; an agent proposing `null` ("remove the override")
+was rejected `VALUE_TYPE_INVALID` although deleting the key is **oracle-equivalent** to the
+reference value (verified to recover identically on hidden seeds for all three). Fixed: operators
+declare `absent_when_clean_keys`; the validator accepts `null` only on those; the evaluator
+deletes the key before rerun.
+
+**Axes / hypotheses this TOUCHES:** identification only → **H3** (doing/understanding gap: the
+recovery−identification comparison) and **H4** (repeat agreement on identification). Shape
+recovery re-verify touches the shape operator's recovery only.
+
+**Axes / hypotheses this DOES NOT touch:** detection, evidence, and recovery on non-shape
+operators are unchanged → **H1** (positive-symptom blindness), **H6** (tools vs static),
+**controls** (detection FPR / false-intervention), and **H2** (detection vs σ) are all
+**unchanged**. H2's numbers do not move.
+
+**Amendments recorded (A–E):**
+- **A.** The previously-not-recovered shape trials are split into *unexpressible-but-correct*
+  (`input_dim=null` → re-verified) vs *no-repair-proposed* (genuine model failure, stands
+  not-recovered); both are shown with the corrected recovery rate.
+- **B.** Identification judgment: root-token **accepts** `missing_lr_schedule` (concept = the
+  learning rate) and **rejects** `insufficient_regularization`, `seed_mismatch`, and cross-fault
+  labels; the accepted fraction of observed strings per operator is reported as validation.
+- **C.** H2 is a **two-mechanism** result: detection is **monotone in σ within negative-symptom
+  faults** (~0.5 at σ≈10–18, ~1.0 by σ≈44) and **floored regardless of σ for positive-symptom
+  faults** (0–0.33 up to σ=64). (Not "does not track σ".)
+- **D.** **lr_warmup ladder saturation** (limitation): cases 0001/0024/0025/0026/0027 share
+  identical σ (68.6/44.6); only 0023 differs, so lr_warmup contributes ~1 effect-size point and
+  leaves an H2 x-axis gap between σ≈18 and σ≈44. Sweep-2: recalibrate mild toward the tolerance
+  edge.
+- **E.** **Controls FP framing:** a 2σ band has a structural ~5% out-of-band floor by
+  construction; the 4 FPs are separated into band-edge misreads vs true out-of-band healthy runs.
+  A **3σ band** is added to the Sweep-2 pre-registration candidates. The band is **not** changed now.
+
+_(Per-hypothesis H1–H6 results table to follow — filled with the dated sweep numbers.)_

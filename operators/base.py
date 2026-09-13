@@ -66,6 +66,12 @@ class RepairSpecSchema:
     value_ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
     allowed_values: dict[str, list[Any]] = field(default_factory=dict)
     allowed_paths: list[str] = field(default_factory=list)
+    # Keys that are ABSENT in the clean config (the operator injects them).  A
+    # repair patch of ``null`` on such a key is an "unset" directive: the
+    # evaluator deletes the key so the workload derives its clean default,
+    # which is oracle-equivalent to restoring the reference value.  ``null`` on
+    # any other key stays a VALUE_TYPE_INVALID rejection.
+    absent_when_clean_keys: list[str] = field(default_factory=list)
     description: str = ""
 
 
@@ -108,7 +114,25 @@ class IncidentOperator(Protocol):
         Scoring normalises case and separators (``-``/``_``/`` ``) before
         comparing the agent's predicted class against this set.  Include
         all synonyms an agent might reasonably use to name this fault
-        category.
+        category.  This is the EXACT-match path; the token path below is the
+        principled generalisation.
+        """
+        ...
+
+    def core_tokens(self) -> list[frozenset[str]]:
+        """Root-token spec for principled identification (``root_token_v1``).
+
+        A list of *groups*; a normalised predicted class satisfies this
+        operator iff EVERY group is matched (AND across groups), where a group
+        is matched if ANY of its stems matches (OR within a group).  Stems of
+        length ≤ 3 (e.g. ``lr``, ``dim``) match a whole token only; longer
+        stems (e.g. ``leak``, ``nois``) match as a substring, so
+        ``leak``⊂``leakage`` and ``nois``⊂``noisy``.
+
+        Defined from the fault's MEANING, never by copying observed model
+        output.  Identification is credited only when the target operator is
+        the UNIQUE operator matched (a label naming two faults matches two
+        operators and is rejected).  See docs/DECISIONS.md.
         """
         ...
 

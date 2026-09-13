@@ -58,6 +58,56 @@ SAMPLE_VERIFY = {
 # Fast tests — _set_nested (mutation replay / repair-patch applier)
 # ==========================================================================
 
+class TestUnsetNested:
+    """_unset_nested deletes an injected key so the workload derives its default."""
+
+    def test_deletes_leaf(self):
+        from harness.evaluator.verify_repair import _unset_nested
+        d = {"model": {"input_dim": 50, "hidden": 64}}
+        _unset_nested(d, "model.input_dim")
+        assert d == {"model": {"hidden": 64}}
+
+    def test_absent_leaf_is_noop(self):
+        from harness.evaluator.verify_repair import _unset_nested
+        d = {"model": {"hidden": 64}}
+        _unset_nested(d, "model.input_dim")
+        assert d == {"model": {"hidden": 64}}
+
+    def test_absent_parent_is_noop(self):
+        from harness.evaluator.verify_repair import _unset_nested
+        d = {"training": {"lr": 0.01}}
+        _unset_nested(d, "model.input_dim")
+        assert d == {"training": {"lr": 0.01}}
+
+
+class TestNullUnsetValidation:
+    """null value validates ONLY on a declared absent-when-clean key."""
+
+    _VERIFY = {
+        "admissible_repairs": {
+            "repair_type": "config_patch",
+            "allowed_keys": ["model.input_dim"],
+            "value_ranges": {"model.input_dim": [90, 120]},
+        }
+    }
+
+    def test_null_on_absent_when_clean_key_valid(self):
+        spec = parse_repair_spec(
+            {"repair_type": "config_patch", "patches": {"model.input_dim": None}}
+        )
+        result = validate_repair(spec, self._VERIFY, ["model.input_dim"])
+        assert result.valid is True
+        assert result.reason_codes == []
+
+    def test_null_on_normal_key_type_invalid(self):
+        spec = parse_repair_spec(
+            {"repair_type": "config_patch", "patches": {"model.input_dim": None}}
+        )
+        result = validate_repair(spec, self._VERIFY, [])  # not absent-when-clean
+        assert result.valid is False
+        assert VALUE_TYPE_INVALID in result.reason_codes
+
+
 class TestSetNested:
     """_set_nested must create missing parent sections (absent-when-clean)."""
 

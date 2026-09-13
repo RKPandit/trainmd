@@ -18,6 +18,82 @@ Read-only over 324 sweep1 trials. No scores or ground truth modified.
 H2 restored to `hypothesis_metrics()` (was silently omitted); control-tier group column
 in `report()` now shows `no_unnecessary_repair` instead of a hardcoded 0.0.
 
+---
+
+## POST-HOC CORRECTIONS APPLIED — 2026-09-13 (disclosed, principle-based)
+
+The Q1 and Q2 artifacts below were **corrected by principle** (see docs/DECISIONS.md and
+HYPOTHESES "Post-hoc scoring corrections"). Ground truth was not edited. Original numbers are
+kept (the tables further down are the pre-correction diagnostics; the corrected numbers follow).
+
+### Q1 → corrected: root-token identification (`root_token_v1`)
+
+Re-scored the free identification axis for all trials via root-token matching + single-operator
+uniqueness (resolved from operator code; audit trail `method`/`token_spec_sha256` per record;
+prior result preserved as `identification_original`). **190 trials flipped wrong→correct, 0
+correct→wrong.**
+
+**Validation — fraction of the OBSERVED Sweep-1 strings the principled rule accepts** (this is
+validation, not design; the token sets were defined from each fault's meaning):
+
+| operator | n (submitting) | accepted | fraction | examples newly accepted via token path |
+|---|---|---|---|---|
+| lr_warmup | 71 | 67 | 0.944 | excessive_learning_rate×36, learning_rate_too_high×18 |
+| label_corruption | 72 | 46 | 0.639 | excessive_label_noise×23, label_noise_injection×5 |
+| data_leakage | 71 | 31 | 0.437 | label_leakage_via_aux_feature×8, auxiliary_feature_leakage×8 |
+| shape_mismatch | 72 | 71 | 0.986 | input_dimension_mismatch×18, config_input_dim_mismatch×12 |
+| control | 36 | 32 | 0.889 | (exact `none`/healthy; 4 misses are the anchor-on FPs) |
+
+The residual misses are **genuine**, not coverage gaps: label_corruption/data_leakage misses are
+mostly the `none` non-detections plus (leakage) **mechanism-only** labels naming the knob without
+the concept — `aux_feature_enabled`, `aux_feature_too_strong`, `aux_feature_signal_injection`,
+`aux_feature_strength_too_high` — which are identification MISSES by design (the concept is
+*leakage*; naming the knob is credited on the EVIDENCE axis, not identification). See DECISIONS
+judgment log. lr_warmup's 4 misses include `insufficient_regularization` (a different mechanism),
+correctly rejected; `missing_lr_schedule` is accepted (concept = the learning rate).
+
+### Q2 → corrected: "unset" repairs for absent-when-clean keys (amendment A split)
+
+Of the 72 shape_mismatch trials, the previously-not-recovered set splits into:
+
+| category | n | disposition |
+|---|---|---|
+| recovered (input_dim=105) | 25 | already recovered — unchanged |
+| **unexpressible-but-correct** (patch `model.input_dim: null`) | 29 | re-verified with unset support (delete the injected override → model derives 105, oracle-equivalent) |
+| no repair proposed (empty/malformed) | 16 | genuine model failure — stands not-recovered |
+| other (disallowed key, e.g. `model={...}`) | 2 | stands not-recovered |
+
+Haiku's "remove the override" (`input_dim: null`) was the **more faithful** repair than guessing
+the literal 105. Re-verifying the 29 unexpressible trials via the standard evaluator path (unset →
+delete the override): **29/29 recovered, 0 still rejected** on the hidden seeds — confirming
+oracle-equivalence in practice. **Corrected shape recovery = (25 + 29) / 72 = 54/72 = 0.750**
+(original 25/72 = 0.347, kept). The 18 remaining (16 no-repair + 2 disallowed-key) are **genuine
+model failures** that correctly stand as not-recovered.
+
+### Downstream: H3 (doing/understanding) and H4 (reliability) — both kept
+
+The identification correction touches **H3** and **H4** only (detection, evidence, controls, H2 are
+untouched). Corrected numbers are in the regenerated `sweep_sweep1_2026-09-13.md`
+(`identification_rate` + `identification_rate_original`; `mean_repeat_agreement` 0.7037 → 0.8241).
+Per-operator H4 (3-repeat agreement on detect+identify), original vs corrected:
+
+| operator | H4 agreement original | H4 agreement corrected |
+|---|---|---|
+| control | 0.75 | 0.75 |
+| data_leakage | 0.833 | 0.708 |
+| label_corruption | 0.833 | 0.833 |
+| lr_warmup | 0.917 | 0.833 |
+| shape_mismatch | 0.208 | 0.958 |
+
+Two real effects the artifact had masked: **shape_mismatch id agreement jumps 0.21 → 0.96** (the low
+value was entirely the enumerated-set artifact, not instability); **data_leakage dips 0.83 → 0.71**
+(now that leakage labels are credited, the model's identification of leakage is genuinely less
+*consistent* across repeats than the all-miss artifact made it look — a true reliability finding,
+not noise). H3's doing/understanding gap shrinks wherever identification rose (e.g. lr_warmup id
+0.0 → 0.944 against recovery ~0.83).
+
+---
+
 ## 1. Identification = 0.0 on silent operators — what the model actually wrote
 
 ### lr_warmup (71 trials) — accepted (normalized): `['learning_rate', 'lr_misconfiguration', 'lr_too_high', 'lr_warmup']`

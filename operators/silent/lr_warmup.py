@@ -163,6 +163,10 @@ class LrWarmupOperator:
             "lr_misconfiguration", "learning_rate", "lr_too_high", "lr_warmup",
         })
 
+    def core_tokens(self) -> list[frozenset[str]]:
+        """Concept = the learning rate.  Any label naming it qualifies."""
+        return [frozenset({"learning_rate", "lr"})]
+
     def oracle_repair(self) -> dict:
         """Reference-restoring repair: reset the learning rate to 0.01."""
         return {"repair_type": "config_patch", "patches": {"training.lr": 0.01}}

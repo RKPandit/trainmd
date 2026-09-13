@@ -492,6 +492,59 @@ def _find_record(project_root, run_id):
 # report
 # ---------------------------------------------------------------------------
 
+def _post_hoc_corrections_section(records) -> list:
+    """Disclosure header + original-vs-corrected identification table.
+
+    Both numbers are KEPT: the corrected identification comes from
+    scores.identification (method root_token_v1); the original from the
+    preserved scores.identification_original written by the re-score.
+    """
+    def _id_rate(recs, field):
+        vals = [((r.get("scores") or {}).get(field) or {}) for r in recs]
+        vals = [v for v in vals if "correct" in v]
+        return round(sum(1 for v in vals if v["correct"]) / len(vals), 4) if vals else None
+
+    by_op = {}
+    for r in records:
+        by_op.setdefault(r.get("_operator"), []).append(r)
+
+    has_original = any(
+        "identification_original" in (r.get("scores") or {}) for r in records
+    )
+
+    lines = [
+        "## Post-hoc scoring corrections",
+        "",
+        "Two Sweep-1 results were scoring/schema **artifacts, not model behaviour**, "
+        "corrected by principle and disclosed (see docs/DECISIONS.md, 2026-09-13). "
+        "Original numbers are kept alongside corrected.",
+        "",
+        "- **Identification** re-scored with root-token matching (`root_token_v1`): "
+        "correct synonyms outside the enumerated `accepted_classes` now credited; "
+        "two-fault / `none`-on-faulty rejected. Touches **H3, H4** only.",
+        "- **Shape recovery**: `null` = unset an absent-when-clean key "
+        "(oracle-equivalent to the reference value). Touches the shape recovery axis only.",
+        "- **Unchanged:** detection, evidence, recovery on non-shape ops → "
+        "**H1, H2, H6, controls**.",
+        "",
+    ]
+    if has_original:
+        lines += [
+            "### Identification: original vs corrected (per operator)",
+            "",
+            "| operator | n | identification_original | identification_corrected |",
+            "|---|---|---|---|",
+        ]
+        for op in sorted(by_op, key=lambda x: str(x)):
+            recs = by_op[op]
+            lines.append(
+                f"| {op} | {len(recs)} | {_id_rate(recs, 'identification_original')} "
+                f"| {_id_rate(recs, 'identification')} |"
+            )
+        lines.append("")
+    return lines
+
+
 def report(project_root, name):
     """Aggregate scores + H1-H6 metrics; write a markdown table."""
     from harness.scoring import aggregate_scores
@@ -519,6 +572,8 @@ def report(project_root, name):
     lines = [f"# Sweep {name} — {date.today().isoformat()}", "",
              f"records={len(records)} excluded_trusted={excluded['trusted']} "
              f"excluded_superseded={excluded['superseded']}", ""]
+
+    lines += _post_hoc_corrections_section(records)
 
     # aggregate per (operator, agent, anchor). The recovery column shows the
     # recovery rate for faulty tiers and the no_unnecessary_repair rate for controls
@@ -581,9 +636,14 @@ def hypothesis_metrics(records, registry) -> dict:
             return None
         return round(sum(1 for r in rs if r["scores"]["detection"]["correct"]) / len(rs), 4)
 
-    def id_rate(rs):
-        rs = [r for r in rs if (r.get("scores") or {}).get("identification")]
-        return round(sum(1 for r in rs if r["scores"]["identification"]["correct"]) / len(rs), 4) if rs else None
+    def id_rate(rs, field="identification"):
+        rs = [r for r in rs if (r.get("scores") or {}).get(field)]
+        return round(sum(1 for r in rs if r["scores"][field]["correct"]) / len(rs), 4) if rs else None
+
+    # Whether a preserved pre-correction identification exists (re-scored records).
+    has_id_original = any(
+        "identification_original" in (r.get("scores") or {}) for r in records
+    )
 
     anchor = lambda r: (r.get("conditions") or {}).get("anchor")
     op = lambda r: r.get("_operator")
@@ -638,29 +698,38 @@ def hypothesis_metrics(records, registry) -> dict:
                  "sigma_hidden when anchor is off)"),
     }
 
-    # H3: recovery_rate - identification_rate per operator (recovery from record.scores)
+    # H3: recovery_rate - identification_rate per operator (recovery from record.scores).
+    # identification_rate is the CORRECTED (root_token_v1) value; the pre-correction
+    # rate is kept alongside as identification_rate_original (both disclosed).
     h3 = {}
     for o in sorted({op(r) for r in records if op(r)}):
         rs = group(lambda r: op(r) == o)
         recov = [r for r in rs if (r.get("scores") or {}).get("recovery", {}) and
                  (r["scores"]["recovery"] or {}).get("verdict") == "recovered"]
         rr = round(len(recov) / len(rs), 4) if rs else None
-        h3[o] = {"recovery_rate": rr, "identification_rate": id_rate(rs)}
+        entry = {"recovery_rate": rr, "identification_rate": id_rate(rs)}
+        if has_id_original:
+            entry["identification_rate_original"] = id_rate(rs, "identification_original")
+        h3[o] = entry
 
     # H4: repeat agreement — over (case_id, agent, anchor) cells, do the 3 repeats
-    # agree on both detection and identification?
-    h4 = {}
-    by_cell = {}
-    for r in records:
-        by_cell.setdefault((r.get("case_id"), agent(r), anchor(r)), []).append(r)
-    agree_vals = []
-    for rs in by_cell.values():
-        if len(rs) < 2:
-            continue
-        det = {((rr.get("scores") or {}).get("detection", {}) or {}).get("correct") for rr in rs}
-        idn = {((rr.get("scores") or {}).get("identification", {}) or {}).get("correct") for rr in rs}
-        agree_vals.append(1.0 if (len(det) == 1 and len(idn) == 1) else 0.0)
-    h4["mean_repeat_agreement"] = round(sum(agree_vals) / len(agree_vals), 4) if agree_vals else None
+    # agree on both detection and identification?  Corrected + original kept.
+    def _repeat_agreement(id_field):
+        by_cell = {}
+        for r in records:
+            by_cell.setdefault((r.get("case_id"), agent(r), anchor(r)), []).append(r)
+        agree_vals = []
+        for rs in by_cell.values():
+            if len(rs) < 2:
+                continue
+            det = {((rr.get("scores") or {}).get("detection", {}) or {}).get("correct") for rr in rs}
+            idn = {((rr.get("scores") or {}).get(id_field, {}) or {}).get("correct") for rr in rs}
+            agree_vals.append(1.0 if (len(det) == 1 and len(idn) == 1) else 0.0)
+        return round(sum(agree_vals) / len(agree_vals), 4) if agree_vals else None
+
+    h4 = {"mean_repeat_agreement": _repeat_agreement("identification")}
+    if has_id_original:
+        h4["mean_repeat_agreement_original"] = _repeat_agreement("identification_original")
 
     # H6: per-operator (react - static) on evidence_f1 and detection
     h6 = {}

@@ -105,34 +105,10 @@ def _to_yaml_safe(obj):
     if isinstance(obj, (list, tuple)):
         return [_to_yaml_safe(item) for item in obj]
     return obj
-from operators.control.healthy import HealthyControlOperator
-from operators.crash.shape_mismatch import ShapeMismatchOperator
-from operators.silent.data_leakage import DataLeakageOperator
-from operators.silent.label_corruption import LabelCorruptionOperator
-from operators.silent.lr_warmup import LrWarmupOperator
-
-
-# ---------------------------------------------------------------------------
-# Operator registry
-# ---------------------------------------------------------------------------
-
-_OPERATOR_REGISTRY: dict[str, type] = {
-    "silent.lr_warmup.v1": LrWarmupOperator,
-    "silent.label_corruption.v1": LabelCorruptionOperator,
-    "silent.data_leakage.v1": DataLeakageOperator,
-    "crash.shape_mismatch.v1": ShapeMismatchOperator,
-    "control.healthy.v1": HealthyControlOperator,
-}
-
-
-def _get_operator(operator_id: str) -> IncidentOperator:
-    """Instantiate an operator by ID."""
-    if operator_id not in _OPERATOR_REGISTRY:
-        raise ValueError(
-            f"Unknown operator {operator_id!r}; "
-            f"known: {sorted(_OPERATOR_REGISTRY)}"
-        )
-    return _OPERATOR_REGISTRY[operator_id]()
+# Operator registry lives in operators/registry.py (single source of truth);
+# re-exported here under the historical names used throughout this module.
+from operators.registry import OPERATOR_REGISTRY as _OPERATOR_REGISTRY
+from operators.registry import get_operator as _get_operator
 
 
 # ---------------------------------------------------------------------------
@@ -450,6 +426,9 @@ def build_case(
         "seed": seed,
         "mutations": [dataclasses.asdict(m) for m in manifest.mutations],
         "accepted_classes": sorted(op.accepted_classes()),
+        # Informational copy of the identification token spec (scoring resolves
+        # the authoritative spec from the operator at score time).
+        "core_tokens": [sorted(g) for g in op.core_tokens()],
         "faulty_visible_value": faulty_visible,
         "visible_sigma_distance": visible_sigma,
         "hidden_sigma_distance": hidden_sigma,

@@ -71,6 +71,11 @@ class HealthyControlOperator:
             "none", "healthy", "no_incident", "no_fault", "nothing_wrong",
         })
 
+    def core_tokens(self) -> list[frozenset[str]]:
+        """Concept = no fault.  ``none`` on a FAULTY case matches only this
+        operator, so the uniqueness guard scores it an identification miss."""
+        return [frozenset({"none", "healthy", "no_incident", "nothing_wrong", "no_fault"})]
+
     def oracle_repair(self) -> None:
         """The correct action on a control is no repair."""
         return None

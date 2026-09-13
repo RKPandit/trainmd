@@ -239,14 +239,104 @@ class TestIdentification:
         assert result["correct"] is False
 
     def test_missing_accepted_classes_flagged(self):
-        """Missing accepted_classes → correct=False AND flag set."""
+        """Missing accepted_classes → flag set; token path still applies."""
         from harness.scoring import score_identification
 
-        sub = {"diagnosis": {"detected": True, "operator_class": "anything"}}
+        sub = {"diagnosis": {"detected": True, "operator_class": "unrelated"}}
         hidden = {"operator_id": "silent.lr_warmup.v1"}
         result = score_identification(sub, hidden)
         assert result["correct"] is False
         assert result["accepted_classes_missing"] is True
+
+
+class TestRootTokenIdentification:
+    """method root_token_v1 — principled token match + uniqueness guard."""
+
+    _LR = ("silent.lr_warmup.v1", ["lr_misconfiguration", "learning_rate", "lr_too_high", "lr_warmup"])
+    _LC = ("silent.label_corruption.v1", ["label_corruption", "data_corruption", "label_noise", "noisy_labels"])
+    _LEAK = ("silent.data_leakage.v1", ["data_leakage", "feature_leakage", "target_leakage", "leaky_feature"])
+    _SHAPE = ("crash.shape_mismatch.v1", ["shape_mismatch", "dimension_mismatch"])
+    _CTRL = ("control.healthy.v1", ["none", "healthy", "no_incident", "no_fault", "nothing_wrong"])
+
+    def _score(self, pred, op):
+        from harness.scoring import score_identification
+        op_id, accepted = op
+        return score_identification(
+            {"diagnosis": {"detected": True, "operator_class": pred}},
+            {"operator_id": op_id, "accepted_classes": accepted},
+        )
+
+    # ---- REQUIRED guarantees (wrong-fault / two-fault / none-on-faulty) ----
+
+    def test_wrong_fault_data_corruption_on_lr_fails(self):
+        assert self._score("data_corruption", self._LR)["correct"] is False
+
+    def test_wrong_fault_learning_rate_on_leak_fails(self):
+        assert self._score("learning_rate", self._LEAK)["correct"] is False
+
+    def test_wrong_fault_shape_on_label_fails(self):
+        assert self._score("shape", self._LC)["correct"] is False
+
+    def test_two_fault_label_fails(self):
+        r = self._score("lr_and_leakage", self._LEAK)
+        assert r["correct"] is False
+        assert len(r["matched_operators"]) == 2  # matched two operators → rejected
+
+    def test_none_on_faulty_case_fails(self):
+        assert self._score("none", self._LR)["correct"] is False
+
+    def test_none_on_control_passes(self):
+        assert self._score("none", self._CTRL)["correct"] is True
+
+    # ---- amendment B: documented judgment calls ----
+
+    def test_token_accepts_missing_lr_schedule(self):
+        r = self._score("missing_lr_schedule", self._LR)
+        assert r["correct"] is True and r["match_path"] == "token"
+
+    def test_token_rejects_insufficient_regularization(self):
+        assert self._score("insufficient_regularization", self._LR)["correct"] is False
+
+    def test_token_rejects_seed_mismatch(self):
+        assert self._score("seed_mismatch_with_reference", self._LC)["correct"] is False
+
+    # ---- amendment 2: the "nois" stem covers noise AND noisy ----
+
+    def test_nois_stem_covers_noisy_via_token(self):
+        # accepted_classes empty → must pass via the TOKEN path alone.
+        r = score_identification_no_accepted("noisy_label_data", "silent.label_corruption.v1")
+        assert r["correct"] is True and r["match_path"] == "token"
+
+    def test_nois_stem_covers_noise_via_token(self):
+        r = score_identification_no_accepted("excessive_label_noise", "silent.label_corruption.v1")
+        assert r["correct"] is True and r["match_path"] == "token"
+
+    # ---- amendment 3: mechanism-only leakage labels are misses, not artifacts ----
+
+    def test_mechanism_only_leakage_rejected(self):
+        for m in ("aux_feature_enabled", "aux_feature_too_strong",
+                  "aux_feature_signal_injection", "aux_feature_strength_too_high"):
+            assert self._score(m, self._LEAK)["correct"] is False, m
+
+    # ---- amendment 1: audit trail fields present ----
+
+    def test_audit_fields_recorded(self):
+        r = self._score("learning_rate", self._LR)
+        assert r["method"] == "root_token_v1"
+        assert isinstance(r["token_spec_sha256"], str) and len(r["token_spec_sha256"]) == 64
+        assert r["match_path"] == "exact"
+
+    def test_short_stem_lr_whole_token_only(self):
+        # 'controller' must NOT match lr_warmup via a stray 'lr' substring.
+        assert self._score("controller_error", self._LR)["correct"] is False
+
+
+def score_identification_no_accepted(pred, op_id):
+    from harness.scoring import score_identification
+    return score_identification(
+        {"diagnosis": {"detected": True, "operator_class": pred}},
+        {"operator_id": op_id, "accepted_classes": []},
+    )
 
 
 def test_all_registered_operators_have_accepted_classes():
