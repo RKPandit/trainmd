@@ -1,0 +1,62 @@
+name: CI (canonical container)
+
+# Everything that produces or checks a committed artifact runs INSIDE the
+# pinned linux/amd64 image (native amd64 on ubuntu-latest — the canonical
+# platform). Runs on push/PR and nightly.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 7 * * *"   # nightly 07:00 UTC
+
+jobs:
+  container-suite:
+    runs-on: ubuntu-latest        # native amd64 — the canonical platform
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build canonical image
+        run: docker build --platform linux/amd64 -t trainmd:canonical .
+
+      - name: Show image + versions
+        run: |
+          make image-digest
+          docker run --rm --platform linux/amd64 trainmd:canonical
+
+      - name: Prepare data (in container)
+        run: make docker-data
+
+      - name: Full test suite incl. slow (in container)
+        run: make docker-test
+
+      - name: validate-all (in container)
+        run: make docker-validate-all
+
+      - name: gate-known-answer (in container)
+        run: make docker-gate-known-answer
+
+      - name: Regenerate reference (native amd64, in container)
+        run: |
+          cp workloads/tabular_adult/reference/stats.yaml /tmp/stats_committed.yaml
+          make docker-reference
+
+      - name: Upload native-amd64 reference
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-stats-amd64
+          path: workloads/tabular_adult/reference/stats.yaml
+
+      # Report-only until the amd64 canonical reference is adopted (the committed
+      # file was produced pre-container on macOS — see docs/DECISIONS.md / L11).
+      # Flip to a hard failure in the same commit that adopts the amd64 stats.yaml,
+      # so any future drift from the canonical reference breaks the build.
+      - name: Reference diff vs committed (report-only until amd64 canonical adopted)
+        run: |
+          docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
+            python scripts/verify_reference.py \
+            /tmp/stats_committed.yaml workloads/tabular_adult/reference/stats.yaml \
+            || echo "::warning::reference differs from committed (expected until the amd64 canonical is adopted)"

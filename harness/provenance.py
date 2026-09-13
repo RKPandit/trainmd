@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import platform as platform_mod
 import subprocess
 import sys
@@ -84,6 +85,15 @@ def capture_environment(project_root: Path, case_dir: Path) -> dict:
         except Exception:
             build_id = "unknown"
 
+    # Canonical-container provenance (Stage 1). The container sets these env
+    # vars (see Makefile docker-* targets). `in_container` is True iff the run
+    # happened inside the pinned image; `image_digest` records which one.
+    in_container = (
+        os.environ.get("TRAINMD_IN_CONTAINER") == "1"
+        or Path("/.dockerenv").exists()
+    )
+    image_digest = os.environ.get("TRAINMD_IMAGE_DIGEST") or None
+
     return {
         "harness_git_commit": commit_hash,
         "git_dirty": is_dirty,
@@ -92,6 +102,8 @@ def capture_environment(project_root: Path, case_dir: Path) -> dict:
         "python_version": sys.version,
         "platform": platform_mod.platform(),
         "uv_lock_hash": uv_lock_hash,
+        "in_container": in_container,
+        "image_digest": image_digest,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "wall_clock_sec": 0.0,  # filled by finalize_record
     }

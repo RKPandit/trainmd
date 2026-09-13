@@ -36,6 +36,10 @@ def capture_hardware(project_root: Path) -> dict:
     except FileNotFoundError:
         pass
     system = platform.system()  # "Linux" / "Darwin"
+    # Canonical-container provenance (Stage 1): whether this sweep ran inside the
+    # pinned image, and which one. Set by the Makefile docker-* targets.
+    in_container = os.environ.get("TRAINMD_IN_CONTAINER") == "1" or Path("/.dockerenv").exists()
+    image_digest = os.environ.get("TRAINMD_IMAGE_DIGEST") or None
     return {
         "cpu_model": platform.processor() or platform.machine(),
         "cpu_cores": os.cpu_count(),
@@ -45,9 +49,11 @@ def capture_hardware(project_root: Path) -> dict:
         "python": platform.python_version(),
         "uv_lock_hash": uv_hash,
         "git_commit": commit,
+        "in_container": in_container,
+        "image_digest": image_digest,
         "canonical_environment_note": (
-            "Linux/CI is the canonical reference environment; macOS is smoke-test only "
-            f"(this manifest produced on {system})."
+            "Linux/amd64 in the pinned container is canonical (Stage 1). This manifest "
+            f"produced on {system}; in_container={in_container}."
         ),
     }
 

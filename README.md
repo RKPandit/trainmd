@@ -5,23 +5,38 @@ Evidence-grounded diagnosis and verified recovery of controlled ML training inci
 See [docs/problem_statement_v0.3.md](docs/problem_statement_v0.3.md) for the full research scope
 and [docs/harness_spec_v0.3.md](docs/harness_spec_v0.3.md) for the implementation spec.
 
-## Setup
+## Quickstart (canonical container — reproducible by a stranger)
 
-Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
+The canonical environment is a pinned **linux/amd64, Python 3.11** Docker image
+(deps frozen from `uv.lock`). One build, then everything that produces or checks
+a committed artifact runs inside it. Requires Docker (Desktop or engine).
 
 ```bash
 git clone <repo-url> && cd trainmd
-uv sync              # creates .venv/ and installs pinned dependencies from uv.lock
-make data            # downloads and prepares the Adult dataset
-make reference       # runs 10 seeded training jobs, writes reference/stats.yaml
+make image                 # build the pinned image (amd64; digest → docker/IMAGE_DIGEST)
+make image-digest          # print the built + committed image digest
+make docker-test           # full test suite inside the container
+make docker-validate-all   # 20-check validation of every case
+make docker-gate-known-answer   # oracle/stub gate (no LLM calls)
 ```
+
+On an arm64 host (Apple Silicon) these run under qemu emulation — a **development
+convenience**. The canonical numbers are the ones **CI produces on native amd64**
+(`ubuntu-latest`); the workflow builds the same image and runs the suite +
+`validate-all` + `gate-known-answer` in it on push/PR and nightly.
+
+Local (host) dev without Docker still works via `uv` (`make test`, `make validate-all`,
+…), but artifacts committed to the repo are the container's.
 
 ## Reference stats
 
-The committed `reference/stats.yaml` is generated on Linux x86_64 in CI.
-Local macOS runs will produce slightly different metric values due to
-cross-platform BLAS divergence (~0.001) and will **not** match the
-committed snapshot — this is expected. See `docs/DECISIONS.md` for details.
+Data prep is **byte-identical across platforms** (verified by SHA-256 of every split);
+only the training metrics differ by platform/torch wheel (macOS = PyPI arm64 wheel;
+Linux = CPU wheel). The committed `reference/stats.yaml` is currently the macOS-generated
+file; the **canonical Linux/amd64 reference** is being adopted (regenerated in-container,
+confirmed against CI's native-amd64 output), with `reference/stats.macos.yaml` preserved
+for the record. **Sweep 1 was produced pre-container on macOS** (see `docs/LIMITATIONS.md`
+L11); **Sweep 2 onward is canonical** (in-container). See `docs/DECISIONS.md`.
 
 ## Hardening gates (pre-sweep, free)
 

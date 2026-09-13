@@ -131,6 +131,17 @@ def _r10(rec):  # recall 1.0 but identification wrong on an easy op (INFO)
     return recall == 1.0 and idc is False and rec.get("_operator") in _EASY_OPERATORS
 
 
+def _r12(rec):  # produced outside the canonical container (INFO)
+    # A completed trial whose environment records in_container=False (or missing)
+    # was not produced in the pinned Linux image — e.g. Sweep 1 (pre-container,
+    # macOS). Not an integrity failure; flagged so canonical vs non-canonical
+    # runs are legible. `None` (field absent, pre-Stage-1 records) counts as
+    # not-in-container.
+    if rec.get("status") not in ("completed", None):
+        return False
+    return (rec.get("environment") or {}).get("in_container") is not True
+
+
 @dataclass
 class Rule:
     name: str
@@ -151,6 +162,7 @@ RULES = [
     Rule("R9_superseded_in_results", "INFO", _r9, "trial scored against a superseded build"),
     Rule("R10_recall_full_id_wrong_easy", "INFO", _r10, "full recall but wrong class on an easy operator"),
     Rule("R11_confidence_out_of_range", "INFO", _r11, "submission confidence stored raw and outside [0, 1]"),
+    Rule("R12_out_of_container", "INFO", _r12, "trial produced outside the canonical container (in_container != true)"),
 ]
 
 
