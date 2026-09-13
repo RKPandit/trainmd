@@ -65,11 +65,16 @@ def _cell_id(operator, strength, seed, agent, anchor, repeat) -> str:
 
 
 def _design_tuples(registry, strengths, faulty_seeds, control_seeds):
-    """Yield (operator, strength, seed) for the intended design."""
-    faulty_ops = sorted({
-        e["operator"] for e in registry.values()
-        if e.get("operator") and _tier_of(e["operator"]) != "control"
-    })
+    """Yield (operator, strength, seed) for the intended design.
+
+    Faulty operators come from operators/registry.py (code), NOT the case
+    registry — so the design is fixed by code and `--build-missing` bootstraps
+    from a fresh/empty checkout (otherwise no faulty ops would be enumerated).
+    """
+    from operators.registry import all_operator_ids
+    faulty_ops = sorted(
+        op for op in all_operator_ids() if _tier_of(op) != "control"
+    )
     for op in faulty_ops:
         for st in strengths:
             for sd in faulty_seeds:

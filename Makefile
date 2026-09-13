@@ -157,7 +157,7 @@ docker-shell:
 # the current reference (regenerate it first for a canonical build). Cases are
 # generated, NOT committed — this is the one command a stranger runs.
 docker-build-all-cases:
-	$(DOCKER_RUN) python -m harness.sweep plan --name canonical --build-missing
+	$(DOCKER_RUN) python scripts/build_all_cases.py
 
 # Per-case margin report: faulty_value vs the current tolerance, flag < 2x std.
 docker-case-margins:
