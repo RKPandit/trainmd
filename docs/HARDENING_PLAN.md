@@ -19,6 +19,10 @@ public release.
 
 These are the properties that, if broken, invalidate every result. They already have the
 strongest defenses; this tier is about *proving* them adversarially, not trusting them.
+BenchShield (Zheng et al., arXiv 2609.11028, 2026, cs.CR) is the general, formal treatment of
+exactly this reward-integrity concern — a finite lifecycle model of reward-relevant events, static
+taint analysis of reward-hacking paths, and runtime within-boundary attribution; Tier 0 is
+TrainMD's benchmark-specific instance of the same discipline.
 
 ### 0.1 Red-team the wall (G1)
 Attack the sealed evaluation as a hostile agent would, and assert every attack fails:
@@ -32,6 +36,10 @@ Attack the sealed evaluation as a hostile agent would, and assert every attack f
 - Tamper every public artifact (card, config, train.py) and assert the verdict is unchanged.
 **Catches:** any leak or influence path we didn't think of. **Cost:** ~1 day. Turn every
 attack into a permanent test (`tests/test_redteam_wall.py`).
+*Future work:* applying BenchShield's finite lifecycle model and static phase-aware taint analysis
+to TrainMD's evaluator is the principled successor to this hand-built suite — it would *prove* the
+absence of a reward-hacking path before a run rather than enumerate a fixed set of attacks we
+happened to think of.
 
 ### 0.2 Prove no hidden value reaches any visible artifact, mechanically (G1)
 Extend the isolation scan from *tokens* to *values*: after building every case, scan all

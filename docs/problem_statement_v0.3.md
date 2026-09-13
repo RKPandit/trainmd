@@ -108,6 +108,11 @@ hidden labels, seeds, answer manifests, or scoring code; constrained patch/submi
 fresh execution from an immutable base image; rejection of edits outside approved paths.
 Report both an IID instance split and a workload-held-out split (DynFault warning).
 
+**Future work:** formal reward-integrity verification of the evaluator (e.g. BenchShield-style
+lifecycle modeling and taint analysis of reward-relevant events; arXiv 2609.11028) beyond
+hand-built adversarial tests — a proof that no reward-hacking path exists, rather than an
+enumerated red-team suite.
+
 ## 8. Required baselines
 
 No-op/healthy control; regex/rule baseline for crash signatures; AutoTrainer-style constrained
@@ -148,7 +153,10 @@ evidence-grounded scoring, hidden-evaluator verified recovery, and the held-out 
 ## 13. Pre-submission checks
 
 - Re-run the kill-check against the PKU/Alibaba (RFT-FaultBench/MicroRemed) and UIUC/Toronto
-  (AIOpsLab/SREGym) groups.
+  (AIOpsLab/SREGym) groups, and against the evaluation-integrity space (BenchShield, arXiv
+  2609.11028, Zheng et al. / Dawn Song & Hauser) — adjacent, not competing, but track for any
+  pivot toward benchmarks *of* agent tasks.
 - Verify primary PDFs for all 2026 preprints cited (FT-Dojo, PostTrainBench, Agent² RL-Bench,
-  DynFault, Deep4ge, SREGym).
+  DynFault, Deep4ge, SREGym, **BenchShield 2609.11028 — confirm ID + author list, recorded 2 days
+  after submission**).
 - Cite published ACM/IEEE/PMLR versions where available; never ResearchGate/alphaXiv.

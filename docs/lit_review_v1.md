@@ -351,6 +351,25 @@ The v0.2 closest-work table is the right one for the paper. The wider landscape 
 | MLE-Dojo (NeurIPS 2025 D&B) | 200+ Kaggle challenges | Interactive outcome verification | No injected faults |
 | SWE-bench family | GitHub code bugs, 2,294 tasks | Test pass/fail | Yes (apply patch, run tests) |
 
+**Adjacent, different object of study (not a competitor) — BenchShield.** Zheng et al.,
+*BenchShield: Formal Model-Backed Instrumentation for Reward Integrity in LLM-Agent Evaluation
+Infrastructure* (arXiv 2609.11028, submitted 2026-09-10, cs.CR; Dawn Song and Christophe Hauser
+among the authors) is a formal, model-backed **instrumentation layer for reward integrity**: a
+finite lifecycle model of reward-relevant events, static phase-aware taint analysis that exposes
+reward-hacking paths before a run, and runtime attribution that emits evidence-backed claims a run
+stayed within its evaluation boundary. It is evaluated on a human-labeled corpus of **456
+adjudicated trajectories drawn from 31,000+ public agent runs across three benchmarks** (reported
+detection recall rising from 23–94% to 77–100%, and 96% accuracy attributing reward hacking from
+infrastructure-side evidence). This belongs with AgentDebugX in the *adjacent-but-different-object*
+group: BenchShield is infrastructure applied **to** benchmarks (it studies how evaluations get
+hacked), whereas TrainMD is a benchmark **of** a task (how agents diagnose injected training
+faults). There is zero overlap in contribution. Its documented reward-hacking corpus is **external
+evidence that interactive agent benchmarks are gameable** — precisely the threat TrainMD's
+benchmark-specific defenses (sealed evaluator, trusted-source rebuild, path confinement, the
+known-answer gate, and the cheating-agent baselines) are built against. *(arXiv ID was 2 days old
+at time of writing — re-confirm the ID and full author list against the primary page before
+submission; see §13.4.)*
+
 ### 13.2 Empirical motivation anchors (motivation only — NOT frequency weights, per Section 5.4)
 
 - Zhang et al. (ICSE 2020, Microsoft Philly, 4,960 failures): 48.0% of deep-learning job failures occur in interaction with the platform rather than in code logic, largely from local-vs-platform environment discrepancies; DL-specific failures (13.5%) driven by inappropriate model parameters/structures and framework API misunderstanding. Canonical citation for the local-vs-cloud framing.
@@ -404,4 +423,8 @@ Two author clusters are actively extending training-failure management; re-run t
 - Yinfang Chen et al., [AIOpsLab: A Holistic Framework to Evaluate AI Agents for Enabling Autonomous Clouds](https://arxiv.org/abs/2501.06706), MLSys 2025.
 - [MicroRemed: Benchmarking LLMs in Microservices Remediation](https://arxiv.org/abs/2511.01166), 2025 preprint.
 - [SREGym: A Live Benchmark for AI SRE Agents with High-Fidelity Failure Scenarios](https://arxiv.org/abs/2605.07161), 2026 preprint.
+
+### Evaluation integrity and reward-hacking (adjacent object of study)
+
+- Shenghan Zheng, …, Dawn Song, Christophe Hauser, [BenchShield: Formal Model-Backed Instrumentation for Reward Integrity in LLM-Agent Evaluation Infrastructure](https://arxiv.org/abs/2609.11028), 2026 preprint (cs.CR, submitted 2026-09-10). **Pre-submission: re-verify the arXiv ID and full author list against the primary page — recorded 2 days after submission.**
 
