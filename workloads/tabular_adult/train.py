@@ -39,6 +39,39 @@ import yaml
 # Determinism helpers
 # ---------------------------------------------------------------------------
 
+_THREAD_CAPS = (
+    "OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS",
+)
+
+
+def require_pinned_threads() -> None:
+    """Refuse to train unless every BLAS/OpenMP thread pool is pinned to 1.
+
+    This is a determinism GUARD, not a setter. Multi-threaded float reductions
+    are order-nondeterministic, so identical seeded runs can differ; that
+    silently broke reference reproducibility once (see docs/RESEARCH_LOG.md 26).
+    We check the environment and fail loudly rather than pin in source — pinning
+    here would change this file's hash and supersede every built case.
+    """
+    missing = [c for c in _THREAD_CAPS if os.environ.get(c) != "1"]
+    if not missing:
+        return
+    export = " ".join(f"{c}=1" for c in _THREAD_CAPS)
+    sys.stderr.write(
+        "\nFATAL: training refuses to run without single-threaded math.\n"
+        f"  Not set to 1: {', '.join(missing)}\n"
+        "  Why: unpinned BLAS/OpenMP threading makes float reductions "
+        "order-nondeterministic, so two identical seeded runs can produce "
+        "DIFFERENT numbers (this broke reference reproducibility once already).\n"
+        "  Fix — export all five caps before training (the canonical container "
+        "sets these; a bare host run must too):\n"
+        f"    export {export}\n"
+        "  Then re-run. See docs/DECISIONS.md (thread pinning).\n\n"
+    )
+    sys.exit(2)
+
+
 def set_seed(seed: int) -> None:
     """Set all random seeds for full reproducibility."""
     random.seed(seed)
@@ -320,6 +353,7 @@ def _resolve_path(cli_val: str | None, env_var: str, default: str) -> Path:
 
 
 def main() -> int:
+    require_pinned_threads()  # refuse to produce non-canonical (unpinned) numbers
     parser = argparse.ArgumentParser(description="Train MLP on Adult dataset")
     parser.add_argument("--config", type=str, default=None)
     parser.add_argument("--data-dir", type=str, default=None)

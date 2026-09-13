@@ -1,9 +1,15 @@
 .PHONY: data reference build-case verify-repair run-agent smoke score verify validate validate-all clean test \
 	image image-digest docker-data docker-reference docker-build-case docker-validate-all \
-	docker-gate-known-answer docker-audit-index docker-test docker-sweep docker-shell
+	docker-gate-known-answer docker-audit-index docker-test docker-sweep docker-shell \
+	docker-build-all-cases docker-case-margins
 
 WORKLOAD ?= tabular_adult
 WORKLOAD_DIR := workloads/$(WORKLOAD)
+
+# train.py refuses to run unless every BLAS/OpenMP pool is pinned to 1 (a
+# determinism guard — see docs/DECISIONS.md). The container sets these via ENV;
+# host targets that train must set them too. Prefix training recipes with this.
+THREAD_CAPS := OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1
 
 # ---------------------------------------------------------------------------
 # Targets — all commands run through `uv run` so they use the locked
@@ -14,14 +20,14 @@ data:
 	uv run python $(WORKLOAD_DIR)/data_prep.py --workload-dir $(WORKLOAD_DIR)
 
 reference: data
-	uv run python -m harness.reference_run --workload-dir $(WORKLOAD_DIR)
+	$(THREAD_CAPS) uv run python -m harness.reference_run --workload-dir $(WORKLOAD_DIR)
 
 OPERATOR ?= silent.lr_warmup.v1
 STRENGTH ?= moderate
 SEED ?= 42
 
 build-case: data
-	uv run python -m harness.build_case \
+	$(THREAD_CAPS) uv run python -m harness.build_case \
 		--workload $(WORKLOAD) \
 		--operator $(OPERATOR) \
 		--strength $(STRENGTH) \
@@ -31,21 +37,21 @@ CASE ?= cases/case_0001
 SPEC ?= repair_spec.yaml
 
 verify-repair:
-	uv run python -m harness.evaluator.verify_repair \
+	$(THREAD_CAPS) uv run python -m harness.evaluator.verify_repair \
 		--case $(CASE) \
 		--spec $(SPEC)
 
 AGENT ?= stub_oracle
 
 run-agent:
-	uv run python -m harness.run_agent \
+	$(THREAD_CAPS) uv run python -m harness.run_agent \
 		--case $(CASE) \
 		--agent $(AGENT)
 
 SMOKE_MODEL ?= claude-haiku-4-5-20251001
 
 smoke: build-case
-	uv run --extra llm python -m harness.run_agent \
+	$(THREAD_CAPS) uv run --extra llm python -m harness.run_agent \
 		--case $(CASE) \
 		--model $(SMOKE_MODEL) \
 		--provider anthropic
@@ -58,7 +64,7 @@ score:
 		--trial $(TRIAL)
 
 verify:
-	uv run python -m harness.scoring --verify \
+	$(THREAD_CAPS) uv run python -m harness.scoring --verify \
 		--case $(CASE) \
 		--trial $(TRIAL)
 
@@ -77,7 +83,7 @@ audit-index:
 	uv run python -m harness.audit_index
 
 test:
-	uv run --extra test python -m pytest tests/
+	$(THREAD_CAPS) uv run --extra test python -m pytest tests/
 
 clean:
 	rm -rf $(WORKLOAD_DIR)/reference/runs
@@ -146,3 +152,13 @@ docker-sweep:
 docker-shell:
 	docker run --rm -it --platform $(PLATFORM) -e TRAINMD_IN_CONTAINER=1 \
 		-v "$(PWD)":/work -w /work $(IMAGE) bash
+
+# Build the entire 27-case design from a fresh checkout, in-container, against
+# the current reference (regenerate it first for a canonical build). Cases are
+# generated, NOT committed — this is the one command a stranger runs.
+docker-build-all-cases:
+	$(DOCKER_RUN) python -m harness.sweep plan --name canonical --build-missing
+
+# Per-case margin report: faulty_value vs the current tolerance, flag < 2x std.
+docker-case-margins:
+	$(DOCKER_RUN) python scripts/case_margins.py
