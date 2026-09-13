@@ -49,10 +49,10 @@ def require_pinned_threads() -> None:
     """Refuse to train unless every BLAS/OpenMP thread pool is pinned to 1.
 
     This is a determinism GUARD, not a setter. Multi-threaded float reductions
-    are order-nondeterministic, so identical seeded runs can differ; that
-    silently broke reference reproducibility once (see docs/RESEARCH_LOG.md 26).
-    We check the environment and fail loudly rather than pin in source — pinning
-    here would change this file's hash and supersede every built case.
+    are order-nondeterministic, so identical seeded runs can differ; that quietly
+    broke reference reproducibility once (see docs/RESEARCH_LOG.md 26). We check
+    the environment and fail loudly rather than pin in source — pinning here
+    would change this file's hash and supersede every built case.
     """
     missing = [c for c in _THREAD_CAPS if os.environ.get(c) != "1"]
     if not missing:
