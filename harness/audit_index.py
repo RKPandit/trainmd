@@ -171,17 +171,26 @@ def _load_records(project_root: Path) -> list[dict]:
     results = project_root / "results"
     if not results.exists():
         return records
+    from harness.provenance import mark_card_superseded
+
     for tp in sorted(results.glob("*/trials/*.yaml")):
         rec = yaml.safe_load(tp.read_text())
         if not isinstance(rec, dict):
             continue
         # Enrich with tier/operator from the case's hidden card (best-effort).
         cid = rec.get("case_id")
-        hc = project_root / "cases" / str(cid) / "hidden" / "card.hidden.yaml"
+        case_dir = project_root / "cases" / str(cid)
+        hc = case_dir / "hidden" / "card.hidden.yaml"
         if hc.exists():
             card = yaml.safe_load(hc.read_text()) or {}
             rec.setdefault("scores", {})["_tier"] = card.get("layer")
             rec["_operator"] = card.get("operator_id")
+        # Recompute supersession LIVE against the current card (in-memory only;
+        # never writes the record) so a rebuild's new build_ids are reflected
+        # without re-scoring or touching the trial files. Falls back to the
+        # stored flag when the case dir is absent (e.g. gitignored in CI).
+        if case_dir.exists():
+            mark_card_superseded(rec, case_dir)
         rec["_trial_id"] = rec.get("run_id", tp.stem)
         records.append(rec)
     return records
