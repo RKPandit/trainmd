@@ -270,14 +270,31 @@ reference value (verified to recover identically on hidden seeds for all three).
 declare `absent_when_clean_keys`; the validator accepts `null` only on those; the evaluator
 deletes the key before rerun.
 
-**Axes / hypotheses this TOUCHES:** identification only → **H3** (doing/understanding gap: the
-recovery−identification comparison) and **H4** (repeat agreement on identification). Shape
-recovery re-verify touches the shape operator's recovery only.
+**Correction 3 — recovering a MODEL-folded repair_spec (`parser_fix_v1`).** This is
+**model-side output folding, NOT a harness parser bug.** Some trials emitted the text-tool-calling
+idiom (`<parameter name="repair_spec">{…}`) *inside* a native tool_use string field (the
+`rationale`) instead of populating the structured `repair_spec` field; our pipeline recorded the
+structured tool_use input faithfully and never text-parsed arguments or swallowed a sibling field.
+The correction is that we now **recover a single, well-formed repair the model misplaced** — a strict
+`json.loads` of one complete `{repair_type, patches}` object (never partial reconstruction, never key
+scraping; ambiguous/multiple → not recovered) — and flag it (`submission_parse_warning`,
+`method="parser_fix_v1"`). The recovered spec is **not** trusted as admissible: it flows through the
+normal `validate_repair`/verify path exactly like a directly-submitted one. The same recovery runs
+in the **live** agent path so future sweeps self-heal and flag. Scan: **31/324 (≈9.6%) submissions
+were folded and recovered** (0 ambiguous, 0 unparseable), across shape_mismatch (14), label_corruption
+(8), lr_warmup (6), data_leakage (3) — see the "structured vs recovered" rates in the report and the
+tool-use-reliability observation in FINDINGS.
 
-**Axes / hypotheses this DOES NOT touch:** detection, evidence, and recovery on non-shape
-operators are unchanged → **H1** (positive-symptom blindness), **H6** (tools vs static),
-**controls** (detection FPR / false-intervention), and **H2** (detection vs σ) are all
-**unchanged**. H2's numbers do not move.
+**Axes / hypotheses this TOUCHES:** Corrections 1–2 touch identification only → **H3**
+(doing/understanding gap) and **H4** (repeat agreement on identification); Correction 2 and 3 touch
+**recovery** — Correction 3 raises recovery on every faulty operator that had folded repairs (shape
+plus the three silent ops).
+
+**Axes / hypotheses this DOES NOT touch:** detection and evidence are unchanged (a folded
+`repair_spec` never affected the diagnosis axes) → **H1** (positive-symptom blindness), **H2**
+(detection vs σ), **H6** (tools vs static, evidence_f1), and **controls** (detection FPR /
+false-intervention — controls carry no repair to fold) are all **unchanged**. Recovery moves
+(Corrections 2–3), which sharpens **H3** but does not alter the detection/evidence findings.
 
 **Amendments recorded (A–E):**
 - **A.** The previously-not-recovered shape trials are split into *unexpressible-but-correct*

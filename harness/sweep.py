@@ -523,11 +523,52 @@ def _post_hoc_corrections_section(records) -> list:
         "correct synonyms outside the enumerated `accepted_classes` now credited; "
         "two-fault / `none`-on-faulty rejected. Touches **H3, H4** only.",
         "- **Shape recovery**: `null` = unset an absent-when-clean key "
-        "(oracle-equivalent to the reference value). Touches the shape recovery axis only.",
-        "- **Unchanged:** detection, evidence, recovery on non-shape ops → "
-        "**H1, H2, H6, controls**.",
+        "(oracle-equivalent to the reference value).",
+        "- **Correction #3 (folded repair recovery, `parser_fix_v1`)**: MODEL-SIDE output "
+        "folding — some models emitted the repair as text inside the `rationale` string instead "
+        "of the structured `repair_spec` field. This is **not** a harness parser bug (the "
+        "structured tool_use input was recorded faithfully); we now RECOVER a single well-formed "
+        "`{repair_type, patches}` object the model misplaced (strict, no key scraping) and flag it. "
+        "Recovery moves recovery on every faulty operator that had folded repairs.",
+        "- **Unchanged:** detection and evidence → **H1, H2, H6, controls** do not move.",
         "",
     ]
+
+    # Correction #3: structured-field vs folded-recovery rates (both kept permanently).
+    def _warn(r):
+        return (r.get("submission") or {}).get("submission_parse_warning") or {}
+    recovered = [r for r in records if _warn(r).get("recovered")]
+    structured = [r for r in records
+                  if isinstance((r.get("submission") or {}).get("repair_spec"), dict)
+                  and not _warn(r).get("recovered")]
+    lines += [
+        "### Repair submission channel (structured vs folded-recovery)",
+        "",
+        f"Folding rate: **{len(recovered)}/{len(records)} "
+        f"({round(100*len(recovered)/len(records),1) if records else 0}%)** of submissions had the "
+        "repair folded into a string field and recovered via `parser_fix_v1`; "
+        f"{len(structured)} submitted the repair in the correct structured field. "
+        "(A tool-use-reliability finding — see FINDINGS.)",
+        "",
+        "| operator | agent | anchor | structured repair | folded→recovered |",
+        "|---|---|---|---|---|",
+    ]
+    chan = {}
+    for r in records:
+        k = (r.get("_operator"), (r.get("conditions") or {}).get("agent_type"),
+             (r.get("conditions") or {}).get("anchor"))
+        c = chan.setdefault(k, [0, 0])
+        if _warn(r).get("recovered"):
+            c[1] += 1
+        elif isinstance((r.get("submission") or {}).get("repair_spec"), dict):
+            c[0] += 1
+    for k in sorted(chan, key=lambda x: tuple(str(v) for v in x)):
+        if chan[k][1] == 0 and chan[k][0] == 0:
+            continue
+        op, ag, an = k
+        lines.append(f"| {op} | {ag} | {an} | {chan[k][0]} | {chan[k][1]} |")
+    lines.append("")
+
     if has_original:
         lines += [
             "### Identification: original vs corrected (per operator)",

@@ -31,6 +31,7 @@ with a more precise mechanism than predicted) · `refuted` (pre-registered crite
 | S5 | **This model names faults at least as reliably as it repairs them.** Identification ≥ recovery on every operator once scoring artifacts are removed; the earlier "fixes-but-can't-name" pattern was an artifact. | Sweep 1 H3 (corrected). | refuted (as predicted direction) · pending replication |
 | S6 | **Diagnostic outcomes are reproducible under nondeterminism; identification agreement drops on the hardest fault.** | Sweep 1 H4: mean agreement 0.82; leakage identification agreement 0.71 vs lr 0.96. | partially confirmed · pending replication |
 | S7 | **Adult+MLP is robust to symmetric label noise** (≤25% flips < 1 pt degradation); label corruption is a *subtle* fault on tabular data. | Calibration sweeps (DECISIONS 2026-09-12). | unplanned · workload-specific |
+| S8 | **Tool-use output is unreliable enough to need recovery: ~1 in 10 repairs is misplaced.** The model sometimes emits the repair as text inside a sibling string field instead of the structured tool argument; a harness that scores only the structured field silently undercounts capability. | Sweep 1: 31/324 (≈9.6%) repair submissions folded and recovered (`parser_fix_v1`); 0 ambiguous. | unplanned · pending replication |
 
 ---
 
@@ -74,9 +75,16 @@ ground truth. Original numbers are kept alongside corrected ones in every table.
    absent-when-clean, verified oracle-equivalent for all three such keys. 29/29 re-verified
    recovered → **0.347 → 0.750**; 18 genuine no-repair failures stand. Touches the shape
    recovery axis only.
+3. **Folded repair recovery (`parser_fix_v1`) — MODEL-SIDE output folding, not a harness parser
+   bug.** Some submissions emitted the repair as text (`<parameter name="repair_spec">{…}`, the
+   text-tool idiom) *inside* the `rationale` string instead of the structured `repair_spec` field;
+   the harness recorded the structured tool_use input faithfully. We now recover a single
+   well-formed `{repair_type, patches}` object the model misplaced (strict: no key scraping,
+   ambiguous → not recovered) and flag it, live and historically. This raises recovery on every
+   faulty operator that had folded repairs. See **F8** for the folding rate as a finding in itself.
 
-**Unchanged by either correction:** detection, evidence, and non-shape recovery — therefore
-H1, H2, H6, and the controls finding stand exactly as pre-registered.
+**Unchanged by any correction:** detection and evidence — therefore H1, H2, H6, and the controls
+finding stand exactly as pre-registered. Recovery moves (Corrections 2–3), sharpening H3.
 
 ### F1 — Positive-symptom blindness (H1) · confirmed
 
@@ -185,6 +193,30 @@ ReAct ≈ $0.06–0.08/trial, flat across operators; static ≈ $0.012. Hard cas
 more per trial than easy ones at this scale — investigation *length* is bounded by the turn
 budget, not by difficulty. Two of 324 ReAct trials hit `max_turns` without submitting
 (both on unrelated cells; no pattern).
+
+### F8 — Repair submissions are frequently mis-channeled (secondary) · unplanned
+
+**Claim.** The model reaches a correct repair but does not always place it in the structured
+tool argument — it sometimes serializes it as text (`<parameter name="repair_spec">{…}`) inside
+the `rationale` string. This is a **tool-use output-format reliability** effect, not a harness
+parsing defect: the API delivered, and the harness stored, exactly what the model produced.
+
+**Evidence.** Of 324 Sweep-1 submissions: 199 placed the repair in the structured field, 94
+carried no repair (correct on healthy/undetected trials), and **31 (≈9.6%) folded the repair
+into the rationale**; all 31 were cleanly recoverable (a single complete `{repair_type, patches}`
+object), 0 ambiguous, 0 unparseable. By operator: shape_mismatch 14, label_corruption 8,
+lr_warmup 6, data_leakage 3 — i.e. it is not specific to the crash tier. Recovering them (strict
+extraction, then the normal verify path) raised recovery on all four operators (see the
+"structured vs recovered" table in `docs/audits/sweep_sweep1_*.md`).
+
+**Interpretation.** A benchmark that scores only the structured field would undercount repair
+capability by ~10% here, and unevenly across operators. The recovery + `submission_parse_warning`
+now runs in the live agent path, so future sweeps self-heal and report the folding rate.
+
+**What would change our mind.** A different model/prompt with a near-zero folding rate would make
+this Haiku/prompt-specific rather than a general tool-use caution.
+
+**Status.** `unplanned` · pending replication.
 
 ### Limitations exposed by Sweep 1
 

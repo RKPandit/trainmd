@@ -236,6 +236,25 @@ def submit(ctx: ToolContext, *, diagnosis: dict,
         "confidence": confidence,
         "rationale": rationale,
     }
+
+    # Self-heal MODEL-SIDE output folding: some models emit the repair as text
+    # inside a sibling string (rationale) instead of the structured repair_spec
+    # field.  Recover a single well-formed repair from the arguments and FLAG it;
+    # the recovered spec still goes through normal validate_repair at verify time
+    # (no bypass).  This is not a harness parser fix — see docs/DECISIONS.md #3.
+    from harness.submission_repair import recover_folded_repair_spec
+
+    fold = recover_folded_repair_spec(submission)
+    if fold.spec is not None:
+        submission["repair_spec"] = fold.spec
+    if fold.warning:
+        submission["submission_parse_warning"] = {
+            "folded": True,
+            "recovered": fold.spec is not None,
+            "reason": fold.reason,
+            "method": "parser_fix_v1",
+        }
+
     ctx.record_submission(submission)
 
     return {"status": "ok", "submitted": True}

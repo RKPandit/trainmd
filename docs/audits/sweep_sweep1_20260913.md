@@ -7,8 +7,33 @@ records=324 excluded_trusted=0 excluded_superseded=0
 Two Sweep-1 results were scoring/schema **artifacts, not model behaviour**, corrected by principle and disclosed (see docs/DECISIONS.md, 2026-09-13). Original numbers are kept alongside corrected.
 
 - **Identification** re-scored with root-token matching (`root_token_v1`): correct synonyms outside the enumerated `accepted_classes` now credited; two-fault / `none`-on-faulty rejected. Touches **H3, H4** only.
-- **Shape recovery**: `null` = unset an absent-when-clean key (oracle-equivalent to the reference value). Touches the shape recovery axis only.
-- **Unchanged:** detection, evidence, recovery on non-shape ops → **H1, H2, H6, controls**.
+- **Shape recovery**: `null` = unset an absent-when-clean key (oracle-equivalent to the reference value).
+- **Correction #3 (folded repair recovery, `parser_fix_v1`)**: MODEL-SIDE output folding — some models emitted the repair as text inside the `rationale` string instead of the structured `repair_spec` field. This is **not** a harness parser bug (the structured tool_use input was recorded faithfully); we now RECOVER a single well-formed `{repair_type, patches}` object the model misplaced (strict, no key scraping) and flag it. Recovery moves recovery on every faulty operator that had folded repairs.
+- **Unchanged:** detection and evidence → **H1, H2, H6, controls** do not move.
+
+### Repair submission channel (structured vs folded-recovery)
+
+Folding rate: **31/324 (9.6%)** of submissions had the repair folded into a string field and recovered via `parser_fix_v1`; 199 submitted the repair in the correct structured field. (A tool-use-reliability finding — see FINDINGS.)
+
+| operator | agent | anchor | structured repair | folded→recovered |
+|---|---|---|---|---|
+| control.healthy.v1 | react | on | 2 | 0 |
+| control.healthy.v1 | static | on | 2 | 0 |
+| crash.shape_mismatch.v1 | react | off | 15 | 3 |
+| crash.shape_mismatch.v1 | react | on | 15 | 3 |
+| crash.shape_mismatch.v1 | static | off | 16 | 2 |
+| crash.shape_mismatch.v1 | static | on | 12 | 6 |
+| silent.data_leakage.v1 | react | off | 4 | 0 |
+| silent.data_leakage.v1 | react | on | 15 | 2 |
+| silent.data_leakage.v1 | static | on | 16 | 1 |
+| silent.label_corruption.v1 | react | off | 4 | 7 |
+| silent.label_corruption.v1 | react | on | 16 | 1 |
+| silent.label_corruption.v1 | static | off | 1 | 0 |
+| silent.label_corruption.v1 | static | on | 18 | 0 |
+| silent.lr_warmup.v1 | react | off | 15 | 3 |
+| silent.lr_warmup.v1 | react | on | 14 | 3 |
+| silent.lr_warmup.v1 | static | off | 16 | 0 |
+| silent.lr_warmup.v1 | static | on | 18 | 0 |
 
 ### Identification: original vs corrected (per operator)
 
@@ -28,20 +53,20 @@ Two Sweep-1 results were scoring/schema **artifacts, not model behaviour**, corr
 | control.healthy.v1 | react | on | 9 | 0.7778 | 0.7778 | 0.7778 | 0.7778 |
 | control.healthy.v1 | static | off | 9 | 1.0 | 1.0 | 1.0 | 1.0 |
 | control.healthy.v1 | static | on | 9 | 0.7778 | 0.7778 | 0.7778 | 0.7778 |
-| crash.shape_mismatch.v1 | react | off | 18 | 1.0 | 0.9444 | 0.8222 | 0.7222 |
-| crash.shape_mismatch.v1 | react | on | 18 | 1.0 | 1.0 | 0.8333 | 0.7778 |
-| crash.shape_mismatch.v1 | static | off | 18 | 1.0 | 1.0 | 0.7704 | 0.8333 |
-| crash.shape_mismatch.v1 | static | on | 18 | 1.0 | 1.0 | 0.8 | 0.6667 |
+| crash.shape_mismatch.v1 | react | off | 18 | 1.0 | 0.9444 | 0.8222 | 0.8889 |
+| crash.shape_mismatch.v1 | react | on | 18 | 1.0 | 1.0 | 0.8333 | 0.9444 |
+| crash.shape_mismatch.v1 | static | off | 18 | 1.0 | 1.0 | 0.7704 | 0.9444 |
+| crash.shape_mismatch.v1 | static | on | 18 | 1.0 | 1.0 | 0.8 | 1.0 |
 | silent.data_leakage.v1 | react | off | 18 | 0.1667 | 0.0 | 0.0529 | 0.0 |
-| silent.data_leakage.v1 | react | on | 18 | 1.0 | 0.9444 | 0.7697 | 0.7778 |
+| silent.data_leakage.v1 | react | on | 18 | 1.0 | 0.9444 | 0.7697 | 0.8889 |
 | silent.data_leakage.v1 | static | off | 18 | 0.0 | 0.0 | 0.0 | 0.0 |
-| silent.data_leakage.v1 | static | on | 18 | 1.0 | 0.7778 | 0.8348 | 0.7778 |
-| silent.label_corruption.v1 | react | off | 18 | 0.6111 | 0.5556 | 0.5704 | 0.1667 |
-| silent.label_corruption.v1 | react | on | 18 | 1.0 | 1.0 | 0.7815 | 0.8889 |
+| silent.data_leakage.v1 | static | on | 18 | 1.0 | 0.7778 | 0.8348 | 0.8333 |
+| silent.label_corruption.v1 | react | off | 18 | 0.6111 | 0.5556 | 0.5704 | 0.3889 |
+| silent.label_corruption.v1 | react | on | 18 | 1.0 | 1.0 | 0.7815 | 0.9444 |
 | silent.label_corruption.v1 | static | off | 18 | 0.0556 | 0.0 | 0.0 | 0.0 |
 | silent.label_corruption.v1 | static | on | 18 | 1.0 | 1.0 | 0.7037 | 1.0 |
-| silent.lr_warmup.v1 | react | off | 18 | 1.0 | 1.0 | 0.8929 | 0.8333 |
-| silent.lr_warmup.v1 | react | on | 18 | 0.9444 | 0.9444 | 0.8466 | 0.7778 |
+| silent.lr_warmup.v1 | react | off | 18 | 1.0 | 1.0 | 0.8929 | 0.9444 |
+| silent.lr_warmup.v1 | react | on | 18 | 0.9444 | 0.9444 | 0.8466 | 0.9444 |
 | silent.lr_warmup.v1 | static | off | 18 | 0.8889 | 0.8333 | 0.6918 | 0.7778 |
 | silent.lr_warmup.v1 | static | on | 18 | 1.0 | 0.9444 | 0.7672 | 0.9444 |
 
@@ -271,19 +296,19 @@ H3_doing_understanding_gap:
     identification_rate: 0.8889
     identification_rate_original: 0.8889
   crash.shape_mismatch.v1:
-    recovery_rate: 0.75
+    recovery_rate: 0.9444
     identification_rate: 0.9861
     identification_rate_original: 0.3472
   silent.data_leakage.v1:
-    recovery_rate: 0.3889
+    recovery_rate: 0.4306
     identification_rate: 0.4366
     identification_rate_original: 0.0141
   silent.label_corruption.v1:
-    recovery_rate: 0.5139
+    recovery_rate: 0.5833
     identification_rate: 0.6389
     identification_rate_original: 0.0
   silent.lr_warmup.v1:
-    recovery_rate: 0.8333
+    recovery_rate: 0.9028
     identification_rate: 0.9437
     identification_rate_original: 0.0
 H4_repeat_agreement:
