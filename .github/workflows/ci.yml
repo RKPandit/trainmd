@@ -1,8 +1,16 @@
 name: CI (canonical container)
 
-# Everything that produces or checks a committed artifact runs INSIDE the
-# pinned linux/amd64 image (native amd64 on ubuntu-latest — the canonical
-# platform). Runs on push/PR and nightly.
+# Everything reproducible from a FRESH CHECKOUT runs inside the pinned
+# linux/amd64 image (native amd64 on ubuntu-latest — the canonical platform):
+# the full test suite (which builds its own cases in temp dirs) and the
+# reference-run protocol. Runs on push/PR and nightly.
+#
+# NOTE: `validate-all` and `gate-known-answer` operate on the COMMITTED case set
+# under cases/, which is currently gitignored (not version-controlled), so they
+# cannot run from a fresh checkout — they are run locally today. Bringing them
+# into CI requires making the case set reproducible (committed, or built in-CI),
+# which is coupled to adopting the amd64 canonical reference + rebuilding cases.
+# See docs/DECISIONS.md (2026-09-13) and docs/LIMITATIONS.md.
 on:
   push:
     branches: [main]
@@ -29,15 +37,8 @@ jobs:
       - name: Prepare data (in container)
         run: make docker-data
 
-      - name: Full test suite incl. slow (in container)
-        run: make docker-test
-
-      - name: validate-all (in container)
-        run: make docker-validate-all
-
-      - name: gate-known-answer (in container)
-        run: make docker-gate-known-answer
-
+      # Reference first, so the native-amd64 artifact is available early even if
+      # the (slow) test suite runs long.
       - name: Regenerate reference (native amd64, in container)
         run: |
           cp workloads/tabular_adult/reference/stats.yaml /tmp/stats_committed.yaml
@@ -52,11 +53,16 @@ jobs:
 
       # Report-only until the amd64 canonical reference is adopted (the committed
       # file was produced pre-container on macOS — see docs/DECISIONS.md / L11).
-      # Flip to a hard failure in the same commit that adopts the amd64 stats.yaml,
-      # so any future drift from the canonical reference breaks the build.
+      # Flip to a hard failure in the commit that adopts the amd64 stats.yaml.
       - name: Reference diff vs committed (report-only until amd64 canonical adopted)
         run: |
           docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
             python scripts/verify_reference.py \
             /tmp/stats_committed.yaml workloads/tabular_adult/reference/stats.yaml \
             || echo "::warning::reference differs from committed (expected until the amd64 canonical is adopted)"
+
+      - name: Restore committed reference (so the test suite sees canonical inputs)
+        run: git checkout -- workloads/tabular_adult/reference/stats.yaml
+
+      - name: Full test suite incl. slow (in container)
+        run: make docker-test
