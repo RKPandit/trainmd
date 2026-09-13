@@ -21,7 +21,18 @@ COPY --from=ghcr.io/astral-sh/uv:0.9.10 /uv /uvx /usr/local/bin/
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
     UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    # Single-threaded math for REPRODUCIBILITY. torch.use_deterministic_algorithms
+    # makes individual ops deterministic but multi-thread float reductions are
+    # still order-nondeterministic; pinning every BLAS/OMP pool to 1 makes
+    # training bit-reproducible run-to-run (the canonical requirement). Set via
+    # env (not train.py) so no workload source changes -> no case supersession.
+    OMP_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    NUMEXPR_NUM_THREADS=1 \
+    VECLIB_MAXIMUM_THREADS=1 \
+    TORCH_NUM_THREADS=1
 
 # torch's CPU wheel needs libgomp at run time; ca-certificates for HTTPS.
 RUN apt-get update \
