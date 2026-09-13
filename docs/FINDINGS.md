@@ -332,10 +332,15 @@ undercount" to a compliance failure counted only toward the semantic endpoint.)
   prompt supplies both a band *and* the rule "values outside this range are anomalous," so Sweep 1
   shows **norm + rule** restores detection, not that a norm alone does. *Sweep-2 remedy:* the
   three-arm design (none / numbers-only / numbers+rule).
-- **L11 — Sweep 1 ran on non-canonical macOS.** The canonical reference environment is Linux/CI;
-  the paid sweep was executed on macOS (recorded in the manifest). Cross-platform training
-  divergence is ~seed-scale, but Sweep 1 is **not** the canonical platform and is not relabelled as
-  such. *Remedy:* run the canonical sweep in the Linux container (Stage 1).
+- **L11 — Sweep 1's training ran with unpinned threading (its reference was canonical).**
+  *Corrected 2026-09-13:* the reference was **not** platform-specific — with threads pinned, native
+  linux/amd64 is byte-identical to Sweep 1's macOS reference. The real caveat is narrower: Sweep 1's
+  training runs (case builds, recovery reruns) used unpinned BLAS threading (run-to-run spread up to
+  ~0.0037 on per-seed hidden acc). This **cannot** have flipped any faulty guard (faulty margins
+  ≥ 0.0095) but is **within** the two tight control margins (+0.00196, +0.00137) — so control guards
+  sat inside the threading noise, faulty guards did not. Detection/identification/evidence are
+  unaffected. Full statement + Sweep-2 basis (≥20 controls) in `docs/LIMITATIONS.md` L11. *Remedy:*
+  pinning is now enforced (`train.py` guard); Sweep 2 runs canonical.
 - **L12 — Only 27 unique cases; the pre-registered matched-σ analysis was not run in-pipeline.**
   324 trials come from 27 cases (6/faulty operator, 3 controls), so primary contrasts use
   case-clustered bootstrap CIs and those intervals are wide (control FPR [0, 0.5]). The pooled H1

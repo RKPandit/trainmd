@@ -106,8 +106,9 @@ discrepancy. This bounds the residual error rate honestly.
 ### 2.1 Clean-clone reproduction drill (G2, G3)
 On a fresh machine/container with no cache: clone → `uv sync` → `make data` → `make
 reference` → build all cases → validate-all → run known-answer stubs → compare every number
-to the committed snapshots. Do it on Linux (canonical) and once on macOS (expect the
-documented platform delta, nothing else).
+to the committed snapshots. Do it on Linux (canonical) and once on macOS — with threads
+pinned, expect a **byte-identical** reference on both (there is no platform delta; the
+earlier apparent one was unpinned threading — DECISIONS.md 2026-09-13).
 **Catches:** hidden dependence on local state, untracked files, path assumptions.
 **Cost:** hours. Document exactly what a third party must do; that document *is* the
 reproducibility appendix.

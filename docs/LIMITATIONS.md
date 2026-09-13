@@ -76,11 +76,29 @@ anchor-on prompt gives the agent both a reference band *and* the instruction tha
 are anomalous. Sweep 1 therefore shows that a **norm plus a decision rule** restores detection, not
 that a norm alone does. *Sweep-2 remedy:* a three-arm design — none / numbers-only / numbers+rule.
 
-**L11 — Sweep 1 executed on non-canonical macOS.** The canonical reference environment is Linux/CI
-(cross-platform training divergence is ~seed-scale, so tolerance bands are only strictly valid on
-the platform that produced them). The paid Sweep-1 run was executed on macOS, which the manifest
-records; Sweep 1 is **not** relabelled as canonical. *Remedy:* run the canonical sweep in the Linux
-container (Stage 1).
+**L11 — Sweep 1's training ran with unpinned threading (the reference itself was canonical).**
+*Corrected 2026-09-13:* an earlier version of this limitation said Sweep 1 used a "non-canonical
+macOS reference." **That is false.** With every BLAS/OpenMP thread pool pinned to 1, the native
+linux/amd64 reference is **byte-identical to the macOS reference** Sweep 1 used (tolerance_lower
+0.843535) — there is no platform difference in the reference. The real, narrower caveat: Sweep 1's
+**training runs** (each case build, and the recovery reruns) executed with **unpinned** threading, so
+they sampled a run-to-run-nondeterministic process; the reference band they were scored against was
+correct.
+*What this does NOT affect:* detection, identification, and evidence (they don't depend on the
+training float noise), the reference band, and any faulty-case verdict (see below). It only adds
+noise to which side of a *tight* boundary a borderline healthy run landed on.
+*Quantified residual doubt (not hand-waved).* CI measured the unpinned run-to-run spread at up to
+**~0.0037** on per-seed hidden accuracy. Against each Sweep-1 case's faulty-vs-tolerance margin:
+- **Faulty cases cleared by ≥ 0.0095** — far outside the ~0.0037 noise band, so threading **could
+  not** have flipped any faulty case's tier guard. Faulty verdicts stand.
+- The **two tight controls** in the fresh canonical build sit at **+0.00196** and **+0.00137** above
+  tolerance — **inside** the ~0.0037 spread. So a control's healthy-clears-tolerance guard *was*
+  within the threading noise band; a borderline healthy run could have been sampled either side.
+This is the honest bound: **control guards were within the threading noise; faulty guards were not.**
+It is also the empirical basis for **≥ 20 unique controls in Sweep 2** — three controls at these
+tight margins cannot distinguish signal from threading jitter (and the control FPR CI was already
+[0, 0.5], L7/S3). *Remedy:* thread pinning is now enforced (train.py guard) and Sweep 2 runs in the
+canonical container; add 20+ unique controls.
 
 **L12 — Small case count and an un-run matched analysis.** The 324 trials come from only **27 unique
 cases** (6 per faulty operator, 3 controls; 12 trials/case), and trials within a case are not

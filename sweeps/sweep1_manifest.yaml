@@ -13,10 +13,12 @@ hardware:
   git_commit: 738db4ee60dce2d9b11e1525834b9c62571cc9cf
   in_container: false
   image_digest: null
-  canonical_environment_note: Linux/CI is the canonical reference environment. Sweep 1
-    was EXECUTED on non-canonical macOS (Darwin, recorded above); results are
-    platform-caveated and Sweep 1 is NOT relabelled canonical. The canonical re-run in
-    the Linux container is a Stage-1 item. See docs/LIMITATIONS.md L11.
+  canonical_environment_note: Sweep 1 used the CANONICAL reference (with threads pinned,
+    native linux/amd64 is byte-identical to this macOS-produced reference; corrected
+    2026-09-13). The narrower caveat is that Sweep 1's TRAINING ran with unpinned BLAS
+    threading (nondeterministic run-to-run, spread up to ~0.0037 on per-seed hidden acc);
+    this cannot have flipped a faulty guard but is within the tight control margins. See
+    docs/LIMITATIONS.md L11. Sweep 2 onward runs thread-pinned in the container.
 agent_phase:
   trials: 324
   input_tokens: 10522025

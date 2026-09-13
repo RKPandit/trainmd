@@ -30,13 +30,15 @@ Local (host) dev without Docker still works via `uv` (`make test`, `make validat
 
 ## Reference stats
 
-Data prep is **byte-identical across platforms** (verified by SHA-256 of every split);
-only the training metrics differ by platform/torch wheel (macOS = PyPI arm64 wheel;
-Linux = CPU wheel). The committed `reference/stats.yaml` is currently the macOS-generated
-file; the **canonical Linux/amd64 reference** is being adopted (regenerated in-container,
-confirmed against CI's native-amd64 output), with `reference/stats.macos.yaml` preserved
-for the record. **Sweep 1 was produced pre-container on macOS** (see `docs/LIMITATIONS.md`
-L11); **Sweep 2 onward is canonical** (in-container). See `docs/DECISIONS.md`.
+Data prep is **byte-identical across platforms** (verified by SHA-256 of every split).
+The committed `reference/stats.yaml` is the **verified canonical reference**: with every
+BLAS/OpenMP thread pool pinned to 1 (`train.py` enforces this), the native linux/amd64
+reference is **byte-identical both across two independent CI runners and to the original
+macOS file** — there is no platform difference (the earlier apparent delta was unpinned
+threading, since fixed). `train.py` refuses to run unpinned so no host run can produce
+non-canonical numbers. **Sweep 1's training ran pre-pinning** (unpinned threading; the
+reference band it used was still canonical — see `docs/LIMITATIONS.md` L11); **Sweep 2
+onward is fully canonical.** See `docs/DECISIONS.md`.
 
 ## Hardening gates (pre-sweep, free)
 

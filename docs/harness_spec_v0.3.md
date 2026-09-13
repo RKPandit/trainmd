@@ -80,10 +80,12 @@ where the operator sets it), `checkpoints/` (silent tier only — a crash produc
 
 `reference_run.py` runs the clean workload on 10 seeds, trains (visible metrics only), then calls
 the evaluator to compute each run's **hidden** test score, and writes mean/std/min/max and the
-tolerance band (default `mean − 2·std`) to `reference/stats.yaml`. The canonical environment is
-Linux/CI (macOS produces slightly different floats — cross-platform training divergence is the
-same order as seed-to-seed std, so the reference and any verification must share a platform;
-DECISIONS.md). `scripts/verify_reference.py` re-checks reproduction in CI.
+tolerance band (default `mean − 2·std`) to `reference/stats.yaml`. The canonical environment is the
+pinned Linux/amd64 container. With every BLAS/OpenMP thread pool pinned to 1 (`train.py` enforces
+this), training is bit-reproducible and macOS-arm64 and linux/amd64 produce a **byte-identical**
+reference — there is no cross-platform float difference (an earlier claim of one was the unpinned-
+threading bug; DECISIONS.md 2026-09-13). `scripts/verify_reference.py` re-checks reproduction in CI
+(now a blocking check).
 
 ## 4. Incident operator interface (as-built)
 
