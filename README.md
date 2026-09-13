@@ -3,7 +3,7 @@
 Evidence-grounded diagnosis and verified recovery of controlled ML training incidents.
 
 See [docs/problem_statement_v0.3.md](docs/problem_statement_v0.3.md) for the full research scope
-and [docs/harness_spec_v0.1.md](docs/harness_spec_v0.1.md) for the implementation spec.
+and [docs/harness_spec_v0.3.md](docs/harness_spec_v0.3.md) for the implementation spec.
 
 ## Setup
 
@@ -43,8 +43,11 @@ make audit-index                # impossible-combination audit over results/inde
   but not detected, a repair on a healthy control) as FAIL, and reporting-only
   conditions (superseded trials) as INFO. Exits nonzero on any FAIL.
 
-`--fast` (default) skips recovery reruns; `--full` / `FULL=1` includes them. CI
-runs fast on push, full nightly. Audit tables land in `docs/audits/`.
+`--fast` (default) skips recovery reruns; `--full` / `FULL=1` includes them. The
+current CI workflow (`.github/workflows/reference.yml`) runs the reference-run
+protocol on **push and pull_request**; there is no nightly/full job yet (it arrives
+in Stage 1 with the container). Gate/validate/audit are run locally and their dated
+tables land in `docs/audits/`.
 
 ## Running a sweep
 
@@ -80,7 +83,12 @@ disclosure rule and Sweep-2 remedies), [docs/DECISIONS.md](docs/DECISIONS.md), a
 
 ## Current milestone
 
-**M2.1** — repo scaffold, tabular workload, reference-run protocol green in CI.
+**Sweep 1 complete** (Haiku 4.5, tabular_adult, 324 trials / 27 cases, two agents,
+anchor on/off) with disclosed post-hoc corrections and an external claim-tightening
+review — see `docs/FINDINGS.md`, `docs/HYPOTHESES.md` Results, and `docs/LIMITATIONS.md`.
+**Next (Stage 1):** Linux container + canonical re-run, then Sweep 2 (second model /
+workload, factorial symptom×operator, three-arm anchor). Earlier milestones (M2.1 repo
+scaffold + reference-run protocol green in CI) are done.
 
 ## License
 

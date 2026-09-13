@@ -339,7 +339,7 @@ def build_case_info(card: dict, include_band: bool = True) -> str:
     return "\n".join(parts)
 
 
-def _build_system_prompt(case_dir: Path, include_band: bool = True) -> str:
+def _build_instruction_prompt(case_dir: Path, include_band: bool = True) -> str:
     """Build the ReAct system prompt from the public case card."""
     with open(case_dir / "card.public.yaml") as f:
         card = yaml.safe_load(f)
@@ -399,18 +399,22 @@ class LLMAgent:
                 "max_tokens": self._max_response_tokens,
             })
 
-        # 2. Build system prompt (record it + its hash + version)
+        # 2. Build the instruction prompt (record it + its hash + version).
+        # NOTE: this is delivered as the INITIAL USER-ROLE message below — the
+        # harness does not use the provider `system` field. The record key
+        # `system_prompt_text` is a legacy name kept for schema stability; it
+        # holds the instruction prompt as sent (see docs/LIMITATIONS.md L13).
         include_band = self._anchor == "on"
-        system_prompt = _build_system_prompt(case_dir, include_band=include_band)
+        instruction_prompt = _build_instruction_prompt(case_dir, include_band=include_band)
         if self._record is not None:
             self._record["prompt"] = {
-                "system_prompt_text": system_prompt,
-                "prompt_hash": hashlib.sha256(system_prompt.encode()).hexdigest(),
+                "system_prompt_text": instruction_prompt,  # legacy key; user-role delivery
+                "prompt_hash": hashlib.sha256(instruction_prompt.encode()).hexdigest(),
                 "prompt_version": REACT_PROMPT_VERSION + ("" if include_band else "-noanchor"),
             }
 
-        # 3. Initialize messages
-        messages: list[dict] = [{"role": "user", "content": system_prompt}]
+        # 3. Initialize messages — the instruction prompt is the first USER turn.
+        messages: list[dict] = [{"role": "user", "content": instruction_prompt}]
 
         # 4. ReAct loop
         submitted = False

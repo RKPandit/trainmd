@@ -2,9 +2,11 @@
 
 records=324 excluded_trusted=0 excluded_superseded=0
 
+n_cases=27 (6 per faulty operator × 4 + 3 controls; 12 trials/case). Primary contrasts below use case-clustered uncertainty — trials within a case are not independent.
+
 ## Post-hoc scoring corrections
 
-Two Sweep-1 results were scoring/schema **artifacts, not model behaviour**, corrected by principle and disclosed (see docs/DECISIONS.md, 2026-09-13). Original numbers are kept alongside corrected.
+Three Sweep-1 corrections, disclosed, originals kept (see docs/DECISIONS.md, 2026-09-13). Corrections 1–2 were scoring/schema **artifacts, not model behaviour**; correction 3 is **model-side output folding, not a harness bug** — a well-formed repair the model misplaced. All three *removed* a harness-imposed penalty; none changed ground truth.
 
 - **Identification** re-scored with root-token matching (`root_token_v1`): correct synonyms outside the enumerated `accepted_classes` now credited; two-fault / `none`-on-faulty rejected. Touches **H3, H4** only.
 - **Shape recovery**: `null` = unset an absent-when-clean key (oracle-equivalent to the reference value).
@@ -45,6 +47,27 @@ Folding rate: **31/324 (9.6%)** of submissions had the repair folded into a stri
 | silent.label_corruption.v1 | 72 | 0.0 | 0.6389 |
 | silent.lr_warmup.v1 | 72 | 0.0 | 0.9437 |
 
+## Primary contrasts — case-clustered (Stage 0 claim tightening)
+
+n_trials=324, n_cases=27. Method: case-level nonparametric bootstrap, 10000 resamples, 95% percentile. No bare point estimates for primary contrasts.
+
+**H1 — anchor-off detection gap (negative − positive symptom), pooled:** 0.556 [0.327, 0.774] (neg 0.639 on 12 cases − pos 0.083 on 6 cases). **Nearest-σ matched** mean paired gap: 0.528. *Symptom direction is perfectly confounded with operator identity (all positive = data_leakage); the matched contrast narrows σ but does NOT touch that confound — only a second positive-symptom operator can.*
+
+**H6 — ReAct − static evidence F1 (overall, faulty ops):** 0.135 [0.075, 0.204] (n_cases=24). Point meets the pre-registered ≥0.10; the 95% CI lower bound dips below 0.10, so it is not robustly ≥0.10.
+
+**Control detection FPR (anchor-on):** 0.222 [0.000, 0.500] — 4/18 trials from only **2 unique healthy case(s)** (case_0005, case_0006); bootstrapped over the 3 control cases. This is NOT a population false-positive rate; the interval width is the argument for 20+ controls in Sweep 2.
+
+### Recovery — strict (primary) vs semantic (secondary), with id-gap CIs
+
+| operator | n_trials | n_cases | identification | strict recovery | semantic recovery | id − strict (95% CI) | id − semantic (95% CI) |
+|---|---|---|---|---|---|---|---|
+| crash.shape_mismatch.v1 | 72 | 6 | 0.9861 | 0.75 | 0.9444 | 0.236 [0.208, 0.250] | 0.042 [0.014, 0.069] |
+| silent.lr_warmup.v1 | 72 | 6 | 0.9306 | 0.8333 | 0.9028 | 0.097 [0.056, 0.139] | 0.028 [0.000, 0.056] |
+| silent.label_corruption.v1 | 72 | 6 | 0.6389 | 0.5139 | 0.5833 | 0.125 [0.056, 0.194] | 0.056 [0.014, 0.111] |
+| silent.data_leakage.v1 | 72 | 6 | 0.4306 | 0.3889 | 0.4306 | 0.042 [-0.056, 0.139] | 0.000 [-0.056, 0.069] |
+
+*Strict recovery is the autonomous-success headline; the 9.6% folding is an agent-compliance failure of the system under test, so semantic recovery does not replace strict. On the strict endpoint identification exceeds recovery on 3/4 operators (CI excludes 0); semantic recovery nearly closes it, so most of the strict gap is submission-format compliance + strict admissibility, not inability to name the fault.*
+
 ## Scores by (operator, agent, anchor)
 
 | operator | agent | anchor | n | detection | identification | evidence_f1 | recovery/no_unnec |
@@ -81,6 +104,19 @@ H1_positive_symptom_blindness:
     leakage_detection: 0.0857
     negative_symptom_detection: 0.6389
 H2_detection_vs_sigma_by_anchor:
+  status: REFUTED (pre-registered prediction not met)
+  preregistered: a single monotone detection-vs-sigma curve with a FITTED 50% threshold
+    and interval
+  outcome: no threshold was fitted and the pooled detection-vs-sigma curve is non-monotone;
+    the pre-registered prediction is not met
+  exploratory_followup: "POST-HOC EXPLORATORY (not confirmatory): symptom SIGN appears\
+    \ to moderate the magnitude->detection relationship \u2014 within negative-symptom\
+    \ faults detection rises with sigma, positive-symptom faults floor regardless.\
+    \ To be PRE-REGISTERED and tested prospectively in a later sweep, not claimed\
+    \ from this data."
+  sigma_axis_note: 'detection is reported primarily against VISIBLE signed sigma (what
+    the agent can observe: negative = inflated/positive symptom); hidden sigma is
+    benchmark harm, reported separately, not an agent-visible signal'
   by_case:
   - case_id: case_0001
     operator: silent.lr_warmup.v1
@@ -283,13 +319,12 @@ H2_detection_vs_sigma_by_anchor:
   by_anchor:
     'on':
       detection_rate: 1.0
-      n: 108
+      n_trials: 108
+      n_cases: 18
     'off':
       detection_rate: 0.4579
-      n: 108
-  note: "detection anchor-off tracks symptom_direction, not sigma magnitude \u2014\
-    \ see by_case (positive-symptom cases stay near floor even at large sigma_hidden\
-    \ when anchor is off)"
+      n_trials: 108
+      n_cases: 18
 H3_doing_understanding_gap:
   control.healthy.v1:
     recovery_rate: 0.0

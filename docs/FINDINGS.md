@@ -24,15 +24,15 @@ with a more precise mechanism than predicted) · `refuted` (pre-registered crite
 
 | # | Finding | Evidence so far | Status |
 |---|---|---|---|
-| S1 | **Positive-symptom blindness.** Agents miss faults whose visible metrics look *good*, and a one-line healthy-reference band cures it. | Sweep 1: leakage detection 0.086 → 1.000 with the band; negative-symptom faults 0.639 → 1.000. | confirmed · pending replication (Haiku, tabular) |
-| S2 | **Detection follows symptom *sign* first, then magnitude.** Within negative-symptom faults detection is monotone in σ; positive-symptom faults floor regardless of σ (to σ=64). | Sweep 1 H2 per-case table. | sharpened · pending replication |
-| S3 | **The reference band is a trade: it rescues true detection and induces false alarms on healthy runs.** | Sweep 1: control FPR 0 → 0.22 with the band; all 4 FPs anchor-on at band-edge values. | unplanned · pending replication |
-| S4 | **Tool-mediated investigation helps where investigation matters, not where seeing everything suffices.** ReAct beats static by +0.32 evidence F1 on subtle label noise and ≈0 on leakage, at ~5.5× the cost. | Sweep 1 H6 + cost table. | confirmed (incl. sub-claim) · pending replication |
-| S5 | **This model names faults at least as reliably as it repairs them.** Identification ≥ recovery on every operator once scoring artifacts are removed; the earlier "fixes-but-can't-name" pattern was an artifact. | Sweep 1 H3 (corrected). | refuted (as predicted direction) · pending replication |
+| S1 | **Positive-symptom blindness.** Agents miss faults whose visible metrics look *good*, and a numeric reference band + decision rule restores detection. | Sweep 1: anchor-off gap 0.556, 95% CI [0.327, 0.774]; → 1.000 with the band+rule. **Confound: symptom direction ≡ operator identity (all positive = data_leakage); anchor = norm+rule, not norm alone.** | pilot support · confound-limited · pending factorial replication |
+| S2 | ~~Detection follows symptom sign first, then magnitude.~~ **H2 (a fitted σ threshold) is REFUTED** — no threshold fitted, pooled curve non-monotone. Exploratory successor (post-hoc, to pre-register): symptom *sign* moderates magnitude→detection. | Sweep 1 H2 per-case table. | refuted (prediction) · exploratory successor · pending prospective test |
+| S3 | **The reference band is a trade: it rescues true detection and induces false alarms on healthy runs.** | Sweep 1: anchor-on control FPR 0.222, 95% CI [0.0, 0.5] — 4/18 from just 2 unique healthy cases (not a population rate; the width argues for 20+ controls). | unplanned · under-powered · pending replication |
+| S4 | **The ReAct−static gap is real but does not isolate tool use.** ReAct beats static +0.135 evidence F1 overall, 95% CI [0.075, 0.204], most on subtle noise; leakage sub-claim +0.006 (≤0 criterion **not** formally met). The arms also differ in calls, deliberation, tokens, and prompt text. | Sweep 1 H6 + cost table. | overall confirmed · sub-claim not formally confirmed · confounded (needs token-matched baseline) |
+| S5 | **On the strict endpoint, this model names faults somewhat more reliably than it autonomously repairs them.** id − *strict* recovery is 0.10–0.24 (CI excludes 0) on 3/4 operators; *semantic* recovery nearly closes it, so most of the gap is submission-format compliance + strict admissibility. Pre-registered direction (recovery > id) refuted. | Sweep 1 H3 (strict primary + semantic). | refuted (predicted direction) · modest id>strict dissociation · pending replication |
 | S6 | **Diagnostic outcomes are reproducible under nondeterminism; identification agreement drops on the hardest fault.** | Sweep 1 H4: mean agreement 0.82; leakage identification agreement 0.71 vs lr 0.96. | partially confirmed · pending replication |
-| S7 | **Adult+MLP is robust to symmetric label noise** (≤25% flips < 1 pt degradation); label corruption is a *subtle* fault on tabular data. | Calibration sweeps (DECISIONS 2026-09-12). | unplanned · workload-specific |
+| S7 | **Adult+MLP is robust to symmetric label noise**; label corruption is a *subtle* fault on tabular data. Even the operator's calibrated ladder (33/38/42% flips) degrades accuracy only ~1–2 pt. | Calibration sweeps (DECISIONS 2026-09-11, ladder 0.33/0.38/0.42). | unplanned · workload-specific |
 | S8 | **A visible knob without a norm is not a signal.** A configuration value that names a fault, sitting in plain view in the prompt, does not trigger detection unless the agent also has a reference for what is normal — the missing baseline, not missing information, is what blinds it. | Sweep 1: `label_noise_fraction: 0.38` present, un-truncated, in 18/18 static anchor-off contexts and echoed in the response, yet static detected the fault 1/18 vs ReAct 11/18. | unplanned · pending replication |
-| S9 | **Tool-use output is unreliable enough to need recovery: ~1 in 10 repairs is misplaced.** The model sometimes emits the repair as text inside a sibling string field instead of the structured tool argument; a harness that scores only the structured field silently undercounts capability. | Sweep 1: 31/324 (≈9.6%) repair submissions folded and recovered (`parser_fix_v1`); 0 ambiguous. | unplanned · pending replication |
+| S9 | **~1 in 10 repairs is misplaced — an agent-compliance failure, counted only toward the semantic endpoint.** The model emits a well-formed repair as text in a sibling string field instead of the structured tool argument; this is a failure of the system under test, so it does *not* count toward strict autonomous success (it is recovered post-hoc for the semantic endpoint only). | Sweep 1: 31/324 (≈9.6%) folded; strict vs semantic recovery reported side by side. | unplanned · pending replication |
 
 ---
 
@@ -98,26 +98,34 @@ invisible in the raw table (shape 0.35, silent ops ≈0.39–0.51), *flattened b
 artifacts* — narrow class sets, an unexpressible unset, and folded repairs. Removing them let the
 intended structure show through.
 
-### F1 — Positive-symptom blindness (H1) · confirmed
+### F1 — Positive-symptom blindness (H1) · pilot support (confound disclosed)
 
 **Claim.** Agents diagnose faults whose observable symptoms are *bad* far more reliably than
 faults whose symptoms are *good*; without a baseline for "normal," a positive symptom reads
 as success.
 **Pre-registered prediction.** Anchor-off leakage detection ≥30 points below matched
 negative-symptom detection; anchor-on gap ≤10.
-**Evidence** (`sweep_sweep1_20260913.md`, H1 block; scores table). Anchor **off**: leakage
-detection **0.086** vs negative-symptom **0.639** — a 55-point gap. Static agent: **0/18**
-leakage detections; ReAct: 3/18. Anchor **on**: **1.000 / 1.000** — gap 0. All 36
-anchor-on leakage trials detected.
-**Interpretation.** A frontier model located the leaking feature and derived its label
-dependence (Sweep-0 transcript, RESEARCH_LOG 16) yet, with validation accuracy at 0.90 and no
-reference for what 0.90 *means* on this workload, judged the run healthy. One line — "healthy
-runs achieve ≈0.857 (0.854–0.860)" — turns the same evidence into a diagnosis. Finding, cause,
-and intervention in one table.
-**What would change our mind.** A second model detecting leakage anchor-off at parity with
-negative-symptom faults (H5, Sweep 2); or the effect vanishing on a workload where the model
-has strong priors about the achievable accuracy.
-**Status.** Confirmed by pre-registered criteria. Pending replication across models/workloads.
+**Evidence** (`sweep_sweep1_20260913.md`, Primary contrasts). Anchor **off**, pooled and
+case-clustered: gap (negative − positive) **0.556, 95% CI [0.327, 0.774]** (pos 0.083 / 6 cases,
+neg 0.639 / 12 cases). Nearest-σ matched mean paired gap **0.528**. Anchor **on**: **1.000 /
+1.000** (gap 0).
+**Interpretation.** The pooled contrast is large and in the predicted direction: a model that
+located the leaking feature (Sweep-0 transcript, RESEARCH_LOG 16) still judged a 0.90-accuracy run
+healthy with no reference for what 0.90 *means* here, and one healthy-band line flips it.
+**Stage-0 caveats (external review, 2026-09-13) — why this is pilot, not a clean confirm.**
+(a) **Symptom direction is perfectly confounded with operator identity** — every positive-symptom
+case is data_leakage, every negative case is lr_warmup/label_corruption — so the gap may reflect
+symptom direction *or* leakage being intrinsically harder; only a second positive-symptom operator
+separates them (the matched-σ pairing narrows σ but not this confound). (b) The pre-registered
+**"matched σ-distance" comparison was not performed** by the pipeline (it pools); the nearest-σ
+pairing is a supplement (see L12). (c) The anchor manipulation **confounds a numeric reference with
+an explicit decision rule** — Sweep 1 shows **norm + rule** restores detection, not that a norm
+alone does (see L10; three-arm design in open questions).
+**What would change our mind.** A second positive-symptom operator (breaking the confound); a
+three-arm none/numbers-only/numbers+rule anchor; a second model/workload.
+**Status.** **Pilot support** — pre-registered pooled contrast large and in the predicted
+direction, pending factorial replication. (Was "confirmed"; downgraded on external review for the
+operator-identity confound and the un-run matched analysis.)
 
 **Pass-2 mechanism addendum (2026-09-13; diagnostics2 §1).** The mechanism is not a failure to
 investigate. Of the 32 anchor-off leakage trials that returned `detected=false`, **0 never looked**
@@ -130,30 +138,37 @@ reframes it as normal rather than a fault. Verbatim (≤40 words each):
 > (ReAct, case_0013) "Configuration analysis: learning rate 0.01 (reasonable for Adam on tabular data), batch size 256 (reasonable), optimizer Adam with weight_decay 0.0001 (standard). No incident found."
 > (ReAct, case_0014) "Learning rate 0.01 (reasonable for Adam), batch size 256 (reasonable), MLP hidden dims [64, 32], no dropout, ReLU activation. The run looks healthy."
 
-### F2 — Detection is gated by symptom sign, then scaled by magnitude (H2) · sharpened
+### F2 — A σ detection threshold (H2) · REFUTED (prediction not met); new exploratory hypothesis
 
-**Claim.** Two mechanisms, not one. *Within* negative-symptom faults, anchor-off detection is
-monotone in effect size; positive-symptom faults floor regardless of effect size.
-**Pre-registered prediction.** A single monotone detection-vs-σ curve with a threshold.
-**Evidence** (diagnostics §3; H2 block). Negative symptoms, anchor-off: label_corruption at
-σ_hidden ≈ 11–18 detects 0.33–0.50; lr_warmup at σ ≈ 24 detects 0.67; at σ ≈ 44 detects
-1.00. Positive symptoms, anchor-off: leakage detects 0.00–0.33 at σ_hidden = 6, 21, 23, **56,
-64** — no trend. Anchor-on: 1.00 everywhere (ceiling; σ invisible).
-**Interpretation.** The prediction was right about the threshold and wrong that it was the
-whole story: a larger leak makes the metrics look *better*, so magnitude cannot rescue a
-fault whose sign is wrong. This unifies F1 and F2 into one law — sign gate, then threshold.
-**Caveat (see L1).** lr_warmup's three strengths all collapse to the majority-class baseline
-(identical σ = 44.6), so the negative-symptom curve has one point between σ ≈ 18 and σ ≈ 44.
-**Status.** Sharpened. The threshold's location needs a denser σ ladder (Sweep 2).
+**Pre-registered prediction.** A **single monotone detection-vs-σ curve with a fitted 50% threshold
+and interval.**
+**Outcome — REFUTED.** No threshold was fitted, and the pooled detection-vs-σ curve is
+**non-monotone**. The pre-registered prediction is not met. (This was previously labelled
+"sharpened," which presented a failed prediction as a success; corrected on external review.)
+**Evidence** (diagnostics §3; H2 block), reported primarily against **visible signed σ** (what the
+agent observes; hidden σ is benchmark harm, separate). Negative symptoms, anchor-off:
+label_corruption at σ_hidden ≈ 11–18 detects 0.33–0.50; lr_warmup at σ ≈ 24 detects 0.67; at σ ≈ 44
+detects 1.00. Positive symptoms, anchor-off: leakage detects 0.00–0.33 at σ_hidden = 6, 21, 23, 56,
+64 — no trend. Anchor-on: 1.00 everywhere (ceiling; σ invisible). Table retained.
+**New EXPLORATORY hypothesis (post-hoc, not confirmatory).** *Symptom **sign** moderates the
+magnitude→detection relationship* — within negative-symptom faults detection rises with σ;
+positive-symptom faults floor regardless. To be **pre-registered and tested prospectively** in a
+later sweep, not claimed from this data.
+**Caveat (see L1).** lr_warmup's three strengths share σ = 44.6, so the negative-symptom curve has
+one point between σ ≈ 18 and σ ≈ 44 — too sparse to fit a threshold even post-hoc.
+**Status.** **Refuted** (pre-registered prediction). The moderation idea is exploratory, pending a
+prospective pre-registration with a denser σ ladder (Sweep 2).
 
 ### F3 — The reference band is a trade (unplanned) · unplanned
 
 **Claim.** The intervention that cures positive-symptom blindness induces false alarms on
 healthy runs whose metrics sit at the band edge.
-**Evidence** (diagnostics §6; controls block). Control false-positive rate: anchor-off
-**0/18**, anchor-on **4/18** (0.222); overall FPR 0.111, false-intervention rate 0.111 (the
-same 4 trials — a "repair" on a healthy run). Rationales cite band-edge values (one healthy
-run genuinely above 0.8599; one misread 0.8546 as "below the floor 0.8538").
+**Evidence** (Primary contrasts; controls block). Anchor-on control detection FPR **0.222, 95% CI
+[0.000, 0.500]** — but this is **4/18 trials from only 2 unique healthy cases (case_0005,
+case_0006)**, bootstrapped over the **3** control cases. It is **not a population false-positive
+rate**; the CI runs from 0 to 0.5, and that width is precisely the argument for **20+ controls in
+Sweep 2**. Anchor-off control FPR was 0/18. Rationales cite band-edge values (one healthy run
+genuinely above 0.8599; one misread 0.8546 as "below the floor 0.8538").
 **Interpretation.** Part of this cost is *structural*: a mean±2σ band places ~5% of healthy
 runs outside it by construction. Part is the model over-reading an edge. The band's benefit
 (F1) is bought with a measurable false-alarm cost — which is the honest way to present the
@@ -162,43 +177,55 @@ intervention.
 should cut structural FPs without losing true detections, whose σ-distances are ≥ 6.
 **Status.** Unplanned; pending replication.
 
-### F4 — Tools help where investigation matters (H6) · confirmed, incl. sub-claim
+### F4 — The ReAct−static gap (H6) · overall confirmed; sub-claim not formally confirmed; confounded
 
 **Claim.** The ReAct agent out-scores the static full-context baseline on evidence — most on
-subtle faults, not at all on leakage — at ~5.5× the cost.
+subtle faults, near-zero on leakage — at ~5.5× the cost.
 **Pre-registered prediction.** ReAct ≥ +0.10 evidence F1 overall; ReAct − static ≤ 0 on
 leakage while > 0 on negative-symptom faults.
-**Evidence** (H6 block; cost table). ReAct − static evidence F1: label_corruption **+0.32**,
-lr_warmup **+0.17**, shape **+0.04**, data_leakage **+0.006**, control 0. Cost: ReAct
-$10.81 / static $1.95 (**5.5×** dollars, 7–8× input tokens; ~$0.06–0.08 vs ~$0.012 per
-trial). Anchor-off detection also separates the agents: label_corruption ReAct 0.61 vs static
-0.06 — investigation is what finds a subtle fault without a baseline.
-**Interpretation.** Where the symptom is subtle (a <1-pt accuracy drop), stepwise querying
-of metrics finds evidence a one-shot read skims past. Where the answer is in the code
-(leakage), seeing everything at once is as good — and the static agent avoids the distractor
-paths the tool loop wandered down. The cost-quality map, not "tools help," is the result.
-**Status.** Confirmed by pre-registered criteria, including the leakage sub-claim.
+**Evidence** (Primary contrasts; H6 block). Overall ReAct − static evidence F1 **0.135, 95% CI
+[0.075, 0.204]** (24 cases) — the point meets ≥0.10 but the CI lower bound dips below it, so the
+overall criterion is met at the point estimate, not robustly. Per operator: label_corruption
+**+0.32**, lr_warmup **+0.17**, shape **+0.04**, data_leakage **+0.006**, control 0. Cost: ReAct
+$10.81 / static $1.95 (**5.5×**).
+**Sub-claim.** Leakage required ReAct − static ≤ 0; observed **+0.006 — practically zero but
+formally NOT confirmed** against a ≤0 criterion.
+**Interpretation + confound (external review).** Where the symptom is subtle, stepwise querying
+finds evidence a one-shot read skims past; where the answer is in code (leakage), seeing everything
+at once is as good. But **ReAct vs static does not isolate tool use**: the arms also differ in call
+count, deliberation, context ordering, token budget, and prompt text — the ReAct prompt names
+learning rate / batch size / optimizer, which may itself advantage lr_warmup. A **token-matched
+deliberative baseline** is needed to attribute the gap to tools.
+**Status.** Overall confirmed at the point estimate (CI dips below 0.10); leakage sub-claim not
+formally confirmed (+0.006 vs ≤0); mechanism confounded pending a token-matched baseline.
 
-### F5 — Naming vs repairing (H3) · refuted (no meaningful dissociation)
+### F5 — Naming vs repairing (H3) · refuted (predicted direction); modest id>strict dissociation
 
 **Claim (as pre-registered).** Recovery exceeds identification — agents fix faults without
 naming them.
-**Evidence** (H3 block, FINAL corrected — after all three corrections). Identification vs
-recovery, and the gap (id − rec): shape_mismatch **0.986 / 0.944** (0.042); lr_warmup
-**0.944 / 0.903** (0.041); label_corruption **0.639 / 0.583** (0.056); data_leakage **0.437 /
-0.431** (0.006). Identification is marginally ≥ recovery on every operator, but **every gap is
-≤ 0.06.** Original (artifact) numbers were 0.00 / 0.83, 0.00 / 0.51, 0.35 / 0.35, 0.01 / 0.39.
-**Interpretation.** The pre-registered direction (recovery > identification — "fixes it but
-can't name it") is **refuted**: it was an artifact of a schema example anchoring the label plus
-class sets too narrow for free-form labels. But the data does **not** support a reversed
-dissociation either — a 1-to-6-point edge is within the noise of these per-operator rates
-(≤72 trials each). The honest reading is **near-parity**: once the three harness penalties are
-removed, this model *names* a fault about as reliably as it produces an *admissible, verified*
-repair. There is no doing/understanding gap at this scale in either direction. (Where recovery
-still trails at all, it is strict admissible ranges and the residual no-repair/inadmissible
-submissions, not an inability to name the fault.)
-**Status.** Refuted (pre-registered direction). No meaningful dissociation; reported with
-original numbers alongside.
+**Endpoints.** The primary endpoint is **STRICT recovery** (a valid *structured* repair submitted
+and verified — autonomous success). **SEMANTIC recovery** (strict + repairs recovered post-hoc from
+folded output) is secondary. The earlier verdict ("no dissociation") was read off the *semantic*
+endpoint; recomputed here against **strict** as primary, with case-clustered CIs:
+
+| operator | identification | strict recovery | semantic recovery | id − strict (95% CI) | id − semantic (95% CI) |
+|---|---|---|---|---|---|
+| shape_mismatch | 0.986 | 0.750 | 0.944 | **0.236 [0.208, 0.250]** | 0.042 [0.014, 0.069] |
+| lr_warmup | 0.931 | 0.833 | 0.903 | **0.097 [0.056, 0.139]** | 0.028 [0.000, 0.056] |
+| label_corruption | 0.639 | 0.514 | 0.583 | **0.125 [0.056, 0.194]** | 0.056 [0.014, 0.111] |
+| data_leakage | 0.431 | 0.389 | 0.431 | 0.042 [−0.056, 0.139] | 0.000 [−0.056, 0.069] |
+
+**Interpretation.** The pre-registered direction (recovery > identification) is **refuted** on both
+endpoints — it was an artifact of a schema example anchoring the label plus narrow class sets. On
+the **primary (strict) endpoint** the dissociation runs the *other* way: identification exceeds
+strict recovery on 3 of 4 operators with a case-clustered CI excluding 0 (shape 0.24, lr 0.10,
+label 0.13). But **semantic recovery nearly closes it** (id − semantic ≈ 0–0.06), so most of the
+strict shortfall is **submission-format compliance** (the 9.6% folding, F9) plus strict admissible
+ranges — not an inability to name the fault. Original (artifact) numbers were 0.00/0.83, 0.00/0.51,
+0.35/0.35, 0.01/0.39.
+**Status set from the primary (strict) endpoint:** pre-registered direction **refuted**; a **modest
+id > strict-recovery dissociation** (largely a compliance/admissibility effect, not diagnostic).
+Both endpoints reported.
 
 ### F6 — Reproducibility under nondeterminism (H4) · partially confirmed
 
@@ -227,7 +254,7 @@ budget, not by difficulty. Two of 324 ReAct trials hit `max_turns` without submi
 not by itself trigger detection. What is missing is not information but a **norm** — a reference
 for what the value should be.
 **Evidence** (diagnostics2 §2). Static anchor-off on label_corruption detected the fault **1/18**;
-ReAct anchor-off on the same six cases detected **11/18**. `label_noise_fraction` (0.15–0.42
+ReAct anchor-off on the same six cases detected **11/18**. `label_noise_fraction` (0.33–0.42
 depending on strength) was present in **all 18** static contexts, **un-truncated**, about **2% of
 the way into the prompt** (in `config.yaml`), and the response text even **echoed** it. So the knob
 was seen and named, not lost to context length or ordering.
@@ -255,14 +282,21 @@ lr_warmup 6, data_leakage 3 — i.e. it is not specific to the crash tier. Recov
 extraction, then the normal verify path) raised recovery on all four operators (see the
 "structured vs recovered" table in `docs/audits/sweep_sweep1_*.md`).
 
-**Interpretation.** A benchmark that scores only the structured field would undercount repair
-capability by ~10% here, and unevenly across operators. The recovery + `submission_parse_warning`
-now runs in the live agent path, so future sweeps self-heal and report the folding rate.
+**Interpretation.** Two things are true at once, and the report keeps them apart. (1) It is an
+**agent-compliance failure of the system under test**: the model produced the right fix but failed
+to put it in the structured field, so it does **not** count toward *strict* autonomous success —
+strict recovery is the headline. (2) It is also a *measurement* caution: a benchmark that scored
+only the structured field would understate diagnostic *capability*, which is why the *semantic*
+endpoint (strict + folded-recovered) is reported alongside strict, never in place of it. The two
+endpoints bracket the truth: strict = "did the agent autonomously succeed end-to-end," semantic =
+"did the agent know the fix." The live path recovers + flags (`submission_parse_warning`) so future
+sweeps self-heal and report the rate.
 
 **What would change our mind.** A different model/prompt with a near-zero folding rate would make
 this Haiku/prompt-specific rather than a general tool-use caution.
 
-**Status.** `unplanned` · pending replication.
+**Status.** `unplanned` · pending replication. (Reframed on external review from "harness
+undercount" to a compliance failure counted only toward the semantic endpoint.)
 
 ### Limitations exposed by Sweep 1
 
@@ -290,6 +324,29 @@ this Haiku/prompt-specific rather than a general tool-use caution.
   ambiguous → not recovered), then runs it through the normal validation. The recovery rate and the
   structured-vs-recovered channel split are reported per sweep; a change to the extractor requires
   re-reporting both. The live path self-heals and flags (`submission_parse_warning`).
+- **L9 — Symptom direction is perfectly confounded with operator identity (H1).** Every
+  positive-symptom case is data_leakage; every negative-symptom case is lr_warmup/label_corruption.
+  The H1 gap cannot be separated from "leakage is intrinsically harder" until a **second
+  positive-symptom operator** exists. *Sweep-2 remedy:* add one.
+- **L10 — The anchor confounds a numeric reference with an explicit decision rule.** The anchor-on
+  prompt supplies both a band *and* the rule "values outside this range are anomalous," so Sweep 1
+  shows **norm + rule** restores detection, not that a norm alone does. *Sweep-2 remedy:* the
+  three-arm design (none / numbers-only / numbers+rule).
+- **L11 — Sweep 1 ran on non-canonical macOS.** The canonical reference environment is Linux/CI;
+  the paid sweep was executed on macOS (recorded in the manifest). Cross-platform training
+  divergence is ~seed-scale, but Sweep 1 is **not** the canonical platform and is not relabelled as
+  such. *Remedy:* run the canonical sweep in the Linux container (Stage 1).
+- **L12 — Only 27 unique cases; the pre-registered matched-σ analysis was not run in-pipeline.**
+  324 trials come from 27 cases (6/faulty operator, 3 controls), so primary contrasts use
+  case-clustered bootstrap CIs and those intervals are wide (control FPR [0, 0.5]). The pooled H1
+  contrast substitutes for the pre-registered "matched σ-distance" comparison; a supplementary
+  nearest-σ pairing is reported but does not resolve the L9 confound. *Sweep-2 remedy:* more cases
+  per cell and a factorial symptom×operator design.
+- **L13 — Instructions are delivered as the initial user-role message, not the provider system
+  role.** The harness sends what the docs call the "instruction/framing prompt" as the first
+  `user` turn; it does not use the API `system` field. Sweep 1's instrument is preserved as-is
+  (renamed for accuracy, not switched mid-study). *Sweep-3 candidate:* switch to the provider
+  system field — never mid-study.
 
 ### Open questions carried to Sweep 2 (candidates for pre-registration)
 
@@ -300,6 +357,12 @@ this Haiku/prompt-specific rather than a general tool-use caution.
 4. Does S4's cost-quality map hold when the static agent's context exceeds one window
    (a larger workload)?
 5. Does label corruption remain "subtle" on a noise-sensitive workload (vision)?
+6. **Add a second positive-symptom operator** to break the symptom↔operator confound (L9), so the
+   H1 gap can be attributed to symptom direction rather than to leakage-specific difficulty.
+7. **Three-arm anchor design (none / numbers-only / numbers+rule)** to separate a numeric norm from
+   an explicit decision rule (L10) — does a norm alone restore detection?
+8. **Token-matched deliberative baseline** for H6, so the ReAct−static gap can be attributed to
+   tool use rather than to call count / deliberation / tokens / prompt wording.
 
 ---
 

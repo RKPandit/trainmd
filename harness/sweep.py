@@ -515,9 +515,10 @@ def _post_hoc_corrections_section(records) -> list:
     lines = [
         "## Post-hoc scoring corrections",
         "",
-        "Two Sweep-1 results were scoring/schema **artifacts, not model behaviour**, "
-        "corrected by principle and disclosed (see docs/DECISIONS.md, 2026-09-13). "
-        "Original numbers are kept alongside corrected.",
+        "Three Sweep-1 corrections, disclosed, originals kept (see docs/DECISIONS.md, 2026-09-13). "
+        "Corrections 1–2 were scoring/schema **artifacts, not model behaviour**; correction 3 is "
+        "**model-side output folding, not a harness bug** — a well-formed repair the model "
+        "misplaced. All three *removed* a harness-imposed penalty; none changed ground truth.",
         "",
         "- **Identification** re-scored with root-token matching (`root_token_v1`): "
         "correct synonyms outside the enumerated `accepted_classes` now credited; "
@@ -586,9 +587,68 @@ def _post_hoc_corrections_section(records) -> list:
     return lines
 
 
+def _primary_contrasts_section(project_root) -> list:
+    """Case-clustered primary contrasts + strict-vs-semantic recovery (Stage 0).
+
+    All numbers from harness.sweep_stats (case-level bootstrap). Recovery has two
+    endpoints: STRICT (a valid structured repair verified — the primary/headline
+    autonomous-success number) and SEMANTIC (strict + folded repairs recovered
+    post-hoc). Strict is primary; semantic is secondary and always labelled.
+    """
+    from harness.sweep_stats import compute_all
+
+    s = compute_all(project_root)
+    def ci(c):
+        return f"{c['point']:.3f} [{c['lo']:.3f}, {c['hi']:.3f}]"
+
+    L = ["## Primary contrasts — case-clustered (Stage 0 claim tightening)", "",
+         f"n_trials={s['n_trials']}, n_cases={s['n_cases']}. Method: {s['method']}. "
+         "No bare point estimates for primary contrasts.", ""]
+
+    g = s["h1_anchor_gap_pooled"]
+    L += [f"**H1 — anchor-off detection gap (negative − positive symptom), pooled:** {ci(g)} "
+          f"(neg {g['neg_rate']:.3f} on {g['n_cases_neg']} cases − pos {g['pos_rate']:.3f} on "
+          f"{g['n_cases_pos']} cases). **Nearest-σ matched** mean paired gap: "
+          f"{s['h1_matched_sigma']['mean_paired_gap']}. *Symptom direction is perfectly confounded "
+          "with operator identity (all positive = data_leakage); the matched contrast narrows σ but "
+          "does NOT touch that confound — only a second positive-symptom operator can.*", ""]
+
+    h6 = s["h6_react_minus_static"]
+    L += [f"**H6 — ReAct − static evidence F1 (overall, faulty ops):** {ci(h6)} "
+          f"(n_cases={h6['n_cases']}). Point meets the pre-registered ≥0.10; the 95% CI lower "
+          "bound dips below 0.10, so it is not robustly ≥0.10.", ""]
+
+    c = s["control_fpr"]
+    L += [f"**Control detection FPR (anchor-on):** {ci(c)} — {c['n_fp']}/{c['n_trials']} trials "
+          f"from only **{len(c['fp_cases'])} unique healthy case(s)** ({', '.join(c['fp_cases'])}); "
+          f"bootstrapped over the {c['n_cases']} control cases. This is NOT a population "
+          "false-positive rate; the interval width is the argument for 20+ controls in Sweep 2.", ""]
+
+    L += ["### Recovery — strict (primary) vs semantic (secondary), with id-gap CIs", "",
+          "| operator | n_trials | n_cases | identification | strict recovery | semantic recovery | id − strict (95% CI) | id − semantic (95% CI) |",
+          "|---|---|---|---|---|---|---|---|"]
+    for op, e in s["recovery_endpoints"].items():
+        gs, gm = e["id_minus_strict"], e["id_minus_semantic"]
+        L.append(f"| {op} | {e['n_trials']} | {e['n_cases']} | {e['identification']} | "
+                 f"{e['strict_recovery']} | {e['semantic_recovery']} | "
+                 f"{gs['point']:.3f} [{gs['lo']:.3f}, {gs['hi']:.3f}] | "
+                 f"{gm['point']:.3f} [{gm['lo']:.3f}, {gm['hi']:.3f}] |")
+    L += ["", "*Strict recovery is the autonomous-success headline; the 9.6% folding is an "
+          "agent-compliance failure of the system under test, so semantic recovery does not "
+          "replace strict. On the strict endpoint identification exceeds recovery on 3/4 operators "
+          "(CI excludes 0); semantic recovery nearly closes it, so most of the strict gap is "
+          "submission-format compliance + strict admissibility, not inability to name the fault.*", ""]
+    return L
+
+
 def report(project_root, name):
     """Aggregate scores + H1-H6 metrics; write a markdown table."""
     from harness.scoring import aggregate_scores
+
+    # A logically broken index must never silently produce a headline number
+    # (spec §8). Refuse to aggregate over an index with FAIL violations.
+    from harness.audit_index import assert_clean_for_aggregation
+    assert_clean_for_aggregation(project_root)
 
     registry = _load_registry(project_root)
     agent_done = _load_progress(_progress_path(project_root, name, "agents"))
@@ -614,7 +674,12 @@ def report(project_root, name):
              f"records={len(records)} excluded_trusted={excluded['trusted']} "
              f"excluded_superseded={excluded['superseded']}", ""]
 
+    lines += [f"n_cases={len({r['case_id'] for r in records})} "
+              "(6 per faulty operator × 4 + 3 controls; 12 trials/case). Primary contrasts below "
+              "use case-clustered uncertainty — trials within a case are not independent.", ""]
+
     lines += _post_hoc_corrections_section(records)
+    lines += _primary_contrasts_section(project_root)
 
     # aggregate per (operator, agent, anchor). The recovery column shows the
     # recovery rate for faulty tiers and the no_unnecessary_repair rate for controls
@@ -726,17 +791,28 @@ def hypothesis_metrics(records, registry) -> dict:
             "detection_rate_static": detect_rate([r for r in rs if agent(r) == "static"]),
         })
     h2 = {
+        "status": "REFUTED (pre-registered prediction not met)",
+        "preregistered": ("a single monotone detection-vs-sigma curve with a FITTED 50% "
+                          "threshold and interval"),
+        "outcome": ("no threshold was fitted and the pooled detection-vs-sigma curve is "
+                    "non-monotone; the pre-registered prediction is not met"),
+        "exploratory_followup": ("POST-HOC EXPLORATORY (not confirmatory): symptom SIGN appears to "
+                                 "moderate the magnitude->detection relationship — within "
+                                 "negative-symptom faults detection rises with sigma, positive-symptom "
+                                 "faults floor regardless. To be PRE-REGISTERED and tested "
+                                 "prospectively in a later sweep, not claimed from this data."),
+        "sigma_axis_note": ("detection is reported primarily against VISIBLE signed sigma (what the "
+                            "agent can observe: negative = inflated/positive symptom); hidden sigma "
+                            "is benchmark harm, reported separately, not an agent-visible signal"),
         "by_case": h2_cases,
         "by_anchor": {
             an: {
                 "detection_rate": detect_rate([r for r in silent if anchor(r) == an]),
-                "n": len([r for r in silent if anchor(r) == an]),
+                "n_trials": len([r for r in silent if anchor(r) == an]),
+                "n_cases": len({r["case_id"] for r in silent if anchor(r) == an}),
             }
             for an in ("on", "off")
         },
-        "note": ("detection anchor-off tracks symptom_direction, not sigma magnitude — "
-                 "see by_case (positive-symptom cases stay near floor even at large "
-                 "sigma_hidden when anchor is off)"),
     }
 
     # H3: recovery_rate - identification_rate per operator (recovery from record.scores).

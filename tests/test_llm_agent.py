@@ -585,10 +585,10 @@ class TestOperatorClassNotAnchored:
 
     def test_prompt_operator_class_has_no_fault_name_examples(self, built_case):
         """The system prompt must not list real fault names for operator_class."""
-        from agents.llm_agent import _build_system_prompt
+        from agents.llm_agent import _build_instruction_prompt
 
         case_dir, _ = built_case
-        prompt = _build_system_prompt(case_dir)
+        prompt = _build_instruction_prompt(case_dir)
         for banned in ("lr_misconfiguration", "data_corruption"):
             assert banned not in prompt, f"prompt anchors operator_class with {banned!r}"
 
@@ -627,10 +627,10 @@ class TestSystemPromptAnchor:
 
     def test_prompt_includes_reference_band(self, built_case):
         """The system prompt states the healthy-run visible-metric band."""
-        from agents.llm_agent import _build_system_prompt
+        from agents.llm_agent import _build_instruction_prompt
 
         case_dir, _ = built_case
-        prompt = _build_system_prompt(case_dir)
+        prompt = _build_instruction_prompt(case_dir)
         assert "Healthy runs achieve" in prompt
         assert "metric_visible_val_acc" in prompt
         # Range expressed as mean ± 2·std (reference mean 0.856848, std 0.001512).

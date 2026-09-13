@@ -150,7 +150,7 @@ class StaticContextAgent:
 
     # -- prompt assembly ----------------------------------------------------
 
-    def _system_prompt(self, case_dir: Path) -> str:
+    def _instruction_prompt(self, case_dir: Path) -> str:
         with open(case_dir / "card.public.yaml") as f:
             card = yaml.safe_load(f)
         return (
@@ -224,15 +224,18 @@ class StaticContextAgent:
             })
 
         # 2. Single message = shared instructions + the assembled artifacts.
-        system_prompt = self._system_prompt(case_dir)
+        # Delivered as one USER-role turn; the harness does not use the provider
+        # `system` field. Record key `system_prompt_text` is a legacy name kept
+        # for schema stability (see docs/LIMITATIONS.md L13).
+        instruction_prompt = self._instruction_prompt(case_dir)
         if self._record is not None:
             self._record["prompt"] = {
-                "system_prompt_text": system_prompt,
-                "prompt_hash": hashlib.sha256(system_prompt.encode()).hexdigest(),
+                "system_prompt_text": instruction_prompt,  # legacy key; user-role delivery
+                "prompt_hash": hashlib.sha256(instruction_prompt.encode()).hexdigest(),
                 "prompt_version": STATIC_PROMPT_VERSION + (
                     "" if self._anchor == "on" else "-noanchor"),
             }
-        full = system_prompt + "\n\n" + user_message
+        full = instruction_prompt + "\n\n" + user_message
         messages: list[dict] = [{"role": "user", "content": full}]
 
         # 3. One LLM call (+ at most one bounded follow-up), submit exactly once.

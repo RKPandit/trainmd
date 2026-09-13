@@ -150,7 +150,7 @@ def test_circuit_breaker(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_anchor_off_prompt_has_no_band_numbers():
-    from agents.llm_agent import _build_system_prompt, reference_band_line
+    from agents.llm_agent import _build_instruction_prompt, reference_band_line
     from agents.static_agent import StaticContextAgent
     case_dir = CASES / "case_0005"
     if not case_dir.exists():
@@ -160,13 +160,13 @@ def test_anchor_off_prompt_has_no_band_numbers():
     band = reference_band_line(card)
     band_number = f"{card['reference_visible_metric']['mean']:.4f}"
 
-    on = _build_system_prompt(case_dir, include_band=True)
-    off = _build_system_prompt(case_dir, include_band=False)
+    on = _build_instruction_prompt(case_dir, include_band=True)
+    off = _build_instruction_prompt(case_dir, include_band=False)
     assert band in on and band not in off
     assert band_number in on and band_number not in off
 
-    st_on = StaticContextAgent(object(), model_id="m", anchor="on")._system_prompt(case_dir)
-    st_off = StaticContextAgent(object(), model_id="m", anchor="off")._system_prompt(case_dir)
+    st_on = StaticContextAgent(object(), model_id="m", anchor="on")._instruction_prompt(case_dir)
+    st_off = StaticContextAgent(object(), model_id="m", anchor="off")._instruction_prompt(case_dir)
     assert band_number in st_on and band_number not in st_off
 
 

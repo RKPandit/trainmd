@@ -16,7 +16,7 @@ import yaml
 from agents.llm_agent import (
     HEALTHY_RUNS_TEXT,
     SUBMIT_FORMAT_TEXT,
-    _build_system_prompt,
+    _build_instruction_prompt,
     reference_band_line,
 )
 from agents.static_agent import StaticContextAgent
@@ -174,9 +174,9 @@ class TestVerbatimSharedSections:
 
     def test_shared_sections_identical_to_react(self):
         case_dir, _ = _tools("case_0001")
-        react_prompt = _build_system_prompt(case_dir)
+        react_prompt = _build_instruction_prompt(case_dir)
         agent = StaticContextAgent(CapturingClient([]), model_id="fake")
-        static_prompt = agent._system_prompt(case_dir)
+        static_prompt = agent._instruction_prompt(case_dir)
         card = yaml.safe_load((case_dir / "card.public.yaml").read_text())
         band = reference_band_line(card)
 

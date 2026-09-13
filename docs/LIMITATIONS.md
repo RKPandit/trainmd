@@ -63,3 +63,35 @@ not recovered), and the recovered repair then goes through normal validation. Th
 the structured-vs-recovered channel split are reported every sweep; a change to the extractor
 requires re-reporting both. The live agent path applies the same recovery and flags it
 (`submission_parse_warning`), so future sweeps self-heal.
+
+**L9 — Symptom direction is perfectly confounded with operator identity.** In Sweep 1 every
+positive-symptom case is `data_leakage` and every negative-symptom case is `lr_warmup` or
+`label_corruption`. So the 0.556 anchor-off detection gap (H1) may reflect symptom direction *or*
+leakage being intrinsically harder to diagnose — the design cannot separate them. Only a **second
+positive-symptom operator** (Sweep-2 remedy) can. The supplementary nearest-σ matched contrast
+narrows the σ difference but does **not** touch this confound.
+
+**L10 — The anchor manipulation confounds a numeric reference with an explicit decision rule.** The
+anchor-on prompt gives the agent both a reference band *and* the instruction that values outside it
+are anomalous. Sweep 1 therefore shows that a **norm plus a decision rule** restores detection, not
+that a norm alone does. *Sweep-2 remedy:* a three-arm design — none / numbers-only / numbers+rule.
+
+**L11 — Sweep 1 executed on non-canonical macOS.** The canonical reference environment is Linux/CI
+(cross-platform training divergence is ~seed-scale, so tolerance bands are only strictly valid on
+the platform that produced them). The paid Sweep-1 run was executed on macOS, which the manifest
+records; Sweep 1 is **not** relabelled as canonical. *Remedy:* run the canonical sweep in the Linux
+container (Stage 1).
+
+**L12 — Small case count and an un-run matched analysis.** The 324 trials come from only **27 unique
+cases** (6 per faulty operator, 3 controls; 12 trials/case), and trials within a case are not
+independent. Every primary contrast therefore reports a **case-level bootstrap 95% CI** (10,000
+resamples), and those intervals are wide — the control FPR interval is [0.0, 0.5] over 3 control
+cases. The pre-registered "at matched σ-distance" comparison for H1 was **not** performed by the
+metrics pipeline (it pools); a supplementary nearest-σ pairing is reported instead. *Sweep-2
+remedy:* more cases per cell and a factorial design.
+
+**L13 — Instructions are delivered as the initial user-role message, not the provider system role.**
+What the docs call the instruction/framing prompt is sent as the first `user` turn; the harness does
+not use the provider `system` field. The name was corrected (not the mechanism) so Sweep 1's
+instrument is preserved unchanged. *Sweep-3 candidate:* switch to the provider system field — a
+deliberate instrument change to make between studies, **never** mid-study.
