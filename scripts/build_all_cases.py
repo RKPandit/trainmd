@@ -15,6 +15,10 @@ import os
 import sys
 from pathlib import Path
 
+# Run as a bare script (python scripts/build_all_cases.py): only scripts/ is on
+# sys.path, so add the repo root before importing harness/operators.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from harness.build_case import build_case
 from operators.registry import all_operator_ids
 
