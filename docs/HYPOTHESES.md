@@ -314,4 +314,52 @@ false-intervention — controls carry no repair to fold) are all **unchanged**. 
   construction; the 4 FPs are separated into band-edge misreads vs true out-of-band healthy runs.
   A **3σ band** is added to the Sweep-2 pre-registration candidates. The band is **not** changed now.
 
-_(Per-hypothesis H1–H6 results table to follow — filled with the dated sweep numbers.)_
+### Per-hypothesis verdicts (measured; source `docs/audits/sweep_sweep1_20260913.md`)
+
+**H1 — Positive-symptom blindness · CONFIRMED.** Pre-registered: anchor-off leakage detection ≥30
+points below matched negative-symptom detection, anchor-on gap ≤10. Measured: anchor-off leakage
+**0.086** vs negative-symptom **0.639** (55-pt gap); anchor-on **1.000 / 1.000** (gap 0). *A model
+that can locate the leak still calls the run healthy without a norm for "good"; one reference-band
+line cures it.*
+
+**H2 — A detection threshold in units of σ · SHARPENED (two mechanisms).** Pre-registered: a single
+monotone detection-vs-σ curve with a threshold. Measured: within negative-symptom faults detection
+is monotone (label_corruption 0.33–0.50 at σ≈11–18; lr_warmup 1.00 by σ≈44); positive-symptom
+faults floor **0.00–0.33 regardless of σ (to σ=64)**. *Sign gates first, magnitude scales
+second — a larger leak only makes the metrics look better.*
+
+**H3 — The doing/understanding dissociation · REFUTED (no meaningful dissociation).** Pre-registered:
+recovery > identification. Measured (final corrected) identification / recovery, gap id−rec:
+shape 0.986 / 0.944 (0.042); lr_warmup 0.944 / 0.903 (0.041); label_corruption 0.639 / 0.583
+(0.056); data_leakage 0.437 / 0.431 (0.006). *Identification is marginally ≥ recovery everywhere,
+but every gap is ≤0.06 — within noise on ≤72 trials/operator; naming and repairing are at
+near-parity once the three harness penalties are removed, so the pre-registered direction is
+refuted and no reversed dissociation is claimed.*
+
+**H4 — Reliability is not accuracy · PARTIALLY CONFIRMED.** Pre-registered: repeat agreement high on
+easy cells, lower on hard ones. Measured: mean 3-repeat agreement **0.82**; detection agreement
+uniform (0.75–1.00), identification agreement drops to **0.71** on data_leakage vs **0.96** on
+lr_warmup. *Outcomes are reproducible; the model's *explanation* of the hardest fault is the least
+stable part.*
+
+**H5 — Does capability increase rationalization? · DEFERRED to Sweep 2.** Single model (Haiku 4.5)
+here; the cross-capability comparison needs a second, more capable model. *Not evaluable in Sweep 1.*
+
+**H6 — Tool-mediated investigation vs static full context · CONFIRMED (incl. sub-claim).**
+Pre-registered: ReAct ≥ +0.10 evidence F1 overall; ReAct − static ≤ 0 on leakage while > 0 on
+negative-symptom faults. Measured ReAct − static evidence F1: label_corruption **+0.32**, lr_warmup
+**+0.17**, shape **+0.04**, data_leakage **+0.006**, control 0; cost ReAct $10.81 vs static $1.95
+(**5.5×**). *Tools help where investigation matters (subtle noise) and not where seeing everything
+at once suffices (leakage in code), at a real cost multiple.*
+
+### Secondary observations — measured
+
+- **Cost ratio:** ReAct : static ≈ **5.5×** in dollars (7–8× input tokens); ~$0.06–0.08 vs ~$0.012 per trial.
+- **Structured-output folding rate:** **31/324 (9.6%)** of submissions placed a well-formed repair in
+  the wrong (string) field; all recovered, 0 ambiguous (correction #3; a tool-use reliability finding).
+- **Evidence is recall-heavy (padding):** mean precision < recall on control/shape/lr_warmup/data_leakage
+  (agents cite the true refs plus extras); label_corruption is the exception (precision > recall).
+- **Distractor rate:** ≈ **0.24** of trials reference another operator's knob (mostly ruling-out while
+  reading the shared `train.py`; peaks 0.42 on shape_mismatch).
+- **Confidence supplied:** only **52/324** trials gave a confidence value (top-heavy; ECE_detection ≈
+  0.07); it cannot gate the control false positives (see L7).

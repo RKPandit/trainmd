@@ -31,7 +31,8 @@ with a more precise mechanism than predicted) · `refuted` (pre-registered crite
 | S5 | **This model names faults at least as reliably as it repairs them.** Identification ≥ recovery on every operator once scoring artifacts are removed; the earlier "fixes-but-can't-name" pattern was an artifact. | Sweep 1 H3 (corrected). | refuted (as predicted direction) · pending replication |
 | S6 | **Diagnostic outcomes are reproducible under nondeterminism; identification agreement drops on the hardest fault.** | Sweep 1 H4: mean agreement 0.82; leakage identification agreement 0.71 vs lr 0.96. | partially confirmed · pending replication |
 | S7 | **Adult+MLP is robust to symmetric label noise** (≤25% flips < 1 pt degradation); label corruption is a *subtle* fault on tabular data. | Calibration sweeps (DECISIONS 2026-09-12). | unplanned · workload-specific |
-| S8 | **Tool-use output is unreliable enough to need recovery: ~1 in 10 repairs is misplaced.** The model sometimes emits the repair as text inside a sibling string field instead of the structured tool argument; a harness that scores only the structured field silently undercounts capability. | Sweep 1: 31/324 (≈9.6%) repair submissions folded and recovered (`parser_fix_v1`); 0 ambiguous. | unplanned · pending replication |
+| S8 | **A visible knob without a norm is not a signal.** A configuration value that names a fault, sitting in plain view in the prompt, does not trigger detection unless the agent also has a reference for what is normal — the missing baseline, not missing information, is what blinds it. | Sweep 1: `label_noise_fraction: 0.38` present, un-truncated, in 18/18 static anchor-off contexts and echoed in the response, yet static detected the fault 1/18 vs ReAct 11/18. | unplanned · pending replication |
+| S9 | **Tool-use output is unreliable enough to need recovery: ~1 in 10 repairs is misplaced.** The model sometimes emits the repair as text inside a sibling string field instead of the structured tool argument; a harness that scores only the structured field silently undercounts capability. | Sweep 1: 31/324 (≈9.6%) repair submissions folded and recovered (`parser_fix_v1`); 0 ambiguous. | unplanned · pending replication |
 
 ---
 
@@ -56,9 +57,12 @@ clean; validate-all 27/27; plan file git-clean and build_id-pinned.
 
 ### Post-hoc scoring corrections (disclosed; see HYPOTHESES.md Results and DECISIONS 2026-09-13)
 
-Two Sweep-1 numbers were **scoring/schema artifacts, not model behaviour**, found by the
-read-only diagnostics and corrected by principle — never by copying observed outputs into
-ground truth. Original numbers are kept alongside corrected ones in every table.
+Three Sweep-1 corrections were applied, disclosed, with originals kept beside corrected values
+in every table. The first two were **scoring/schema artifacts, not model behaviour**; the third
+(#3) is **model-side output folding, not a harness bug** — we recover a well-formed repair the
+model misplaced. All three *removed* a harness-imposed penalty on the model; none changed ground
+truth to raise a score. Found by the read-only diagnostics and corrected by principle — never by
+copying observed outputs into ground truth.
 
 1. **Identification** was scored by exact membership in enumerated class sets; the model
    wrote correct free-form labels (`excessive_learning_rate`, `excessive_label_noise`,
@@ -81,10 +85,18 @@ ground truth. Original numbers are kept alongside corrected ones in every table.
    the harness recorded the structured tool_use input faithfully. We now recover a single
    well-formed `{repair_type, patches}` object the model misplaced (strict: no key scraping,
    ambiguous → not recovered) and flag it, live and historically. This raises recovery on every
-   faulty operator that had folded repairs. See **F8** for the folding rate as a finding in itself.
+   faulty operator that had folded repairs. See **F9** for the folding rate as a finding in itself.
 
 **Unchanged by any correction:** detection and evidence — therefore H1, H2, H6, and the controls
 finding stand exactly as pre-registered. Recovery moves (Corrections 2–3), sharpening H3.
+
+**The corrected recovery ordering is the designed difficulty gradient.** Final recovery —
+shape_mismatch **0.944**, lr_warmup **0.903**, label_corruption **0.583**, data_leakage **0.431**
+— ranks the operators exactly as the benchmark intended them to be hard: a mechanical crash with a
+single correct value is the most repairable, an inverted-symptom leak the least. That gradient was
+invisible in the raw table (shape 0.35, silent ops ≈0.39–0.51), *flattened by three harness
+artifacts* — narrow class sets, an unexpressible unset, and folded repairs. Removing them let the
+intended structure show through.
 
 ### F1 — Positive-symptom blindness (H1) · confirmed
 
@@ -106,6 +118,17 @@ and intervention in one table.
 negative-symptom faults (H5, Sweep 2); or the effect vanishing on a workload where the model
 has strong priors about the achievable accuracy.
 **Status.** Confirmed by pre-registered criteria. Pending replication across models/workloads.
+
+**Pass-2 mechanism addendum (2026-09-13; diagnostics2 §1).** The mechanism is not a failure to
+investigate. Of the 32 anchor-off leakage trials that returned `detected=false`, **0 never looked**
+— every one read `train.py`, and **35 of 36** named the auxiliary feature; only **2–3** used the word
+*leakage*, and the dominant move was to declare the run healthy (dismissal language in **13/18**
+ReAct and **17/18** static; "accuracy good/high" in ~half). So F1 is **looked-but-didn't-recognize,
+with rationalization**: the agent sees the leaking feature and, because the outcome looks good,
+reframes it as normal rather than a fault. Verbatim (≤40 words each):
+> (ReAct, case_0004) "The training run completed successfully with exit code 0. Metrics: training loss and validation accuracy show normal, healthy training dynamics. Configuration: all hyperparameters are reasonable. Logs: no errors or warnings."
+> (ReAct, case_0013) "Configuration analysis: learning rate 0.01 (reasonable for Adam on tabular data), batch size 256 (reasonable), optimizer Adam with weight_decay 0.0001 (standard). No incident found."
+> (ReAct, case_0014) "Learning rate 0.01 (reasonable for Adam), batch size 256 (reasonable), MLP hidden dims [64, 32], no dropout, ReLU activation. The run looks healthy."
 
 ### F2 — Detection is gated by symptom sign, then scaled by magnitude (H2) · sharpened
 
@@ -156,22 +179,26 @@ of metrics finds evidence a one-shot read skims past. Where the answer is in the
 paths the tool loop wandered down. The cost-quality map, not "tools help," is the result.
 **Status.** Confirmed by pre-registered criteria, including the leakage sub-claim.
 
-### F5 — Naming vs repairing (H3) · refuted (direction reversed)
+### F5 — Naming vs repairing (H3) · refuted (no meaningful dissociation)
 
 **Claim (as pre-registered).** Recovery exceeds identification — agents fix faults without
 naming them.
-**Evidence** (H3 block, corrected). Identification vs recovery: lr_warmup **0.94 / 0.83**;
-label_corruption **0.64 / 0.51**; shape_mismatch **0.99 / 0.75**; data_leakage **0.44 /
-0.39**. Identification ≥ recovery on every operator. Original (artifact) numbers: 0.00 /
-0.83, 0.00 / 0.51, 0.35 / 0.35, 0.01 / 0.39.
-**Interpretation.** The "fixes it but can't name it" pattern seen in single trials was
-produced by two scoring artifacts (a schema example anchoring the label; then enumerated
-class sets too narrow for free-form labels). With principled matching the dissociation
-reverses: this model *names* the fault class more reliably than it produces an *admissible,
-verified* repair — repair fails on strict ranges, unexpressible fixes (now fixed), and
-outright no-repair submissions (18 on shape). The pre-registration explicitly listed this
-refutation as a possible outcome and it is reported as such.
-**Status.** Refuted. Direction reversed; reported with original numbers alongside.
+**Evidence** (H3 block, FINAL corrected — after all three corrections). Identification vs
+recovery, and the gap (id − rec): shape_mismatch **0.986 / 0.944** (0.042); lr_warmup
+**0.944 / 0.903** (0.041); label_corruption **0.639 / 0.583** (0.056); data_leakage **0.437 /
+0.431** (0.006). Identification is marginally ≥ recovery on every operator, but **every gap is
+≤ 0.06.** Original (artifact) numbers were 0.00 / 0.83, 0.00 / 0.51, 0.35 / 0.35, 0.01 / 0.39.
+**Interpretation.** The pre-registered direction (recovery > identification — "fixes it but
+can't name it") is **refuted**: it was an artifact of a schema example anchoring the label plus
+class sets too narrow for free-form labels. But the data does **not** support a reversed
+dissociation either — a 1-to-6-point edge is within the noise of these per-operator rates
+(≤72 trials each). The honest reading is **near-parity**: once the three harness penalties are
+removed, this model *names* a fault about as reliably as it produces an *admissible, verified*
+repair. There is no doing/understanding gap at this scale in either direction. (Where recovery
+still trails at all, it is strict admissible ranges and the residual no-repair/inadmissible
+submissions, not an inability to name the fault.)
+**Status.** Refuted (pre-registered direction). No meaningful dissociation; reported with
+original numbers alongside.
 
 ### F6 — Reproducibility under nondeterminism (H4) · partially confirmed
 
@@ -194,7 +221,26 @@ more per trial than easy ones at this scale — investigation *length* is bounde
 budget, not by difficulty. Two of 324 ReAct trials hit `max_turns` without submitting
 (both on unrelated cells; no pattern).
 
-### F8 — Repair submissions are frequently mis-channeled (secondary) · unplanned
+### F8 — A visible knob without a norm is not a signal (H1/H2 mechanism) · unplanned
+
+**Claim.** A configuration value that *names* the fault, sitting in plain view in the prompt, does
+not by itself trigger detection. What is missing is not information but a **norm** — a reference
+for what the value should be.
+**Evidence** (diagnostics2 §2). Static anchor-off on label_corruption detected the fault **1/18**;
+ReAct anchor-off on the same six cases detected **11/18**. `label_noise_fraction` (0.15–0.42
+depending on strength) was present in **all 18** static contexts, **un-truncated**, about **2% of
+the way into the prompt** (in `config.yaml`), and the response text even **echoed** it. So the knob
+was seen and named, not lost to context length or ordering.
+**Interpretation.** This is F1's law applied to a config value rather than a metric: without a
+baseline for "normal," a positive- or unknown-valence observation reads as unremarkable. The
+one-shot static agent, committing in a single pass with no reference band, does not treat `0.38` as
+anomalous; ReAct's iterative querying more often surfaces the deviation. The fix for F1 (a healthy
+reference band) is predicted to help here too — a Sweep-2 check.
+**What would change our mind.** A model that flags an out-of-distribution knob value anchor-off,
+without a norm, would make this a capability gap rather than a norm gap.
+**Status.** `unplanned` · pending replication.
+
+### F9 — Repair submissions are frequently mis-channeled (secondary) · unplanned
 
 **Claim.** The model reaches a correct repair but does not always place it in the structured
 tool argument — it sometimes serializes it as text (`<parameter name="repair_spec">{…}`) inside
@@ -234,6 +280,16 @@ this Haiku/prompt-specific rather than a general tool-use caution.
   represented by one binary-recovery operator.
 - **L6 — Cost figures are estimates** until the console-billed amount is entered in the
   manifest.
+- **L7 — Confidence is too sparse to act on.** Only **52 of 324** trials supplied a confidence
+  value, almost all in the top bin, and it does **not** separate the control false positives from
+  true detections (max FP confidence 0.65 ≥ min true-detection 0.42; 3 of the 4 FPs gave no
+  confidence at all). A confidence threshold cannot gate the control FPs today. *Sweep-2 candidate:*
+  make confidence a required submit field so calibration/ECE and FP-gating can be tested.
+- **L8 — Folded-repair recovery depends on a strict extractor.** Correction #3 recovers a repair
+  only when exactly one complete `{repair_type, patches}` object is embedded (no key scraping;
+  ambiguous → not recovered), then runs it through the normal validation. The recovery rate and the
+  structured-vs-recovered channel split are reported per sweep; a change to the extractor requires
+  re-reporting both. The live path self-heals and flags (`submission_parse_warning`).
 
 ### Open questions carried to Sweep 2 (candidates for pre-registration)
 

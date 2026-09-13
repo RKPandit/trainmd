@@ -69,6 +69,15 @@ Safety: a hard `--max-cost-usd` stops before exceeding the cap; `--max-consecuti
 costs one trial). The tracked `sweeps/<name>_manifest.yaml` is the compute statement (hardware
 captured once + per-phase token/cost/CPU totals; `actual_spend_usd` entered manually at end).
 
+## Findings & limitations
+
+The scientific narrative and its caveats live in the running docs:
+[docs/FINDINGS.md](docs/FINDINGS.md) (what we learned and the evidence),
+[docs/HYPOTHESES.md](docs/HYPOTHESES.md) (pre-registration + per-hypothesis verdicts),
+[docs/LIMITATIONS.md](docs/LIMITATIONS.md) (what the results do and do not support, with the
+disclosure rule and Sweep-2 remedies), [docs/DECISIONS.md](docs/DECISIONS.md), and
+[docs/RESEARCH_LOG.md](docs/RESEARCH_LOG.md). Machine-generated evidence is under `docs/audits/`.
+
 ## Current milestone
 
 **M2.1** — repo scaffold, tabular workload, reference-run protocol green in CI.
