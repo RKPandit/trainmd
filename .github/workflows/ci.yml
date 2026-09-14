@@ -24,6 +24,8 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build --platform linux/amd64 -t trainmd:canonical .
       - run: make docker-data
+      - name: CI fingerprint (CPU + data hashes)
+        run: bash scripts/ci_fingerprint.sh
       - run: make docker-reference
       - uses: actions/upload-artifact@v4
         with:
@@ -36,6 +38,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: CI fingerprint (CPU; no data prepared here)
+        run: bash scripts/ci_fingerprint.sh
       - uses: actions/download-artifact@v4
         with: { name: reference-run-1, path: r1 }
       - uses: actions/download-artifact@v4
@@ -60,6 +64,7 @@ jobs:
         run: |
           START=$(date +%s)
           make docker-data
+          bash scripts/ci_fingerprint.sh           # CPU + data hashes (diagnostic)
           make docker-reference                    # canonical candidate (ephemeral)
           make docker-build-all-cases              # 27 cases from the design, fresh
           make docker-validate-all
@@ -80,6 +85,8 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build --platform linux/amd64 -t trainmd:canonical .
       - run: make docker-data
+      - name: CI fingerprint (CPU + data hashes)
+        run: bash scripts/ci_fingerprint.sh
       - name: Regenerate reference and assert it matches the committed canonical (BLOCKING)
         run: |
           # Snapshot the committed reference OUTSIDE the repo, then mount it into

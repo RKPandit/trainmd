@@ -59,6 +59,48 @@ def _verify_manifest(base_dir: Path, manifest_path: Path, expected: list[str]) -
         return False
 
 
+def _assert_pinned_data(workload_dir: Path, data_dir: Path, hidden_dir: Path) -> None:
+    """Assert the prepared splits match the committed data PIN, or fail loudly.
+
+    The per-run manifest.json only proves self-consistency (data matches a hash it
+    just wrote). This checks the freshly prepared bytes against the tracked
+    reference/data_manifest.yaml so a silent OpenML/sklearn drift becomes a LOUD
+    failure at data-prep time instead of a mysterious reference/stats.yaml diff
+    downstream. Skips only if the pin file is absent (bootstrap), printing a warning.
+    """
+    pin_path = workload_dir / "reference" / "data_manifest.yaml"
+    if not pin_path.exists():
+        print(f"WARNING: no data pin at {pin_path}; skipping provenance check.")
+        return
+    pin = yaml.safe_load(pin_path.read_text())
+    # str() so a YAML-numeric hash (all-digit, no a-f) compares correctly.
+    expected = {k: str(v) for k, v in (pin.get("files", {}) or {}).items()}
+    actual = {}
+    for fname in _VISIBLE_FILES:
+        actual[fname] = sha256_file(data_dir / fname)
+    for fname in _HIDDEN_FILES:
+        actual[fname] = sha256_file(hidden_dir / fname)
+    mismatches = [
+        f"  {f}: expected {expected.get(f, '<missing>')[:12]}… got {actual[f][:12]}…"
+        for f in actual
+        if expected.get(f) != actual[f]
+    ]
+    if mismatches:
+        raise SystemExit(
+            "\nFATAL: prepared data does NOT match the committed pin "
+            f"({pin_path}).\n"
+            + "\n".join(mismatches)
+            + "\n\n  The Adult fetch/encode/split did not reproduce the canonical "
+            "dataset the committed reference was built from — the source data "
+            "drifted (OpenML version, sklearn encoding, or split logic).\n"
+            "  Do NOT train on drifted data. Investigate the drift; only update "
+            "reference/data_manifest.yaml from a verified-canonical fetch, with "
+            "disclosure (it supersedes the reference and every case).\n"
+        )
+    print(f"Data provenance PIN verified against {pin_path.name} "
+          f"({len(actual)} splits).")
+
+
 def prepare(workload_dir: Path, force: bool = False) -> Path:
     """Download, preprocess, and save Adult dataset splits.
 
@@ -81,6 +123,7 @@ def prepare(workload_dir: Path, force: bool = False) -> Path:
         hid_ok = _verify_manifest(hidden_dir, hidden_manifest, _HIDDEN_FILES)
         if vis_ok and hid_ok:
             print("Data already prepared; checksums verified.")
+            _assert_pinned_data(workload_dir, data_dir, hidden_dir)
             return data_dir
 
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -206,6 +249,10 @@ def prepare(workload_dir: Path, force: bool = False) -> Path:
     }
     hidden_manifest.write_text(json.dumps(hid_manifest, indent=2) + "\n")
     print(f"  Hidden manifest written to {hidden_manifest}")
+
+    # Provenance PIN: fail loudly if the fresh fetch/encode/split drifted from the
+    # canonical dataset the committed reference was built from.
+    _assert_pinned_data(workload_dir, data_dir, hidden_dir)
 
     return data_dir
 
