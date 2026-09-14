@@ -447,3 +447,53 @@ and a **three-arm none/numbers-only/numbers+rule anchor** to break the H1 confou
   (default single set), and a *measured* containment window for metric_window. Sweep reports show
   both v1 and v2; the disclosed Sweep-1 delta (shape_mismatch −0.20, others ≈unchanged; metric_window
   rule flipped 0 refs) is a measurement change, not a finding (LIMITATIONS L17; DECISIONS 2026-09-13).
+
+---
+
+## Stage-2 gate (pre-registered 2026-09-14 — do not edit above this line; append verdicts only)
+
+Frozen BEFORE any Stage-2 trial ran. Committed before the sweep plan and before the
+paid agents phase (git history is the timestamp).
+
+**Design.** Two POSITIVE-symptom operators — `silent.data_leakage.v1`,
+`silent.metric_inflation.v1` — plus one NEGATIVE-symptom reference,
+`silent.label_corruption.v1` (the *subtle* negative operator; `lr_warmup` is
+excluded because it saturates the σ ladder, L1). Cross:
+**3 strengths (mild/moderate/severe) × 2 seeds (42, 43) × 3 anchor arms
+(off / numbers / rule) × 2 agents (react, static) × 3 repeats**, plus healthy
+controls across the three arms. Cases build from the registry to the CURRENT code
+(thread-pinned `train.py`; evidence-v2 operator ground truth). The committed plan
+file reports the exact cell count and cost estimate before anything runs.
+**Evidence is scored under v2 (primary); v1 is reported alongside** (LIMITATIONS L17).
+
+**G1 — Does positive-symptom under-detection REPLICATE on a second mechanism?**
+*Prediction:* anchor-off detection on `metric_inflation` is substantially BELOW
+anchor-off detection on `label_corruption` at comparable visible σ, in the same
+direction as `data_leakage`. *Confirming metric:* anchor-off detection rate per
+operator, case-clustered 95% CIs. **CONFIRMED** iff `metric_inflation`'s anchor-off
+detection CI **upper** bound lies **below** `label_corruption`'s point estimate.
+**REFUTED** if `metric_inflation` detects **at or above** the negative-symptom
+operator — which would mean Sweep 1's effect was specific to leakage, not to
+symptom direction.
+
+**G2 — Is a bare NORM sufficient, or is the RULE doing the work?** *Two-sided —
+there is no confirm/refute here by design.* If the **numbers** arm closes MOST of
+the off→rule detection gap, the mechanism is **baseline restoration** (a norm
+suffices); if only the **rule** arm closes it, the mechanism is
+**instruction-following / threshold-prompting**. *Confirming metric:* detection
+rate per arm per operator, and the FRACTION of the off→rule gap closed by
+**numbers**, with CIs. Report which of the two interpretations the data supports.
+
+**G3 — Is `metric_inflation`'s detection explained by the WITHIN-CASE loss/accuracy
+inconsistency (L16) rather than by inflation magnitude?** *Prediction:* if agents
+are using the inconsistency, their rationales will cite it. *Confirming metric:*
+the fraction of `metric_inflation` trials whose rationale/transcript cites the
+loss-vs-accuracy mismatch, by arm. If that fraction is HIGH in the **anchor-off**
+arm, G1's replication is **confounded** and must be reported as such (consistency-
+checking detection, not positive-symptom-direction detection).
+
+**Exploratory (NOT a pre-registered claim) — a magnitude boundary.** The
+`metric_inflation` ladder spans plausible (~0.88, mild) → implausible (~0.98,
+severe) inflation, so report detection **by strength**. If detection rises with
+implausibility, that is evidence for a magnitude boundary on positive-symptom
+blindness — an exploratory sub-question to pre-register prospectively if observed.
