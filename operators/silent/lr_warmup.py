@@ -10,13 +10,31 @@ This operator overwrites ``training.lr`` in the workspace ``config.yaml``
 with an absolute value that causes silent accuracy degradation without
 crashing or producing NaN (the silent-layer invariant).
 
-Strength mapping (absolute LR values, reference is 0.01):
-- mild:     0.1   (10x reference) — varied degradation, reliably below tolerance
-- moderate: 0.2   (20x reference) — mostly baseline collapse
-- severe:   0.5   (50x reference) — fully collapsed, still completes
+The degradation is BIMODAL, not graded (finding 2026-09-14;
+scripts/calibrate_lr_warmup.py): at a given lr each seed either COLLAPSES to the
+majority-class baseline (metric_hidden_test_acc = 0.756008, ~44σ below tolerance)
+or trains ~normally (~0.83) — a coin flip near the LR-stability boundary whose
+collapse PROBABILITY rises with lr, and which is also microarch-sensitive (the
+same (lr, seed) can flip between microarchitectures — this is why the old graded
+"mild" flaked on an Intel runner). So the three strengths are three points of
+INCREASING COLLAPSE PROBABILITY, NOT three graded effect sizes; a valid built case
+is one where the run actually failed tolerance (the build guard enforces
+acc < tolerance_lower), and its σ-magnitude is ~baseline when collapsed, not set by
+strength.
 
-Empirically verified on 10 seeds (macOS ARM) and 3 seeds (Linux x86_64 CI):
-all strengths produce exitcode=0, finite metrics, and acc < tolerance_lower.
+Strength = injected learning rate (absolute; reference 0.01; repair range caps a
+faulty value > 0.02). Measured collapse rate to the exact baseline (5 seeds,
+emulated amd64):
+- mild:     0.1  → 0/5 full collapse (unstable strong dips ~0.82–0.84; produces
+                    valid faulty cases at some seeds — e.g. the sealed 42/43 dips —
+                    but seed/microarch-dependent; the rung that flaked in CI)
+- moderate: 0.2  → 4/5 collapse
+- severe:   0.5  → 5/5 collapse (rate reaches 1.0; lr 1.0 also 5/5; at lr 0.3 one
+                    seed fell BELOW the majority baseline, 0.684 — anti-learned)
+
+This operator therefore contributes DETECTION data, not σ-magnitude data: H2's
+σ-axis rests on label_corruption (stably graded, S7). See docs/FINDINGS (per-lr
+collapse table), docs/LIMITATIONS L1 (rewritten), docs/DECISIONS 2026-09-14.
 """
 from __future__ import annotations
 

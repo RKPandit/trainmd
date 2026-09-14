@@ -1,4 +1,10 @@
-# syntax=docker/dockerfile:1
+# No `# syntax=docker/dockerfile:1` directive: this Dockerfile uses no BuildKit
+# frontend features (no RUN --mount, COPY --link, heredocs), so the external
+# frontend is unnecessary — and dropping it removes the Docker Hub token fetch
+# that transiently failed CI (reference-repro-compare, 2026-09-14). Ephemeral CI
+# runners have no cache, so a *pinned* frontend digest would be re-fetched every
+# run anyway; removing the directive avoids the fetch entirely. Re-add a pinned
+# `# syntax=docker/dockerfile:1@sha256:…` only if a BuildKit feature is later needed.
 # ---------------------------------------------------------------------------
 # Canonical TrainMD environment (Stage 1).
 #   - linux/amd64, Python 3.11 — matches CI (ubuntu-latest) and the historical

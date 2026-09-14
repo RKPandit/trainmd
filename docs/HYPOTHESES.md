@@ -447,6 +447,13 @@ and a **three-arm none/numbers-only/numbers+rule anchor** to break the H1 confou
   (default single set), and a *measured* containment window for metric_window. Sweep reports show
   both v1 and v2; the disclosed Sweep-1 delta (shape_mismatch −0.20, others ≈unchanged; metric_window
   rule flipped 0 refs) is a measurement change, not a finding (LIMITATIONS L17; DECISIONS 2026-09-13).
+- **H2's σ-axis rests on `label_corruption`, not `lr_warmup` (2026-09-14).** `lr_warmup`'s degradation is
+  BIMODAL — a per-seed collapse to the majority baseline whose probability rises with lr, with no stable
+  partial regime (S12; L1 rewritten; DECISIONS 2026-09-14). So `lr_warmup` contributes **detection**
+  data only (does the agent notice a collapsed run?), NOT σ-magnitude data; it is retired from the
+  detection-vs-σ curve. `label_corruption` is the stably-graded negative-symptom operator that carries
+  the σ-axis; a second stably-graded operator (train-subset-fraction or excessive weight_decay) is a
+  Sweep-2 candidate to add σ-points. Any H2 analysis must not read `lr_warmup`'s cases as graded σ.
 
 ---
 
