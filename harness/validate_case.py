@@ -80,7 +80,7 @@ _PUBLIC_CARD_FORBIDDEN_TOKENS = [
     "lr_warmup", "silent", "dynamics", "operator", "mutation",
     "manifest", "incident", "strength", "severe", "moderate", "mild",
     "execution", "crash", "shape_mismatch", "data_leakage",
-    "control", "healthy",
+    "control", "healthy", "metric_inflation",
 ]
 
 _BINARY_EXTENSIONS = frozenset({".pt", ".npy", ".npz"})
@@ -320,10 +320,12 @@ def _check_c5(verify: dict, hidden_card: dict) -> CheckResult:
         detail = "verify.yaml missing faulty_value or tolerance_lower"
         return CheckResult("C5_faulty_value_below_tolerance", False, detail, "CONSISTENCY")
 
-    if layer == "control":
-        # Control tier (inverted): a healthy run must CLEAR tolerance.
+    if layer in ("control", "metric"):
+        # Control and metric tiers have a HEALTHY model, so the hidden accuracy
+        # must CLEAR tolerance (control = no fault; metric = the fault is only in
+        # the reported visible number, never in the model).
         if faulty < tolerance:
-            detail = f"control faulty_value={faulty} < tolerance_lower={tolerance} (must clear)"
+            detail = f"{layer} faulty_value={faulty} < tolerance_lower={tolerance} (must clear)"
             return CheckResult("C5_faulty_value_below_tolerance", False, detail, "CONSISTENCY")
         return CheckResult("C5_faulty_value_below_tolerance", True, "", "CONSISTENCY")
 
@@ -753,7 +755,7 @@ def _check_f5(case_dir: Path, hidden_card: dict) -> CheckResult:
     """
     ckpt = case_dir / "workspace" / "run_output" / "checkpoints" / "ckpt_final.pt"
     layer = hidden_card.get("layer", "dynamics")
-    if layer in ("dynamics", "control") and not ckpt.exists():
+    if layer in ("dynamics", "control", "metric") and not ckpt.exists():
         return CheckResult(
             "F5_checkpoint_tier_match", False,
             f"{layer} tier: ckpt_final.pt missing", "WELL_FORMEDNESS",

@@ -31,7 +31,7 @@ class Manifest:
     """Ground-truth record of everything an operator changed."""
 
     operator_id: str
-    layer: Literal["dynamics", "execution", "control"]
+    layer: Literal["dynamics", "execution", "control", "metric"]
     strength: str
     seed: int
     mutations: list[MutationRecord] = field(default_factory=list)
@@ -90,7 +90,7 @@ class IncidentOperator(Protocol):
     """
 
     id: str
-    layer: Literal["dynamics", "execution", "control"]
+    layer: Literal["dynamics", "execution", "control", "metric"]
 
     def apply(self, workspace: Path, rng: Random, strength: str) -> Manifest:
         """Mutate the workspace copy deterministically under *rng*.

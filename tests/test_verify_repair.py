@@ -707,6 +707,7 @@ _ORACLE_REPAIRS = {
     "silent.lr_warmup.v1": ("moderate", {"training.lr": 0.01}),
     "silent.label_corruption.v1": ("moderate", {"data.label_noise_fraction": 0.0}),
     "silent.data_leakage.v1": ("moderate", {"data.include_aux_feature": False}),
+    "silent.metric_inflation.v1": ("moderate", {"metrics.eval_subset_fraction": None}),
     "crash.shape_mismatch.v1": ("moderate", {"model.input_dim": 105}),
 }
 

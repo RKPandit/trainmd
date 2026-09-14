@@ -44,6 +44,19 @@ def _load_registry(project_root: Path) -> dict:
 
 
 def _tier_of(operator: str) -> str:
+    """Resolve an operator's tier from its ACTUAL layer (single source of truth).
+
+    The id prefix is not authoritative — silent.metric_inflation.v1 is the
+    metric tier, not dynamics — so a prefix map would pool the metric-tier
+    operator with the silent (dynamics) ones in the symptom analysis. Resolve
+    the layer from the registered operator; fall back to the prefix only for
+    ids not in the registry (defensive; the registry is the source).
+    """
+    from operators.registry import OPERATOR_REGISTRY
+
+    cls = OPERATOR_REGISTRY.get(operator)
+    if cls is not None:
+        return cls().layer
     if operator.startswith("control."):
         return "control"
     if operator.startswith("crash."):

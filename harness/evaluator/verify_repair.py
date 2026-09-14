@@ -107,6 +107,25 @@ def _unset_nested(d: dict, key_path: str) -> None:
     d.pop(keys[-1], None)
 
 
+def _final_visible_val_acc(run_output: Path) -> float | None:
+    """Final end-of-epoch metric_visible_val_acc from a run, or None.
+
+    This is the REPORTED visible metric the run produced. For metric-tier
+    recovery we check that after the repair it returns inside the healthy band.
+    """
+    metrics_path = run_output / "metrics.jsonl"
+    if not metrics_path.exists():
+        return None
+    last = None
+    for line in metrics_path.read_text().splitlines():
+        if not line.strip():
+            continue
+        rec = json.loads(line)
+        if rec.get("end_of_epoch") and "metric_visible_val_acc" in rec:
+            last = rec["metric_visible_val_acc"]
+    return last
+
+
 def _generate_run_id() -> str:
     """Generate a unique run ID from UTC timestamp + 6-char uuid4."""
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -326,8 +345,11 @@ def verify_repair(
 
             exitcode = run_result.returncode
             metric = None
+            visible = None
 
             if exitcode == 0:
+                # Reported visible metric the repaired run produced (metric tier).
+                visible = _final_visible_val_acc(seed_output)
                 ckpt_path = seed_output / "checkpoints" / "ckpt_final.pt"
                 if ckpt_path.exists():
                     with open(config_path) as f:
@@ -340,19 +362,46 @@ def verify_repair(
             per_seed_results.append({
                 "seed": seed,
                 "metric_hidden_test_acc": metric,
+                "metric_visible_val_acc": visible,
                 "exitcode": exitcode,
             })
 
     compute_sec = time.monotonic() - compute_start
 
-    # ---- Step 6: Determine verdict ---------------------------------------
+    # ---- Step 6: Determine verdict (tier-aware) --------------------------
     tolerance = verify["tolerance_lower"]
-    all_recovered = all(
-        r["exitcode"] == 0
-        and r["metric_hidden_test_acc"] is not None
-        and r["metric_hidden_test_acc"] >= tolerance
-        for r in per_seed_results
-    )
+    layer = hidden_card.get("layer", "dynamics")
+
+    if layer == "metric":
+        # Metric tier: recovery = restore the correct computation. The REPORTED
+        # visible metric must return INSIDE the healthy band AND the model must
+        # stay healthy (hidden clears tolerance). A repair that leaves the biased
+        # computation in place keeps the visible metric above the band → not
+        # recovered, even though hidden is trivially healthy on every run.
+        vm = verify.get("reference_visible_mean")
+        vs = verify.get("reference_visible_std")
+        if vm is None or vs is None:
+            raise ValueError(
+                "metric-tier verify.yaml missing reference_visible_mean/std; "
+                "rebuild the case with build_case (visible band required for "
+                "the metric-tier recovery check)"
+            )
+        v_lo, v_hi = vm - 2 * vs, vm + 2 * vs
+        all_recovered = all(
+            r["exitcode"] == 0
+            and r.get("metric_visible_val_acc") is not None
+            and v_lo <= r["metric_visible_val_acc"] <= v_hi
+            and r["metric_hidden_test_acc"] is not None
+            and r["metric_hidden_test_acc"] >= tolerance
+            for r in per_seed_results
+        )
+    else:
+        all_recovered = all(
+            r["exitcode"] == 0
+            and r["metric_hidden_test_acc"] is not None
+            and r["metric_hidden_test_acc"] >= tolerance
+            for r in per_seed_results
+        )
     verdict = "recovered" if all_recovered else "not_recovered"
 
     # ---- Step 7: Integrity hash post-run ---------------------------------

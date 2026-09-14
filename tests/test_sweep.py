@@ -57,9 +57,9 @@ def test_enumerate_cell_count():
     tmp = Path(tempfile.mkdtemp())
     _mk_root(tmp, faulty=faulty)
     cells, missing = sweep.enumerate_cells(tmp, ["moderate"], [42], [0], repeats=3)
-    # 4 faulty ops × 1 strength × 1 seed × 2 agents × 2 anchors × 3 = 48
-    # + control × 1 seed × 2 × 2 × 3 = 12 → 60
-    assert len(cells) == len(faulty) * 12 + 12 == 60
+    # 5 faulty ops × 1 strength × 1 seed × 2 agents × 2 anchors × 3 = 60
+    # + control × 1 seed × 2 × 2 × 3 = 12 → 72
+    assert len(cells) == len(faulty) * 12 + 12 == 72
     assert missing == []
 
 

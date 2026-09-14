@@ -113,3 +113,22 @@ What the docs call the instruction/framing prompt is sent as the first `user` tu
 not use the provider `system` field. The name was corrected (not the mechanism) so Sweep 1's
 instrument is preserved unchanged. *Sweep-3 candidate:* switch to the provider system field — a
 deliberate instrument change to make between studies, **never** mid-study.
+
+**L14 — The workload's memorization ceiling limits which positive-symptom mechanisms it can host.** On
+Adult/MLP the train–val gap is only ~0.010, so the highest reported accuracy any *data-side*
+memorization trick (e.g. copying training rows into validation) can reach is train accuracy (~0.863) —
+a mere ~0.003 above the visible band edge (0.860). A positive-symptom fault built on row overlap /
+memorization therefore has no laddered headroom on this workload; Step-0 confirmed it empirically
+(augmented val_acc ≤ 0.857 for every strength/seed). The second positive-symptom operator (#6) is
+instead a *metric-side* biased computation, which is model-independent and clears the band by design. A
+workload that overfits (e.g. the planned vision workload) could host a memorization-based positive
+symptom; Adult/MLP cannot. *No remedy needed — a constraint on operator design, recorded so the
+mechanism choice is auditable* (FINDINGS S10; DECISIONS 2026-09-13; RESEARCH_LOG 27).
+
+**L15 — Adult contains duplicate records shared across splits.** 12 rows appear in both the training set
+and the hidden test by content hash (of ~30k), although the splits are disjoint by *index* (`data_prep`
+partitions a single permutation). This is a property of the raw dataset, not a leak introduced by any
+operator, and is negligible in magnitude. Consequence: any operator or validator disjointness check is
+written as "does not INCREASE train↔test overlap" (plus index-disjointness), never absolute
+content-disjointness — which would false-positive on these pre-existing duplicates (FINDINGS S11;
+DECISIONS 2026-09-13).
