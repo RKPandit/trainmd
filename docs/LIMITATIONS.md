@@ -84,7 +84,7 @@ following). DECISIONS 2026-09-13.
 **L11 — Sweep 1's training ran with unpinned threading (the reference itself was canonical).**
 *Corrected 2026-09-13:* an earlier version of this limitation said Sweep 1 used a "non-canonical
 macOS reference." **That is false.** With every BLAS/OpenMP thread pool pinned to 1, the native
-linux/amd64 reference is **byte-identical to the macOS reference** Sweep 1 used (tolerance_lower
+linux/amd64 reference is **byte-identical to the macOS reference** Sweep 1 used *(refined by L18: byte-exact only WITHIN a microarch; ≤~1e-3 across the fleet)* (tolerance_lower
 0.843535) — there is no platform difference in the reference. The real, narrower caveat: Sweep 1's
 **training runs** (each case build, and the recovery reruns) executed with **unpinned** threading, so
 they sampled a run-to-run-nondeterministic process; the reference band they were scored against was
@@ -164,3 +164,21 @@ spans no longer credited on partial overlap), nudges `lr_warmup` +0.009, and lea
 match status of **zero** Sweep-1 refs (the anomaly spans the whole run, so every in-run localization —
 sharp or lazy — stays credited). v1 values are preserved beside v2 (`evidence_v1`); both are reported.
 DECISIONS 2026-09-13; `harness/rescore.py::rescore_evidence_v2`.
+
+**L18 — The native-amd64 reference is byte-exact only WITHIN a microarchitecture.** With the data
+pinned to committed hashes (identical bytes on every runner — verified by CI fingerprints), native
+training still differs across amd64 microarchitectures because float REDUCTION ORDER differs (AVX-512
+vs AVX2 FMA). Measured cross-microarch spread on the reference: visible mean **4.28e-4 (0.28σ)**,
+hidden mean **9.73e-4 (0.47σ)**, hidden σ-estimate ~1e-3, and `tolerance_lower` **2.99e-3** (the last
+exceeds the tightest case-guard margin, +1.37e-3). *Revised guarantee (replacing "byte-identical
+across runners"):* **byte-exact within a microarchitecture; across heterogeneous native amd64 the
+means reproduce within ~1e-3 (≤0.5σ) and σ-estimates within ~3e-3, with data pinned.** This is
+scientifically harmless — the spread is well inside seed noise (≤0.5σ) and far below every faulty
+guard margin — and it does not touch case validation, because C4/C9/C11 re-derive from the COMMITTED
+`stats.yaml` (a fixed file), never a fresh run. The CI reference-diff is therefore tolerance-based
+(means ≤2e-3, `tolerance_lower` ≤6e-3 + an exact derivation check; DECISIONS 2026-09-14), and a
+`reference-change-guard` rebuilds all cases against a changed committed reference. *Fix direction if
+byte-exactness across the fleet ever matters:* pin CI to a fixed-CPU runner, or impose a deterministic
+reduction order (e.g. a fixed BLAS kernel / higher-precision accumulation). Stage 1b's "byte-identical
+across two independent runners" was an over-reading — two agreeing runners are not the fleet (see the
+RESEARCH_LOG standing lesson).

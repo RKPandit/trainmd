@@ -82,9 +82,10 @@ where the operator sets it), `checkpoints/` (silent tier only — a crash produc
 the evaluator to compute each run's **hidden** test score, and writes mean/std/min/max and the
 tolerance band (default `mean − 2·std`) to `reference/stats.yaml`. The canonical environment is the
 pinned Linux/amd64 container. With every BLAS/OpenMP thread pool pinned to 1 (`train.py` enforces
-this), training is bit-reproducible and macOS-arm64 and linux/amd64 produce a **byte-identical**
-reference — there is no cross-platform float difference (an earlier claim of one was the unpinned-
-threading bug; DECISIONS.md 2026-09-13). `scripts/verify_reference.py` re-checks reproduction in CI
+this) and the data pinned to committed hashes, training is bit-reproducible **within a
+microarchitecture**; across heterogeneous native amd64 microarchs (AVX-512 vs AVX2 float reduction
+order) the reference means reproduce within ~1e-3 (≤0.5σ) and σ-estimates within ~3e-3 (LIMITATIONS
+L18; DECISIONS.md 2026-09-14). `scripts/verify_reference.py` re-checks reproduction in CI
 (now a blocking check).
 
 ## 4. Incident operator interface (as-built)

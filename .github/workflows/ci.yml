@@ -24,6 +24,8 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build --platform linux/amd64 -t trainmd:canonical .
       - run: make docker-data
+      - name: CI fingerprint (CPU + data hashes)
+        run: bash scripts/ci_fingerprint.sh
       - run: make docker-reference
       - uses: actions/upload-artifact@v4
         with:
@@ -36,6 +38,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: CI fingerprint (CPU; no data prepared here)
+        run: bash scripts/ci_fingerprint.sh
       - uses: actions/download-artifact@v4
         with: { name: reference-run-1, path: r1 }
       - uses: actions/download-artifact@v4
@@ -60,6 +64,7 @@ jobs:
         run: |
           START=$(date +%s)
           make docker-data
+          bash scripts/ci_fingerprint.sh           # CPU + data hashes (diagnostic)
           make docker-reference                    # canonical candidate (ephemeral)
           make docker-build-all-cases              # 27 cases from the design, fresh
           make docker-validate-all
@@ -80,15 +85,20 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build --platform linux/amd64 -t trainmd:canonical .
       - run: make docker-data
+      - name: CI fingerprint (CPU + data hashes)
+        run: bash scripts/ci_fingerprint.sh
       - name: Regenerate reference and assert it matches the committed canonical (BLOCKING)
         run: |
           # Snapshot the committed reference OUTSIDE the repo, then mount it into
           # the container (the container only sees /work, not the runner's /tmp).
           cp workloads/tabular_adult/reference/stats.yaml /tmp/stats_committed.yaml
           make docker-reference
-          # The committed reference is the verified canonical (byte-identical
-          # across two independent native runners AND identical to the original
-          # macOS file once threading is pinned). Any drift now fails the build.
+          # The committed reference is canonical: byte-exact WITHIN a microarch;
+          # across heterogeneous native amd64 microarchs the means reproduce within
+          # ~1e-3 (<=0.5σ) and σ-estimates within ~3e-3, with data pinned to
+          # committed hashes. verify_reference bounds the means (2e-3) and
+          # tolerance_lower (6e-3) + an exact derivation check, so a real regression
+          # fails while cross-microarch float noise does not (DECISIONS 2026-09-14).
           docker run --rm --platform linux/amd64 \
             -v "$PWD":/work -v /tmp/stats_committed.yaml:/committed.yaml:ro -w /work \
             trainmd:canonical \
@@ -97,3 +107,41 @@ jobs:
           git checkout -- workloads/tabular_adult/reference/stats.yaml
       - name: Full test suite incl. slow (in container)
         run: make docker-test
+
+  # ---- Standing guard: a committed-reference change must rebuild all cases ---
+  # The danger is NOT a noisy comparison; it is a SILENTLY-committed reference
+  # shift (e.g. tolerance_lower moved 2.99e-3 on a divergent runner — larger than
+  # the tightest case-guard margin 1.37e-3) that leaves cases built against the
+  # old threshold. When reference/stats.yaml or the data pin changes, this job
+  # rebuilds ALL cases against the COMMITTED reference (no regeneration) and
+  # requires validate-all + gate green — proving the new committed reference
+  # still produces valid cases. See docs/DECISIONS.md (2026-09-14).
+  reference-change-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Detect committed-reference / data-pin change
+        id: refchg
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          [ -z "$BASE" ] && BASE="${{ github.event.before }}"
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then BASE="HEAD~1"; fi
+          if git diff --name-only "$BASE" HEAD | grep -qE "workloads/tabular_adult/reference/(stats|data_manifest)\.yaml"; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Committed reference / data pin CHANGED — full rebuild-against-committed required."
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "reference/stats.yaml and data_manifest.yaml unchanged — guard not triggered."
+          fi
+      - name: Rebuild ALL cases against the COMMITTED reference (no regen)
+        if: steps.refchg.outputs.changed == 'true'
+        run: |
+          docker build --platform linux/amd64 -t trainmd:canonical .
+          make docker-data                       # data pin verified here
+          bash scripts/ci_fingerprint.sh
+          make docker-build-all-cases            # builds against the COMMITTED reference
+          make docker-validate-all
+          make docker-gate-known-answer
+          make docker-case-margins

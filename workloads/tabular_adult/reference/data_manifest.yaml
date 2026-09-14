@@ -1,0 +1,20 @@
+# Committed expected SHA-256 of every prepared split — the data-provenance PIN.
+#
+# data_prep.py FAILS LOUDLY if a fresh OpenML fetch + sklearn encode + seeded split
+# does not reproduce these exact bytes. This closes a real gap: the per-run
+# manifest.json only proves self-consistency (data matches a hash it just wrote),
+# not that the data is the canonical dataset the committed reference/stats.yaml was
+# built from. These hashes are platform-independent (macOS-arm64 == linux-amd64,
+# DECISIONS 2026-09-13). Regenerate ONLY from a verified-canonical fetch and update
+# with disclosure (a change here supersedes the reference and every case).
+n_features: 105
+n_train: 31656
+n_val: 6783
+n_hidden: 6783
+files:
+  X_train.npy: 1f5842f1160df75e751963e36c609ba95305b44342a5e4272b7e956901ad64c9
+  y_train.npy: 03d919df687a824c2a8e25f3f27801b8761906e9d30db3c8fef28c85b4571c06
+  X_val.npy: 13ac80b087453af3d599c14d7ff63e5e4524902a9b73a063bdbe120ffc1c9539
+  y_val.npy: 04e3a9734387b0e94855266e222e3d7050f552ae303dfa6a8c52e21fe924bf35
+  X_test.npy: 80473166bf08f0f8acf4a35f6ab405e3a1aa7cf818224c0dcc5c01263e402813
+  y_test.npy: 96944a069f8cec764e41349b1246ee8bf3f67b268de081369d669575f4481c1c

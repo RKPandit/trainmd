@@ -3,7 +3,8 @@
 For every built case: hidden faulty_value vs the current reference tolerance_lower
 and the margin, flagging anything within 2x the reference hidden std. Exits
 non-zero if ANY case fails its tier guard (a dynamics faulty run must be < tol;
-a control must be >= tol; a crash trivially has no checkpoint metric).
+control AND metric — both have a HEALTHY model — must be >= tol; a crash trivially
+has no checkpoint metric).
 
 Reads the CURRENT workload reference and each case's frozen hidden/verify.yaml —
 run it after building cases against the reference you intend to adopt.
@@ -19,6 +20,30 @@ import yaml
 
 ROOT = Path(os.environ.get("TRAINMD_ROOT", os.getcwd()))
 WORKLOAD = os.environ.get("WORKLOAD", "tabular_adult")
+
+# Tiers whose model is HEALTHY, so hidden accuracy must CLEAR tolerance. control:
+# no fault. metric: the fault is only in the reported metric; the model is fine.
+_HEALTHY_MODEL_LAYERS = ("control", "metric")
+
+
+def margin_flag(layer: str, fv: float, tol: float, two_std: float) -> tuple[float, bool, str]:
+    """(margin, ok, flag) for one case's tier guard against tolerance.
+
+    Healthy-model tiers (control, metric) must clear tolerance (fv >= tol);
+    every other faulty tier (dynamics) must fall below it (fv < tol). Pure and
+    tier-complete so the tier-ripple test can assert all three layers behave.
+    """
+    if layer in _HEALTHY_MODEL_LAYERS:
+        margin = fv - tol  # must be >= 0 (healthy clears tolerance)
+        ok = margin >= 0
+        flag = "" if margin >= two_std else (
+            f"GUARD-FAIL: healthy<tol" if not ok else f"TIGHT (<2std, +{margin:.6f})")
+    else:  # dynamics faulty: must be < tol
+        margin = tol - fv
+        ok = margin > 0
+        flag = "" if margin >= two_std else (
+            "GUARD-FAIL: faulty>=tol" if not ok else f"TIGHT (<2std, {margin:+.6f})")
+    return margin, ok, flag
 
 
 def main() -> int:
@@ -54,14 +79,7 @@ def main() -> int:
         if fv is None:  # crash tier: no checkpoint metric, trivially below tolerance
             print(f"{cid:11} {op:16} {str(st):8} {layer:10} {'None(crash)':13} {'n/a':11} crash<tol")
             continue
-        if layer == "control":
-            margin = fv - tol  # must be >= 0 (healthy clears tolerance)
-            ok = margin >= 0
-            flag = "" if margin >= two_std else ("GUARD-FAIL: healthy<tol" if not ok else f"TIGHT (<2std, +{margin:.6f})")
-        else:  # dynamics faulty: must be < tol
-            margin = tol - fv
-            ok = margin > 0
-            flag = "" if margin >= two_std else ("GUARD-FAIL: faulty>=tol" if not ok else f"TIGHT (<2std, {margin:+.6f})")
+        margin, ok, flag = margin_flag(layer, fv, tol, two_std)
         if not ok:
             failures.append(cid)
         elif margin < two_std:
