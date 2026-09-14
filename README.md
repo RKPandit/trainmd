@@ -32,10 +32,12 @@ Local (host) dev without Docker still works via `uv` (`make test`, `make validat
 
 Data prep is **byte-identical across platforms** (verified by SHA-256 of every split).
 The committed `reference/stats.yaml` is the **verified canonical reference**: with every
-BLAS/OpenMP thread pool pinned to 1 (`train.py` enforces this), the native linux/amd64
-reference is **byte-identical both across two independent CI runners and to the original
-macOS file** — there is no platform difference (the earlier apparent delta was unpinned
-threading, since fixed). `train.py` refuses to run unpinned so no host run can produce
+BLAS/OpenMP thread pool pinned to 1 (`train.py` enforces this) and the data pinned to committed
+hashes, the native linux/amd64 reference is **byte-exact within a microarchitecture; across
+heterogeneous native amd64 microarchitectures the means reproduce within ~1e-3 (≤0.5σ) and
+σ-estimates within ~3e-3** (float reduction order differs across AVX-512/AVX2 — LIMITATIONS L18;
+DECISIONS 2026-09-14). The CI reference-diff is tolerance-based accordingly (means ≤2e-3,
+`tolerance_lower` ≤6e-3 + an exact derivation check). `train.py` refuses to run unpinned so no host run can produce
 non-canonical numbers. **Sweep 1's training ran pre-pinning** (unpinned threading; the
 reference band it used was still canonical — see `docs/LIMITATIONS.md` L11); **Sweep 2
 onward is fully canonical.** See `docs/DECISIONS.md`.

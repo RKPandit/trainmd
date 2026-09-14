@@ -342,7 +342,7 @@ undercount" to a compliance failure counted only toward the semantic endpoint.)
   three-arm design (none / numbers-only / numbers+rule).
 - **L11 — Sweep 1's training ran with unpinned threading (its reference was canonical).**
   *Corrected 2026-09-13:* the reference was **not** platform-specific — with threads pinned, native
-  linux/amd64 is byte-identical to Sweep 1's macOS reference. The real caveat is narrower: Sweep 1's
+  linux/amd64 is byte-identical to Sweep 1's macOS reference *(refined 2026-09-14: byte-exact only WITHIN a microarch; means reproduce ≤~1e-3 across heterogeneous amd64 — LIMITATIONS L18)*. The real caveat is narrower: Sweep 1's
   training runs (case builds, recovery reruns) used unpinned BLAS threading (run-to-run spread up to
   ~0.0037 on per-seed hidden acc). This **cannot** have flipped any faulty guard (faulty margins
   ≥ 0.0095) but is **within** the two tight control margins (+0.00196, +0.00137) — so control guards
