@@ -370,6 +370,11 @@ undercount" to a compliance failure counted only toward the semantic endpoint.)
    an explicit decision rule (L10) — does a norm alone restore detection?
 8. **Token-matched deliberative baseline** for H6, so the ReAct−static gap can be attributed to
    tool use rather than to call count / deliberation / tokens / prompt wording.
+9. **Metric-inflation within-case signal (L16):** tag rationales/transcripts that flag
+   `metric_inflation` via the loss/accuracy inconsistency, per operator × anchor, so
+   consistency-checking detection is distinguished from positive-symptom-*magnitude* detection
+   before H1 leans on the second positive-symptom operator (diagnostics plan in HYPOTHESES.md; a
+   loss-on-same-subset matched variant is a Sweep-3 candidate).
 
 ---
 

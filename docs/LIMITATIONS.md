@@ -132,3 +132,18 @@ operator, and is negligible in magnitude. Consequence: any operator or validator
 written as "does not INCREASE train↔test overlap" (plus index-disjointness), never absolute
 content-disjointness — which would false-positive on these pre-existing duplicates (FINDINGS S11;
 DECISIONS 2026-09-13).
+
+**L16 — The two positive-symptom operators are NOT matched on within-case detectability.**
+`silent.metric_inflation.v1` reports an inflated *accuracy* computed on a confidence-selected subset,
+but `val_loss` is still computed on the full validation split — so an epoch row shows a normal loss
+(~0.30) beside an inflated accuracy (~0.88–0.98), an internal inconsistency an agent can detect with
+**no external baseline**. `silent.data_leakage.v1` has no such contradiction: the model genuinely
+learned the leaked feature, so its loss and accuracy agree, and detecting it requires either a
+reference band or reading the code. This is kept deliberately (a subset-accuracy bug plausibly would
+not touch the loss — it is the realistic form; see DECISIONS 2026-09-13), but it is a **confound for
+any metric_inflation-vs-data_leakage detection comparison**: a difference in anchor-off detection
+between the two could reflect the within-case loss/accuracy signal rather than symptom magnitude or
+direction. *Sweep-2 remedy (diagnostics):* tag rationales/transcripts that cite the loss/accuracy
+mismatch, reported per operator × anchor, so consistency-checking detection is distinguishable from
+positive-symptom-magnitude detection. *Sweep-3 candidate:* a matched variant that computes the loss
+on the same subset, removing the internal contradiction (HYPOTHESES.md).

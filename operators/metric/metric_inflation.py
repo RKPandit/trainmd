@@ -21,6 +21,19 @@ Layer: metric (observability). Build guard: visible ABOVE mean+2σ AND hidden
 WITHIN band. Recovery: restore the correct computation (evaluate the full split);
 the reported metric returns into the band and hidden stays in band.
 
+KNOWN WITHIN-CASE SIGNAL (kept deliberately — the realistic version of this bug).
+Only the reported ACCURACY is computed on the confidence subset; ``val_loss`` is
+still computed on the FULL validation split (train.py is unchanged there). So an
+epoch row can read a normal loss (≈0.30) next to an inflated accuracy (≈0.94–0.98)
+— internally inconsistent numbers an agent could flag with NO external baseline. A
+subset-accuracy bug plausibly would not touch the loss, so this is the faithful
+form; we do not "fix" it by biasing the loss too. But it means this operator is NOT
+matched to data_leakage on within-case detectability (data_leakage has no such
+internal contradiction — the model genuinely learned the feature, so its loss and
+accuracy agree). See docs/DECISIONS.md and docs/LIMITATIONS.md (L16); a matched
+variant (loss computed on the same subset) is a Sweep-3 pre-registration candidate
+in docs/HYPOTHESES.md.
+
 Strength mapping (fraction q of the most-confident val rows KEPT; smaller q =
 stronger inflation). The kept sets are nested by construction — all three q take a
 prefix of ONE confidence ordering, so keep(0.50) ⊆ keep(0.70) ⊆ keep(0.92) — a
