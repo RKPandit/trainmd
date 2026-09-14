@@ -504,3 +504,24 @@ checking detection, not positive-symptom-direction detection).
 severe) inflation, so report detection **by strength**. If detection rises with
 implausibility, that is evidence for a magnitude boundary on positive-symptom
 blindness — an exploratory sub-question to pre-register prospectively if observed.
+
+### Deviations from the pre-registration (2026-09-14 — appended; the pre-registered text above is unchanged)
+
+- **Repeats: 3 → 2.** *Reason:* the $25 cost cap. The 3-operator gate at the
+  pre-registered 3 repeats is 378 cells (3 ops × 3 strengths × 2 seeds × 2 agents ×
+  3 anchor arms × 3 repeats = 324 faulty + 54 control), estimated **~$37**
+  (1.5× the committed repeats-2 plan's $24.81; an earlier rougher figure was
+  ~$28.7) — above the cap. At **2 repeats** the gate is **252 cells ≈ $24.81**,
+  which fits. *Consequence:* wider confidence intervals on every rate (G1/G2), and
+  **within-cell repeat-agreement is not computable at n=2** — so any
+  agreement-style measure (the H4-type "same detect+identify across repeats")
+  is **dropped for this gate** and deferred to Sweep 2. Detection/identification/
+  evidence/recovery rates and their case-clustered CIs are unaffected in kind, only
+  in width. This deviation is committed BEFORE the plan file and before any trial.
+- **Operator set (not a deviation from the gate design, but recorded for the
+  artifact):** the plan is restricted via `--operators` to the three
+  pre-registered gate operators (`silent.data_leakage.v1`,
+  `silent.metric_inflation.v1`, `silent.label_corruption.v1`). `silent.lr_warmup.v1`
+  (bimodal, retired from the σ-role — L1/S12) and `crash.shape_mismatch.v1` (crash
+  tier, orthogonal to symptom direction) are deliberately excluded; the exclusion +
+  reasons are recorded in the plan header's `scope` block.
