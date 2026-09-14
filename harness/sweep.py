@@ -79,17 +79,30 @@ def _cell_id(operator, strength, seed, agent, anchor, repeat) -> str:
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 
-def _design_tuples(registry, strengths, faulty_seeds, control_seeds):
+def _design_tuples(registry, strengths, faulty_seeds, control_seeds, operators=None):
     """Yield (operator, strength, seed) for the intended design.
 
     Faulty operators come from operators/registry.py (code), NOT the case
     registry — so the design is fixed by code and `--build-missing` bootstraps
     from a fresh/empty checkout (otherwise no faulty ops would be enumerated).
+
+    ``operators`` (optional): restrict the faulty operators to this explicit
+    subset (e.g. the Stage-2 gate's three symptom-direction operators). Each must
+    be a known faulty operator; a control id or unknown id raises. When omitted,
+    every registered faulty operator is enumerated (the default full design).
     """
     from operators.registry import all_operator_ids
-    faulty_ops = sorted(
-        op for op in all_operator_ids() if _tier_of(op) != "control"
-    )
+    all_faulty = sorted(op for op in all_operator_ids() if _tier_of(op) != "control")
+    if operators is None:
+        faulty_ops = all_faulty
+    else:
+        unknown = [o for o in operators if o not in all_faulty]
+        if unknown:
+            raise ValueError(
+                f"--operators contains non-faulty/unknown operator(s): {unknown}; "
+                f"choose from {all_faulty}"
+            )
+        faulty_ops = sorted(set(operators))
     for op in faulty_ops:
         for st in strengths:
             for sd in faulty_seeds:
@@ -98,11 +111,11 @@ def _design_tuples(registry, strengths, faulty_seeds, control_seeds):
         yield CONTROL_OPERATOR, "mild", sd
 
 
-def enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeats):
+def enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeats, operators=None):
     """Return (cells, missing) — cells cross the design with agent×anchor×repeat."""
     registry = _load_registry(project_root)
     cells, missing = [], []
-    for op, st, sd in _design_tuples(registry, strengths, faulty_seeds, control_seeds):
+    for op, st, sd in _design_tuples(registry, strengths, faulty_seeds, control_seeds, operators):
         case_id = _lookup_case(registry, op, st, sd)
         tier = _tier_of(op)
         if case_id is None or not (project_root / "cases" / case_id).exists():
@@ -186,13 +199,37 @@ def _cell_est(c, priors) -> float:
 # plan
 # ---------------------------------------------------------------------------
 
+# Why a registered faulty operator may be deliberately EXCLUDED from a gate's
+# --operators set — recorded in the plan header so the exclusion is visible in the
+# artifact, not merely implied by a CLI flag.
+_EXCLUSION_REASONS = {
+    "silent.lr_warmup.v1": "bimodal collapse, retired from the σ-ladder role "
+                           "(L1/S12); contributes detection data only, not σ-magnitude",
+    "crash.shape_mismatch.v1": "crash tier — orthogonal to a symptom-direction "
+                               "(positive vs negative) question",
+}
+
+
 def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=None,
-         repeats=DEFAULT_REPEATS, order_seed=1234, model=DEFAULT_MODEL) -> dict:
+         repeats=DEFAULT_REPEATS, order_seed=1234, model=DEFAULT_MODEL,
+         operators=None) -> dict:
     strengths = strengths or DEFAULT_STRENGTHS
     faulty_seeds = faulty_seeds or DEFAULT_FAULTY_SEEDS
     control_seeds = control_seeds or DEFAULT_CONTROL_SEEDS
-    cells, missing = enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeats)
+    cells, missing = enumerate_cells(
+        project_root, strengths, faulty_seeds, control_seeds, repeats, operators)
     random.Random(order_seed).shuffle(cells)
+
+    from operators.registry import all_operator_ids
+    _all_faulty = sorted(o for o in all_operator_ids() if _tier_of(o) != "control")
+    included = sorted(set(operators)) if operators else _all_faulty
+    scope = {
+        "gate_operators": included,
+        "excluded_operators": {
+            o: _EXCLUSION_REASONS.get(o, "not in this gate's --operators set")
+            for o in _all_faulty if o not in set(included)
+        },
+    }
 
     priors = _prior_costs(project_root)
     cost_est = estimate_cost(cells, priors)
@@ -217,6 +254,7 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
         "factor_levels": {"agents": AGENTS, "anchors": ANCHORS, "repeats": repeats,
                           "strengths": strengths, "faulty_seeds": faulty_seeds,
                           "control_seeds": control_seeds},
+        "scope": scope,
         "n_cells": len(cells), "n_missing": len(missing),
         "cost_estimate": cost_est,
         "verify_estimate": {"reruns": n_verify},
@@ -918,6 +956,10 @@ def main() -> int:
     pp.add_argument("--control-seeds", nargs="*", type=int, default=None)
     pp.add_argument("--repeats", type=int, default=DEFAULT_REPEATS)
     pp.add_argument("--order-seed", type=int, default=1234)
+    pp.add_argument("--operators", nargs="*", default=None,
+                    help="Restrict faulty operators to this explicit subset (default: "
+                         "all registered faulty operators). Excluded ones are recorded "
+                         "with a reason in the plan header's scope block.")
     pp.add_argument("--build-missing", action="store_true")
     pp.add_argument("--project-root", type=Path, default=None)
 
@@ -938,7 +980,7 @@ def main() -> int:
 
     if args.cmd == "plan":
         result = plan(root, args.name, args.strengths, args.seeds, args.control_seeds,
-                      args.repeats, args.order_seed)
+                      args.repeats, args.order_seed, operators=args.operators)
         if args.build_missing and result["missing"]:
             summary = build_missing(root, result["missing"])
             print(f"[build-missing] built={len(summary['built'])} skipped={len(summary['skipped'])} "
