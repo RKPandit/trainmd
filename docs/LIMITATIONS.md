@@ -19,11 +19,22 @@ and (5) recorded with a per-record audit trail so each score is reproducible.
 
 ## Limitations
 
-**L1 — The learning-rate ladder is saturated.** All three strengths of `lr_warmup` already collapse
-the model to the majority-class baseline, so they share one effect size (σ ≈ 44.6). The operator
-contributes a single point to the detection-vs-σ curve, leaving a gap between σ ≈ 18 and 44.
-*Sweep-2 remedy:* recalibrate the mild strength toward the tolerance edge so the ladder spans the
-threshold region.
+**L1 — `lr_warmup`'s degradation is BIMODAL, not a graded ladder** *(rewritten 2026-09-14 — the
+earlier "ladder saturation" framing was a misdiagnosis).* On Adult/MLP a too-high learning rate does
+not degrade the model *gradually*: at lr ≤0.07 it trains normally (~0.84); from ~0.08 up each seed
+either COLLAPSES to the majority-class baseline (exactly 0.756008, ~44σ below tolerance) or trains
+~0.83 — a coin flip near the LR-stability boundary whose collapse PROBABILITY rises with lr
+(0.10→0/5, 0.12/0.15→2/5, 0.20→4/5, 0.50 & 1.00→5/5; at 0.30 one seed fell *below* baseline, 0.684)
+and which is also microarch-sensitive (the same (lr, seed) can flip AMD↔Intel — the source of the
+original `[mild-1]/[mild-2]` flakes and the four cases identical at 0.756008). Measured:
+`scripts/calibrate_lr_warmup.py`. There is NO lr producing a stable partial degradation, so `lr_warmup`
+**cannot** provide graded σ-rungs on this workload — recalibration to a stable ~2σ mild is impossible
+(reported under the stop-and-report clause). *Resolution:* `lr_warmup` is reframed as a bimodal-collapse
+operator (strengths = increasing collapse probability; a valid case is a run that actually collapsed)
+and **retired from the H2 σ-ladder**; **`label_corruption` carries the σ-axis** (stably graded:
+~0.825/0.818/0.800 mild/moderate/severe, tight per-seed spread; S7). A second stably-graded operator
+(train-subset-fraction or excessive weight_decay) is a Sweep-2 candidate. DECISIONS 2026-09-14;
+FINDINGS (per-lr collapse table); RESEARCH_LOG.
 
 **L2 — One model, one workload.** Every number is Claude Haiku 4.5 on the Adult dataset with an MLP.
 The standing findings are marked *pending replication* until a second provider's model and a second
