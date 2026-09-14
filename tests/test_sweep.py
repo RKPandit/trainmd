@@ -241,3 +241,29 @@ def test_preconditions_flag_drift_and_missing_key(tmp_path, monkeypatch):
     fails = sweep.check_preconditions(tmp_path, plan_doc)
     assert any("build_id drift" in f for f in fails)
     assert any("ANTHROPIC_API_KEY" in f for f in fails)
+
+
+def test_operators_filter_restricts_design_and_rejects_unknown():
+    """--operators restricts the faulty set; a control/unknown id raises."""
+    import tempfile
+    import pytest
+    from operators.registry import all_operator_ids
+
+    faulty = tuple(op for op in all_operator_ids() if op != sweep.CONTROL_OPERATOR)
+    tmp = Path(tempfile.mkdtemp())
+    _mk_root(tmp, faulty=faulty)
+
+    subset = ["silent.data_leakage.v1", "silent.metric_inflation.v1"]
+    cells, _ = sweep.enumerate_cells(tmp, ["moderate"], [42], [0], repeats=2, operators=subset)
+    faulty_ops = {c["operator"] for c in cells if c["tier"] != "control"}
+    assert faulty_ops == set(subset)
+    # control cells still present (control is always included)
+    assert any(c["tier"] == "control" for c in cells)
+
+    # a control id or unknown id in --operators is rejected (not a faulty operator)
+    with pytest.raises(ValueError):
+        sweep.enumerate_cells(tmp, ["moderate"], [42], [0], repeats=2,
+                              operators=[sweep.CONTROL_OPERATOR])
+    with pytest.raises(ValueError):
+        sweep.enumerate_cells(tmp, ["moderate"], [42], [0], repeats=2,
+                              operators=["silent.not_a_real_op.v1"])
