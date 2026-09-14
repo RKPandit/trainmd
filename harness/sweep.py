@@ -29,7 +29,9 @@ DEFAULT_FAULTY_SEEDS = [42, 43]
 DEFAULT_CONTROL_SEEDS = [0, 1, 2]
 DEFAULT_REPEATS = 3
 AGENTS = ["react", "static"]
-ANCHORS = ["on", "off"]
+# Three-arm anchor (L10): off (no band) | numbers (bare fact) | rule (numbers +
+# the explicit decision rule). Legacy Sweep-1 "on" == "rule".
+ANCHORS = ["off", "numbers", "rule"]
 CONTROL_OPERATOR = "control.healthy.v1"
 WORKLOAD = "tabular_adult"
 
@@ -769,13 +771,21 @@ def hypothesis_metrics(records, registry) -> dict:
         "identification_original" in (r.get("scores") or {}) for r in records
     )
 
-    anchor = lambda r: (r.get("conditions") or {}).get("anchor")
+    # Legacy Sweep-1 records use anchor "on" (numbers + rule); the three-arm
+    # design (off | numbers | rule) makes "on" == "rule". Map legacy "on"→"rule"
+    # in analysis ONLY (records are never rewritten; see docs/DECISIONS.md).
+    _norm = lambda a: "rule" if a == "on" else a
+    anchor = lambda r: _norm((r.get("conditions") or {}).get("anchor"))
     op = lambda r: r.get("_operator")
     agent = lambda r: (r.get("conditions") or {}).get("agent_type")
 
-    # H1: leakage vs negative-symptom detection by anchor
-    h1 = {}
-    for an in ("on", "off"):
+    # H1: leakage vs negative-symptom detection by anchor arm. Iterate whichever
+    # arms are present (Sweep 1: rule/off after the legacy map; Sweep 2 adds
+    # numbers), so the same generator serves both without hardcoding on/off.
+    arms_present = sorted({anchor(r) for r in records if anchor(r) is not None})
+    h1 = {"_legacy_on_mapped_to_rule": any(
+        (r.get("conditions") or {}).get("anchor") == "on" for r in records)}
+    for an in arms_present:
         leak = detect_rate(group(lambda r: op(r) == "silent.data_leakage.v1" and anchor(r) == an))
         neg = detect_rate(group(lambda r: op(r) in ("silent.lr_warmup.v1", "silent.label_corruption.v1") and anchor(r) == an))
         h1[an] = {"leakage_detection": leak, "negative_symptom_detection": neg}

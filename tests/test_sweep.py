@@ -57,9 +57,9 @@ def test_enumerate_cell_count():
     tmp = Path(tempfile.mkdtemp())
     _mk_root(tmp, faulty=faulty)
     cells, missing = sweep.enumerate_cells(tmp, ["moderate"], [42], [0], repeats=3)
-    # 5 faulty ops × 1 strength × 1 seed × 2 agents × 2 anchors × 3 = 60
-    # + control × 1 seed × 2 × 2 × 3 = 12 → 72
-    assert len(cells) == len(faulty) * 12 + 12 == 72
+    # 5 faulty ops × 1 strength × 1 seed × 2 agents × 3 anchors × 3 = 90
+    # + control × 1 seed × 2 × 3 × 3 = 18 → 108
+    assert len(cells) == len(faulty) * 18 + 18 == 108
     assert missing == []
 
 
@@ -151,28 +151,46 @@ def test_circuit_breaker(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# anchor=off has no band numbers
+# three-arm anchor: off (no band) | numbers (bare fact) | rule (numbers + rule)
 # ---------------------------------------------------------------------------
 
-def test_anchor_off_prompt_has_no_band_numbers():
-    from agents.llm_agent import _build_instruction_prompt, reference_band_line
+def test_three_arm_anchor_prompt_content():
+    from agents.llm_agent import (
+        _build_instruction_prompt, reference_band_line, reference_band_numbers,
+    )
     from agents.static_agent import StaticContextAgent
     case_dir = CASES / "case_0005"
     if not case_dir.exists():
         import pytest
         pytest.skip("case_0005 not built")
     card = yaml.safe_load((case_dir / "card.public.yaml").read_text())
-    band = reference_band_line(card)
-    band_number = f"{card['reference_visible_metric']['mean']:.4f}"
+    numbers = reference_band_numbers(card)
+    rule = reference_band_line(card, "rule")
+    number_str = f"{card['reference_visible_metric']['mean']:.4f}"
+    # Discriminate the rule arm on a BAND-ONLY phrase — "anomalous" alone also
+    # appears in the fixed template ("anomalous training curves").
+    RULE_PHRASE = "above OR below"
 
-    on = _build_instruction_prompt(case_dir, include_band=True)
-    off = _build_instruction_prompt(case_dir, include_band=False)
-    assert band in on and band not in off
-    assert band_number in on and band_number not in off
+    off = _build_instruction_prompt(case_dir, arm="off")
+    num = _build_instruction_prompt(case_dir, arm="numbers")
+    rul = _build_instruction_prompt(case_dir, arm="rule")
 
-    st_on = StaticContextAgent(object(), model_id="m", anchor="on")._instruction_prompt(case_dir)
-    st_off = StaticContextAgent(object(), model_id="m", anchor="off")._instruction_prompt(case_dir)
-    assert band_number in st_on and band_number not in st_off
+    # off: no band numerals, no rule phrase.
+    assert number_str not in off and RULE_PHRASE not in off
+    # numbers: numerals present, rule phrase absent.
+    assert numbers in num and number_str in num and RULE_PHRASE not in num
+    # rule: the full band + the rule phrase; numbers text is a prefix/subset.
+    assert rule in rul and RULE_PHRASE in rul and numbers in rule
+    # legacy "on" == "rule".
+    assert _build_instruction_prompt(case_dir, arm="on") == rul
+
+    # Both agents share the same three texts verbatim.
+    def st(anchor):
+        return StaticContextAgent(object(), model_id="m", anchor=anchor)._instruction_prompt(case_dir)
+    assert number_str not in st("off") and RULE_PHRASE not in st("off")
+    assert numbers in st("numbers") and RULE_PHRASE not in st("numbers")
+    assert RULE_PHRASE in st("rule")
+    assert st("on") == st("rule")
 
 
 # ---------------------------------------------------------------------------

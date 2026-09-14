@@ -276,8 +276,9 @@ def main() -> int:
         help="LLM agent mode: react (tool loop) or static (one-shot full context)",
     )
     parser.add_argument(
-        "--anchor", type=str, default="on", choices=["on", "off"],
-        help="Reference-band anchor in the prompt: on (default) or off",
+        "--anchor", type=str, default="rule", choices=["off", "numbers", "rule", "on"],
+        help="Reference-band anchor arm: off (no band) | numbers (bare fact) | "
+             "rule (numbers + decision rule; default). Legacy 'on' == 'rule'.",
     )
     parser.add_argument(
         "--project-root", type=Path, default=None,

@@ -75,6 +75,11 @@ narrows the σ difference but does **not** touch this confound.
 anchor-on prompt gives the agent both a reference band *and* the instruction that values outside it
 are anomalous. Sweep 1 therefore shows that a **norm plus a decision rule** restores detection, not
 that a norm alone does. *Sweep-2 remedy:* a three-arm design — none / numbers-only / numbers+rule.
+*Implemented (Stage 2):* the three-arm anchor (`off` / `numbers` / `rule`) is now selectable on both
+agents, with `rule` a strict superset of `numbers` (one appended sentence). Legacy Sweep-1 "on" maps
+to "rule" in analysis (never rewritten). Sweep-2 will run all three arms; the prediction shape is in
+HYPOTHESES.md (numbers-only closing the gap ⇒ baseline restoration; only rule ⇒ instruction
+following). DECISIONS 2026-09-13.
 
 **L11 — Sweep 1's training ran with unpinned threading (the reference itself was canonical).**
 *Corrected 2026-09-13:* an earlier version of this limitation said Sweep 1 used a "non-canonical
@@ -147,3 +152,15 @@ direction. *Sweep-2 remedy (diagnostics):* tag rationales/transcripts that cite 
 mismatch, reported per operator × anchor, so consistency-checking detection is distinguishable from
 positive-symptom-magnitude detection. *Sweep-3 candidate:* a matched variant that computes the loss
 on the same subset, removing the internal contradiction (HYPOTHESES.md).
+
+**L17 — Evidence numbers changed scorer between sweeps (v1 → v2); Sweep-1 values were v1.** Sweep 1's
+evidence F1 (F4/H6, S4) was computed under **evidence_v1**, which credited any span overlap and treated
+omitted bounds as 0/∞. From Sweep 2 the primary scorer is **evidence_v2** (IoU ≥ 0.5 + a 3× width cap
+for line/code spans, required explicit bounds, alternative sufficient sets, and a *measured*
+containment window for metric_window). This is a **disclosed measurement change, not a finding**: on
+Sweep-1 data v2 lowers `shape_mismatch` evidence F1 **0.807 → 0.607** (over-broad traceback line/code
+spans no longer credited on partial overlap), nudges `lr_warmup` +0.009, and leaves
+`data_leakage`/`label_corruption`/`control` unchanged. The metric_window containment rule changed the
+match status of **zero** Sweep-1 refs (the anomaly spans the whole run, so every in-run localization —
+sharp or lazy — stays credited). v1 values are preserved beside v2 (`evidence_v1`); both are reported.
+DECISIONS 2026-09-13; `harness/rescore.py::rescore_evidence_v2`.

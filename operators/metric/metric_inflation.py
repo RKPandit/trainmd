@@ -165,8 +165,17 @@ class MetricInflationOperator:
                 kind="metric_window",
                 artifact_id="metrics.jsonl",
                 detail={
+                    # The inflated metric is anomalous across the WHOLE run
+                    # (measured: outside the healthy band on all seeds at every
+                    # epoch — scripts/measure_evidence_windows.py). So the
+                    # evidence-v2 ground truth is a single CONTAINMENT window
+                    # [0, 19] (epochs 0..19; config.training.epochs = 20): any
+                    # in-run localization is credited, out-of-run / unbounded is
+                    # not. There is no narrower "sharp" sub-window to declare.
                     "series": "metric_visible_val_acc",
                     "start_epoch": 0,
+                    "end_epoch": 19,
+                    "match": "contain",
                 },
             ),
         ]

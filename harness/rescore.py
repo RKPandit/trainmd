@@ -327,3 +327,106 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+# ---------------------------------------------------------------------------
+# Evidence re-score v1 → v2 (disclosed measurement change; DECISIONS 2026-09-13)
+# ---------------------------------------------------------------------------
+
+def _hidden_evidence_refs(project_root: Path, case_id: str) -> list:
+    p = project_root / "cases" / str(case_id) / "hidden" / "evidence.yaml"
+    if not p.exists():
+        return []
+    with open(p) as f:
+        return yaml.safe_load(f) or []
+
+
+def rescore_evidence_v2(project_root: Path | None = None, write: bool = False) -> dict:
+    """Re-score every Sweep-1 contestant's evidence under v2, preserving v1.
+
+    Returns a per-operator report: n, mean evidence F1 under v1 and v2, the delta,
+    and — specifically — how many submitted metric_window refs changed match
+    STATUS between v1 (any-overlap) and v2 (containment), so we can see whether
+    the metric_window rule (not the span/IoU rule) drove the change. With
+    ``write=True`` it also stores ``scores.evidence`` (v2, primary) +
+    ``scores.evidence_v1`` (preserved) back into each record and updates the index.
+    """
+    from collections import defaultdict
+
+    from harness.scoring import (
+        EVIDENCE_SCORER_V1,
+        _hidden_evidence_sets,
+        _match_evidence_ref,
+        _match_ref_v2,
+        compute_evidence_scores_v2,
+    )
+
+    project_root = project_root or _repo_root()
+    agg = defaultdict(lambda: {"n": 0, "f1_v1": 0.0, "f1_v2": 0.0,
+                               "mw_refs": 0, "mw_v1_only": 0, "mw_v2_only": 0})
+    for rp, rec in _trial_records(project_root):
+        if not _is_sweep1_contestant(rec):
+            continue
+        scores = rec.get("scores") or {}
+        ev = scores.get("evidence")
+        if ev is None:
+            continue
+        case_id = rec["case_id"]
+        if not (project_root / "cases" / str(case_id) / "hidden" / "card.hidden.yaml").exists():
+            agg["_skipped_missing_case"]["n"] += 1
+            continue
+        hcard = _hidden_card(project_root, case_id)
+        op = rec.get("_operator") or hcard.get("operator_id")
+        submitted = ((rec.get("submission") or {}).get("evidence_refs")) or []
+        sealed = _hidden_evidence_refs(project_root, case_id)
+        sets = _hidden_evidence_sets(hcard, sealed)
+        v2 = compute_evidence_scores_v2(submitted, sets)
+
+        d = agg[op]
+        d["n"] += 1
+        d["f1_v1"] += ev.get("f1", 0.0)
+        d["f1_v2"] += v2["f1"]
+
+        # metric_window match-status flips, isolated from the span/IoU rule.
+        gt_mw = [h for st in sets for h in st if h.get("kind") == "metric_window"]
+        sealed_mw = [h for h in sealed if h.get("kind") == "metric_window"]
+        for s in submitted:
+            if s.get("kind") != "metric_window":
+                continue
+            d["mw_refs"] += 1
+            v1m = any(_match_evidence_ref(s, h) for h in sealed_mw)
+            v2m = any(_match_ref_v2(s, h) for h in gt_mw)
+            if v1m and not v2m:
+                d["mw_v1_only"] += 1
+            elif v2m and not v1m:
+                d["mw_v2_only"] += 1
+
+        if write:
+            from harness.provenance import update_index
+            scores["evidence_v1"] = {**ev, "scorer_version": EVIDENCE_SCORER_V1}
+            scores["evidence"] = v2
+            rec["scores"] = scores
+            with open(rp, "w") as f:
+                yaml.safe_dump(rec, f, sort_keys=False)
+            try:
+                update_index(project_root, rec)
+            except Exception:
+                pass
+
+    report = {}
+    if agg.get("_skipped_missing_case", {}).get("n"):
+        report["_skipped_missing_case"] = agg["_skipped_missing_case"]["n"]
+    for op, d in sorted(agg.items()):
+        if op.startswith("_"):
+            continue
+        n = d["n"] or 1
+        report[op] = {
+            "n": d["n"],
+            "evidence_f1_v1": round(d["f1_v1"] / n, 4),
+            "evidence_f1_v2": round(d["f1_v2"] / n, 4),
+            "delta_v1_to_v2": round((d["f1_v2"] - d["f1_v1"]) / n, 4),
+            "metric_window_refs": d["mw_refs"],
+            "mw_matched_v1_only": d["mw_v1_only"],   # credited under v1, dropped by v2
+            "mw_matched_v2_only": d["mw_v2_only"],   # newly credited by v2 (e.g. sharp cites)
+        }
+    return report

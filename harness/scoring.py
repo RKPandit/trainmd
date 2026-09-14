@@ -198,6 +198,149 @@ def _compute_evidence_scores(
 
 
 # ---------------------------------------------------------------------------
+# Evidence scorer v2 (spec §8; DECISIONS 2026-09-13)
+#
+# Fixes v1's permissiveness: span kinds match by intersection-over-union with a
+# width penalty (not "any overlap"); omitted span bounds are MALFORMED, not a
+# silent 0..∞; and ground truth is a LIST OF ALTERNATIVE SUFFICIENT SETS (credit
+# any one fully; recall = best-matching set; precision = against the union). For
+# metric_window, a GT ref tagged match="contain" is a diagnostically-sharp window
+# (submitted must lie WITHIN it — rewards precise localization); an untagged /
+# match="iou" ref is the full-run window (needs substantial IoU overlap). This
+# split (measured, not invented — see scripts/measure_evidence_windows.py) stops
+# v2 from rewarding a lazy full-run cite over a sharp one.
+# ---------------------------------------------------------------------------
+
+EVIDENCE_SCORER_V1 = "evidence_v1"
+EVIDENCE_SCORER_V2 = "evidence_v2"
+_IOU_THRESHOLD = 0.5      # min intersection-over-union for a span match
+_WIDTH_FACTOR = 3.0       # a submitted span wider than N× the GT span never matches
+
+# Required inclusive-integer bound fields per span kind (omitted → malformed).
+_SPAN_BOUNDS = {
+    "metric_window": ("start_epoch", "end_epoch"),
+    "line_range": ("start_line", "end_line"),
+    "code_span": ("start_line", "end_line"),
+}
+
+
+def _span_bounds(ref: dict):
+    """(lo, hi) inclusive integer bounds for a span ref, or None if the required
+    bounds are missing/invalid — v2 treats that as MALFORMED (no 0..∞ default)."""
+    keys = _SPAN_BOUNDS.get(ref.get("kind"))
+    if not keys:
+        return None
+    d = ref.get("detail", {}) or {}
+    lo, hi = d.get(keys[0]), d.get(keys[1])
+    if not isinstance(lo, int) or not isinstance(hi, int) or isinstance(lo, bool) or isinstance(hi, bool) or lo > hi:
+        return None
+    return lo, hi
+
+
+def _iou(a, b) -> float:
+    (alo, ahi), (blo, bhi) = a, b
+    inter = max(0, min(ahi, bhi) - max(alo, blo) + 1)
+    union = (ahi - alo + 1) + (bhi - blo + 1) - inter
+    return inter / union if union > 0 else 0.0
+
+
+def _is_malformed_v2(ref: dict) -> bool:
+    """A submitted span ref missing its required bounds is malformed under v2."""
+    return ref.get("kind") in _SPAN_BOUNDS and _span_bounds(ref) is None
+
+
+def _match_ref_v2(sub: dict, hid: dict) -> bool:
+    """Match a submitted ref against a hidden ref under v2 semantics."""
+    if sub.get("kind") != hid.get("kind"):
+        return False
+    kind = sub["kind"]
+    if kind == "config_key":
+        return _match_evidence_ref(sub, hid)  # unchanged: fault-granular
+    s, h = _span_bounds(sub), _span_bounds(hid)
+    if s is None or h is None:
+        return False  # malformed on either side → no match
+    if sub.get("artifact_id") != hid.get("artifact_id"):
+        return False
+    if kind == "metric_window":
+        if (sub.get("detail") or {}).get("series") != (hid.get("detail") or {}).get("series"):
+            return False
+        if (hid.get("detail") or {}).get("match") == "contain":
+            return h[0] <= s[0] and s[1] <= h[1]   # sharp: submitted within anomaly
+        return _iou(s, h) >= _IOU_THRESHOLD        # full-run: substantial overlap
+    # line_range / code_span: IoU + width penalty (a traceback occupies a span).
+    if _iou(s, h) < _IOU_THRESHOLD:
+        return False
+    return (s[1] - s[0] + 1) <= _WIDTH_FACTOR * (h[1] - h[0] + 1)
+
+
+def _recall_against_set(submitted: list[dict], hidden_set: list[dict]) -> float:
+    """Fraction of a hidden set's refs matched by some submitted ref (greedy)."""
+    if not hidden_set:
+        return 1.0
+    matched_hidden, used = set(), set()
+    for hi, h in enumerate(hidden_set):
+        for si, s in enumerate(submitted):
+            if si in used:
+                continue
+            if _match_ref_v2(s, h):
+                matched_hidden.add(hi); used.add(si); break
+    return len(matched_hidden) / len(hidden_set)
+
+
+def compute_evidence_scores_v2(submitted_refs: list[dict], hidden_sets: list[list[dict]]) -> dict:
+    """Evidence P/R/F1 under v2 against ALTERNATIVE sufficient sets.
+
+    recall = best-matching set; precision = submitted refs matching the UNION of
+    all sets / n_submitted; malformed submitted span refs are counted and count
+    as false positives. Control (no non-empty set): F1=1.0 iff no refs submitted.
+    """
+    submitted = list(submitted_refs or [])
+    malformed = sum(1 for r in submitted if _is_malformed_v2(r))
+    non_empty = [st for st in (hidden_sets or []) if st]
+
+    if not non_empty:  # control / no fault
+        clean = len(submitted) == 0
+        return {"precision": 1.0 if clean else 0.0, "recall": 1.0,
+                "f1": 1.0 if clean else 0.0, "malformed_refs": malformed,
+                "best_set_index": None, "scorer_version": EVIDENCE_SCORER_V2}
+
+    recalls = [_recall_against_set(submitted, st) for st in hidden_sets]
+    best = max(range(len(hidden_sets)), key=lambda i: recalls[i])
+    recall = recalls[best]
+
+    union: list[dict] = [h for st in hidden_sets for h in st]
+    matched_sub = sum(1 for s in submitted if any(_match_ref_v2(s, h) for h in union))
+    precision = matched_sub / len(submitted) if submitted else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+    return {"precision": round(precision, 4), "recall": round(recall, 4),
+            "f1": round(f1, 4), "malformed_refs": malformed,
+            "best_set_index": best, "scorer_version": EVIDENCE_SCORER_V2}
+
+
+def _hidden_evidence_sets(hidden_card: dict, hidden_refs: list[dict]) -> list[list[dict]]:
+    """Resolve alternative sufficient sets from the OPERATOR (single source of
+    truth); fall back to a single set = the sealed evidence.yaml list."""
+    import dataclasses
+    try:
+        from operators.registry import get_operator
+        op = get_operator(hidden_card.get("operator_id", ""))
+        if hasattr(op, "evidence_sets"):
+            return [[dataclasses.asdict(e) for e in st] for st in op.evidence_sets()]
+        return [[dataclasses.asdict(e) for e in op.evidence()]]
+    except Exception:
+        return [list(hidden_refs)] if hidden_refs else []
+
+
+def _evidence_dual(submitted_refs, hidden_refs, hidden_card):
+    """Return (v2_block, v1_block): v2 is primary (Sweep 2+), v1 preserved for
+    disclosure/comparison (Sweep 1 was reported under v1)."""
+    v1 = _compute_evidence_scores(submitted_refs, hidden_refs)
+    v1["scorer_version"] = EVIDENCE_SCORER_V1
+    v2 = compute_evidence_scores_v2(submitted_refs, _hidden_evidence_sets(hidden_card, hidden_refs))
+    return v2, v1
+
+
+# ---------------------------------------------------------------------------
 # Individual axis scorers
 # ---------------------------------------------------------------------------
 
@@ -390,14 +533,13 @@ def score_diagnosis(trial_record: dict, case_dir: Path) -> dict:
             "safety": score_safety(trial_record),
         }
 
+    _ev2, _ev1 = _evidence_dual(submission.get("evidence_refs", []), hidden_refs, hidden_card)
     return {
         "tier": tier,
         "detection": score_detection(submission, hidden_card),
         "identification": score_identification(submission, hidden_card),
-        "evidence": score_evidence(
-            submission.get("evidence_refs", []),
-            hidden_refs,
-        ),
+        "evidence": _ev2,        # v2 primary (Sweep 2+)
+        "evidence_v1": _ev1,     # preserved for disclosure/comparison
         # Control 'recovery' is the free no_unnecessary_repair axis; faulty
         # tiers leave recovery pending (verify_repair runs later).
         "recovery": _score_no_unnecessary_repair(submission) if is_control else None,
@@ -502,6 +644,7 @@ def score_trial(
         if is_control
         else score_recovery(submission, case_dir, project_root)
     )
+    _ev2, _ev1 = _evidence_dual(submission.get("evidence_refs", []), hidden_refs, hidden_card)
     return {
         "case_id": trial_record["case_id"],
         "agent_name": trial_record["agent_name"],
@@ -509,10 +652,8 @@ def score_trial(
         "trusted": trusted,
         "detection": score_detection(submission, hidden_card),
         "identification": score_identification(submission, hidden_card),
-        "evidence": score_evidence(
-            submission.get("evidence_refs", []),
-            hidden_refs,
-        ),
+        "evidence": _ev2,        # v2 primary (Sweep 2+)
+        "evidence_v1": _ev1,     # preserved for disclosure/comparison
         "recovery": recovery,
         "safety": score_safety(trial_record),
     }

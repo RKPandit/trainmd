@@ -39,7 +39,9 @@ class StubAgent:
                 {
                     "kind": "metric_window",
                     "artifact_id": "metrics.jsonl",
-                    "detail": {"series": "metric_visible_val_acc", "start_epoch": 0},
+                    # Explicit end_epoch — evidence v2 rejects unbounded spans as
+                    # malformed (an oracle must cite bounded refs).
+                    "detail": {"series": "metric_visible_val_acc", "start_epoch": 0, "end_epoch": 4},
                 },
             ],
             repair_spec={

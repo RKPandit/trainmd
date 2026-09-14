@@ -514,3 +514,100 @@ class TestEndToEnd:
         assert agg["identification_accuracy"] == 0.5  # only oracle identifies
         assert agg["evidence_mean_f1"] == 0.5  # oracle 1.0 + degen 0.0 / 2
         assert agg["recovery_rate"] == 1.0  # both recover
+
+
+# ---------------------------------------------------------------------------
+# Evidence scorer v2 (spec §8; DECISIONS 2026-09-13)
+# ---------------------------------------------------------------------------
+
+def _ck(key="training.lr"):
+    return {"kind": "config_key", "artifact_id": "config.yaml", "detail": {"key_path": key}}
+
+def _mw(lo, hi, series="train_loss", match=None):
+    d = {"series": series}
+    if lo is not None:
+        d["start_epoch"] = lo
+    if hi is not None:
+        d["end_epoch"] = hi
+    if match:
+        d["match"] = match
+    return {"kind": "metric_window", "artifact_id": "metrics.jsonl", "detail": d}
+
+def _lr(lo, hi, art="stdout.log"):
+    d = {}
+    if lo is not None:
+        d["start_line"] = lo
+    if hi is not None:
+        d["end_line"] = hi
+    return {"kind": "line_range", "artifact_id": art, "detail": d}
+
+
+class TestEvidenceV2:
+    def test_metric_window_contain_full_sharp_and_off(self):
+        from harness.scoring import _match_ref_v2
+        gt = _mw(0, 19, match="contain")
+        assert _match_ref_v2(_mw(0, 19), gt) is True        # lazy full cite
+        assert _match_ref_v2(_mw(15, 19), gt) is True       # sharp cite (RESEARCH_LOG 10)
+        assert _match_ref_v2(_mw(17, 17), gt) is True       # precise sub-window
+        assert _match_ref_v2(_mw(20, 25), gt) is False      # out of run
+        # A narrower anomaly window rejects an off-anomaly epoch inside the run.
+        gt_sub = _mw(10, 15, match="contain")
+        assert _match_ref_v2(_mw(12, 14), gt_sub) is True
+        assert _match_ref_v2(_mw(2, 2), gt_sub) is False
+
+    def test_metric_window_unbounded_is_malformed(self):
+        from harness.scoring import _is_malformed_v2, _match_ref_v2, compute_evidence_scores_v2
+        unbounded = _mw(0, None, match=None)   # no end_epoch
+        assert _is_malformed_v2(unbounded) is True
+        assert _match_ref_v2(unbounded, _mw(0, 19, match="contain")) is False
+        s = compute_evidence_scores_v2([unbounded], [[_mw(0, 19, match="contain")]])
+        assert s["malformed_refs"] == 1 and s["recall"] == 0.0 and s["precision"] == 0.0
+
+    def test_broad_span_fails_v2_but_passed_v1(self):
+        from harness.scoring import _match_evidence_ref, _match_ref_v2
+        gt = _lr(40, 50)
+        broad = _lr(0, 200)                    # ~18x the GT width
+        assert _match_evidence_ref(broad, gt) is True    # v1: any overlap
+        assert _match_ref_v2(broad, gt) is False         # v2: IoU far below 0.5
+
+    def test_line_range_iou_threshold(self):
+        from harness.scoring import _match_ref_v2
+        gt = _lr(40, 50)                       # width 11
+        assert _match_ref_v2(_lr(40, 50), gt) is True    # exact, IoU 1.0
+        assert _match_ref_v2(_lr(40, 45), gt) is True    # IoU 6/11 ≈ 0.55 ≥ 0.5
+        assert _match_ref_v2(_lr(45, 60), gt) is False   # IoU 6/21 ≈ 0.29 < 0.5
+
+    def test_omitted_line_bounds_malformed(self):
+        from harness.scoring import _is_malformed_v2, _match_ref_v2
+        assert _is_malformed_v2(_lr(40, None)) is True
+        assert _match_ref_v2(_lr(40, None), _lr(40, 50)) is False
+
+    def test_alternative_sets_recall_best_and_precision_union(self):
+        from harness.scoring import compute_evidence_scores_v2
+        A, B, C = _ck("training.lr"), _mw(0, 19, match="contain"), _lr(40, 50)
+        sets = [[A, B], [A, C]]              # two sufficient sets
+        # Fully satisfy set 0.
+        assert compute_evidence_scores_v2([A, B], sets)["recall"] == 1.0
+        # Fully satisfy set 1.
+        assert compute_evidence_scores_v2([A, C], sets)["recall"] == 1.0
+        # Only A → best-set recall 0.5.
+        assert compute_evidence_scores_v2([A], sets)["recall"] == 0.5
+        # Citing refs across BOTH sets: precision NOT penalized (all in union),
+        # recall = best single set (1.0), not inflated by the cross-set cite.
+        mixed = compute_evidence_scores_v2([A, B, C], sets)
+        assert mixed["precision"] == 1.0 and mixed["recall"] == 1.0
+        # An extra ref outside the union lowers precision only.
+        extra = compute_evidence_scores_v2([A, B, _ck("model.dropout")], sets)
+        assert extra["recall"] == 1.0 and round(extra["precision"], 3) == round(2 / 3, 3)
+
+    def test_every_operator_oracle_scores_f1_one_under_v2(self):
+        import dataclasses
+        from harness.scoring import _hidden_evidence_sets, compute_evidence_scores_v2
+        from harness.build_case import _OPERATOR_REGISTRY
+
+        for op_id, op_cls in _OPERATOR_REGISTRY.items():
+            op = op_cls()
+            oracle_refs = [dataclasses.asdict(e) for e in op.evidence()]
+            sets = _hidden_evidence_sets({"operator_id": op_id}, oracle_refs)
+            f1 = compute_evidence_scores_v2(oracle_refs, sets)["f1"]
+            assert f1 == 1.0, f"{op_id}: oracle evidence F1 under v2 = {f1} (expected 1.0)"

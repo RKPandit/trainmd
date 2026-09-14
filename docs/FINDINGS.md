@@ -200,6 +200,12 @@ learning rate / batch size / optimizer, which may itself advantage lr_warmup. A 
 deliberative baseline** is needed to attribute the gap to tools.
 **Status.** Overall confirmed at the point estimate (CI dips below 0.10); leakage sub-claim not
 formally confirmed (+0.006 vs ≤0); mechanism confounded pending a token-matched baseline.
+**Scorer note (Stage 2).** These evidence F1 numbers are **evidence_v1**. From Sweep 2 the primary
+scorer is **evidence_v2** (IoU + width penalty + required bounds + alternative sets; LIMITATIONS L17,
+DECISIONS 2026-09-13). On Sweep-1 data v2 materially changes only `shape_mismatch` (mean evidence F1
+0.807→0.607, from over-broad traceback spans) and nudges `lr_warmup` (+0.009); the silent-operator
+means are unchanged. v1 is preserved beside v2; the per-arm H6 gap will be recomputed under v2 in the
+Sweep-2 report — this Sweep-1 verdict is reported under v1 as originally run.
 
 ### F5 — Naming vs repairing (H3) · refuted (predicted direction); modest id>strict dissociation
 
