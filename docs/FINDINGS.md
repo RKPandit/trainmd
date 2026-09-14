@@ -33,6 +33,8 @@ with a more precise mechanism than predicted) · `refuted` (pre-registered crite
 | S7 | **Adult+MLP is robust to symmetric label noise**; label corruption is a *subtle* fault on tabular data. Even the operator's calibrated ladder (33/38/42% flips) degrades accuracy only ~1–2 pt. | Calibration sweeps (DECISIONS 2026-09-11, ladder 0.33/0.38/0.42). | unplanned · workload-specific |
 | S8 | **A visible knob without a norm is not a signal.** A configuration value that names a fault, sitting in plain view in the prompt, does not trigger detection unless the agent also has a reference for what is normal — the missing baseline, not missing information, is what blinds it. | Sweep 1: `label_noise_fraction: 0.38` present, un-truncated, in 18/18 static anchor-off contexts and echoed in the response, yet static detected the fault 1/18 vs ReAct 11/18. | unplanned · pending replication |
 | S9 | **~1 in 10 repairs is misplaced — an agent-compliance failure, counted only toward the semantic endpoint.** The model emits a well-formed repair as text in a sibling string field instead of the structured tool argument; this is a failure of the system under test, so it does *not* count toward strict autonomous success (it is recovered post-hoc for the semantic endpoint only). | Sweep 1: 31/324 (≈9.6%) folded; strict vs semantic recovery reported side by side. | unplanned · pending replication |
+| S10 | **The workload constrains which positive-symptom mechanisms are possible: row memorization cannot inflate a metric here.** A validation metric can be inflated by memorized training rows only up to *train* accuracy; Adult/MLP's train–val gap is ~0.010, so the memorization ceiling (~0.863) sits only ~0.003 above the visible band edge (0.860) — no headroom for a laddered positive symptom. The viable second positive-symptom mechanism on this substrate is metric-side (biased computation), not data-side (overlap). | Step-0 (in-container, thread-pinned): overlap augmented val_acc ≤ 0.857 (below edge) for p∈{0.05,0.15,0.30}×seeds{0,1,2}; train_acc 0.862–0.864; biased-metric mechanism (a) clears the band on a plausible→implausible ladder (reported ≈0.88/0.94/0.98) with the checkpoint unchanged. | unplanned · workload-specific |
+| S11 | **Adult contains duplicate records — 12 appear in both train and the hidden test by content hash — though the splits are index-disjoint.** A pre-existing dataset property, not an operator-induced leak; disjointness checks must therefore test *non-increase* of overlap, not absolute content-disjointness. | Step-0 row-hash intersection = 12 of ~30k; `data_prep` partitions one permutation (index-disjoint by construction). | unplanned · dataset property |
 
 ---
 
@@ -198,6 +200,12 @@ learning rate / batch size / optimizer, which may itself advantage lr_warmup. A 
 deliberative baseline** is needed to attribute the gap to tools.
 **Status.** Overall confirmed at the point estimate (CI dips below 0.10); leakage sub-claim not
 formally confirmed (+0.006 vs ≤0); mechanism confounded pending a token-matched baseline.
+**Scorer note (Stage 2).** These evidence F1 numbers are **evidence_v1**. From Sweep 2 the primary
+scorer is **evidence_v2** (IoU + width penalty + required bounds + alternative sets; LIMITATIONS L17,
+DECISIONS 2026-09-13). On Sweep-1 data v2 materially changes only `shape_mismatch` (mean evidence F1
+0.807→0.607, from over-broad traceback spans) and nudges `lr_warmup` (+0.009); the silent-operator
+means are unchanged. v1 is preserved beside v2; the per-arm H6 gap will be recomputed under v2 in the
+Sweep-2 report — this Sweep-1 verdict is reported under v1 as originally run.
 
 ### F5 — Naming vs repairing (H3) · refuted (predicted direction); modest id>strict dissociation
 
@@ -368,6 +376,11 @@ undercount" to a compliance failure counted only toward the semantic endpoint.)
    an explicit decision rule (L10) — does a norm alone restore detection?
 8. **Token-matched deliberative baseline** for H6, so the ReAct−static gap can be attributed to
    tool use rather than to call count / deliberation / tokens / prompt wording.
+9. **Metric-inflation within-case signal (L16):** tag rationales/transcripts that flag
+   `metric_inflation` via the loss/accuracy inconsistency, per operator × anchor, so
+   consistency-checking detection is distinguished from positive-symptom-*magnitude* detection
+   before H1 leans on the second positive-symptom operator (diagnostics plan in HYPOTHESES.md; a
+   loss-on-same-subset matched variant is a Sweep-3 candidate).
 
 ---
 

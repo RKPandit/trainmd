@@ -31,7 +31,7 @@ class Manifest:
     """Ground-truth record of everything an operator changed."""
 
     operator_id: str
-    layer: Literal["dynamics", "execution", "control"]
+    layer: Literal["dynamics", "execution", "control", "metric"]
     strength: str
     seed: int
     mutations: list[MutationRecord] = field(default_factory=list)
@@ -90,7 +90,7 @@ class IncidentOperator(Protocol):
     """
 
     id: str
-    layer: Literal["dynamics", "execution", "control"]
+    layer: Literal["dynamics", "execution", "control", "metric"]
 
     def apply(self, workspace: Path, rng: Random, strength: str) -> Manifest:
         """Mutate the workspace copy deterministically under *rng*.
@@ -101,7 +101,18 @@ class IncidentOperator(Protocol):
         ...
 
     def evidence(self) -> list[EvidenceRef]:
-        """Structural evidence refs that a correct diagnosis should cite."""
+        """Structural evidence refs that a correct diagnosis should cite.
+
+        Optional extension — ``evidence_sets(self) -> list[list[EvidenceRef]]``:
+        the evidence-v2 scorer credits an agent for fully satisfying ANY ONE of
+        several ALTERNATIVE sufficient sets (recall = best-matching set; precision
+        = against the union of all sets). It is NOT part of this Protocol (so an
+        operator need not implement it); the scorer resolves it via ``hasattr``
+        and falls back to a single set ``[evidence()]`` — today's behaviour for
+        every operator. Declare alternatives only when they are genuinely
+        equivalent evidence (keep the minimal-sufficient principle: alternatives,
+        not enumeration). See docs/DECISIONS.md (evidence scorer v2).
+        """
         ...
 
     def admissible_repairs(self) -> RepairSpecSchema:

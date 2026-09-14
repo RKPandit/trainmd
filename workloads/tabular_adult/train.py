@@ -146,6 +146,28 @@ def evaluate(
     return total_loss / total, correct / total
 
 
+def _subset_reported_accuracy(model, X_val, y_val, device, fraction: float) -> float:
+    """Reported validation accuracy on the most-confident subset of rows.
+
+    Confidence is |logit| — the distance from the decision boundary — which is
+    available at evaluation time and does not use the labels. Restricting the
+    reported number to the most-confident ``fraction`` of rows yields a higher,
+    non-representative accuracy while leaving the model, its optimization path,
+    and its saved checkpoint completely unchanged; only the reported number
+    differs. Active only when ``metrics.eval_subset_fraction`` is configured
+    (absent ⇒ the full validation split is reported, the default behaviour).
+    """
+    model.eval()
+    with torch.no_grad():
+        logits = model(X_val.to(device)).cpu().numpy()
+    conf = np.abs(logits)
+    k = max(1, int(round(fraction * len(logits))))
+    idx = np.argsort(-conf)[:k]
+    preds = (logits[idx] >= 0.0).astype(np.int64)
+    labels = y_val.cpu().numpy().astype(np.int64)[idx]
+    return float((preds == labels).mean())
+
+
 # ---------------------------------------------------------------------------
 # Main training routine
 # ---------------------------------------------------------------------------
@@ -288,6 +310,18 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
             train_loss_avg = epoch_loss / epoch_samples
             val_loss, val_acc = evaluate(model, val_loader, criterion, device)
 
+            # Reported visible accuracy. Default: the full validation split. If
+            # metrics.eval_subset_fraction is configured, the reported number is
+            # computed on a confidence-selected subset instead — the model and
+            # its checkpoint are identical to a clean run; only the number moves.
+            _subset_frac = config.get("metrics", {}).get("eval_subset_fraction")
+            if _subset_frac is None:
+                reported_val_acc = val_acc
+            else:
+                reported_val_acc = _subset_reported_accuracy(
+                    model, X_val, y_val, device, float(_subset_frac),
+                )
+
             epoch_sec = time.monotonic() - epoch_start
             throughput = epoch_samples / epoch_sec
             _, peak_mem = tracemalloc.get_traced_memory()
@@ -297,7 +331,7 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
                 "step": global_step,
                 "train_loss": round(train_loss_avg, 6),
                 "val_loss": round(val_loss, 6),
-                "metric_visible_val_acc": round(val_acc, 6),
+                "metric_visible_val_acc": round(reported_val_acc, 6),
                 "lr": tcfg["lr"],
                 "throughput_samples_per_sec": round(throughput, 2),
                 "epoch_time_sec": round(epoch_sec, 3),
@@ -309,7 +343,7 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
 
             logger.info(
                 "Epoch %3d | train_loss=%.4f | val_acc=%.4f | %.0f samples/s",
-                epoch, train_loss_avg, val_acc, throughput,
+                epoch, train_loss_avg, reported_val_acc, throughput,
             )
 
         # ---- save checkpoint ----------------------------------------------
@@ -324,7 +358,7 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
             },
             output_dir / "checkpoints" / "ckpt_final.pt",
         )
-        logger.info("Training complete.  val_acc=%.4f", val_acc)
+        logger.info("Training complete.  val_acc=%.4f", reported_val_acc)
 
     except Exception:
         import traceback

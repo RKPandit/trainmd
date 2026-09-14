@@ -150,8 +150,13 @@ class LabelCorruptionOperator:
                 kind="metric_window",
                 artifact_id="metrics.jsonl",
                 detail={
+                    # Both series anomalous across the whole run (docstring above;
+                    # val_acc measured outside the band on all seeds every epoch).
+                    # Evidence-v2 GT is a CONTAINMENT window [0, 19] per series.
                     "series": "train_loss",
                     "start_epoch": 0,
+                    "end_epoch": 19,
+                    "match": "contain",
                 },
             ),
             EvidenceRef(
@@ -160,6 +165,8 @@ class LabelCorruptionOperator:
                 detail={
                     "series": "metric_visible_val_acc",
                     "start_epoch": 0,
+                    "end_epoch": 19,
+                    "match": "contain",
                 },
             ),
         ]

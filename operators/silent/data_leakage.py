@@ -142,8 +142,14 @@ class DataLeakageOperator:
                 kind="metric_window",
                 artifact_id="metrics.jsonl",
                 detail={
+                    # Inflated across the whole run (measured: outside the healthy
+                    # band on all seeds at every epoch). Evidence-v2 ground truth
+                    # is a single CONTAINMENT window [0, 19] (epochs 0..19); any
+                    # in-run localization is credited, out-of-run/unbounded is not.
                     "series": "metric_visible_val_acc",
                     "start_epoch": 0,
+                    "end_epoch": 19,
+                    "match": "contain",
                 },
             ),
         ]

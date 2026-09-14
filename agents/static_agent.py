@@ -24,6 +24,7 @@ from agents.llm_agent import (
     HEALTHY_RUNS_TEXT,
     SUBMIT_FORMAT_TEXT,
     SUBMIT_SCHEMA,
+    _normalize_anchor,
     build_case_info,
 )
 from harness.llm.client import LLMClient
@@ -156,7 +157,7 @@ class StaticContextAgent:
         return (
             _STATIC_INTRO
             + "\n\n## Case information\n\n"
-            + build_case_info(card, include_band=self._anchor == "on")
+            + build_case_info(card, arm=_normalize_anchor(self._anchor))
             + "\n\n"
             + HEALTHY_RUNS_TEXT
             + "\n\n"
@@ -232,8 +233,7 @@ class StaticContextAgent:
             self._record["prompt"] = {
                 "system_prompt_text": instruction_prompt,  # legacy key; user-role delivery
                 "prompt_hash": hashlib.sha256(instruction_prompt.encode()).hexdigest(),
-                "prompt_version": STATIC_PROMPT_VERSION + (
-                    "" if self._anchor == "on" else "-noanchor"),
+                "prompt_version": f"{STATIC_PROMPT_VERSION}-{_normalize_anchor(self._anchor)}",
             }
         full = instruction_prompt + "\n\n" + user_message
         messages: list[dict] = [{"role": "user", "content": full}]

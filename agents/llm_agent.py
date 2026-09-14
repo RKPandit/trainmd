@@ -306,8 +306,36 @@ SUBMIT_FORMAT_TEXT: str = _SYSTEM_PROMPT_TEMPLATE[
 ].rstrip("\n")
 
 
-def reference_band_line(card: dict) -> str | None:
-    """The healthy-band line for a case's public card (or None if no anchor)."""
+# ---------------------------------------------------------------------------
+# Anchor: the reference band as three progressively-framed arms (see L10).
+# Sweep 1's single "on" arm confounded a NUMERICAL REFERENCE with an EXPLICIT
+# DECISION RULE; the three arms separate them so Sweep 2 can tell which restores
+# detection. "rule" is "numbers" + exactly one appended sentence — a strict
+# superset by construction.
+# ---------------------------------------------------------------------------
+_ANCHOR_ARMS = ("off", "numbers", "rule")
+_RULE_SENTENCE = " Values clearly outside this range, above OR below, are anomalous."
+
+
+def _normalize_anchor(anchor: str) -> str:
+    """Map the legacy two-valued flag onto the three-arm design.
+
+    Sweep 1 used ``anchor="on"`` (numbers + the decision rule) / ``"off"``. "on"
+    is the same framing as the new "rule" arm, so it normalizes to "rule"; "off"
+    is unchanged. New canonical values are off | numbers | rule. Legacy records
+    are mapped in analysis, never rewritten (see docs/DECISIONS.md).
+    """
+    if anchor == "on":
+        return "rule"
+    if anchor in _ANCHOR_ARMS:
+        return anchor
+    raise ValueError(
+        f"Unknown anchor {anchor!r}; expected one of {_ANCHOR_ARMS} (or legacy 'on')"
+    )
+
+
+def reference_band_numbers(card: dict) -> str | None:
+    """The band as a BARE FACT — no interpretive framing — or None if no band."""
     ref = card.get("reference_visible_metric")
     if not ref:
         return None
@@ -315,36 +343,57 @@ def reference_band_line(card: dict) -> str | None:
     low, high = mean - 2 * std, mean + 2 * std
     return (
         f"Healthy runs achieve {ref['series']} ≈ {mean:.4f} "
-        f"(healthy range roughly {low:.4f}–{high:.4f}); values clearly "
-        f"outside this range, above OR below, are anomalous."
+        f"(healthy range roughly {low:.4f}–{high:.4f})."
     )
 
 
-def build_case_info(card: dict, include_band: bool = True) -> str:
+def reference_band_line(card: dict, arm: str = "rule") -> str | None:
+    """The healthy-band line for the given anchor arm (or None if no band).
+
+    off     → no band line.
+    numbers → the band as a bare fact.
+    rule    → the numbers text + the explicit decision rule. This is a STRICT
+              superset of the numbers text (numbers + one appended sentence), so
+              the two arms differ by exactly one sentence and nothing else.
+    """
+    arm = _normalize_anchor(arm)
+    if arm == "off":
+        return None
+    numbers = reference_band_numbers(card)
+    if numbers is None:
+        return None
+    return numbers if arm == "numbers" else numbers + _RULE_SENTENCE
+
+
+def build_case_info(card: dict, arm: str = "rule", include_band: bool | None = None) -> str:
     """The shared '## Case information' body (id, workload, description, band).
 
-    ``include_band=False`` is the anchor=off condition — the numeric reference-band
-    line is omitted entirely.
+    ``arm`` selects the anchor condition (off | numbers | rule). ``include_band``
+    is a legacy shim (True→"rule", False→"off") kept so pre-three-arm callers keep
+    working; it takes precedence over ``arm`` when supplied.
     """
+    if include_band is not None:
+        arm = "rule" if include_band else "off"
     parts = [
         f"Case ID: {card.get('case_id', 'unknown')}",
         f"Workload: {card.get('workload_name', 'unknown')}",
     ]
     if "description" in card:
         parts.append(f"Description: {card['description']}")
-    if include_band:
-        band = reference_band_line(card)
-        if band:
-            parts.append(band)
+    band = reference_band_line(card, arm)
+    if band:
+        parts.append(band)
     return "\n".join(parts)
 
 
-def _build_instruction_prompt(case_dir: Path, include_band: bool = True) -> str:
-    """Build the ReAct system prompt from the public case card."""
+def _build_instruction_prompt(
+    case_dir: Path, arm: str = "rule", include_band: bool | None = None,
+) -> str:
+    """Build the ReAct system prompt from the public case card (anchor ``arm``)."""
     with open(case_dir / "card.public.yaml") as f:
         card = yaml.safe_load(f)
     return _SYSTEM_PROMPT_TEMPLATE.format(
-        case_info=build_case_info(card, include_band=include_band),
+        case_info=build_case_info(card, arm=arm, include_band=include_band),
     )
 
 
@@ -404,13 +453,13 @@ class LLMAgent:
         # harness does not use the provider `system` field. The record key
         # `system_prompt_text` is a legacy name kept for schema stability; it
         # holds the instruction prompt as sent (see docs/LIMITATIONS.md L13).
-        include_band = self._anchor == "on"
-        instruction_prompt = _build_instruction_prompt(case_dir, include_band=include_band)
+        arm = _normalize_anchor(self._anchor)
+        instruction_prompt = _build_instruction_prompt(case_dir, arm=arm)
         if self._record is not None:
             self._record["prompt"] = {
                 "system_prompt_text": instruction_prompt,  # legacy key; user-role delivery
                 "prompt_hash": hashlib.sha256(instruction_prompt.encode()).hexdigest(),
-                "prompt_version": REACT_PROMPT_VERSION + ("" if include_band else "-noanchor"),
+                "prompt_version": f"{REACT_PROMPT_VERSION}-{arm}",  # react-1-off|-numbers|-rule
             }
 
         # 3. Initialize messages — the instruction prompt is the first USER turn.

@@ -265,8 +265,8 @@ def build_case(
         text=True,
     )
 
-    # ---- completed-run guards (silent + control both must complete) -------
-    if op.layer in ("dynamics", "control"):
+    # ---- completed-run guards (silent + control + metric must complete) ---
+    if op.layer in ("dynamics", "control", "metric"):
         # Guard 1: run must complete
         if result.returncode != 0:
             shutil.rmtree(case_dir)
@@ -323,7 +323,7 @@ def build_case(
     # ---- evaluate checkpoint (hidden metric) ------------------------------
     tolerance_lower = stats["metric_hidden_test_acc"]["tolerance_lower"]
 
-    if op.layer in ("dynamics", "control"):
+    if op.layer in ("dynamics", "control", "metric"):
         from harness.evaluator.evaluate_checkpoint import evaluate_checkpoint
 
         hidden_data_dir = workload_dir / ".hidden_data"
@@ -344,6 +344,21 @@ def build_case(
                 f"Control run acc={hidden_acc:.6f} < tolerance={tolerance_lower:.6f}; "
                 f"a healthy control must clear tolerance (no genuine fault)."
             )
+        # Metric guard: the MODEL must be healthy (hidden WITHIN the band); the
+        # fault is metric-only. A degraded (or anomalously high) hidden accuracy
+        # would mean the mechanism touched the model — reject.
+        if op.layer == "metric":
+            hid_upper = (
+                stats["metric_hidden_test_acc"]["mean"]
+                + 2 * stats["metric_hidden_test_acc"]["std"]
+            )
+            if not (tolerance_lower <= hidden_acc <= hid_upper):
+                shutil.rmtree(case_dir)
+                raise RuntimeError(
+                    f"Metric-tier run hidden acc={hidden_acc:.6f} outside band "
+                    f"[{tolerance_lower:.6f}, {hid_upper:.6f}]; the model must "
+                    f"stay healthy (the fault lives only in the reported metric)."
+                )
     else:
         # Execution tier: no checkpoint → no accuracy to evaluate.
         # Crash trivially "fails" tolerance.
@@ -388,7 +403,7 @@ def build_case(
                 "workspace/run_output/logs/stdout.log",
                 "workspace/run_output/config.resolved.yaml",
                 "workspace/run_output/checkpoints/ckpt_final.pt"
-                if op.layer in ("dynamics", "control") else None,
+                if op.layer in ("dynamics", "control", "metric") else None,
                 "workspace/run_output/exitcode",
                 "workspace/config.yaml",
                 "workspace/train.py",
@@ -450,6 +465,11 @@ def build_case(
         "faulty_value": hidden_acc,
         "reference_metric_mean": stats["metric_hidden_test_acc"]["mean"],
         "reference_metric_std": stats["metric_hidden_test_acc"]["std"],
+        # Visible-metric band (public info; also on the public card). The
+        # metric-tier recovery check needs it to confirm the REPORTED visible
+        # metric returned inside the band after the repair.
+        "reference_visible_mean": stats["metric_visible_val_acc"]["mean"],
+        "reference_visible_std": stats["metric_visible_val_acc"]["std"],
         "admissible_repairs": _to_yaml_safe(dataclasses.asdict(op.admissible_repairs())),
         # Hidden-side ground-truth repair (never on the public card). None for controls.
         "oracle_repair": _to_yaml_safe(op.oracle_repair()),

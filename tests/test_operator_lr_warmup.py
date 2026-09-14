@@ -148,9 +148,11 @@ class TestEvidence:
 
         for mw in mws:
             assert mw.artifact_id == "metrics.jsonl"
+            # Evidence v2: explicit bounds [0, 19] + match="contain" (the anomaly
+            # spans the whole run; any in-run localization is credited).
             assert mw.detail["start_epoch"] == 0
-            # end_epoch omitted — high LR corrupts the entire run
-            assert "end_epoch" not in mw.detail
+            assert mw.detail["end_epoch"] == 19
+            assert mw.detail["match"] == "contain"
 
 
 class TestAdmissibleRepairs:

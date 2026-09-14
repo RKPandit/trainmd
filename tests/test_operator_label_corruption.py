@@ -174,8 +174,10 @@ class TestEvidence:
 
         for mw in mws:
             assert mw.artifact_id == "metrics.jsonl"
+            # Evidence v2: explicit bounds [0, 19] + match="contain".
             assert mw.detail["start_epoch"] == 0
-            assert "end_epoch" not in mw.detail
+            assert mw.detail["end_epoch"] == 19
+            assert mw.detail["match"] == "contain"
 
 
 class TestAdmissibleRepairs:

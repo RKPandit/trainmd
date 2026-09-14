@@ -75,6 +75,11 @@ narrows the σ difference but does **not** touch this confound.
 anchor-on prompt gives the agent both a reference band *and* the instruction that values outside it
 are anomalous. Sweep 1 therefore shows that a **norm plus a decision rule** restores detection, not
 that a norm alone does. *Sweep-2 remedy:* a three-arm design — none / numbers-only / numbers+rule.
+*Implemented (Stage 2):* the three-arm anchor (`off` / `numbers` / `rule`) is now selectable on both
+agents, with `rule` a strict superset of `numbers` (one appended sentence). Legacy Sweep-1 "on" maps
+to "rule" in analysis (never rewritten). Sweep-2 will run all three arms; the prediction shape is in
+HYPOTHESES.md (numbers-only closing the gap ⇒ baseline restoration; only rule ⇒ instruction
+following). DECISIONS 2026-09-13.
 
 **L11 — Sweep 1's training ran with unpinned threading (the reference itself was canonical).**
 *Corrected 2026-09-13:* an earlier version of this limitation said Sweep 1 used a "non-canonical
@@ -113,3 +118,49 @@ What the docs call the instruction/framing prompt is sent as the first `user` tu
 not use the provider `system` field. The name was corrected (not the mechanism) so Sweep 1's
 instrument is preserved unchanged. *Sweep-3 candidate:* switch to the provider system field — a
 deliberate instrument change to make between studies, **never** mid-study.
+
+**L14 — The workload's memorization ceiling limits which positive-symptom mechanisms it can host.** On
+Adult/MLP the train–val gap is only ~0.010, so the highest reported accuracy any *data-side*
+memorization trick (e.g. copying training rows into validation) can reach is train accuracy (~0.863) —
+a mere ~0.003 above the visible band edge (0.860). A positive-symptom fault built on row overlap /
+memorization therefore has no laddered headroom on this workload; Step-0 confirmed it empirically
+(augmented val_acc ≤ 0.857 for every strength/seed). The second positive-symptom operator (#6) is
+instead a *metric-side* biased computation, which is model-independent and clears the band by design. A
+workload that overfits (e.g. the planned vision workload) could host a memorization-based positive
+symptom; Adult/MLP cannot. *No remedy needed — a constraint on operator design, recorded so the
+mechanism choice is auditable* (FINDINGS S10; DECISIONS 2026-09-13; RESEARCH_LOG 27).
+
+**L15 — Adult contains duplicate records shared across splits.** 12 rows appear in both the training set
+and the hidden test by content hash (of ~30k), although the splits are disjoint by *index* (`data_prep`
+partitions a single permutation). This is a property of the raw dataset, not a leak introduced by any
+operator, and is negligible in magnitude. Consequence: any operator or validator disjointness check is
+written as "does not INCREASE train↔test overlap" (plus index-disjointness), never absolute
+content-disjointness — which would false-positive on these pre-existing duplicates (FINDINGS S11;
+DECISIONS 2026-09-13).
+
+**L16 — The two positive-symptom operators are NOT matched on within-case detectability.**
+`silent.metric_inflation.v1` reports an inflated *accuracy* computed on a confidence-selected subset,
+but `val_loss` is still computed on the full validation split — so an epoch row shows a normal loss
+(~0.30) beside an inflated accuracy (~0.88–0.98), an internal inconsistency an agent can detect with
+**no external baseline**. `silent.data_leakage.v1` has no such contradiction: the model genuinely
+learned the leaked feature, so its loss and accuracy agree, and detecting it requires either a
+reference band or reading the code. This is kept deliberately (a subset-accuracy bug plausibly would
+not touch the loss — it is the realistic form; see DECISIONS 2026-09-13), but it is a **confound for
+any metric_inflation-vs-data_leakage detection comparison**: a difference in anchor-off detection
+between the two could reflect the within-case loss/accuracy signal rather than symptom magnitude or
+direction. *Sweep-2 remedy (diagnostics):* tag rationales/transcripts that cite the loss/accuracy
+mismatch, reported per operator × anchor, so consistency-checking detection is distinguishable from
+positive-symptom-magnitude detection. *Sweep-3 candidate:* a matched variant that computes the loss
+on the same subset, removing the internal contradiction (HYPOTHESES.md).
+
+**L17 — Evidence numbers changed scorer between sweeps (v1 → v2); Sweep-1 values were v1.** Sweep 1's
+evidence F1 (F4/H6, S4) was computed under **evidence_v1**, which credited any span overlap and treated
+omitted bounds as 0/∞. From Sweep 2 the primary scorer is **evidence_v2** (IoU ≥ 0.5 + a 3× width cap
+for line/code spans, required explicit bounds, alternative sufficient sets, and a *measured*
+containment window for metric_window). This is a **disclosed measurement change, not a finding**: on
+Sweep-1 data v2 lowers `shape_mismatch` evidence F1 **0.807 → 0.607** (over-broad traceback line/code
+spans no longer credited on partial overlap), nudges `lr_warmup` +0.009, and leaves
+`data_leakage`/`label_corruption`/`control` unchanged. The metric_window containment rule changed the
+match status of **zero** Sweep-1 refs (the anomaly spans the whole run, so every in-run localization —
+sharp or lazy — stays credited). v1 values are preserved beside v2 (`evidence_v1`); both are reported.
+DECISIONS 2026-09-13; `harness/rescore.py::rescore_evidence_v2`.

@@ -46,6 +46,43 @@ def test_static_template_hash_matches_version():
     )
 
 
+# Three-arm anchor band text lives in the dynamic case_info, not the template, so
+# it is pinned here against a FIXED synthetic card (one hash per arm). Bump the
+# per-arm prompt_version suffix (react-1-<arm> / static-1-<arm>) AND these hashes
+# together if an arm's wording legitimately changes.
+_FIXED_CARD = {
+    "reference_visible_metric": {"series": "metric_visible_val_acc", "mean": 0.85, "std": 0.001},
+}
+_EXPECTED_BAND_HASH = {
+    "numbers": "def93784c4d35bb46d78911ceb6d5f4669834bb88ff2a8cd908c57c89fa2c2ca",
+    "rule": "f4febaa362193ad9fb5002969d0a059a1d49f1869b6f90c536eb666cf3ab178f",
+}
+
+
+def test_anchor_arm_band_text_pinned_and_subset():
+    from agents.llm_agent import _RULE_SENTENCE, reference_band_line
+
+    off = reference_band_line(_FIXED_CARD, "off")
+    numbers = reference_band_line(_FIXED_CARD, "numbers")
+    rule = reference_band_line(_FIXED_CARD, "rule")
+
+    # off arm: no band at all.
+    assert off is None
+    # rule = numbers + exactly one appended sentence → strict superset (prefix).
+    assert rule == numbers + _RULE_SENTENCE
+    assert rule.startswith(numbers) and numbers in rule
+    # numbers arm carries the numerals but NONE of the rule wording.
+    assert "0.8500" in numbers and "0.8480" in numbers and "0.8520" in numbers
+    assert "anomalous" not in numbers and "above OR below" not in numbers
+    # rule arm carries both.
+    assert "anomalous" in rule and "above OR below" in rule
+    # legacy "on" normalizes to "rule".
+    assert reference_band_line(_FIXED_CARD, "on") == rule
+    # pinned per-arm hashes (drift guard).
+    assert _sha(numbers) == _EXPECTED_BAND_HASH["numbers"]
+    assert _sha(rule) == _EXPECTED_BAND_HASH["rule"]
+
+
 def test_submit_schema_identical_across_agents():
     """Both agents expose the SAME submit schema (static imports it)."""
     from agents.static_agent import SUBMIT_SCHEMA as static_submit

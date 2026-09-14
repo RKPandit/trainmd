@@ -85,7 +85,10 @@ def _agent(r):
     return (r.get("conditions") or {}).get("agent_type")
 
 def _anchor(r):
-    return (r.get("conditions") or {}).get("anchor")
+    # Three-arm design (off | numbers | rule); legacy Sweep-1 "on" == "rule".
+    # Mapped in analysis only — records are never rewritten (docs/DECISIONS.md).
+    a = (r.get("conditions") or {}).get("anchor")
+    return "rule" if a == "on" else a
 
 
 # ---- case-level bootstrap -------------------------------------------------
@@ -194,9 +197,10 @@ def h6_react_minus_static(recs):
 
 
 def control_fpr(recs):
-    """Detection false-positive rate on anchor-on controls, bootstrapped over the
-    (very few) unique control cases — the wide interval is the point."""
-    ctrl_on = [r for r in recs if r["_op"] == "control.healthy.v1" and _anchor(r) == "on"]
+    """Detection false-positive rate on anchor=rule controls (legacy "on" maps to
+    "rule"), bootstrapped over the (very few) unique control cases — the wide
+    interval is the point. The band+rule arm is where false alarms can occur."""
+    ctrl_on = [r for r in recs if r["_op"] == "control.healthy.v1" and _anchor(r) == "rule"]
     ci = bootstrap_ci(ctrl_on, _rate(lambda t: _detected(t) is True))
     fp = [r for r in ctrl_on if _detected(r) is True]
     ci["n_fp"] = len(fp)

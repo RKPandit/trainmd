@@ -206,7 +206,7 @@ class TestCaptureFields:
 
     def test_prompt_block_recorded(self):
         _, _, rec, _ = _run("case_0001", CapturingClient([_submit_response()]))
-        assert rec["prompt"]["prompt_version"] == "static-1"
+        assert rec["prompt"]["prompt_version"] == "static-1-rule"  # default anchor "on"→rule
         assert rec["prompt"]["system_prompt_text"]
         assert len(rec["prompt"]["prompt_hash"]) == 64
 

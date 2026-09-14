@@ -407,3 +407,43 @@ Primary contrasts use case-level bootstrap CIs (10k resamples, 95% percentile) �
   reading the shared `train.py`; peaks 0.42 on shape_mismatch).
 - **Confidence supplied:** only **52/324** trials gave a confidence value (top-heavy; ECE_detection ≈
   0.07); it cannot gate the control false positives (see L7).
+
+---
+
+## Sweep-2 pre-registration candidates & diagnostics plan (forward-looking; not Sweep-1 results)
+
+Collected here as the running list of what a Sweep-2 pre-registration should fix or add. Items
+already noted above: recalibrate the lr_warmup mild rung toward the tolerance edge (H2 x-axis gap,
+L1/D); a **3σ band** vs the 2σ band (control FP floor, E/L3); a **second positive-symptom operator**
+and a **three-arm none/numbers-only/numbers+rule anchor** to break the H1 confounds (L9/L10); a
+**token-matched deliberative baseline** for H6 (attribute the gap to tools). New with the metric tier:
+
+- **metric_inflation is now the second positive-symptom operator (H1).** With it, H1 can be tested as
+  a property of symptom *direction* rather than operator identity. **But** the two positive-symptom
+  operators are **not matched on within-case detectability** (L16): `metric_inflation` reports an
+  inflated accuracy while `val_loss` stays on the full split, so an epoch row is internally
+  inconsistent (normal loss beside inflated accuracy) — detectable with no external baseline —
+  whereas `data_leakage` has no such contradiction. Any anchor-off detection difference between the
+  two must be interpreted against this confound.
+- **(Diagnostics — Sweep 2, required.)** Tag every rationale/transcript that cites the
+  **loss/accuracy inconsistency** as the basis for flagging `metric_inflation`, and report the rate
+  **per operator × anchor condition**. If agents detect `metric_inflation` anchor-off *mainly* via
+  this mismatch, that is a finding about **consistency checking**, not about positive-symptom
+  *magnitude* — and the two must be reported separately, never merged into a single "positive-symptom
+  detection" number. This diagnostic gates any H1 claim that leans on the second operator.
+- **(Sweep-3 candidate.)** A **matched `metric_inflation` variant that computes the loss on the same
+  confidence subset**, removing the internal contradiction, is the clean way to isolate detection of
+  inflation *magnitude* from detection of within-case *inconsistency*. Pre-register it once Sweep-2's
+  diagnostic shows how much agents rely on the mismatch.
+- **Three-arm anchor (off / numbers / rule) — implemented (Stage 2), to run in Sweep 2.** Sweep 1's
+  anchor confounded a numeric reference with a decision rule (L10). The arms differ by exactly one
+  sentence (`rule` = `numbers` + "Values clearly outside this range, above OR below, are anomalous.").
+  **Pre-registered prediction shape:** if the **numbers-only** arm closes the H1 positive-symptom
+  detection gap as much as **rule**, detection is restored by a *baseline / norm* alone (baseline
+  restoration); if **only rule** closes it, the effect is *instruction following / threshold
+  prompting*, not the norm. Report all three arms per operator; legacy Sweep-1 "on" == "rule".
+- **Evidence scorer v2 — primary from Sweep 2 (v1 preserved).** IoU ≥ 0.5 + 3× width cap for
+  line/code spans, required explicit bounds (unbounded = malformed), alternative sufficient sets
+  (default single set), and a *measured* containment window for metric_window. Sweep reports show
+  both v1 and v2; the disclosed Sweep-1 delta (shape_mismatch −0.20, others ≈unchanged; metric_window
+  rule flipped 0 refs) is a measurement change, not a finding (LIMITATIONS L17; DECISIONS 2026-09-13).

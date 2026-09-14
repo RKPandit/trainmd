@@ -108,13 +108,17 @@ class LrWarmupOperator:
 
         A correct diagnosis should cite:
         1. The config key ``training.lr`` (the root cause).
-        2. Anomalous train_loss anywhere in the run — a too-high LR
-           corrupts the entire training trajectory, not just a warmup
-           window.  ``end_epoch`` is omitted so the matcher defaults
-           to infinity; any epoch range the agent cites will overlap.
-        3. Degraded metric_visible_val_acc anywhere in the run — the
-           fault observably corrupts validation accuracy as well as
-           training loss.
+        2. Anomalous train_loss across the run — a too-high LR corrupts the
+           entire training trajectory, not just a warmup window.
+        3. Degraded metric_visible_val_acc across the run — the fault
+           observably corrupts validation accuracy as well as training loss.
+
+        Both series are anomalous over the WHOLE run (val_acc measured outside
+        the healthy band on all seeds at every epoch —
+        scripts/measure_evidence_windows.py), so the evidence-v2 ground truth is
+        a CONTAINMENT window [0, 19] (epochs 0..19; config.training.epochs = 20)
+        per series: any in-run localization is credited, out-of-run/unbounded is
+        not. No narrower sharp sub-window exists to declare.
         """
         return [
             EvidenceRef(
@@ -128,6 +132,8 @@ class LrWarmupOperator:
                 detail={
                     "series": "train_loss",
                     "start_epoch": 0,
+                    "end_epoch": 19,
+                    "match": "contain",
                 },
             ),
             EvidenceRef(
@@ -136,6 +142,8 @@ class LrWarmupOperator:
                 detail={
                     "series": "metric_visible_val_acc",
                     "start_epoch": 0,
+                    "end_epoch": 19,
+                    "match": "contain",
                 },
             ),
         ]
