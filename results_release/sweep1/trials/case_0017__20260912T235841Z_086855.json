@@ -1,11 +1,57 @@
 {
- "agent_name": "static_claude-haiku-4-5-20251001",
+ "environment": {
+  "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
+  "git_dirty": true,
+  "case_card_hash": "8c60488c6d2c067bd91ec633e5f309907d2a017f2919b913b6c33e7bf84f72d9",
+  "case_build_id": "56adcc836fb8fbae43569fd41c04467f0b1552cba4f9694844d0713bb11b811e",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "timestamp_utc": "2026-09-12T23:58:41.734753+00:00",
+  "wall_clock_sec": 9.348511749999943
+ },
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "schema_version": "1.1",
  "prompt": {
   "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0017\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
   "prompt_hash": "4b5fb6fd8481745b221dc2b6f1ccbb452aab1d13f6e91b3e7dca57761656f5ca",
   "prompt_version": "static-1-noanchor"
  },
- "run_id": "20260912T235841Z_086855",
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically by examining the configuration, code, metrics, and logs.\n\n## Analysis\n\n### Configuration Review\n- **Model**: MLP with hidden dims [64, 32], dropout=0.0, relu activation\n- **Training**: 20 epochs, batch size 256, lr=0.01, Adam optimizer with weight_decay=0.0001\n- **Data**: Auxiliary feature enabled with strength=0.05\n- **Reference**: 10 seeds (0-9), but actual run used seed=43\n- **Visible metric**: metric_visible_val_acc\n\n### Code Review\nThe training script appears well-structured with:\n- Proper determinism setup (seed handling, single-threaded dataloaders)\n- Correct implementation of auxiliary feature computation\n- Proper metric tracking and logging\n- Standard BCEWithLogitsLoss for binary classification\n- Model checkpoint saving\n\n### Metrics Analysis\nLooking at the end-of-epoch metrics:\n- Training loss steadily decreases from 0.1989 \u2192 0.0943 (healthy convergence)\n- Validation accuracy starts at 0.9602 and stabilizes around 0.9637 (consistent, no degradation)\n- Validation loss fluctuates between 0.110-0.118 (typical in later training, slight overfitting but acceptable)\n- Learning rate constant at 0.01 throughout\n- Wall time: 15.0 seconds, exit code: 0 (successful completion)\n\n### Logs Review\n- Training started with seed=43 (as recorded in config.resolved.yaml)\n- All 20 epochs completed successfully\n- Throughput maintained consistently (40k-50k samples/s)\n- No errors or warnings\n- Final validation accuracy: 0.9637\n\n### Potential Anomalies Check\n1. **Seed mismatch**: Config specifies seeds 0-9 in reference section, but run uses seed=43. However, this is captured in config.resolved.yaml and is the actual seed used. This is not a configuration error\u2014the run appears to be intentionally using seed=43.\n\n2. **Input dimension**: Config has input_dim resolved to 106 (from data), which matches the auxiliary feature being included (105 base + 1 aux = 106).\n\n3. **Metrics trajectory**: Completely normal\u2014early loss reduction followed by validation acc plateau, which is expected behavior.\n\n4. **All outputs present**: metrics.jsonl, logs/stdout.log, config.resolved.yaml all generated correctly.\n\nThe run appears to be **completely healthy**. All metrics show normal training behavior, no errors occurred, and all expected outputs were generated.",
+   "tool_calls": [
+    {
+     "id": "toolu_01CmMA6q9BmJiFWbi4pgHxuL",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": false,
+       "operator_class": "none"
+      },
+      "evidence_refs": []
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 9.3208,
+   "usage": {
+    "input_tokens": 7865,
+    "output_tokens": 695
+   }
+  }
+ ],
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -37,13 +83,10 @@
    "precision": 0.0,
    "recall": 0.0,
    "f1": 0.0,
-   "matched_pairs": [],
-   "unmatched_submitted": [],
-   "unmatched_hidden": [
-    0,
-    1,
-    2
-   ]
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "matched": 0,
+   "scorer_version": "evidence_v2.1"
   },
   "recovery": {
    "verdict": "rejected",
@@ -67,31 +110,42 @@
     "train_test_leakage"
    ],
    "correct": false
+  },
+  "evidence_v2": {
+   "precision": 0.0,
+   "recall": 0.0,
+   "f1": 0.0,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "scorer_version": "evidence_v2"
+  },
+  "evidence_v1": {
+   "precision": 0.0,
+   "recall": 0.0,
+   "f1": 0.0,
+   "matched_pairs": [],
+   "unmatched_submitted": [],
+   "unmatched_hidden": [
+    0,
+    1,
+    2
+   ],
+   "scorer_version": "evidence_v1"
   }
  },
- "environment": {
-  "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
-  "git_dirty": true,
-  "case_card_hash": "8c60488c6d2c067bd91ec633e5f309907d2a017f2919b913b6c33e7bf84f72d9",
-  "case_build_id": "56adcc836fb8fbae43569fd41c04467f0b1552cba4f9694844d0713bb11b811e",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "timestamp_utc": "2026-09-12T23:58:41.734753+00:00",
-  "wall_clock_sec": 9.348511749999943
+ "usage": {
+  "llm_calls": 1,
+  "input_tokens": 7865,
+  "output_tokens": 695,
+  "cached_tokens": 0,
+  "total_tokens": 8560,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.01134,
+  "cost_is_estimate": true
  },
  "termination_reason": "submitted",
- "model": {
-  "model_id": "claude-haiku-4-5-20251001",
-  "model_version": null,
-  "provider": "anthropic",
-  "temperature": 1.0,
-  "top_p": null,
-  "max_tokens": 8192,
-  "stop_reason": null,
-  "request_seed": null
- },
  "status": "completed",
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "submission": {
   "diagnosis": {
    "detected": false,
@@ -102,32 +156,13 @@
   "confidence": null,
   "rationale": null
  },
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically by examining the configuration, code, metrics, and logs.\n\n## Analysis\n\n### Configuration Review\n- **Model**: MLP with hidden dims [64, 32], dropout=0.0, relu activation\n- **Training**: 20 epochs, batch size 256, lr=0.01, Adam optimizer with weight_decay=0.0001\n- **Data**: Auxiliary feature enabled with strength=0.05\n- **Reference**: 10 seeds (0-9), but actual run used seed=43\n- **Visible metric**: metric_visible_val_acc\n\n### Code Review\nThe training script appears well-structured with:\n- Proper determinism setup (seed handling, single-threaded dataloaders)\n- Correct implementation of auxiliary feature computation\n- Proper metric tracking and logging\n- Standard BCEWithLogitsLoss for binary classification\n- Model checkpoint saving\n\n### Metrics Analysis\nLooking at the end-of-epoch metrics:\n- Training loss steadily decreases from 0.1989 \u2192 0.0943 (healthy convergence)\n- Validation accuracy starts at 0.9602 and stabilizes around 0.9637 (consistent, no degradation)\n- Validation loss fluctuates between 0.110-0.118 (typical in later training, slight overfitting but acceptable)\n- Learning rate constant at 0.01 throughout\n- Wall time: 15.0 seconds, exit code: 0 (successful completion)\n\n### Logs Review\n- Training started with seed=43 (as recorded in config.resolved.yaml)\n- All 20 epochs completed successfully\n- Throughput maintained consistently (40k-50k samples/s)\n- No errors or warnings\n- Final validation accuracy: 0.9637\n\n### Potential Anomalies Check\n1. **Seed mismatch**: Config specifies seeds 0-9 in reference section, but run uses seed=43. However, this is captured in config.resolved.yaml and is the actual seed used. This is not a configuration error\u2014the run appears to be intentionally using seed=43.\n\n2. **Input dimension**: Config has input_dim resolved to 106 (from data), which matches the auxiliary feature being included (105 base + 1 aux = 106).\n\n3. **Metrics trajectory**: Completely normal\u2014early loss reduction followed by validation acc plateau, which is expected behavior.\n\n4. **All outputs present**: metrics.jsonl, logs/stdout.log, config.resolved.yaml all generated correctly.\n\nThe run appears to be **completely healthy**. All metrics show normal training behavior, no errors occurred, and all expected outputs were generated.",
-   "tool_calls": [
-    {
-     "id": "toolu_01CmMA6q9BmJiFWbi4pgHxuL",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": false,
-       "operator_class": "none"
-      },
-      "evidence_refs": []
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 9.3208,
-   "usage": {
-    "input_tokens": 7865,
-    "output_tokens": 695
-   }
-  }
- ],
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "static",
+  "anchor": "off",
+  "repeat_index": 1
+ },
+ "run_id": "20260912T235841Z_086855",
  "tool_transcript": [
   {
    "index": 0,
@@ -1182,22 +1217,5 @@
    "phase": null
   }
  ],
- "case_id": "case_0017",
- "usage": {
-  "llm_calls": 1,
-  "input_tokens": 7865,
-  "output_tokens": 695,
-  "cached_tokens": 0,
-  "total_tokens": 8560,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.01134,
-  "cost_is_estimate": true
- },
- "schema_version": "1.1",
- "conditions": {
-  "sweep_name": "sweep1",
-  "agent_type": "static",
-  "anchor": "off",
-  "repeat_index": 1
- }
+ "case_id": "case_0017"
 }

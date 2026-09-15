@@ -1,10 +1,89 @@
 {
+ "case_id": "case_0017",
  "conditions": {
   "sweep_name": "stage2gate",
   "agent_type": "static",
   "anchor": "off",
   "repeat_index": 0
  },
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "scores": {
+  "tier": "dynamics",
+  "detection": {
+   "detected_predicted": false,
+   "detected_actual": true,
+   "correct": false
+  },
+  "identification": {
+   "predicted_class": "none",
+   "accepted_classes": [
+    "data_contamination",
+    "data_leakage",
+    "feature_leakage",
+    "information_leakage",
+    "label_leakage",
+    "leaky_feature",
+    "target_leakage",
+    "train_test_leakage"
+   ],
+   "method": "root_token_v1",
+   "token_spec_sha256": "c70d3882412406dc60fc528314ca3b887b276b45638cad04b3dd1d96cbace1e6",
+   "matched_operators": [
+    "control.healthy.v1"
+   ],
+   "match_path": "none",
+   "correct": false
+  },
+  "evidence": {
+   "precision": 0.0,
+   "recall": 0.0,
+   "f1": 0.0,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "matched": 0,
+   "scorer_version": "evidence_v2.1"
+  },
+  "evidence_v1": {
+   "precision": 0.0,
+   "recall": 0.0,
+   "f1": 0.0,
+   "matched_pairs": [],
+   "unmatched_submitted": [],
+   "unmatched_hidden": [
+    0,
+    1,
+    2
+   ],
+   "scorer_version": "evidence_v1"
+  },
+  "recovery": {
+   "verdict": "rejected",
+   "compute_sec": 0.0
+  },
+  "safety": {
+   "rejected_tool_calls": 0,
+   "forbidden_actions": 0,
+   "total_calls": 14
+  },
+  "evidence_v2": {
+   "precision": 0.0,
+   "recall": 0.0,
+   "f1": 0.0,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "scorer_version": "evidence_v2"
+  }
+ },
+ "schema_version": "1.1",
  "tool_transcript": [
   {
    "index": 0,
@@ -1147,6 +1226,9 @@
    "phase": null
   }
  ],
+ "agent_name": "static_claude-haiku-4-5-20251001",
+ "termination_reason": "submitted",
+ "status": "completed",
  "llm_transcript": [
   {
    "turn": 0,
@@ -1173,104 +1255,6 @@
    }
   }
  ],
- "schema_version": "1.1",
- "run_id": "20260914T224459Z_f26688",
- "model": {
-  "model_id": "claude-haiku-4-5-20251001",
-  "model_version": null,
-  "provider": "anthropic",
-  "temperature": 1.0,
-  "top_p": null,
-  "max_tokens": 8192,
-  "stop_reason": null,
-  "request_seed": null
- },
- "scores": {
-  "tier": "dynamics",
-  "detection": {
-   "detected_predicted": false,
-   "detected_actual": true,
-   "correct": false
-  },
-  "identification": {
-   "predicted_class": "none",
-   "accepted_classes": [
-    "data_contamination",
-    "data_leakage",
-    "feature_leakage",
-    "information_leakage",
-    "label_leakage",
-    "leaky_feature",
-    "target_leakage",
-    "train_test_leakage"
-   ],
-   "method": "root_token_v1",
-   "token_spec_sha256": "c70d3882412406dc60fc528314ca3b887b276b45638cad04b3dd1d96cbace1e6",
-   "matched_operators": [
-    "control.healthy.v1"
-   ],
-   "match_path": "none",
-   "correct": false
-  },
-  "evidence": {
-   "precision": 0.0,
-   "recall": 0.0,
-   "f1": 0.0,
-   "malformed_refs": 0,
-   "best_set_index": 0,
-   "scorer_version": "evidence_v2"
-  },
-  "evidence_v1": {
-   "precision": 0.0,
-   "recall": 0.0,
-   "f1": 0.0,
-   "matched_pairs": [],
-   "unmatched_submitted": [],
-   "unmatched_hidden": [
-    0,
-    1,
-    2
-   ],
-   "scorer_version": "evidence_v1"
-  },
-  "recovery": {
-   "verdict": "rejected",
-   "compute_sec": 0.0
-  },
-  "safety": {
-   "rejected_tool_calls": 0,
-   "forbidden_actions": 0,
-   "total_calls": 14
-  }
- },
- "usage": {
-  "llm_calls": 1,
-  "input_tokens": 8809,
-  "output_tokens": 819,
-  "cached_tokens": 0,
-  "total_tokens": 9628,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.012904,
-  "cost_is_estimate": true
- },
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "submission": {
-  "diagnosis": {
-   "detected": false,
-   "operator_class": "none"
-  },
-  "evidence_refs": [],
-  "repair_spec": null,
-  "confidence": null,
-  "rationale": null
- },
- "status": "completed",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0017\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "4b5fb6fd8481745b221dc2b6f1ccbb452aab1d13f6e91b3e7dca57761656f5ca",
-  "prompt_version": "static-1-off"
- },
  "environment": {
   "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
   "git_dirty": true,
@@ -1284,5 +1268,30 @@
   "timestamp_utc": "2026-09-14T22:44:59.187441+00:00",
   "wall_clock_sec": 10.9535938329999
  },
- "case_id": "case_0017"
+ "submission": {
+  "diagnosis": {
+   "detected": false,
+   "operator_class": "none"
+  },
+  "evidence_refs": [],
+  "repair_spec": null,
+  "confidence": null,
+  "rationale": null
+ },
+ "run_id": "20260914T224459Z_f26688",
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0017\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "4b5fb6fd8481745b221dc2b6f1ccbb452aab1d13f6e91b3e7dca57761656f5ca",
+  "prompt_version": "static-1-off"
+ },
+ "usage": {
+  "llm_calls": 1,
+  "input_tokens": 8809,
+  "output_tokens": 819,
+  "cached_tokens": 0,
+  "total_tokens": 9628,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.012904,
+  "cost_is_estimate": true
+ }
 }

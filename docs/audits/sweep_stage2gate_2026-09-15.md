@@ -196,10 +196,13 @@ across all three operators, so it does not bias the G1 contrast; flag for Sweep 
 metric_inflation off-arm detection *falls* with implausibility (mild 0.500 > moderate 0.125 ≈
 severe 0.125) — opposite the hypothesis — but n=8/2-cases and knob-driven; not interpretable.
 
-### Evidence v2 vs v1 — inert here
+### Evidence scorer — inert on this gate (v1 = v2 = v2.1)
 Mean F1 delta (v2 − v1) = **0.000** for all operators (data_leakage 0.477, label_corruption  <!-- src: analysis-bootstrap -->
-0.555, metric_inflation 0.544). Agents cite the config key (matched identically by both scorers)  <!-- src: analysis-bootstrap -->
-and rarely submit metric_window bounds where v2 diverges; v2-vs-v1 comparison deferred.
+0.555, metric_inflation 0.544). Agents cite the config key (matched identically by every scorer)  <!-- src: analysis-bootstrap -->
+and rarely submit metric_window bounds where v2 diverges. **Correction #5 (2026-09-15) migrated the
+primary scorer to evidence_v2.1 (bipartite one-to-one); stage2gate is unchanged (v1 = v2 = v2.1 —
+config-key operators), so nothing on this gate moved.** The v2.1 bipartite fix affected only 5
+sweep-1 lr_warmup trials (see FINDINGS correction #5).
 
 ---
 

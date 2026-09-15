@@ -74,15 +74,15 @@ def check_facts(declared: dict, root: Path = ROOT) -> list[str]:
     if declared.get("case_count") != len(reg):
         errors.append(f"[case_count] CURRENT_STATE {declared.get('case_count')} != registry {len(reg)}")
 
-    # c. scorer versions + v2 primary
+    # c. scorer versions + v2.1 primary (STAGE3_PLAN §0.4)
     scoring = (root / "harness" / "scoring.py").read_text()
     for v in declared.get("evidence_scorer_versions", []):
         if f'"{v}"' not in scoring:
             errors.append(f"[scorer] version {v!r} declared but not defined in harness/scoring.py")
-    if declared.get("evidence_scorer_primary") != "evidence_v2":
-        errors.append(f"[scorer] CURRENT_STATE primary {declared.get('evidence_scorer_primary')!r} != 'evidence_v2'")
-    if "v2 primary" not in scoring:
-        errors.append("[scorer] harness/scoring.py no longer marks evidence_v2 as primary")
+    if declared.get("evidence_scorer_primary") != "evidence_v2.1":
+        errors.append(f"[scorer] CURRENT_STATE primary {declared.get('evidence_scorer_primary')!r} != 'evidence_v2.1'")
+    if '"evidence": _ev21' not in scoring:
+        errors.append("[scorer] harness/scoring.py no longer sets evidence_v2.1 as the primary evidence block")
 
     # d. image digest
     dig = (root / "docker" / "IMAGE_DIGEST").read_text().splitlines()[0].strip()

@@ -1,11 +1,57 @@
 {
- "agent_name": "static_claude-haiku-4-5-20251001",
+ "environment": {
+  "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
+  "git_dirty": true,
+  "case_card_hash": "cd96a1272e757158f500cf474d773bf37642da9d4c56dcaa676ec8231f935d31",
+  "case_build_id": "8d290f673eabbd944b88460789c6ef348a11996f01097cb286c2f804988128fa",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "timestamp_utc": "2026-09-13T00:03:14.968278+00:00",
+  "wall_clock_sec": 8.297457374999794
+ },
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "schema_version": "1.1",
  "prompt": {
   "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0005\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
   "prompt_hash": "28e3f64213aca34701c6a11dd56cd8d1f2e65cb3a1e48f173f51e9d6f0bc4de5",
   "prompt_version": "static-1-noanchor"
  },
- "run_id": "20260913T000314Z_65a6c2",
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically to identify any faults.\n\n## Analysis\n\n**Configuration review:**\n- Standard MLP with hidden_dims [64, 32], dropout 0.0, ReLU activation\n- Training: 20 epochs, batch_size 256, lr 0.01, Adam optimizer with weight_decay 0.0001\n- Workload: tabular_adult\n- All seeds [0-9] configured for reference\n\n**Code review:**\n- Proper determinism setup with `set_seed()` and `torch.use_deterministic_algorithms(True)`\n- Data loading appears correct (train/val splits)\n- Model architecture is standard MLPwith proper initialization\n- Loss function is `BCEWithLogitsLoss()` (appropriate for binary classification)\n- Evaluation computes loss and accuracy correctly using sigmoid threshold of 0.5\n- Proper checkpoint saving and metrics logging\n- Exit code handling is appropriate\n\n**Metrics analysis:**\n- Training loss decreases steadily from 0.3598 \u2192 0.3000 (epoch 0-19)\n- Validation loss remains stable (~0.31) with minor fluctuations\n- Validation accuracy starts at 0.8518 and peaks at 0.8605 (epoch 9), ending at 0.8546\n- This pattern is consistent with normal training convergence without overfitting\n- Learning rate is held constant at 0.01 throughout\n- Throughput is stable (~47k samples/s), indicating no resource issues\n\n**Logs review:**\n- Training completes successfully with exit code 0\n- All 20 epochs complete without errors\n- Wall time is ~15.1 seconds (reasonable for this workload)\n- No warnings or exceptions logged\n\n**Data checks:**\n- Input dimension resolved to 105 (matches X_train.shape[1])\n- Label noise fraction defaults to 0.0 (no corruption)\n- Auxiliary feature is disabled by default\n- Nested prefix indices function is available but not used in this run\n\n**Overall assessment:**\nThe run appears completely healthy:\n- Determinism is properly configured\n- Metrics show expected training behavior\n- No errors or warnings in logs\n- Config is valid and consistent\n- Code handles edge cases appropriately\n- No anomalies in throughput, memory, or timing",
+   "tool_calls": [
+    {
+     "id": "toolu_01XcQRKwCDN1r2GbK2jkBm4X",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": false,
+       "operator_class": "none"
+      },
+      "evidence_refs": []
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 8.2693,
+   "usage": {
+    "input_tokens": 7800,
+    "output_tokens": 615
+   }
+  }
+ ],
  "scores": {
   "tier": "control",
   "detection": {
@@ -34,9 +80,10 @@
    "precision": 1.0,
    "recall": 1.0,
    "f1": 1.0,
-   "matched_pairs": [],
-   "unmatched_submitted": [],
-   "unmatched_hidden": []
+   "malformed_refs": 0,
+   "best_set_index": null,
+   "matched": 0,
+   "scorer_version": "evidence_v2.1"
   },
   "recovery": {
    "verdict": "no_unnecessary_repair",
@@ -57,31 +104,38 @@
     "nothing_wrong"
    ],
    "correct": true
+  },
+  "evidence_v2": {
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "malformed_refs": 0,
+   "best_set_index": null,
+   "scorer_version": "evidence_v2"
+  },
+  "evidence_v1": {
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "matched_pairs": [],
+   "unmatched_submitted": [],
+   "unmatched_hidden": [],
+   "scorer_version": "evidence_v1"
   }
  },
- "environment": {
-  "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
-  "git_dirty": true,
-  "case_card_hash": "cd96a1272e757158f500cf474d773bf37642da9d4c56dcaa676ec8231f935d31",
-  "case_build_id": "8d290f673eabbd944b88460789c6ef348a11996f01097cb286c2f804988128fa",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "timestamp_utc": "2026-09-13T00:03:14.968278+00:00",
-  "wall_clock_sec": 8.297457374999794
+ "usage": {
+  "llm_calls": 1,
+  "input_tokens": 7800,
+  "output_tokens": 615,
+  "cached_tokens": 0,
+  "total_tokens": 8415,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.010875,
+  "cost_is_estimate": true
  },
  "termination_reason": "submitted",
- "model": {
-  "model_id": "claude-haiku-4-5-20251001",
-  "model_version": null,
-  "provider": "anthropic",
-  "temperature": 1.0,
-  "top_p": null,
-  "max_tokens": 8192,
-  "stop_reason": null,
-  "request_seed": null
- },
  "status": "completed",
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "submission": {
   "diagnosis": {
    "detected": false,
@@ -92,32 +146,13 @@
   "confidence": null,
   "rationale": null
  },
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically to identify any faults.\n\n## Analysis\n\n**Configuration review:**\n- Standard MLP with hidden_dims [64, 32], dropout 0.0, ReLU activation\n- Training: 20 epochs, batch_size 256, lr 0.01, Adam optimizer with weight_decay 0.0001\n- Workload: tabular_adult\n- All seeds [0-9] configured for reference\n\n**Code review:**\n- Proper determinism setup with `set_seed()` and `torch.use_deterministic_algorithms(True)`\n- Data loading appears correct (train/val splits)\n- Model architecture is standard MLPwith proper initialization\n- Loss function is `BCEWithLogitsLoss()` (appropriate for binary classification)\n- Evaluation computes loss and accuracy correctly using sigmoid threshold of 0.5\n- Proper checkpoint saving and metrics logging\n- Exit code handling is appropriate\n\n**Metrics analysis:**\n- Training loss decreases steadily from 0.3598 \u2192 0.3000 (epoch 0-19)\n- Validation loss remains stable (~0.31) with minor fluctuations\n- Validation accuracy starts at 0.8518 and peaks at 0.8605 (epoch 9), ending at 0.8546\n- This pattern is consistent with normal training convergence without overfitting\n- Learning rate is held constant at 0.01 throughout\n- Throughput is stable (~47k samples/s), indicating no resource issues\n\n**Logs review:**\n- Training completes successfully with exit code 0\n- All 20 epochs complete without errors\n- Wall time is ~15.1 seconds (reasonable for this workload)\n- No warnings or exceptions logged\n\n**Data checks:**\n- Input dimension resolved to 105 (matches X_train.shape[1])\n- Label noise fraction defaults to 0.0 (no corruption)\n- Auxiliary feature is disabled by default\n- Nested prefix indices function is available but not used in this run\n\n**Overall assessment:**\nThe run appears completely healthy:\n- Determinism is properly configured\n- Metrics show expected training behavior\n- No errors or warnings in logs\n- Config is valid and consistent\n- Code handles edge cases appropriately\n- No anomalies in throughput, memory, or timing",
-   "tool_calls": [
-    {
-     "id": "toolu_01XcQRKwCDN1r2GbK2jkBm4X",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": false,
-       "operator_class": "none"
-      },
-      "evidence_refs": []
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 8.2693,
-   "usage": {
-    "input_tokens": 7800,
-    "output_tokens": 615
-   }
-  }
- ],
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "static",
+  "anchor": "off",
+  "repeat_index": 2
+ },
+ "run_id": "20260913T000314Z_65a6c2",
  "tool_transcript": [
   {
    "index": 0,
@@ -1158,22 +1193,5 @@
    "phase": null
   }
  ],
- "case_id": "case_0005",
- "usage": {
-  "llm_calls": 1,
-  "input_tokens": 7800,
-  "output_tokens": 615,
-  "cached_tokens": 0,
-  "total_tokens": 8415,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.010875,
-  "cost_is_estimate": true
- },
- "schema_version": "1.1",
- "conditions": {
-  "sweep_name": "sweep1",
-  "agent_type": "static",
-  "anchor": "off",
-  "repeat_index": 2
- }
+ "case_id": "case_0005"
 }

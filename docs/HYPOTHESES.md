@@ -290,11 +290,24 @@ tool-use-reliability observation in FINDINGS.
 **recovery** — Correction 3 raises recovery on every faulty operator that had folded repairs (shape
 plus the three silent ops).
 
-**Axes / hypotheses this DOES NOT touch:** detection and evidence are unchanged (a folded
-`repair_spec` never affected the diagnosis axes) → **H1** (positive-symptom blindness), **H2**
-(detection vs σ), **H6** (tools vs static, evidence_f1), and **controls** (detection FPR /
-false-intervention — controls carry no repair to fold) are all **unchanged**. Recovery moves
-(Corrections 2–3), which sharpens **H3** but does not alter the detection/evidence findings.
+**Axes / hypotheses this DOES NOT touch:** detection is unchanged (a folded `repair_spec` never
+affected the diagnosis axes) → **H1** (positive-symptom blindness), **H2** (detection vs σ), and
+**controls** are unchanged by Corrections 1–3. Recovery moves (Corrections 2–3), sharpening **H3**.
+
+**Correction 4 — H1 negative-symptom comparator was pooled (2026-09-15).** Disclosed in FINDINGS
+"Post-hoc corrections" #4 and the Stage-2 Results / Deviations sections; revises H1's headline
+(leakage-specific; symptom-direction generalization refuted by Stage-2 G1).
+
+**Correction 5 — evidence scorer v1 → v2.1 (bipartite one-to-one) primary (2026-09-15).** Sweep-1
+`scores.evidence` had never left **v1** while the docs said "v2 primary" (a provenance mislabel; the
+v1→v2 rescore was disclosed 2026-09-13 but never persisted). All records migrate to **evidence_v2.1**,
+which fixes v2's union rule (duplicates/shotgun over-credited). Decomposition (v1→v2.1): (a) v1→v2
+span-strictness dominates — shape_mismatch **0.807→0.607** (L17); (b) the v2→v2.1 bipartite fix bit
+**lr_warmup** (5 sweep-1 trials, ~−0.13), NOT shape_mismatch. **This TOUCHES evidence and H6:**
+**H6 (ReAct − static evidence F1) 0.135 → 0.1343**, CI [0.070, 0.206] — the pre-registered **≥ +0.10
+criterion still holds** (point ≥ 0.10; CI-lower still dips below 0.10), because shape_mismatch drops
+for both agents ~equally so the difference barely moves. stage2gate + all config-key operators are
+unchanged (v1=v2=v2.1). Full detail + per-trial table: FINDINGS "Post-hoc corrections" #5.
 
 **Amendments recorded (A–E):**
 - **A.** The previously-not-recovered shape trials are split into *unexpressible-but-correct*

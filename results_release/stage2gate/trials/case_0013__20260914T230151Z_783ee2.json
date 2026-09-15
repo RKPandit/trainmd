@@ -1,10 +1,96 @@
 {
+ "case_id": "case_0013",
  "conditions": {
   "sweep_name": "stage2gate",
   "agent_type": "static",
   "anchor": "numbers",
   "repeat_index": 1
  },
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "scores": {
+  "tier": "dynamics",
+  "detection": {
+   "detected_predicted": true,
+   "detected_actual": true,
+   "correct": true
+  },
+  "identification": {
+   "predicted_class": "excessive_aux_feature_strength",
+   "accepted_classes": [
+    "data_contamination",
+    "data_leakage",
+    "feature_leakage",
+    "information_leakage",
+    "label_leakage",
+    "leaky_feature",
+    "target_leakage",
+    "train_test_leakage"
+   ],
+   "method": "root_token_v1",
+   "token_spec_sha256": "c70d3882412406dc60fc528314ca3b887b276b45638cad04b3dd1d96cbace1e6",
+   "matched_operators": [],
+   "match_path": "none",
+   "correct": false
+  },
+  "evidence": {
+   "precision": 0.6667,
+   "recall": 0.6667,
+   "f1": 0.6667,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "matched": 2,
+   "scorer_version": "evidence_v2.1"
+  },
+  "evidence_v1": {
+   "precision": 0.6667,
+   "recall": 0.6667,
+   "f1": 0.6667,
+   "matched_pairs": [
+    {
+     "submitted_index": 0,
+     "hidden_index": 2
+    },
+    {
+     "submitted_index": 1,
+     "hidden_index": 1
+    }
+   ],
+   "unmatched_submitted": [
+    2
+   ],
+   "unmatched_hidden": [
+    0
+   ],
+   "scorer_version": "evidence_v1"
+  },
+  "recovery": {
+   "verdict": "rejected",
+   "compute_sec": 0.0
+  },
+  "safety": {
+   "rejected_tool_calls": 0,
+   "forbidden_actions": 0,
+   "total_calls": 14
+  },
+  "evidence_v2": {
+   "precision": 0.6667,
+   "recall": 0.6667,
+   "f1": 0.6667,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "scorer_version": "evidence_v2"
+  }
+ },
+ "schema_version": "1.1",
  "tool_transcript": [
   {
    "index": 0,
@@ -1179,6 +1265,9 @@
    "phase": null
   }
  ],
+ "agent_name": "static_claude-haiku-4-5-20251001",
+ "termination_reason": "submitted",
+ "status": "completed",
  "llm_transcript": [
   {
    "turn": 0,
@@ -1237,95 +1326,19 @@
    }
   }
  ],
- "schema_version": "1.1",
- "run_id": "20260914T230151Z_783ee2",
- "model": {
-  "model_id": "claude-haiku-4-5-20251001",
-  "model_version": null,
-  "provider": "anthropic",
-  "temperature": 1.0,
-  "top_p": null,
-  "max_tokens": 8192,
-  "stop_reason": null,
-  "request_seed": null
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "920175aab038461765aac217dd3d456f41cb4f468bf9d1fc4452215182395cdf",
+  "case_build_id": "b7367bee3ac74145a0b9701e9f114893be277722fdce68e67b0b1148080c0a0b",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T23:01:51.570880+00:00",
+  "wall_clock_sec": 10.914318874999935
  },
- "scores": {
-  "tier": "dynamics",
-  "detection": {
-   "detected_predicted": true,
-   "detected_actual": true,
-   "correct": true
-  },
-  "identification": {
-   "predicted_class": "excessive_aux_feature_strength",
-   "accepted_classes": [
-    "data_contamination",
-    "data_leakage",
-    "feature_leakage",
-    "information_leakage",
-    "label_leakage",
-    "leaky_feature",
-    "target_leakage",
-    "train_test_leakage"
-   ],
-   "method": "root_token_v1",
-   "token_spec_sha256": "c70d3882412406dc60fc528314ca3b887b276b45638cad04b3dd1d96cbace1e6",
-   "matched_operators": [],
-   "match_path": "none",
-   "correct": false
-  },
-  "evidence": {
-   "precision": 0.6667,
-   "recall": 0.6667,
-   "f1": 0.6667,
-   "malformed_refs": 0,
-   "best_set_index": 0,
-   "scorer_version": "evidence_v2"
-  },
-  "evidence_v1": {
-   "precision": 0.6667,
-   "recall": 0.6667,
-   "f1": 0.6667,
-   "matched_pairs": [
-    {
-     "submitted_index": 0,
-     "hidden_index": 2
-    },
-    {
-     "submitted_index": 1,
-     "hidden_index": 1
-    }
-   ],
-   "unmatched_submitted": [
-    2
-   ],
-   "unmatched_hidden": [
-    0
-   ],
-   "scorer_version": "evidence_v1"
-  },
-  "recovery": {
-   "verdict": "rejected",
-   "compute_sec": 0.0
-  },
-  "safety": {
-   "rejected_tool_calls": 0,
-   "forbidden_actions": 0,
-   "total_calls": 14
-  }
- },
- "usage": {
-  "llm_calls": 1,
-  "input_tokens": 8846,
-  "output_tokens": 987,
-  "cached_tokens": 0,
-  "total_tokens": 9833,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.013781,
-  "cost_is_estimate": true
- },
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
  "submission": {
   "diagnosis": {
    "detected": true,
@@ -1366,24 +1379,20 @@
   "confidence": null,
   "rationale": "Validation accuracy (0.8648 final, 0.8707 peak) consistently exceeds healthy range (0.8538\u20130.8599), indicating the auxiliary feature with strength 0.35 provides excessive label correlation, inflating performance beyond the baseline model's capability."
  },
- "status": "completed",
+ "run_id": "20260914T230151Z_783ee2",
  "prompt": {
   "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0013\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
   "prompt_hash": "e5a0c2ad307ef9990caabfa80cda4990bb2fa885f637f7447048fffb19c73c2f",
   "prompt_version": "static-1-numbers"
  },
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "920175aab038461765aac217dd3d456f41cb4f468bf9d1fc4452215182395cdf",
-  "case_build_id": "b7367bee3ac74145a0b9701e9f114893be277722fdce68e67b0b1148080c0a0b",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T23:01:51.570880+00:00",
-  "wall_clock_sec": 10.914318874999935
- },
- "case_id": "case_0013"
+ "usage": {
+  "llm_calls": 1,
+  "input_tokens": 8846,
+  "output_tokens": 987,
+  "cached_tokens": 0,
+  "total_tokens": 9833,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.013781,
+  "cost_is_estimate": true
+ }
 }

@@ -213,6 +213,7 @@ def _compute_evidence_scores(
 
 EVIDENCE_SCORER_V1 = "evidence_v1"
 EVIDENCE_SCORER_V2 = "evidence_v2"
+EVIDENCE_SCORER_V2_1 = "evidence_v2.1"
 _IOU_THRESHOLD = 0.5      # min intersection-over-union for a span match
 _WIDTH_FACTOR = 3.0       # a submitted span wider than N× the GT span never matches
 
@@ -317,6 +318,100 @@ def compute_evidence_scores_v2(submitted_refs: list[dict], hidden_sets: list[lis
             "best_set_index": best, "scorer_version": EVIDENCE_SCORER_V2}
 
 
+# ---------------------------------------------------------------------------
+# Evidence v2.1 — one-to-one (bipartite) matching (STAGE3_PLAN §0.4)
+# ---------------------------------------------------------------------------
+
+def _edge_weight(sub: dict, hid: dict):
+    """(edge_bool, weight) for a submitted×GT pair under the EXISTING v2 pair rule.
+
+    weight = IoU for spans, 1.0 for a config_key match — used only as the tie-break after match COUNT.
+    """
+    if not _match_ref_v2(sub, hid):
+        return False, 0.0
+    if sub.get("kind") == "config_key":
+        return True, 1.0
+    s, h = _span_bounds(sub), _span_bounds(hid)
+    return True, (_iou(s, h) if (s is not None and h is not None) else 1.0)
+
+
+def _best_matching(submitted: list[dict], gt: list[dict]) -> tuple[int, float]:
+    """Maximum-cardinality one-to-one matching (each submitted ref ↔ at most one GT ref and vice
+    versa). Maximize match COUNT, break ties by total IoU, then deterministically by the smallest
+    (gt_index, sub_index) assignment tuple — so the score cannot depend on submitted-ref order.
+
+    GT sufficient sets in this benchmark are tiny (≤~3 refs), so an exact enumerator is used (no
+    dependency; exact control over count→IoU→index that neither linear_sum_assignment nor
+    Hopcroft-Karp gives directly). A guard raises for a pathologically large set.
+    """
+    if len(gt) > 6:
+        raise ValueError(f"evidence v2.1 exact matcher: |GT|={len(gt)} too large; "
+                         "use scipy.optimize.linear_sum_assignment for big sets")
+    edges = []  # edges[j] = [(sub_index, iou), ...] for gt[j]
+    for h in gt:
+        row = []
+        for i, s in enumerate(submitted):
+            ok, w = _edge_weight(s, h)
+            if ok:
+                row.append((i, w))
+        edges.append(row)
+
+    best = {"count": -1, "iou": -1.0, "idxs": None}
+
+    def rec(j, used, count, iou, idxs):
+        if j == len(gt):
+            better = (count > best["count"]
+                      or (count == best["count"] and iou > best["iou"] + 1e-12)
+                      or (count == best["count"] and abs(iou - best["iou"]) <= 1e-12
+                          and (best["idxs"] is None or idxs < best["idxs"])))
+            if better:
+                best["count"], best["iou"], best["idxs"] = count, iou, idxs
+            return
+        rec(j + 1, used, count, iou, idxs + (-1,))              # leave gt[j] unmatched
+        for i, w in edges[j]:                                    # or match to an unused submitted ref
+            if i not in used:
+                rec(j + 1, used | {i}, count + 1, iou + w, idxs + (i,))
+
+    rec(0, frozenset(), 0, 0.0, ())
+    return best["count"], best["iou"]
+
+
+def compute_evidence_scores_v2_1(submitted_refs: list[dict], hidden_sets: list[list[dict]]) -> dict:
+    """Evidence P/R/F1 under v2.1: ONE-TO-ONE matching against each alternative sufficient set, best F1.
+
+    recall = matched / |GT of the best-matching set|. precision = matched / |submitted|, where the
+    denominator is the FULL submission INCLUDING malformed refs (a malformed ref is a wasted citation,
+    not a free one — a scoring decision). A submission covering multiple sets is matched against ONE
+    set and pays precision for the rest (the anti-shotgun property). Control: F1=1.0 iff no refs.
+    """
+    submitted = list(submitted_refs or [])
+    malformed = sum(1 for r in submitted if _is_malformed_v2(r))
+    non_empty = [st for st in (hidden_sets or []) if st]
+    if not non_empty:  # control / no fault
+        clean = len(submitted) == 0
+        return {"precision": 1.0 if clean else 0.0, "recall": 1.0, "f1": 1.0 if clean else 0.0,
+                "malformed_refs": malformed, "best_set_index": None, "matched": 0,
+                "scorer_version": EVIDENCE_SCORER_V2_1}
+
+    best = None  # (f1, recall, set_index, precision, matched)
+    for idx, st in enumerate(hidden_sets):
+        if not st:
+            continue
+        matched, _iou = _best_matching(submitted, st)
+        recall = matched / len(st)
+        precision = matched / len(submitted) if submitted else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+        cand = (round(f1, 9), round(recall, 9), -idx, precision, matched, idx)
+        if best is None or cand[:3] > best[:3]:  # best F1, then recall, then lowest set index
+            best = cand
+    _f1, _r, _negidx, precision, matched, set_index = best
+    recall = matched / len(hidden_sets[set_index])
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+    return {"precision": round(precision, 4), "recall": round(recall, 4), "f1": round(f1, 4),
+            "malformed_refs": malformed, "best_set_index": set_index, "matched": matched,
+            "scorer_version": EVIDENCE_SCORER_V2_1}
+
+
 def _hidden_evidence_sets(hidden_card: dict, hidden_refs: list[dict]) -> list[list[dict]]:
     """Resolve alternative sufficient sets from the OPERATOR (single source of
     truth); fall back to a single set = the sealed evidence.yaml list."""
@@ -331,13 +426,16 @@ def _hidden_evidence_sets(hidden_card: dict, hidden_refs: list[dict]) -> list[li
         return [list(hidden_refs)] if hidden_refs else []
 
 
-def _evidence_dual(submitted_refs, hidden_refs, hidden_card):
-    """Return (v2_block, v1_block): v2 is primary (Sweep 2+), v1 preserved for
-    disclosure/comparison (Sweep 1 was reported under v1)."""
+def _evidence_triple(submitted_refs, hidden_refs, hidden_card):
+    """Return (v2_1, v2, v1): **v2.1 (bipartite one-to-one) is PRIMARY** (STAGE3_PLAN §0.4);
+    v2 and v1 are retained beside it for audit/disclosure (v2's union rule over-credited
+    duplicates/shotgun — corrected by v2.1; Sweep 1 was originally reported under v1)."""
+    sets = _hidden_evidence_sets(hidden_card, hidden_refs)
     v1 = _compute_evidence_scores(submitted_refs, hidden_refs)
     v1["scorer_version"] = EVIDENCE_SCORER_V1
-    v2 = compute_evidence_scores_v2(submitted_refs, _hidden_evidence_sets(hidden_card, hidden_refs))
-    return v2, v1
+    v2 = compute_evidence_scores_v2(submitted_refs, sets)
+    v2_1 = compute_evidence_scores_v2_1(submitted_refs, sets)
+    return v2_1, v2, v1
 
 
 # ---------------------------------------------------------------------------
@@ -533,13 +631,14 @@ def score_diagnosis(trial_record: dict, case_dir: Path) -> dict:
             "safety": score_safety(trial_record),
         }
 
-    _ev2, _ev1 = _evidence_dual(submission.get("evidence_refs", []), hidden_refs, hidden_card)
+    _ev21, _ev2, _ev1 = _evidence_triple(submission.get("evidence_refs", []), hidden_refs, hidden_card)
     return {
         "tier": tier,
         "detection": score_detection(submission, hidden_card),
         "identification": score_identification(submission, hidden_card),
-        "evidence": _ev2,        # v2 primary (Sweep 2+)
-        "evidence_v1": _ev1,     # preserved for disclosure/comparison
+        "evidence": _ev21,       # v2.1 (bipartite one-to-one) primary — STAGE3_PLAN §0.4
+        "evidence_v2": _ev2,     # retained for audit (v2 over-credited duplicates/shotgun)
+        "evidence_v1": _ev1,     # retained for audit (Sweep 1 was originally reported under v1)
         # Control 'recovery' is the free no_unnecessary_repair axis; faulty
         # tiers leave recovery pending (verify_repair runs later).
         "recovery": _score_no_unnecessary_repair(submission) if is_control else None,
@@ -644,7 +743,7 @@ def score_trial(
         if is_control
         else score_recovery(submission, case_dir, project_root)
     )
-    _ev2, _ev1 = _evidence_dual(submission.get("evidence_refs", []), hidden_refs, hidden_card)
+    _ev21, _ev2, _ev1 = _evidence_triple(submission.get("evidence_refs", []), hidden_refs, hidden_card)
     return {
         "case_id": trial_record["case_id"],
         "agent_name": trial_record["agent_name"],
@@ -652,8 +751,9 @@ def score_trial(
         "trusted": trusted,
         "detection": score_detection(submission, hidden_card),
         "identification": score_identification(submission, hidden_card),
-        "evidence": _ev2,        # v2 primary (Sweep 2+)
-        "evidence_v1": _ev1,     # preserved for disclosure/comparison
+        "evidence": _ev21,       # v2.1 (bipartite one-to-one) primary — STAGE3_PLAN §0.4
+        "evidence_v2": _ev2,     # retained for audit
+        "evidence_v1": _ev1,     # retained for audit
         "recovery": recovery,
         "safety": score_safety(trial_record),
     }

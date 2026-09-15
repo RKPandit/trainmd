@@ -62,11 +62,13 @@ clean; validate-all 27/27; plan file git-clean and build_id-pinned.
 
 ### Post-hoc scoring corrections (disclosed; see HYPOTHESES.md Results and DECISIONS 2026-09-13)
 
-**Four** Sweep-1 corrections were applied, disclosed, with originals kept beside corrected values
+**Five** Sweep-1 corrections were applied, disclosed, with originals kept beside corrected values
 in every table. The first two were **scoring/schema artifacts, not model behaviour**; the third
 (#3) is **model-side output folding, not a harness bug** — we recover a well-formed repair the
 model misplaced; the fourth (#4, added 2026-09-15) is an **analysis-aggregation correction** —
-a pooled comparator that averaged two unlike operators. The first three *removed* a harness-imposed
+a pooled comparator that averaged two unlike operators; the fifth (#5, 2026-09-15) is an
+**evidence-scorer migration** — Sweep-1 records carried v1 while the docs said v2; they are migrated
+to **v2.1** (bipartite one-to-one) primary (details below). The first three *removed* a harness-imposed
 penalty on the model; none changed ground truth to raise a score. Found by the read-only
 diagnostics and corrected by principle — never by copying observed outputs into ground truth.
 
@@ -105,9 +107,35 @@ diagnostics and corrected by principle — never by copying observed outputs int
    0.333. This changes an *interpretation* (the comparator baseline), not any trial's score. Touches
    **H1/S1/F1** — see F1's correction below and the status revision.
 
-**Unchanged by any SCORING correction:** detection and evidence trial scores — therefore H2, H6, and
-the controls finding stand exactly as pre-registered. Recovery moves (Corrections 2–3), sharpening
-H3. **H1's headline is revised** by the analysis-aggregation correction #4 + Stage-2 G1 (below).
+5. **Evidence-scorer migration: Sweep-1 records were V1, not V2; migrated to V2.1 primary (2026-09-15).**
+   The union bug an external reviewer flagged (v2 credits each submitted ref against the UNION, so
+   duplicates/shotgun over-score) is fixed by **v2.1 bipartite one-to-one matching**. Making v2.1 the
+   record primary surfaced that **Sweep-1 `scores.evidence` had never left v1** — the v1→v2 rescore was
+   *disclosed* on 2026-09-13 (DECISIONS) but never persisted, so §0.3's "v2 primary" claim was a
+   **provenance mislabel** (a wrong statement about which instrument produced a number — the more
+   serious half). Decomposition of the change (v1 stored → v2.1), NOT what the first framing said:
+   - **(a) v1→v2 span-strictness** (already disclosed 2026-09-13, L17): dominates — `shape_mismatch`
+     mean **0.807 → 0.607** (over-broad traceback line/code spans fail v2's IoU≥0.5 + 3× width).
+   - **(b) v2→v2.1 bipartite fix**: the union bug actually bit **`lr_warmup`, not `shape_mismatch`** —
+     **5 sweep-1 lr_warmup trials**, ~**−0.13** each (duplicate/overlapping refs); stage2gate and all
+     config-key operators **unchanged** (v1=v2=v2.1).
+
+   | sweep | operator | trial | v2 | v2.1 | Δ |
+   |---|---|---|---|---|---|
+   | sweep1 | lr_warmup | case_0023 | 0.706 | 0.571 | −0.134 |
+   | sweep1 | lr_warmup | case_0026 | 0.800 | 0.667 | −0.133 |
+   | sweep1 | lr_warmup | case_0026 (×3) | 0.632–0.706 | 0.500–0.571 | ≈−0.13 |
+
+   **H6 (ReAct − static evidence F1) recomputed under v2.1: 0.135 → 0.1343**, CI [0.070, 0.206];
+   **pre-registered ≥ +0.10 criterion still holds** (point ≥ 0.10; CI-lower still dips below 0.10 —
+   unchanged from the original verdict), because shape_mismatch drops for both agents ~equally so the
+   *difference* barely moves. Retained: `evidence_v2` + `evidence_v1` beside `evidence` (v2.1) on every
+   record. My first framing ("v2.1 fixed shape_mismatch") was **wrong** and is corrected here.
+
+**Unchanged by corrections #1–#4:** detection trial scores — therefore H2 and the controls finding
+stand as pre-registered. Recovery moves (Corrections 2–3), sharpening H3. **H1's headline is revised**
+by the analysis-aggregation correction #4 + Stage-2 G1 (below). **Correction #5 moves evidence and
+H6** (evidence scorer v1→v2.1; H6 0.135→0.134, verdict held) — see above.
 
 **Latent-bug fixes (2026-09-15; NOT corrections — no published number was wrong).** Two defects in
 the analysis code were repaired while making the report pipeline plan-driven (STAGE3_PLAN §0.3), each

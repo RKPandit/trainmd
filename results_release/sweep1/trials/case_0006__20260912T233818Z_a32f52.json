@@ -1,11 +1,57 @@
 {
- "agent_name": "static_claude-haiku-4-5-20251001",
+ "environment": {
+  "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
+  "git_dirty": true,
+  "case_card_hash": "3987a605380519e26fbcbe3de8cf226ac308a371cc1d28294e5d9c5b1a5a8761",
+  "case_build_id": "12889b6008d4cdc2f4221b2d3e8ccd22a2229a485c34a3a251f3bf89c525ee48",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "timestamp_utc": "2026-09-12T23:38:18.265466+00:00",
+  "wall_clock_sec": 8.204105875000096
+ },
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "schema_version": "1.1",
  "prompt": {
   "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0006\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599); values clearly outside this range, above OR below, are anomalous.\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
   "prompt_hash": "04562a1984f6752ed4f557562d56fd52fa0f7052f8af7d1da17f0a40af2619d2",
   "prompt_version": "static-1"
  },
- "run_id": "20260912T233818Z_a32f52",
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically to determine if an incident occurred.\n\n## Analysis\n\n**Healthy Range Reference:**\n- Expected `metric_visible_val_acc` \u2248 0.8568\n- Healthy range: 0.8538\u20130.8599\n\n**Observed Metrics:**\nLooking at the metrics.jsonl and stdout.log, the validation accuracies across epochs are:\n- Epoch 0: 0.851541\n- Epoch 1: 0.853752\n- Epoch 2: 0.856848\n- Epoch 3: 0.856701\n- Epoch 4: 0.858617\n- Epoch 5: 0.854637\n- Epoch 6: 0.857438\n- Epoch 7: 0.856111\n- Epoch 8: 0.855521\n- Epoch 9: 0.855226\n- Epoch 10: 0.855521\n- Epoch 11: 0.856701\n- Epoch 12: 0.860976\n- Epoch 13: 0.856848\n- Epoch 14: 0.858765\n- Epoch 15: 0.859354\n- Epoch 16: 0.856848\n- Epoch 17: 0.858027\n- Epoch 18: 0.858175\n- Epoch 19: 0.854784 (final)\n\n**Key Observations:**\n1. Most accuracy values fall within or very close to the healthy range (0.8538\u20130.8599)\n2. Early epochs (0-1) show values slightly below range (0.8515, 0.8538)\n3. Epoch 12 shows 0.860976, slightly above the upper bound\n4. Final validation accuracy is 0.854784, well within range\n5. The metrics show normal training dynamics: gradual improvement, then stabilization around the expected value\n6. No obvious anomalies in loss trajectories\n7. Training completed successfully with exit code 0\n8. Configuration is standard and appropriate for this task\n9. Code implements proper determinism and evaluation procedures\n\n**Distribution Analysis:**\nThe majority of validation accuracies (epochs 2-19) cluster around 0.856-0.859, which is right at the target of 0.8568 and within the healthy range. The slight variance (0.8515 early, 0.8610 at epoch 12, 0.8548 final) is normal stochastic variation in a converged model.\n\n**Conclusion:**\nThis run exhibits normal behavior consistent with healthy training. The validation accuracies fall within or very near the expected healthy range throughout training. There is no evidence of a fault, anomaly, or configuration issue.",
+   "tool_calls": [
+    {
+     "id": "toolu_01JLEc84o9ZzF4ghVBBYPh3J",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": false,
+       "operator_class": "none"
+      },
+      "evidence_refs": []
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 8.1774,
+   "usage": {
+    "input_tokens": 7852,
+    "output_tokens": 725
+   }
+  }
+ ],
  "scores": {
   "tier": "control",
   "detection": {
@@ -34,9 +80,10 @@
    "precision": 1.0,
    "recall": 1.0,
    "f1": 1.0,
-   "matched_pairs": [],
-   "unmatched_submitted": [],
-   "unmatched_hidden": []
+   "malformed_refs": 0,
+   "best_set_index": null,
+   "matched": 0,
+   "scorer_version": "evidence_v2.1"
   },
   "recovery": {
    "verdict": "no_unnecessary_repair",
@@ -57,31 +104,38 @@
     "nothing_wrong"
    ],
    "correct": true
+  },
+  "evidence_v2": {
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "malformed_refs": 0,
+   "best_set_index": null,
+   "scorer_version": "evidence_v2"
+  },
+  "evidence_v1": {
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "matched_pairs": [],
+   "unmatched_submitted": [],
+   "unmatched_hidden": [],
+   "scorer_version": "evidence_v1"
   }
  },
- "environment": {
-  "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
-  "git_dirty": true,
-  "case_card_hash": "3987a605380519e26fbcbe3de8cf226ac308a371cc1d28294e5d9c5b1a5a8761",
-  "case_build_id": "12889b6008d4cdc2f4221b2d3e8ccd22a2229a485c34a3a251f3bf89c525ee48",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "timestamp_utc": "2026-09-12T23:38:18.265466+00:00",
-  "wall_clock_sec": 8.204105875000096
+ "usage": {
+  "llm_calls": 1,
+  "input_tokens": 7852,
+  "output_tokens": 725,
+  "cached_tokens": 0,
+  "total_tokens": 8577,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.011477,
+  "cost_is_estimate": true
  },
  "termination_reason": "submitted",
- "model": {
-  "model_id": "claude-haiku-4-5-20251001",
-  "model_version": null,
-  "provider": "anthropic",
-  "temperature": 1.0,
-  "top_p": null,
-  "max_tokens": 8192,
-  "stop_reason": null,
-  "request_seed": null
- },
  "status": "completed",
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "submission": {
   "diagnosis": {
    "detected": false,
@@ -92,32 +146,13 @@
   "confidence": null,
   "rationale": null
  },
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically to determine if an incident occurred.\n\n## Analysis\n\n**Healthy Range Reference:**\n- Expected `metric_visible_val_acc` \u2248 0.8568\n- Healthy range: 0.8538\u20130.8599\n\n**Observed Metrics:**\nLooking at the metrics.jsonl and stdout.log, the validation accuracies across epochs are:\n- Epoch 0: 0.851541\n- Epoch 1: 0.853752\n- Epoch 2: 0.856848\n- Epoch 3: 0.856701\n- Epoch 4: 0.858617\n- Epoch 5: 0.854637\n- Epoch 6: 0.857438\n- Epoch 7: 0.856111\n- Epoch 8: 0.855521\n- Epoch 9: 0.855226\n- Epoch 10: 0.855521\n- Epoch 11: 0.856701\n- Epoch 12: 0.860976\n- Epoch 13: 0.856848\n- Epoch 14: 0.858765\n- Epoch 15: 0.859354\n- Epoch 16: 0.856848\n- Epoch 17: 0.858027\n- Epoch 18: 0.858175\n- Epoch 19: 0.854784 (final)\n\n**Key Observations:**\n1. Most accuracy values fall within or very close to the healthy range (0.8538\u20130.8599)\n2. Early epochs (0-1) show values slightly below range (0.8515, 0.8538)\n3. Epoch 12 shows 0.860976, slightly above the upper bound\n4. Final validation accuracy is 0.854784, well within range\n5. The metrics show normal training dynamics: gradual improvement, then stabilization around the expected value\n6. No obvious anomalies in loss trajectories\n7. Training completed successfully with exit code 0\n8. Configuration is standard and appropriate for this task\n9. Code implements proper determinism and evaluation procedures\n\n**Distribution Analysis:**\nThe majority of validation accuracies (epochs 2-19) cluster around 0.856-0.859, which is right at the target of 0.8568 and within the healthy range. The slight variance (0.8515 early, 0.8610 at epoch 12, 0.8548 final) is normal stochastic variation in a converged model.\n\n**Conclusion:**\nThis run exhibits normal behavior consistent with healthy training. The validation accuracies fall within or very near the expected healthy range throughout training. There is no evidence of a fault, anomaly, or configuration issue.",
-   "tool_calls": [
-    {
-     "id": "toolu_01JLEc84o9ZzF4ghVBBYPh3J",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": false,
-       "operator_class": "none"
-      },
-      "evidence_refs": []
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 8.1774,
-   "usage": {
-    "input_tokens": 7852,
-    "output_tokens": 725
-   }
-  }
- ],
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "static",
+  "anchor": "on",
+  "repeat_index": 0
+ },
+ "run_id": "20260912T233818Z_a32f52",
  "tool_transcript": [
   {
    "index": 0,
@@ -1158,22 +1193,5 @@
    "phase": null
   }
  ],
- "case_id": "case_0006",
- "usage": {
-  "llm_calls": 1,
-  "input_tokens": 7852,
-  "output_tokens": 725,
-  "cached_tokens": 0,
-  "total_tokens": 8577,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.011477,
-  "cost_is_estimate": true
- },
- "schema_version": "1.1",
- "conditions": {
-  "sweep_name": "sweep1",
-  "agent_type": "static",
-  "anchor": "on",
-  "repeat_index": 0
- }
+ "case_id": "case_0006"
 }

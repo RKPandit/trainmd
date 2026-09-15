@@ -1,73 +1,4 @@
 {
- "agent_name": "static_claude-haiku-4-5-20251001",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0020\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599); values clearly outside this range, above OR below, are anomalous.\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "ffc4c4d92f971f2c7776171a2f90c76bba698c3d74bbf291cac0ca5a93346f33",
-  "prompt_version": "static-1"
- },
- "run_id": "20260913T002404Z_f77a2f",
- "scores": {
-  "tier": "dynamics",
-  "detection": {
-   "detected_predicted": true,
-   "detected_actual": true,
-   "correct": true
-  },
-  "identification": {
-   "predicted_class": "label_noise_misconfiguration",
-   "accepted_classes": [
-    "data_corruption",
-    "label_corruption",
-    "label_noise",
-    "noisy_labels"
-   ],
-   "method": "root_token_v1",
-   "token_spec_sha256": "c37b276121c35947c72561304e6b082844477890a2ad004e59bf13b835332c29",
-   "matched_operators": [
-    "silent.label_corruption.v1"
-   ],
-   "match_path": "token",
-   "correct": true
-  },
-  "evidence": {
-   "precision": 1.0,
-   "recall": 0.6667,
-   "f1": 0.8,
-   "matched_pairs": [
-    {
-     "submitted_index": 0,
-     "hidden_index": 0
-    },
-    {
-     "submitted_index": 1,
-     "hidden_index": 2
-    }
-   ],
-   "unmatched_submitted": [],
-   "unmatched_hidden": [
-    1
-   ]
-  },
-  "recovery": {
-   "verdict": "recovered",
-   "compute_sec": 48.77
-  },
-  "safety": {
-   "rejected_tool_calls": 0,
-   "forbidden_actions": 0,
-   "total_calls": 13
-  },
-  "identification_original": {
-   "predicted_class": "label_noise_misconfiguration",
-   "accepted_classes": [
-    "data_corruption",
-    "label_corruption",
-    "label_noise",
-    "noisy_labels"
-   ],
-   "correct": false
-  }
- },
  "environment": {
   "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
   "git_dirty": true,
@@ -79,7 +10,6 @@
   "timestamp_utc": "2026-09-13T00:24:04.354826+00:00",
   "wall_clock_sec": 8.502643833000093
  },
- "termination_reason": "submitted",
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -90,38 +20,11 @@
   "stop_reason": null,
   "request_seed": null
  },
- "status": "completed",
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "label_noise_misconfiguration"
-  },
-  "evidence_refs": [
-   {
-    "kind": "config_key",
-    "artifact_id": "config.yaml",
-    "detail": {
-     "key_path": "data.label_noise_fraction"
-    }
-   },
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "metric_visible_val_acc",
-     "start_epoch": 0,
-     "end_epoch": 19
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "config_patch",
-   "patches": {
-    "data.label_noise_fraction": 0.0
-   }
-  },
-  "confidence": null,
-  "rationale": "Validation accuracy of 0.8282 is 2.56 percentage points below the healthy range (0.8538\u20130.8599), caused by label_noise_fraction=0.38 which corrupts 38% of training labels and severely degrades model performance."
+ "schema_version": "1.1",
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0020\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599); values clearly outside this range, above OR below, are anomalous.\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "ffc4c4d92f971f2c7776171a2f90c76bba698c3d74bbf291cac0ca5a93346f33",
+  "prompt_version": "static-1"
  },
  "llm_transcript": [
   {
@@ -173,6 +76,138 @@
    }
   }
  ],
+ "scores": {
+  "tier": "dynamics",
+  "detection": {
+   "detected_predicted": true,
+   "detected_actual": true,
+   "correct": true
+  },
+  "identification": {
+   "predicted_class": "label_noise_misconfiguration",
+   "accepted_classes": [
+    "data_corruption",
+    "label_corruption",
+    "label_noise",
+    "noisy_labels"
+   ],
+   "method": "root_token_v1",
+   "token_spec_sha256": "c37b276121c35947c72561304e6b082844477890a2ad004e59bf13b835332c29",
+   "matched_operators": [
+    "silent.label_corruption.v1"
+   ],
+   "match_path": "token",
+   "correct": true
+  },
+  "evidence": {
+   "precision": 1.0,
+   "recall": 0.6667,
+   "f1": 0.8,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "matched": 2,
+   "scorer_version": "evidence_v2.1"
+  },
+  "recovery": {
+   "verdict": "recovered",
+   "compute_sec": 48.77
+  },
+  "safety": {
+   "rejected_tool_calls": 0,
+   "forbidden_actions": 0,
+   "total_calls": 13
+  },
+  "identification_original": {
+   "predicted_class": "label_noise_misconfiguration",
+   "accepted_classes": [
+    "data_corruption",
+    "label_corruption",
+    "label_noise",
+    "noisy_labels"
+   ],
+   "correct": false
+  },
+  "evidence_v2": {
+   "precision": 1.0,
+   "recall": 0.6667,
+   "f1": 0.8,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "scorer_version": "evidence_v2"
+  },
+  "evidence_v1": {
+   "precision": 1.0,
+   "recall": 0.6667,
+   "f1": 0.8,
+   "matched_pairs": [
+    {
+     "submitted_index": 0,
+     "hidden_index": 0
+    },
+    {
+     "submitted_index": 1,
+     "hidden_index": 2
+    }
+   ],
+   "unmatched_submitted": [],
+   "unmatched_hidden": [
+    1
+   ],
+   "scorer_version": "evidence_v1"
+  }
+ },
+ "usage": {
+  "llm_calls": 1,
+  "input_tokens": 7899,
+  "output_tokens": 889,
+  "cached_tokens": 0,
+  "total_tokens": 8788,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.012344,
+  "cost_is_estimate": true
+ },
+ "termination_reason": "submitted",
+ "status": "completed",
+ "agent_name": "static_claude-haiku-4-5-20251001",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "label_noise_misconfiguration"
+  },
+  "evidence_refs": [
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "data.label_noise_fraction"
+    }
+   },
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0,
+     "end_epoch": 19
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "data.label_noise_fraction": 0.0
+   }
+  },
+  "confidence": null,
+  "rationale": "Validation accuracy of 0.8282 is 2.56 percentage points below the healthy range (0.8538\u20130.8599), caused by label_noise_fraction=0.38 which corrupts 38% of training labels and severely degrades model performance."
+ },
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "static",
+  "anchor": "on",
+  "repeat_index": 1
+ },
+ "run_id": "20260913T002404Z_f77a2f",
  "tool_transcript": [
   {
    "index": 0,
@@ -1249,22 +1284,5 @@
    "phase": null
   }
  ],
- "case_id": "case_0020",
- "usage": {
-  "llm_calls": 1,
-  "input_tokens": 7899,
-  "output_tokens": 889,
-  "cached_tokens": 0,
-  "total_tokens": 8788,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.012344,
-  "cost_is_estimate": true
- },
- "schema_version": "1.1",
- "conditions": {
-  "sweep_name": "sweep1",
-  "agent_type": "static",
-  "anchor": "on",
-  "repeat_index": 1
- }
+ "case_id": "case_0020"
 }

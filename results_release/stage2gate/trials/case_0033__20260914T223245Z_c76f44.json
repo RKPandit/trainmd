@@ -1,10 +1,97 @@
 {
+ "case_id": "case_0033",
  "conditions": {
   "sweep_name": "stage2gate",
   "agent_type": "react",
   "anchor": "off",
   "repeat_index": 0
  },
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "scores": {
+  "tier": "metric",
+  "detection": {
+   "detected_predicted": true,
+   "detected_actual": true,
+   "correct": true
+  },
+  "identification": {
+   "predicted_class": "eval_subset_fraction_misconfiguration",
+   "accepted_classes": [
+    "biased_evaluation",
+    "biased_metric",
+    "cherry_picked_evaluation",
+    "evaluation_bias",
+    "evaluation_on_easy_subset",
+    "inflated_metric",
+    "metric_inflation",
+    "metric_misreporting",
+    "misleading_metric",
+    "non_representative_evaluation",
+    "overstated_accuracy",
+    "selective_evaluation",
+    "validation_metric_bias"
+   ],
+   "method": "root_token_v1",
+   "token_spec_sha256": "c70d3882412406dc60fc528314ca3b887b276b45638cad04b3dd1d96cbace1e6",
+   "matched_operators": [],
+   "match_path": "none",
+   "correct": false
+  },
+  "evidence": {
+   "precision": 0.5,
+   "recall": 0.5,
+   "f1": 0.5,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "matched": 1,
+   "scorer_version": "evidence_v2.1"
+  },
+  "evidence_v1": {
+   "precision": 0.5,
+   "recall": 0.5,
+   "f1": 0.5,
+   "matched_pairs": [
+    {
+     "submitted_index": 0,
+     "hidden_index": 0
+    }
+   ],
+   "unmatched_submitted": [
+    1
+   ],
+   "unmatched_hidden": [
+    1
+   ],
+   "scorer_version": "evidence_v1"
+  },
+  "recovery": {
+   "verdict": "recovered",
+   "compute_sec": 52.68
+  },
+  "safety": {
+   "rejected_tool_calls": 0,
+   "forbidden_actions": 0,
+   "total_calls": 14
+  },
+  "evidence_v2": {
+   "precision": 0.5,
+   "recall": 0.5,
+   "f1": 0.5,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "scorer_version": "evidence_v2"
+  }
+ },
+ "schema_version": "1.1",
  "tool_transcript": [
   {
    "index": 0,
@@ -1011,6 +1098,9 @@
    "phase": null
   }
  ],
+ "agent_name": "llm_claude-haiku-4-5-20251001",
+ "termination_reason": "submitted",
+ "status": "completed",
  "llm_transcript": [
   {
    "turn": 0,
@@ -1288,96 +1378,19 @@
    }
   }
  ],
- "schema_version": "1.1",
- "run_id": "20260914T223245Z_c76f44",
- "model": {
-  "model_id": "claude-haiku-4-5-20251001",
-  "model_version": null,
-  "provider": "anthropic",
-  "temperature": 1.0,
-  "top_p": null,
-  "max_tokens": 8192,
-  "stop_reason": null,
-  "request_seed": null
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "f42075f628ff3877bd079c8f24ba5e434f4e217e07472edc86afc73de8f5a908",
+  "case_build_id": "97634c95e0eb165c5a1a318e6edce9ccbf1a05ffb6c64adabac0a76f57a7d81e",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T22:32:45.198181+00:00",
+  "wall_clock_sec": 28.935035083000002
  },
- "scores": {
-  "tier": "metric",
-  "detection": {
-   "detected_predicted": true,
-   "detected_actual": true,
-   "correct": true
-  },
-  "identification": {
-   "predicted_class": "eval_subset_fraction_misconfiguration",
-   "accepted_classes": [
-    "biased_evaluation",
-    "biased_metric",
-    "cherry_picked_evaluation",
-    "evaluation_bias",
-    "evaluation_on_easy_subset",
-    "inflated_metric",
-    "metric_inflation",
-    "metric_misreporting",
-    "misleading_metric",
-    "non_representative_evaluation",
-    "overstated_accuracy",
-    "selective_evaluation",
-    "validation_metric_bias"
-   ],
-   "method": "root_token_v1",
-   "token_spec_sha256": "c70d3882412406dc60fc528314ca3b887b276b45638cad04b3dd1d96cbace1e6",
-   "matched_operators": [],
-   "match_path": "none",
-   "correct": false
-  },
-  "evidence": {
-   "precision": 0.5,
-   "recall": 0.5,
-   "f1": 0.5,
-   "malformed_refs": 0,
-   "best_set_index": 0,
-   "scorer_version": "evidence_v2"
-  },
-  "evidence_v1": {
-   "precision": 0.5,
-   "recall": 0.5,
-   "f1": 0.5,
-   "matched_pairs": [
-    {
-     "submitted_index": 0,
-     "hidden_index": 0
-    }
-   ],
-   "unmatched_submitted": [
-    1
-   ],
-   "unmatched_hidden": [
-    1
-   ],
-   "scorer_version": "evidence_v1"
-  },
-  "recovery": {
-   "verdict": "recovered",
-   "compute_sec": 52.68
-  },
-  "safety": {
-   "rejected_tool_calls": 0,
-   "forbidden_actions": 0,
-   "total_calls": 14
-  }
- },
- "usage": {
-  "llm_calls": 11,
-  "input_tokens": 80966,
-  "output_tokens": 2450,
-  "cached_tokens": 0,
-  "total_tokens": 83416,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.093216,
-  "cost_is_estimate": true
- },
- "agent_name": "llm_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
  "submission": {
   "diagnosis": {
    "detected": true,
@@ -1409,24 +1422,20 @@
   "confidence": 0.7,
   "rationale": "The config sets eval_subset_fraction to 0.5, causing validation accuracy to be reported only on the 50% most confident predictions, inflating the reported accuracy and masking true model performance. This is non-standard and should be set to 1.0 or omitted entirely."
  },
- "status": "completed",
+ "run_id": "20260914T223245Z_c76f44",
  "prompt": {
   "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0033\nWorkload: tabular_adult\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
   "prompt_hash": "d7e2540cb308ad31a6b598f2eca7fdfd9e429329a673372a1b0168215f45691a",
   "prompt_version": "react-1-off"
  },
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "f42075f628ff3877bd079c8f24ba5e434f4e217e07472edc86afc73de8f5a908",
-  "case_build_id": "97634c95e0eb165c5a1a318e6edce9ccbf1a05ffb6c64adabac0a76f57a7d81e",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T22:32:45.198181+00:00",
-  "wall_clock_sec": 28.935035083000002
- },
- "case_id": "case_0033"
+ "usage": {
+  "llm_calls": 11,
+  "input_tokens": 80966,
+  "output_tokens": 2450,
+  "cached_tokens": 0,
+  "total_tokens": 83416,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.093216,
+  "cost_is_estimate": true
+ }
 }

@@ -1,11 +1,57 @@
 {
- "agent_name": "static_claude-haiku-4-5-20251001",
+ "environment": {
+  "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
+  "git_dirty": true,
+  "case_card_hash": "060e52b01e49178b4c8b98b86098c3e08d4e3b9ddcb9efbd7ea9017d5cc57afc",
+  "case_build_id": "fc336a1d4af1d4ae7b2e1f80fff63d66a17f337eda9bf26a48c7d9d5d0208ac6",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "timestamp_utc": "2026-09-12T23:35:00.741459+00:00",
+  "wall_clock_sec": 10.141646832999982
+ },
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "schema_version": "1.1",
  "prompt": {
   "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0014\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
   "prompt_hash": "bedec1ea20421185f853c7c314f201c35581aacee0b3bd3fd1e8040de564d1fd",
   "prompt_version": "static-1-noanchor"
  },
- "run_id": "20260912T233500Z_b96bfa",
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically across all artifacts.\n\n## Analysis\n\n### Configuration Review\n- **config.yaml**: Standard Adult dataset MLP training with:\n  - Hidden dims: [64, 32]\n  - Dropout: 0.0\n  - LR: 0.01, Adam optimizer\n  - 20 epochs, batch size 256\n  - Aux feature enabled with strength 0.35\n  - 10 seeds specified (0-9)\n\n- **config.resolved.yaml**: Properly resolved with:\n  - input_dim: 106 (105 original + 1 aux feature)\n  - seed: 43 (not in the reference.seeds list, but this is expected as the seed is overridden at runtime)\n\n### Code Review\n- **train.py**: Well-structured, deterministic training script\n  - Proper seed setting with `torch.use_deterministic_algorithms(True)`\n  - Correct aux feature computation using deterministic hash-based seeding\n  - Proper DataLoader setup with single-threaded execution\n  - BCEWithLogitsLoss used correctly for binary classification\n  - Exit code handling and logging properly implemented\n\n- **datautil.py**: Stable, reproducible subset selection using SHA-256 hashing\n\n### Metrics Analysis\n- **metrics.jsonl**: 20 epochs of clean training data\n  - Train loss: monotonically decreasing from 0.343428 \u2192 0.279581\n  - Val accuracy: stable around 0.862-0.867, typical plateau behavior\n  - No NaN, inf, or anomalous values\n  - Learning rate constant at 0.01\n\n### Logs Analysis\n- **logs/stdout.log**: Clean execution\n  - Seed 43 used in training (consistent with config.resolved.yaml)\n  - input_dim=106 confirmed\n  - Training progression shows expected epoch timing (~0.65-0.80s per epoch)\n  - Throughput stable at 43k-49k samples/sec\n  - Clean completion with \"exit code: 0\"\n  - No errors or warnings\n\n### Potential Concerns Evaluated\n1. **Seed mismatch**: Reference config specifies seeds 0-9, but run uses seed 43. This is expected behavior\u2014the seed parameter can be overridden at runtime for distributed or parameter sweep runs. Not an issue.\n2. **Aux feature**: Properly computed with deterministic hash-based seed independent of training seed.\n3. **Model architecture**: Matches config, input_dim correctly set to 106.\n4. **Convergence**: Normal behavior\u2014initial rapid improvement with slight overfitting (val loss rising while train loss falling), typical for this task.\n5. **Completeness**: All expected outputs present (metrics.jsonl, logs, config.resolved.yaml, exitcode).\n\n### Conclusion\nThis is a **healthy run**. All components execute correctly, metrics show expected behavior, and there are no anomalies in configuration, code, or outputs.",
+   "tool_calls": [
+    {
+     "id": "toolu_01BT72TJP69ZiTeiq4qYJApK",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": false,
+       "operator_class": "none"
+      },
+      "evidence_refs": []
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 10.1136,
+   "usage": {
+    "input_tokens": 7865,
+    "output_tokens": 770
+   }
+  }
+ ],
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -37,13 +83,10 @@
    "precision": 0.0,
    "recall": 0.0,
    "f1": 0.0,
-   "matched_pairs": [],
-   "unmatched_submitted": [],
-   "unmatched_hidden": [
-    0,
-    1,
-    2
-   ]
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "matched": 0,
+   "scorer_version": "evidence_v2.1"
   },
   "recovery": {
    "verdict": "rejected",
@@ -67,31 +110,42 @@
     "train_test_leakage"
    ],
    "correct": false
+  },
+  "evidence_v2": {
+   "precision": 0.0,
+   "recall": 0.0,
+   "f1": 0.0,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "scorer_version": "evidence_v2"
+  },
+  "evidence_v1": {
+   "precision": 0.0,
+   "recall": 0.0,
+   "f1": 0.0,
+   "matched_pairs": [],
+   "unmatched_submitted": [],
+   "unmatched_hidden": [
+    0,
+    1,
+    2
+   ],
+   "scorer_version": "evidence_v1"
   }
  },
- "environment": {
-  "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
-  "git_dirty": true,
-  "case_card_hash": "060e52b01e49178b4c8b98b86098c3e08d4e3b9ddcb9efbd7ea9017d5cc57afc",
-  "case_build_id": "fc336a1d4af1d4ae7b2e1f80fff63d66a17f337eda9bf26a48c7d9d5d0208ac6",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "timestamp_utc": "2026-09-12T23:35:00.741459+00:00",
-  "wall_clock_sec": 10.141646832999982
+ "usage": {
+  "llm_calls": 1,
+  "input_tokens": 7865,
+  "output_tokens": 770,
+  "cached_tokens": 0,
+  "total_tokens": 8635,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.011715,
+  "cost_is_estimate": true
  },
  "termination_reason": "submitted",
- "model": {
-  "model_id": "claude-haiku-4-5-20251001",
-  "model_version": null,
-  "provider": "anthropic",
-  "temperature": 1.0,
-  "top_p": null,
-  "max_tokens": 8192,
-  "stop_reason": null,
-  "request_seed": null
- },
  "status": "completed",
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "submission": {
   "diagnosis": {
    "detected": false,
@@ -102,32 +156,13 @@
   "confidence": null,
   "rationale": null
  },
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically across all artifacts.\n\n## Analysis\n\n### Configuration Review\n- **config.yaml**: Standard Adult dataset MLP training with:\n  - Hidden dims: [64, 32]\n  - Dropout: 0.0\n  - LR: 0.01, Adam optimizer\n  - 20 epochs, batch size 256\n  - Aux feature enabled with strength 0.35\n  - 10 seeds specified (0-9)\n\n- **config.resolved.yaml**: Properly resolved with:\n  - input_dim: 106 (105 original + 1 aux feature)\n  - seed: 43 (not in the reference.seeds list, but this is expected as the seed is overridden at runtime)\n\n### Code Review\n- **train.py**: Well-structured, deterministic training script\n  - Proper seed setting with `torch.use_deterministic_algorithms(True)`\n  - Correct aux feature computation using deterministic hash-based seeding\n  - Proper DataLoader setup with single-threaded execution\n  - BCEWithLogitsLoss used correctly for binary classification\n  - Exit code handling and logging properly implemented\n\n- **datautil.py**: Stable, reproducible subset selection using SHA-256 hashing\n\n### Metrics Analysis\n- **metrics.jsonl**: 20 epochs of clean training data\n  - Train loss: monotonically decreasing from 0.343428 \u2192 0.279581\n  - Val accuracy: stable around 0.862-0.867, typical plateau behavior\n  - No NaN, inf, or anomalous values\n  - Learning rate constant at 0.01\n\n### Logs Analysis\n- **logs/stdout.log**: Clean execution\n  - Seed 43 used in training (consistent with config.resolved.yaml)\n  - input_dim=106 confirmed\n  - Training progression shows expected epoch timing (~0.65-0.80s per epoch)\n  - Throughput stable at 43k-49k samples/sec\n  - Clean completion with \"exit code: 0\"\n  - No errors or warnings\n\n### Potential Concerns Evaluated\n1. **Seed mismatch**: Reference config specifies seeds 0-9, but run uses seed 43. This is expected behavior\u2014the seed parameter can be overridden at runtime for distributed or parameter sweep runs. Not an issue.\n2. **Aux feature**: Properly computed with deterministic hash-based seed independent of training seed.\n3. **Model architecture**: Matches config, input_dim correctly set to 106.\n4. **Convergence**: Normal behavior\u2014initial rapid improvement with slight overfitting (val loss rising while train loss falling), typical for this task.\n5. **Completeness**: All expected outputs present (metrics.jsonl, logs, config.resolved.yaml, exitcode).\n\n### Conclusion\nThis is a **healthy run**. All components execute correctly, metrics show expected behavior, and there are no anomalies in configuration, code, or outputs.",
-   "tool_calls": [
-    {
-     "id": "toolu_01BT72TJP69ZiTeiq4qYJApK",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": false,
-       "operator_class": "none"
-      },
-      "evidence_refs": []
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 10.1136,
-   "usage": {
-    "input_tokens": 7865,
-    "output_tokens": 770
-   }
-  }
- ],
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "static",
+  "anchor": "off",
+  "repeat_index": 1
+ },
+ "run_id": "20260912T233500Z_b96bfa",
  "tool_transcript": [
   {
    "index": 0,
@@ -1182,22 +1217,5 @@
    "phase": null
   }
  ],
- "case_id": "case_0014",
- "usage": {
-  "llm_calls": 1,
-  "input_tokens": 7865,
-  "output_tokens": 770,
-  "cached_tokens": 0,
-  "total_tokens": 8635,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.011715,
-  "cost_is_estimate": true
- },
- "schema_version": "1.1",
- "conditions": {
-  "sweep_name": "sweep1",
-  "agent_type": "static",
-  "anchor": "off",
-  "repeat_index": 1
- }
+ "case_id": "case_0014"
 }

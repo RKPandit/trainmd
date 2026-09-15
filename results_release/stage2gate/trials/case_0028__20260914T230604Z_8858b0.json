@@ -1,10 +1,101 @@
 {
+ "case_id": "case_0028",
  "conditions": {
   "sweep_name": "stage2gate",
   "agent_type": "static",
   "anchor": "numbers",
   "repeat_index": 0
  },
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "scores": {
+  "tier": "metric",
+  "detection": {
+   "detected_predicted": true,
+   "detected_actual": true,
+   "correct": true
+  },
+  "identification": {
+   "predicted_class": "subset_selected_eval_inflation",
+   "accepted_classes": [
+    "biased_evaluation",
+    "biased_metric",
+    "cherry_picked_evaluation",
+    "evaluation_bias",
+    "evaluation_on_easy_subset",
+    "inflated_metric",
+    "metric_inflation",
+    "metric_misreporting",
+    "misleading_metric",
+    "non_representative_evaluation",
+    "overstated_accuracy",
+    "selective_evaluation",
+    "validation_metric_bias"
+   ],
+   "method": "root_token_v1",
+   "token_spec_sha256": "c70d3882412406dc60fc528314ca3b887b276b45638cad04b3dd1d96cbace1e6",
+   "matched_operators": [
+    "silent.metric_inflation.v1"
+   ],
+   "match_path": "token",
+   "correct": true
+  },
+  "evidence": {
+   "precision": 0.6667,
+   "recall": 1.0,
+   "f1": 0.8,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "matched": 2,
+   "scorer_version": "evidence_v2.1"
+  },
+  "evidence_v1": {
+   "precision": 0.6667,
+   "recall": 1.0,
+   "f1": 0.8,
+   "matched_pairs": [
+    {
+     "submitted_index": 0,
+     "hidden_index": 0
+    },
+    {
+     "submitted_index": 2,
+     "hidden_index": 1
+    }
+   ],
+   "unmatched_submitted": [
+    1
+   ],
+   "unmatched_hidden": [],
+   "scorer_version": "evidence_v1"
+  },
+  "recovery": {
+   "verdict": "recovered",
+   "compute_sec": 51.96
+  },
+  "safety": {
+   "rejected_tool_calls": 0,
+   "forbidden_actions": 0,
+   "total_calls": 14
+  },
+  "evidence_v2": {
+   "precision": 0.6667,
+   "recall": 1.0,
+   "f1": 0.8,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "scorer_version": "evidence_v2"
+  }
+ },
+ "schema_version": "1.1",
  "tool_transcript": [
   {
    "index": 0,
@@ -1175,6 +1266,9 @@
    "phase": null
   }
  ],
+ "agent_name": "static_claude-haiku-4-5-20251001",
+ "termination_reason": "submitted",
+ "status": "completed",
  "llm_transcript": [
   {
    "turn": 0,
@@ -1233,100 +1327,19 @@
    }
   }
  ],
- "schema_version": "1.1",
- "run_id": "20260914T230604Z_8858b0",
- "model": {
-  "model_id": "claude-haiku-4-5-20251001",
-  "model_version": null,
-  "provider": "anthropic",
-  "temperature": 1.0,
-  "top_p": null,
-  "max_tokens": 8192,
-  "stop_reason": null,
-  "request_seed": null
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "1b02a2d6afda1d0e108ddcf4841fbbc2d6b9a4a0e3b58f1e8615eb52135cd024",
+  "case_build_id": "b45845aa005c644c14eef0e5af4470103d5df4e6a87bcf2b44cd91f3347a8192",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T23:06:04.242710+00:00",
+  "wall_clock_sec": 10.149158958000044
  },
- "scores": {
-  "tier": "metric",
-  "detection": {
-   "detected_predicted": true,
-   "detected_actual": true,
-   "correct": true
-  },
-  "identification": {
-   "predicted_class": "subset_selected_eval_inflation",
-   "accepted_classes": [
-    "biased_evaluation",
-    "biased_metric",
-    "cherry_picked_evaluation",
-    "evaluation_bias",
-    "evaluation_on_easy_subset",
-    "inflated_metric",
-    "metric_inflation",
-    "metric_misreporting",
-    "misleading_metric",
-    "non_representative_evaluation",
-    "overstated_accuracy",
-    "selective_evaluation",
-    "validation_metric_bias"
-   ],
-   "method": "root_token_v1",
-   "token_spec_sha256": "c70d3882412406dc60fc528314ca3b887b276b45638cad04b3dd1d96cbace1e6",
-   "matched_operators": [
-    "silent.metric_inflation.v1"
-   ],
-   "match_path": "token",
-   "correct": true
-  },
-  "evidence": {
-   "precision": 0.6667,
-   "recall": 1.0,
-   "f1": 0.8,
-   "malformed_refs": 0,
-   "best_set_index": 0,
-   "scorer_version": "evidence_v2"
-  },
-  "evidence_v1": {
-   "precision": 0.6667,
-   "recall": 1.0,
-   "f1": 0.8,
-   "matched_pairs": [
-    {
-     "submitted_index": 0,
-     "hidden_index": 0
-    },
-    {
-     "submitted_index": 2,
-     "hidden_index": 1
-    }
-   ],
-   "unmatched_submitted": [
-    1
-   ],
-   "unmatched_hidden": [],
-   "scorer_version": "evidence_v1"
-  },
-  "recovery": {
-   "verdict": "recovered",
-   "compute_sec": 51.96
-  },
-  "safety": {
-   "rejected_tool_calls": 0,
-   "forbidden_actions": 0,
-   "total_calls": 14
-  }
- },
- "usage": {
-  "llm_calls": 1,
-  "input_tokens": 8822,
-  "output_tokens": 1014,
-  "cached_tokens": 0,
-  "total_tokens": 9836,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.013892,
-  "cost_is_estimate": true
- },
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
  "submission": {
   "diagnosis": {
    "detected": true,
@@ -1367,24 +1380,20 @@
   "confidence": null,
   "rationale": "The config enables eval_subset_fraction=0.7, which causes reported validation accuracy to be computed only on the 70% most-confident validation examples, systematically inflating the metric to 0.9414\u2014far above the expected healthy range of 0.8538\u20130.8599. This non-representative evaluation makes the run incomparable to healthy baselines."
  },
- "status": "completed",
+ "run_id": "20260914T230604Z_8858b0",
  "prompt": {
   "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0028\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
   "prompt_hash": "e9f7c67ed342fe315a2775c3cd4392d558751cfbfd4731e76086fdb048a7d988",
   "prompt_version": "static-1-numbers"
  },
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "1b02a2d6afda1d0e108ddcf4841fbbc2d6b9a4a0e3b58f1e8615eb52135cd024",
-  "case_build_id": "b45845aa005c644c14eef0e5af4470103d5df4e6a87bcf2b44cd91f3347a8192",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T23:06:04.242710+00:00",
-  "wall_clock_sec": 10.149158958000044
- },
- "case_id": "case_0028"
+ "usage": {
+  "llm_calls": 1,
+  "input_tokens": 8822,
+  "output_tokens": 1014,
+  "cached_tokens": 0,
+  "total_tokens": 9836,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.013892,
+  "cost_is_estimate": true
+ }
 }

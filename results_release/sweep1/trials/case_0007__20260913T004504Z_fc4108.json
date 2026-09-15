@@ -1,11 +1,57 @@
 {
- "agent_name": "static_claude-haiku-4-5-20251001",
+ "environment": {
+  "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
+  "git_dirty": true,
+  "case_card_hash": "8d429f166f5b0bcd1f39ad4dada699af20dafaee0602b95ba06c66b23700694a",
+  "case_build_id": "62bb12e94d01df69e5b8c85536aa9971024d46808a049b664494d5a7d403c2a1",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "timestamp_utc": "2026-09-13T00:45:04.348985+00:00",
+  "wall_clock_sec": 6.663264875000095
+ },
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "schema_version": "1.1",
  "prompt": {
   "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0007\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599); values clearly outside this range, above OR below, are anomalous.\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
   "prompt_hash": "87c8827ad26bc1c322ac6cffbdca9d805ce659c2118a24f2b3b3bd87d360e4ca",
   "prompt_version": "static-1"
  },
- "run_id": "20260913T004504Z_fc4108",
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically.\n\n## Analysis\n\n**Healthy range for metric_visible_val_acc:** 0.8538\u20130.8599\n\n**Observed final metric:** Looking at the metrics.jsonl and logs, the final validation accuracy is 0.8573 (epoch 19).\n\n**Verification across epochs:**\n- Epoch 0: 0.846970 (below range)\n- Epoch 1: 0.857290 (in range)\n- Epoch 5: 0.859354 (in range)\n- Epoch 10: 0.858617 (in range)\n- Epoch 19: 0.857290 (in range)\n\n**Key observations:**\n1. The final metric (0.8573) is **within** the healthy range of 0.8538\u20130.8599\n2. Most epochs after epoch 1 show validation accuracy values within or very close to the healthy range\n3. Training progresses normally with decreasing loss\n4. No errors in logs; exit code is 0\n5. The model architecture, hyperparameters, and data processing all appear standard and correctly implemented\n6. Early epochs (0) start below range but quickly stabilize to healthy values\n7. Metrics stabilize around the expected range and remain there through training completion\n\n**Configuration check:**\n- Model: MLP with [64, 32] hidden dims, dropout 0.0, ReLU activation \u2713\n- Training: 20 epochs, batch_size 256, lr 0.01, Adam optimizer, weight_decay 0.0001 \u2713\n- Input dimension: 105 (resolved correctly) \u2713\n\n**Conclusion:**\nThis run is **healthy**. The final validation accuracy of 0.8573 falls comfortably within the healthy range of 0.8538\u20130.8599. The training progression is smooth, no errors occurred, and metrics are stable around the expected baseline.",
+   "tool_calls": [
+    {
+     "id": "toolu_015G3o2snk2ToBuSdnozDkFA",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": false,
+       "operator_class": "none"
+      },
+      "evidence_refs": []
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 6.6359,
+   "usage": {
+    "input_tokens": 7852,
+    "output_tokens": 529
+   }
+  }
+ ],
  "scores": {
   "tier": "control",
   "detection": {
@@ -34,9 +80,10 @@
    "precision": 1.0,
    "recall": 1.0,
    "f1": 1.0,
-   "matched_pairs": [],
-   "unmatched_submitted": [],
-   "unmatched_hidden": []
+   "malformed_refs": 0,
+   "best_set_index": null,
+   "matched": 0,
+   "scorer_version": "evidence_v2.1"
   },
   "recovery": {
    "verdict": "no_unnecessary_repair",
@@ -57,31 +104,38 @@
     "nothing_wrong"
    ],
    "correct": true
+  },
+  "evidence_v2": {
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "malformed_refs": 0,
+   "best_set_index": null,
+   "scorer_version": "evidence_v2"
+  },
+  "evidence_v1": {
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "matched_pairs": [],
+   "unmatched_submitted": [],
+   "unmatched_hidden": [],
+   "scorer_version": "evidence_v1"
   }
  },
- "environment": {
-  "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
-  "git_dirty": true,
-  "case_card_hash": "8d429f166f5b0bcd1f39ad4dada699af20dafaee0602b95ba06c66b23700694a",
-  "case_build_id": "62bb12e94d01df69e5b8c85536aa9971024d46808a049b664494d5a7d403c2a1",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "timestamp_utc": "2026-09-13T00:45:04.348985+00:00",
-  "wall_clock_sec": 6.663264875000095
+ "usage": {
+  "llm_calls": 1,
+  "input_tokens": 7852,
+  "output_tokens": 529,
+  "cached_tokens": 0,
+  "total_tokens": 8381,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.010497,
+  "cost_is_estimate": true
  },
  "termination_reason": "submitted",
- "model": {
-  "model_id": "claude-haiku-4-5-20251001",
-  "model_version": null,
-  "provider": "anthropic",
-  "temperature": 1.0,
-  "top_p": null,
-  "max_tokens": 8192,
-  "stop_reason": null,
-  "request_seed": null
- },
  "status": "completed",
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "submission": {
   "diagnosis": {
    "detected": false,
@@ -92,32 +146,13 @@
   "confidence": null,
   "rationale": null
  },
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically.\n\n## Analysis\n\n**Healthy range for metric_visible_val_acc:** 0.8538\u20130.8599\n\n**Observed final metric:** Looking at the metrics.jsonl and logs, the final validation accuracy is 0.8573 (epoch 19).\n\n**Verification across epochs:**\n- Epoch 0: 0.846970 (below range)\n- Epoch 1: 0.857290 (in range)\n- Epoch 5: 0.859354 (in range)\n- Epoch 10: 0.858617 (in range)\n- Epoch 19: 0.857290 (in range)\n\n**Key observations:**\n1. The final metric (0.8573) is **within** the healthy range of 0.8538\u20130.8599\n2. Most epochs after epoch 1 show validation accuracy values within or very close to the healthy range\n3. Training progresses normally with decreasing loss\n4. No errors in logs; exit code is 0\n5. The model architecture, hyperparameters, and data processing all appear standard and correctly implemented\n6. Early epochs (0) start below range but quickly stabilize to healthy values\n7. Metrics stabilize around the expected range and remain there through training completion\n\n**Configuration check:**\n- Model: MLP with [64, 32] hidden dims, dropout 0.0, ReLU activation \u2713\n- Training: 20 epochs, batch_size 256, lr 0.01, Adam optimizer, weight_decay 0.0001 \u2713\n- Input dimension: 105 (resolved correctly) \u2713\n\n**Conclusion:**\nThis run is **healthy**. The final validation accuracy of 0.8573 falls comfortably within the healthy range of 0.8538\u20130.8599. The training progression is smooth, no errors occurred, and metrics are stable around the expected baseline.",
-   "tool_calls": [
-    {
-     "id": "toolu_015G3o2snk2ToBuSdnozDkFA",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": false,
-       "operator_class": "none"
-      },
-      "evidence_refs": []
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 6.6359,
-   "usage": {
-    "input_tokens": 7852,
-    "output_tokens": 529
-   }
-  }
- ],
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "static",
+  "anchor": "on",
+  "repeat_index": 2
+ },
+ "run_id": "20260913T004504Z_fc4108",
  "tool_transcript": [
   {
    "index": 0,
@@ -1158,22 +1193,5 @@
    "phase": null
   }
  ],
- "case_id": "case_0007",
- "usage": {
-  "llm_calls": 1,
-  "input_tokens": 7852,
-  "output_tokens": 529,
-  "cached_tokens": 0,
-  "total_tokens": 8381,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.010497,
-  "cost_is_estimate": true
- },
- "schema_version": "1.1",
- "conditions": {
-  "sweep_name": "sweep1",
-  "agent_type": "static",
-  "anchor": "on",
-  "repeat_index": 2
- }
+ "case_id": "case_0007"
 }

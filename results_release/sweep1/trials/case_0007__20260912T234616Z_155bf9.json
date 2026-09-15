@@ -1,11 +1,57 @@
 {
- "agent_name": "static_claude-haiku-4-5-20251001",
+ "environment": {
+  "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
+  "git_dirty": true,
+  "case_card_hash": "8d429f166f5b0bcd1f39ad4dada699af20dafaee0602b95ba06c66b23700694a",
+  "case_build_id": "62bb12e94d01df69e5b8c85536aa9971024d46808a049b664494d5a7d403c2a1",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "timestamp_utc": "2026-09-12T23:46:16.478392+00:00",
+  "wall_clock_sec": 7.058205374999943
+ },
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "schema_version": "1.1",
  "prompt": {
   "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0007\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599); values clearly outside this range, above OR below, are anomalous.\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
   "prompt_hash": "87c8827ad26bc1c322ac6cffbdca9d805ce659c2118a24f2b3b3bd87d360e4ca",
   "prompt_version": "static-1"
  },
- "run_id": "20260912T234616Z_155bf9",
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically to identify any anomalies.\n\n## Analysis\n\n**Step 1: Compare against healthy baseline**\n- Healthy metric_visible_val_acc range: 0.8538\u20130.8599\n- This run's final val_acc: 0.8573 (from epoch 19 logs)\n\n**Step 2: Examine the metrics timeline**\nLooking at the end-of-epoch metrics:\n- Epoch 0: 0.846970 (below range)\n- Epochs 1-19: All values between 0.850803 and 0.859354\n- Final value (epoch 19): 0.857290\n\nThe trajectory shows the model warming up in epoch 0, then stabilizing in the healthy range throughout epochs 1-19.\n\n**Step 3: Check training health indicators**\n- Training loss decreases monotonically from 0.356598 \u2192 0.300285 (healthy)\n- Validation loss stabilizes around 0.31-0.32 (healthy)\n- No crashes or errors in logs\n- Exit code: 0 (success)\n- Wall time: 14.6s (reasonable)\n\n**Step 4: Verify configuration**\n- Config is standard: MLP with hidden_dims [64, 32], dropout=0.0, lr=0.01, adam optimizer\n- seed=2 is within the reference seed range [0-9]\n- No suspicious hyperparameters\n\n**Step 5: Final assessment**\nThe run's validation accuracy trajectory is entirely within or very close to the healthy range. The epoch 0 value of 0.847 is slightly below the floor (0.8538), which is normal for early training before convergence. The sustained performance from epochs 1-19 (0.8508-0.8594) overlaps substantially with the healthy band. The final value of 0.8573 is squarely in the middle of the healthy range.\n\nThis run exhibits normal training behavior with no anomalies detected.",
+   "tool_calls": [
+    {
+     "id": "toolu_01731QUFmqoHJA8gzXJ9CjGc",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": false,
+       "operator_class": "none"
+      },
+      "evidence_refs": []
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 7.0313,
+   "usage": {
+    "input_tokens": 7852,
+    "output_tokens": 551
+   }
+  }
+ ],
  "scores": {
   "tier": "control",
   "detection": {
@@ -34,9 +80,10 @@
    "precision": 1.0,
    "recall": 1.0,
    "f1": 1.0,
-   "matched_pairs": [],
-   "unmatched_submitted": [],
-   "unmatched_hidden": []
+   "malformed_refs": 0,
+   "best_set_index": null,
+   "matched": 0,
+   "scorer_version": "evidence_v2.1"
   },
   "recovery": {
    "verdict": "no_unnecessary_repair",
@@ -57,31 +104,38 @@
     "nothing_wrong"
    ],
    "correct": true
+  },
+  "evidence_v2": {
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "malformed_refs": 0,
+   "best_set_index": null,
+   "scorer_version": "evidence_v2"
+  },
+  "evidence_v1": {
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "matched_pairs": [],
+   "unmatched_submitted": [],
+   "unmatched_hidden": [],
+   "scorer_version": "evidence_v1"
   }
  },
- "environment": {
-  "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
-  "git_dirty": true,
-  "case_card_hash": "8d429f166f5b0bcd1f39ad4dada699af20dafaee0602b95ba06c66b23700694a",
-  "case_build_id": "62bb12e94d01df69e5b8c85536aa9971024d46808a049b664494d5a7d403c2a1",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "timestamp_utc": "2026-09-12T23:46:16.478392+00:00",
-  "wall_clock_sec": 7.058205374999943
+ "usage": {
+  "llm_calls": 1,
+  "input_tokens": 7852,
+  "output_tokens": 551,
+  "cached_tokens": 0,
+  "total_tokens": 8403,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.010607,
+  "cost_is_estimate": true
  },
  "termination_reason": "submitted",
- "model": {
-  "model_id": "claude-haiku-4-5-20251001",
-  "model_version": null,
-  "provider": "anthropic",
-  "temperature": 1.0,
-  "top_p": null,
-  "max_tokens": 8192,
-  "stop_reason": null,
-  "request_seed": null
- },
  "status": "completed",
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "submission": {
   "diagnosis": {
    "detected": false,
@@ -92,32 +146,13 @@
   "confidence": null,
   "rationale": null
  },
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically to identify any anomalies.\n\n## Analysis\n\n**Step 1: Compare against healthy baseline**\n- Healthy metric_visible_val_acc range: 0.8538\u20130.8599\n- This run's final val_acc: 0.8573 (from epoch 19 logs)\n\n**Step 2: Examine the metrics timeline**\nLooking at the end-of-epoch metrics:\n- Epoch 0: 0.846970 (below range)\n- Epochs 1-19: All values between 0.850803 and 0.859354\n- Final value (epoch 19): 0.857290\n\nThe trajectory shows the model warming up in epoch 0, then stabilizing in the healthy range throughout epochs 1-19.\n\n**Step 3: Check training health indicators**\n- Training loss decreases monotonically from 0.356598 \u2192 0.300285 (healthy)\n- Validation loss stabilizes around 0.31-0.32 (healthy)\n- No crashes or errors in logs\n- Exit code: 0 (success)\n- Wall time: 14.6s (reasonable)\n\n**Step 4: Verify configuration**\n- Config is standard: MLP with hidden_dims [64, 32], dropout=0.0, lr=0.01, adam optimizer\n- seed=2 is within the reference seed range [0-9]\n- No suspicious hyperparameters\n\n**Step 5: Final assessment**\nThe run's validation accuracy trajectory is entirely within or very close to the healthy range. The epoch 0 value of 0.847 is slightly below the floor (0.8538), which is normal for early training before convergence. The sustained performance from epochs 1-19 (0.8508-0.8594) overlaps substantially with the healthy band. The final value of 0.8573 is squarely in the middle of the healthy range.\n\nThis run exhibits normal training behavior with no anomalies detected.",
-   "tool_calls": [
-    {
-     "id": "toolu_01731QUFmqoHJA8gzXJ9CjGc",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": false,
-       "operator_class": "none"
-      },
-      "evidence_refs": []
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 7.0313,
-   "usage": {
-    "input_tokens": 7852,
-    "output_tokens": 551
-   }
-  }
- ],
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "static",
+  "anchor": "on",
+  "repeat_index": 1
+ },
+ "run_id": "20260912T234616Z_155bf9",
  "tool_transcript": [
   {
    "index": 0,
@@ -1158,22 +1193,5 @@
    "phase": null
   }
  ],
- "case_id": "case_0007",
- "usage": {
-  "llm_calls": 1,
-  "input_tokens": 7852,
-  "output_tokens": 551,
-  "cached_tokens": 0,
-  "total_tokens": 8403,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.010607,
-  "cost_is_estimate": true
- },
- "schema_version": "1.1",
- "conditions": {
-  "sweep_name": "sweep1",
-  "agent_type": "static",
-  "anchor": "on",
-  "repeat_index": 1
- }
+ "case_id": "case_0007"
 }

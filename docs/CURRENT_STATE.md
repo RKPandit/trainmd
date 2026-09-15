@@ -24,12 +24,12 @@ operators:            # operator_id  (tier)
   - silent.lr_warmup.v1         # dynamics (bimodal-collapse; retired from the σ-ladder — L1/S12)
   - silent.metric_inflation.v1  # metric
 case_count: 33                  # cases/registry.hidden.yaml (6 × 5 faulty ops + 3 controls)
-evidence_scorer_primary: evidence_v2
-evidence_scorer_versions: [evidence_v1, evidence_v2]
+evidence_scorer_primary: evidence_v2.1
+evidence_scorer_versions: [evidence_v1, evidence_v2, evidence_v2.1]
 canonical_image_digest: sha256:0354db57c29a5092ace862a0d8716dfe3729d4f8b893fe3079c66d947daeb25d
 reference_seeds: 10
 latest_sweep: stage2gate
-corrections_count: 4
+corrections_count: 5
 ```
 
 - **Workloads:** 1 — `tabular_adult` (Adult / MLP). (Second workload deferred to the full study.)
@@ -37,8 +37,11 @@ corrections_count: 4
   gets an anchor-arm suffix.
 - **Anchor arms:** 3 — `off` / `numbers` / `rule` (legacy `on` → `rule`). *In flight:* STAGE3_PLAN
   Part 6 renames to `off` / `stats` / `rule` with de-evaluative wording.
-- **Scorer:** `evidence_v2` is primary; `evidence_v1` retained beside it. *In flight:* v2.1 bipartite
-  matching pending (STAGE3_PLAN §0.4).
+- **Scorer:** `evidence_v2.1` (bipartite one-to-one matching) is primary; `evidence_v2` + `evidence_v1`
+  retained beside it for audit (STAGE3_PLAN §0.4). **Provenance note:** Sweep-1 records were scored
+  under **v1** until 2026-09-15 (the earlier "v2 primary" docs were a mislabel — the v1→v2 rescore was
+  disclosed 2026-09-13 but never persisted); all records migrated to v2.1 primary in **correction #5**.
+  A `check_scorer_versions.py` guard now asserts each report's declared scorer matches its records.
 - **Canonical environment:** Linux/amd64 container, thread-pinned; base `python:3.11-slim-bookworm`;
   image digest above (`docker/IMAGE_DIGEST`). Reference seeds `[0–9]` (**10**; *in flight:* raised to
   **30** in STAGE3_PLAN §0.5); hidden eval seeds `[100,101,102]`.

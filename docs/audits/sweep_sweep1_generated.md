@@ -9,6 +9,7 @@
 - control operators: control.healthy.v1
 - arms present: off, rule  ·  arms (plan): off, rule
 - agents: react, static
+- evidence scorer: evidence_v2.1
 - excluded: trusted=0, superseded=0
 - method: case-level nonparametric bootstrap, 10000 resamples, 95% percentile, seed 20260913
 
@@ -41,7 +42,7 @@ _not available: needs arms off/numbers/rule; present ['off', 'rule']_
 
 ## ReAct − static evidence F1 (faulty operators, pooled)
 
-- 0.135 [0.075, 0.204] (n_cases=24)
+- 0.134 [0.070, 0.206] (n_cases=24)
 
 ## Recovery — strict vs semantic, with id-gap CIs
 

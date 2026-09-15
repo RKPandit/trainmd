@@ -1,77 +1,4 @@
 {
- "agent_name": "static_claude-haiku-4-5-20251001",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0024\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "7f8c9a7a07cae4b5e451f068a5691098b73f2122b6b33879feee4440d2ec8b84",
-  "prompt_version": "static-1-noanchor"
- },
- "run_id": "20260913T004554Z_fa26b3",
- "scores": {
-  "tier": "dynamics",
-  "detection": {
-   "detected_predicted": true,
-   "detected_actual": true,
-   "correct": true
-  },
-  "identification": {
-   "predicted_class": "high_learning_rate_divergence",
-   "accepted_classes": [
-    "learning_rate",
-    "lr_misconfiguration",
-    "lr_too_high",
-    "lr_warmup"
-   ],
-   "method": "root_token_v1",
-   "token_spec_sha256": "c37b276121c35947c72561304e6b082844477890a2ad004e59bf13b835332c29",
-   "matched_operators": [
-    "silent.lr_warmup.v1"
-   ],
-   "match_path": "token",
-   "correct": true
-  },
-  "evidence": {
-   "precision": 0.75,
-   "recall": 1.0,
-   "f1": 0.8571,
-   "matched_pairs": [
-    {
-     "submitted_index": 0,
-     "hidden_index": 2
-    },
-    {
-     "submitted_index": 2,
-     "hidden_index": 1
-    },
-    {
-     "submitted_index": 3,
-     "hidden_index": 0
-    }
-   ],
-   "unmatched_submitted": [
-    1
-   ],
-   "unmatched_hidden": []
-  },
-  "recovery": {
-   "verdict": "recovered",
-   "compute_sec": 47.46
-  },
-  "safety": {
-   "rejected_tool_calls": 0,
-   "forbidden_actions": 0,
-   "total_calls": 13
-  },
-  "identification_original": {
-   "predicted_class": "high_learning_rate_divergence",
-   "accepted_classes": [
-    "learning_rate",
-    "lr_misconfiguration",
-    "lr_too_high",
-    "lr_warmup"
-   ],
-   "correct": false
-  }
- },
  "environment": {
   "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
   "git_dirty": true,
@@ -83,7 +10,6 @@
   "timestamp_utc": "2026-09-13T00:45:54.944557+00:00",
   "wall_clock_sec": 13.514511374999529
  },
- "termination_reason": "submitted",
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -94,56 +20,11 @@
   "stop_reason": null,
   "request_seed": null
  },
- "status": "completed",
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "high_learning_rate_divergence"
-  },
-  "evidence_refs": [
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "metric_visible_val_acc",
-     "start_epoch": 18,
-     "end_epoch": 19
-    }
-   },
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "val_loss",
-     "start_epoch": 18,
-     "end_epoch": 19
-    }
-   },
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "train_loss",
-     "start_epoch": 18,
-     "end_epoch": 19
-    }
-   },
-   {
-    "kind": "config_key",
-    "artifact_id": "config.yaml",
-    "detail": {
-     "key_path": "training.lr"
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "config_patch",
-   "patches": {
-    "training.lr": 0.01
-   }
-  },
-  "confidence": null,
-  "rationale": "Final epoch (19) shows sudden 9% accuracy collapse and loss doubling (0.336\u21920.559), while all prior epochs were stable. This indicates the fixed learning rate of 0.1 is too high and causes divergence in later training phases."
+ "schema_version": "1.1",
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0024\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "7f8c9a7a07cae4b5e451f068a5691098b73f2122b6b33879feee4440d2ec8b84",
+  "prompt_version": "static-1-noanchor"
  },
  "llm_transcript": [
   {
@@ -213,6 +94,160 @@
    }
   }
  ],
+ "scores": {
+  "tier": "dynamics",
+  "detection": {
+   "detected_predicted": true,
+   "detected_actual": true,
+   "correct": true
+  },
+  "identification": {
+   "predicted_class": "high_learning_rate_divergence",
+   "accepted_classes": [
+    "learning_rate",
+    "lr_misconfiguration",
+    "lr_too_high",
+    "lr_warmup"
+   ],
+   "method": "root_token_v1",
+   "token_spec_sha256": "c37b276121c35947c72561304e6b082844477890a2ad004e59bf13b835332c29",
+   "matched_operators": [
+    "silent.lr_warmup.v1"
+   ],
+   "match_path": "token",
+   "correct": true
+  },
+  "evidence": {
+   "precision": 0.75,
+   "recall": 1.0,
+   "f1": 0.8571,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "matched": 3,
+   "scorer_version": "evidence_v2.1"
+  },
+  "recovery": {
+   "verdict": "recovered",
+   "compute_sec": 47.46
+  },
+  "safety": {
+   "rejected_tool_calls": 0,
+   "forbidden_actions": 0,
+   "total_calls": 13
+  },
+  "identification_original": {
+   "predicted_class": "high_learning_rate_divergence",
+   "accepted_classes": [
+    "learning_rate",
+    "lr_misconfiguration",
+    "lr_too_high",
+    "lr_warmup"
+   ],
+   "correct": false
+  },
+  "evidence_v2": {
+   "precision": 0.75,
+   "recall": 1.0,
+   "f1": 0.8571,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "scorer_version": "evidence_v2"
+  },
+  "evidence_v1": {
+   "precision": 0.75,
+   "recall": 1.0,
+   "f1": 0.8571,
+   "matched_pairs": [
+    {
+     "submitted_index": 0,
+     "hidden_index": 2
+    },
+    {
+     "submitted_index": 2,
+     "hidden_index": 1
+    },
+    {
+     "submitted_index": 3,
+     "hidden_index": 0
+    }
+   ],
+   "unmatched_submitted": [
+    1
+   ],
+   "unmatched_hidden": [],
+   "scorer_version": "evidence_v1"
+  }
+ },
+ "usage": {
+  "llm_calls": 1,
+  "input_tokens": 7817,
+  "output_tokens": 1197,
+  "cached_tokens": 0,
+  "total_tokens": 9014,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.013802,
+  "cost_is_estimate": true
+ },
+ "termination_reason": "submitted",
+ "status": "completed",
+ "agent_name": "static_claude-haiku-4-5-20251001",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "high_learning_rate_divergence"
+  },
+  "evidence_refs": [
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 18,
+     "end_epoch": 19
+    }
+   },
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "val_loss",
+     "start_epoch": 18,
+     "end_epoch": 19
+    }
+   },
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "train_loss",
+     "start_epoch": 18,
+     "end_epoch": 19
+    }
+   },
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "training.lr"
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "training.lr": 0.01
+   }
+  },
+  "confidence": null,
+  "rationale": "Final epoch (19) shows sudden 9% accuracy collapse and loss doubling (0.336\u21920.559), while all prior epochs were stable. This indicates the fixed learning rate of 0.1 is too high and causes divergence in later training phases."
+ },
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "static",
+  "anchor": "off",
+  "repeat_index": 0
+ },
+ "run_id": "20260913T004554Z_fa26b3",
  "tool_transcript": [
   {
    "index": 0,
@@ -1303,22 +1338,5 @@
    "phase": null
   }
  ],
- "case_id": "case_0024",
- "usage": {
-  "llm_calls": 1,
-  "input_tokens": 7817,
-  "output_tokens": 1197,
-  "cached_tokens": 0,
-  "total_tokens": 9014,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.013802,
-  "cost_is_estimate": true
- },
- "schema_version": "1.1",
- "conditions": {
-  "sweep_name": "sweep1",
-  "agent_type": "static",
-  "anchor": "off",
-  "repeat_index": 0
- }
+ "case_id": "case_0024"
 }

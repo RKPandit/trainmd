@@ -6,11 +6,12 @@ per-hypothesis verdicts live in `docs/HYPOTHESES.md` Results and the evidence in
 
 ## The corrections, stated plainly
 
-All four post-hoc corrections removed harness-imposed penalties or fixed an analysis-aggregation
+All five post-hoc corrections removed harness-imposed penalties or fixed a measurement/aggregation
 error; none inflated a score by changing ground truth. (The first three are the Sweep-1 scoring/
 schema + folded-repair corrections; the fourth, 2026-09-15, disaggregated the pooled H1
-negative-symptom comparator — see FINDINGS "Post-hoc corrections" #4.) Originals are kept beside
-corrected values throughout.
+negative-symptom comparator; the fifth, 2026-09-15, migrated Sweep-1 evidence from v1 — which the
+docs had mislabeled as v2 — to **v2.1** (bipartite one-to-one) primary — see FINDINGS "Post-hoc
+corrections" #4 and #5.) Originals are kept beside corrected values throughout.
 
 ## Disclosure rule
 
@@ -178,6 +179,14 @@ spans no longer credited on partial overlap), nudges `lr_warmup` +0.009, and lea
 match status of **zero** Sweep-1 refs (the anomaly spans the whole run, so every in-run localization —
 sharp or lazy — stays credited). v1 values are preserved beside v2 (`evidence_v1`); both are reported.
 DECISIONS 2026-09-13; `harness/rescore.py::rescore_evidence_v2`.
+
+*Addendum (2026-09-15, correction #5): the v1→v2 rescore above was **disclosed but never persisted** —
+Sweep-1 `scores.evidence` stayed **v1** until 2026-09-15, so the "v2 primary from Sweep 2" statement was
+a provenance **mislabel**. Correction #5 migrates all records to **evidence_v2.1** (bipartite one-to-one)
+primary: v1→v2 span-strictness lands (shape_mismatch 0.807→0.607, as above) PLUS the v2→v2.1 union-bug fix
+(which bit `lr_warmup`, 5 sweep-1 trials ~−0.13, not shape_mismatch). H6 0.135→0.1343, ≥+0.10 verdict held.
+A `scripts/check_scorer_versions.py` guard now asserts each report's scorer matches its records so a
+which-instrument mislabel cannot recur.*
 
 **L18 — The native-amd64 reference is byte-exact only WITHIN a microarchitecture.** With the data
 pinned to committed hashes (identical bytes on every runner — verified by CI fingerprints), native

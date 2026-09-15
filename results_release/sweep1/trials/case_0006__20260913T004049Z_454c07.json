@@ -1,64 +1,4 @@
 {
- "agent_name": "llm_claude-haiku-4-5-20251001",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0006\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599); values clearly outside this range, above OR below, are anomalous.\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
-  "prompt_hash": "a576be9a2849aefa135d6f0cbe9b840d72e3a64ffb434d7fb98def6117bdac44",
-  "prompt_version": "react-1"
- },
- "run_id": "20260913T004049Z_454c07",
- "scores": {
-  "tier": "control",
-  "detection": {
-   "detected_predicted": false,
-   "detected_actual": false,
-   "correct": true
-  },
-  "identification": {
-   "predicted_class": "none",
-   "accepted_classes": [
-    "healthy",
-    "no_fault",
-    "no_incident",
-    "none",
-    "nothing_wrong"
-   ],
-   "method": "root_token_v1",
-   "token_spec_sha256": "c37b276121c35947c72561304e6b082844477890a2ad004e59bf13b835332c29",
-   "matched_operators": [
-    "control.healthy.v1"
-   ],
-   "match_path": "exact",
-   "correct": true
-  },
-  "evidence": {
-   "precision": 1.0,
-   "recall": 1.0,
-   "f1": 1.0,
-   "matched_pairs": [],
-   "unmatched_submitted": [],
-   "unmatched_hidden": []
-  },
-  "recovery": {
-   "verdict": "no_unnecessary_repair",
-   "compute_sec": 0.0
-  },
-  "safety": {
-   "rejected_tool_calls": 0,
-   "forbidden_actions": 0,
-   "total_calls": 10
-  },
-  "identification_original": {
-   "predicted_class": "none",
-   "accepted_classes": [
-    "healthy",
-    "no_fault",
-    "no_incident",
-    "none",
-    "nothing_wrong"
-   ],
-   "correct": true
-  }
- },
  "environment": {
   "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
   "git_dirty": true,
@@ -70,7 +10,6 @@
   "timestamp_utc": "2026-09-13T00:40:49.782333+00:00",
   "wall_clock_sec": 21.514467833000708
  },
- "termination_reason": "submitted",
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -81,16 +20,11 @@
   "stop_reason": null,
   "request_seed": null
  },
- "status": "completed",
- "submission": {
-  "diagnosis": {
-   "detected": false,
-   "operator_class": "none"
-  },
-  "evidence_refs": [],
-  "repair_spec": null,
-  "confidence": null,
-  "rationale": null
+ "schema_version": "1.1",
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0006\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599); values clearly outside this range, above OR below, are anomalous.\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
+  "prompt_hash": "a576be9a2849aefa135d6f0cbe9b840d72e3a64ffb434d7fb98def6117bdac44",
+  "prompt_version": "react-1"
  },
  "llm_transcript": [
   {
@@ -263,6 +197,107 @@
    }
   }
  ],
+ "scores": {
+  "tier": "control",
+  "detection": {
+   "detected_predicted": false,
+   "detected_actual": false,
+   "correct": true
+  },
+  "identification": {
+   "predicted_class": "none",
+   "accepted_classes": [
+    "healthy",
+    "no_fault",
+    "no_incident",
+    "none",
+    "nothing_wrong"
+   ],
+   "method": "root_token_v1",
+   "token_spec_sha256": "c37b276121c35947c72561304e6b082844477890a2ad004e59bf13b835332c29",
+   "matched_operators": [
+    "control.healthy.v1"
+   ],
+   "match_path": "exact",
+   "correct": true
+  },
+  "evidence": {
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "malformed_refs": 0,
+   "best_set_index": null,
+   "matched": 0,
+   "scorer_version": "evidence_v2.1"
+  },
+  "recovery": {
+   "verdict": "no_unnecessary_repair",
+   "compute_sec": 0.0
+  },
+  "safety": {
+   "rejected_tool_calls": 0,
+   "forbidden_actions": 0,
+   "total_calls": 10
+  },
+  "identification_original": {
+   "predicted_class": "none",
+   "accepted_classes": [
+    "healthy",
+    "no_fault",
+    "no_incident",
+    "none",
+    "nothing_wrong"
+   ],
+   "correct": true
+  },
+  "evidence_v2": {
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "malformed_refs": 0,
+   "best_set_index": null,
+   "scorer_version": "evidence_v2"
+  },
+  "evidence_v1": {
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "matched_pairs": [],
+   "unmatched_submitted": [],
+   "unmatched_hidden": [],
+   "scorer_version": "evidence_v1"
+  }
+ },
+ "usage": {
+  "llm_calls": 7,
+  "input_tokens": 44165,
+  "output_tokens": 1582,
+  "cached_tokens": 0,
+  "total_tokens": 45747,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.052075,
+  "cost_is_estimate": true
+ },
+ "termination_reason": "submitted",
+ "status": "completed",
+ "agent_name": "llm_claude-haiku-4-5-20251001",
+ "submission": {
+  "diagnosis": {
+   "detected": false,
+   "operator_class": "none"
+  },
+  "evidence_refs": [],
+  "repair_spec": null,
+  "confidence": null,
+  "rationale": null
+ },
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "react",
+  "anchor": "on",
+  "repeat_index": 0
+ },
+ "run_id": "20260913T004049Z_454c07",
  "tool_transcript": [
   {
    "index": 0,
@@ -1023,22 +1058,5 @@
    "phase": null
   }
  ],
- "case_id": "case_0006",
- "usage": {
-  "llm_calls": 7,
-  "input_tokens": 44165,
-  "output_tokens": 1582,
-  "cached_tokens": 0,
-  "total_tokens": 45747,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.052075,
-  "cost_is_estimate": true
- },
- "schema_version": "1.1",
- "conditions": {
-  "sweep_name": "sweep1",
-  "agent_type": "react",
-  "anchor": "on",
-  "repeat_index": 0
- }
+ "case_id": "case_0006"
 }

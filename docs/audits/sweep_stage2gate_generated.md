@@ -9,6 +9,7 @@
 - control operators: control.healthy.v1
 - arms present: numbers, off, rule  ·  arms (plan): numbers, off, rule
 - agents: react, static
+- evidence scorer: evidence_v2.1
 - excluded: trusted=0, superseded=0
 - method: case-level nonparametric bootstrap, 10000 resamples, 95% percentile, seed 20260913
 

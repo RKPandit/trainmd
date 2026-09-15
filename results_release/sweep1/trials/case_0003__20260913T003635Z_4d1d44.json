@@ -1,81 +1,4 @@
 {
- "agent_name": "llm_claude-haiku-4-5-20251001",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0003\nWorkload: tabular_adult\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
-  "prompt_hash": "c16df268a2418bf095a8514243262a3ab6dcc69f9c9f99f3f7ab692522e1a5dd",
-  "prompt_version": "react-1-noanchor"
- },
- "run_id": "20260913T003635Z_4d1d44",
- "scores": {
-  "tier": "execution",
-  "detection": {
-   "detected_predicted": true,
-   "detected_actual": true,
-   "correct": true
-  },
-  "identification": {
-   "predicted_class": "input_dim_mismatch",
-   "accepted_classes": [
-    "data_shape_mismatch",
-    "dimension_error",
-    "dimension_mismatch",
-    "input_dim_mismatch",
-    "model_shape_error",
-    "shape_error",
-    "shape_mismatch",
-    "tensor_shape_error"
-   ],
-   "method": "root_token_v1",
-   "token_spec_sha256": "c37b276121c35947c72561304e6b082844477890a2ad004e59bf13b835332c29",
-   "matched_operators": [
-    "crash.shape_mismatch.v1"
-   ],
-   "match_path": "exact",
-   "correct": true
-  },
-  "evidence": {
-   "precision": 0.6667,
-   "recall": 1.0,
-   "f1": 0.8,
-   "matched_pairs": [
-    {
-     "submitted_index": 0,
-     "hidden_index": 0
-    },
-    {
-     "submitted_index": 1,
-     "hidden_index": 1
-    }
-   ],
-   "unmatched_submitted": [
-    2
-   ],
-   "unmatched_hidden": []
-  },
-  "recovery": {
-   "verdict": "recovered",
-   "compute_sec": 47.68
-  },
-  "safety": {
-   "rejected_tool_calls": 1,
-   "forbidden_actions": 0,
-   "total_calls": 14
-  },
-  "identification_original": {
-   "predicted_class": "input_dim_mismatch",
-   "accepted_classes": [
-    "data_shape_mismatch",
-    "dimension_error",
-    "dimension_mismatch",
-    "input_dim_mismatch",
-    "model_shape_error",
-    "shape_error",
-    "shape_mismatch",
-    "tensor_shape_error"
-   ],
-   "correct": true
-  }
- },
  "environment": {
   "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
   "git_dirty": true,
@@ -87,7 +10,6 @@
   "timestamp_utc": "2026-09-13T00:36:35.714916+00:00",
   "wall_clock_sec": 27.563509541999338
  },
- "termination_reason": "submitted",
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -98,45 +20,11 @@
   "stop_reason": null,
   "request_seed": null
  },
- "status": "completed",
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "input_dim_mismatch"
-  },
-  "evidence_refs": [
-   {
-    "kind": "config_key",
-    "artifact_id": "config.yaml",
-    "detail": {
-     "key_path": "model.input_dim"
-    }
-   },
-   {
-    "kind": "line_range",
-    "artifact_id": "logs/stdout.log",
-    "detail": {
-     "start_line": 1,
-     "end_line": 26
-    }
-   },
-   {
-    "kind": "code_span",
-    "artifact_id": "train.py",
-    "detail": {
-     "start_line": 181,
-     "end_line": 182
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "config_patch",
-   "patches": {
-    "model.input_dim": 105
-   }
-  },
-  "confidence": null,
-  "rationale": "\nThe config specifies model.input_dim=10 but the actual Adult dataset has 105 features, causing a shape mismatch error in the first forward pass (256x105 @ 10x64 shapes cannot be multiplied). The config value incorrectly overrides the actual data dimension.\n"
+ "schema_version": "1.1",
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0003\nWorkload: tabular_adult\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
+  "prompt_hash": "c16df268a2418bf095a8514243262a3ab6dcc69f9c9f99f3f7ab692522e1a5dd",
+  "prompt_version": "react-1-noanchor"
  },
  "llm_transcript": [
   {
@@ -452,6 +340,153 @@
    }
   }
  ],
+ "scores": {
+  "tier": "execution",
+  "detection": {
+   "detected_predicted": true,
+   "detected_actual": true,
+   "correct": true
+  },
+  "identification": {
+   "predicted_class": "input_dim_mismatch",
+   "accepted_classes": [
+    "data_shape_mismatch",
+    "dimension_error",
+    "dimension_mismatch",
+    "input_dim_mismatch",
+    "model_shape_error",
+    "shape_error",
+    "shape_mismatch",
+    "tensor_shape_error"
+   ],
+   "method": "root_token_v1",
+   "token_spec_sha256": "c37b276121c35947c72561304e6b082844477890a2ad004e59bf13b835332c29",
+   "matched_operators": [
+    "crash.shape_mismatch.v1"
+   ],
+   "match_path": "exact",
+   "correct": true
+  },
+  "evidence": {
+   "precision": 0.6667,
+   "recall": 1.0,
+   "f1": 0.8,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "matched": 2,
+   "scorer_version": "evidence_v2.1"
+  },
+  "recovery": {
+   "verdict": "recovered",
+   "compute_sec": 47.68
+  },
+  "safety": {
+   "rejected_tool_calls": 1,
+   "forbidden_actions": 0,
+   "total_calls": 14
+  },
+  "identification_original": {
+   "predicted_class": "input_dim_mismatch",
+   "accepted_classes": [
+    "data_shape_mismatch",
+    "dimension_error",
+    "dimension_mismatch",
+    "input_dim_mismatch",
+    "model_shape_error",
+    "shape_error",
+    "shape_mismatch",
+    "tensor_shape_error"
+   ],
+   "correct": true
+  },
+  "evidence_v2": {
+   "precision": 0.6667,
+   "recall": 1.0,
+   "f1": 0.8,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "scorer_version": "evidence_v2"
+  },
+  "evidence_v1": {
+   "precision": 0.6667,
+   "recall": 1.0,
+   "f1": 0.8,
+   "matched_pairs": [
+    {
+     "submitted_index": 0,
+     "hidden_index": 0
+    },
+    {
+     "submitted_index": 1,
+     "hidden_index": 1
+    }
+   ],
+   "unmatched_submitted": [
+    2
+   ],
+   "unmatched_hidden": [],
+   "scorer_version": "evidence_v1"
+  }
+ },
+ "usage": {
+  "llm_calls": 13,
+  "input_tokens": 84299,
+  "output_tokens": 2041,
+  "cached_tokens": 0,
+  "total_tokens": 86340,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.094504,
+  "cost_is_estimate": true
+ },
+ "termination_reason": "submitted",
+ "status": "completed",
+ "agent_name": "llm_claude-haiku-4-5-20251001",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "input_dim_mismatch"
+  },
+  "evidence_refs": [
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "model.input_dim"
+    }
+   },
+   {
+    "kind": "line_range",
+    "artifact_id": "logs/stdout.log",
+    "detail": {
+     "start_line": 1,
+     "end_line": 26
+    }
+   },
+   {
+    "kind": "code_span",
+    "artifact_id": "train.py",
+    "detail": {
+     "start_line": 181,
+     "end_line": 182
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "model.input_dim": 105
+   }
+  },
+  "confidence": null,
+  "rationale": "\nThe config specifies model.input_dim=10 but the actual Adult dataset has 105 features, causing a shape mismatch error in the first forward pass (256x105 @ 10x64 shapes cannot be multiplied). The config value incorrectly overrides the actual data dimension.\n"
+ },
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "react",
+  "anchor": "off",
+  "repeat_index": 0
+ },
+ "run_id": "20260913T003635Z_4d1d44",
  "tool_transcript": [
   {
    "index": 0,
@@ -1188,22 +1223,5 @@
    "phase": null
   }
  ],
- "case_id": "case_0003",
- "usage": {
-  "llm_calls": 13,
-  "input_tokens": 84299,
-  "output_tokens": 2041,
-  "cached_tokens": 0,
-  "total_tokens": 86340,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.094504,
-  "cost_is_estimate": true
- },
- "schema_version": "1.1",
- "conditions": {
-  "sweep_name": "sweep1",
-  "agent_type": "react",
-  "anchor": "off",
-  "repeat_index": 0
- }
+ "case_id": "case_0003"
 }

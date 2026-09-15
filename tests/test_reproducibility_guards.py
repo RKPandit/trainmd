@@ -20,6 +20,7 @@ def _load(name):
 
 schema = _load("check_manifest_schema")
 nums = _load("check_analysis_numbers")
+scorers = _load("check_scorer_versions")
 
 
 # --- schema -------------------------------------------------------------- #
@@ -66,3 +67,30 @@ def test_src_marker_exempts_a_line(tmp_path):
     gen.write_text("nothing numeric here\n")
     ana.write_text("cost was 12.34 dollars  <!-- src: manifest -->\n")
     assert nums.check_pair(ana, gen) == []
+
+
+# --- scorer-version provenance ------------------------------------------- #
+
+def test_real_repo_scorer_versions_match():
+    assert scorers.run(ROOT) == []
+
+
+def _mk_scorer_fixture(root, name, report_scorer, record_scorer):
+    import json
+    (root / "docs" / "audits").mkdir(parents=True)
+    (root / "results_release" / name / "trials").mkdir(parents=True)
+    (root / "docs" / "audits" / f"sweep_{name}_generated.md").write_text(
+        f"# gen\n- evidence scorer: {report_scorer}\n")
+    (root / "results_release" / name / "trials" / "c__r.json").write_text(
+        json.dumps({"scores": {"evidence": {"scorer_version": record_scorer}}}))
+
+
+def test_scorer_mismatch_fails(tmp_path):
+    _mk_scorer_fixture(tmp_path, "s", report_scorer="evidence_v2.1", record_scorer="evidence_v1")
+    errs = scorers.check_sweep(tmp_path, "s")
+    assert any("evidence_v1" in e and "evidence_v2.1" in e for e in errs), errs
+
+
+def test_scorer_match_passes(tmp_path):
+    _mk_scorer_fixture(tmp_path, "s", report_scorer="evidence_v2.1", record_scorer="evidence_v2.1")
+    assert scorers.check_sweep(tmp_path, "s") == []
