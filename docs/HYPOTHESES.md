@@ -525,3 +525,38 @@ blindness — an exploratory sub-question to pre-register prospectively if obser
   (bimodal, retired from the σ-role — L1/S12) and `crash.shape_mismatch.v1` (crash
   tier, orthogonal to symptom direction) are deliberately excluded; the exclusion +
   reasons are recorded in the plan header's `scope` block.
+
+## Stage-2 gate — Results (2026-09-15 — appended below the pre-registration; the frozen text and the deviation note above are unchanged)
+
+Evidence: `docs/audits/sweep_stage2gate_2026-09-15.md`. 252 cells, claude-haiku-4-5.
+Detection/identification/evidence from the (platform-independent) agent phase; recovery from
+the canonical in-container verify re-run. Case-clustered 95% CIs (cluster = operator×strength×seed).
+
+- **G1 — REFUTED.** `metric_inflation` anchor-off detection **0.250 [0.083, 0.417]** vs
+  `label_corruption` **0.250 [0.083, 0.458]**; `metric_inflation − label_corruption` **+0.001
+  [−0.281, +0.250]**. The pre-registered refute clause fired: the second positive-symptom
+  mechanism detects **at** the negative-symptom reference. **Consequence:** positive-symptom
+  under-detection does **not** generalize to a second mechanism — it is **leakage-specific**
+  (`data_leakage` anchor-off **0.042 [0.000, 0.125]**; `data_leakage − label_corruption` **−0.208**).
+  The symptom-direction≡blindness reading that this gate was built to test is not supported.
+- **G2 — baseline restoration for detection.** The **numbers** arm closes **~94–95%** of the
+  off→rule detection gap on all three operators (rule adds only 4–5 pp): a bare numeric norm,
+  not the decision rule, does the detection work. The control false-positive comparison — off
+  **0.000**, numbers **0.500 [0.000, 0.750]**, rule **0.167 [0.000, 0.500]**; numbers−rule
+  **+0.336 [0.000, 0.750]** over **3 control clusters** — is **SUGGESTIVE, NOT ESTABLISHED**:
+  the CIs do not exclude "no effect," so "a bare band over-flags healthy runs, the rule reins
+  it in" is a hint, not a result (argues for ≥20 controls, L20).
+- **G3 — the L16 inconsistency is not used (0/72).** No `metric_inflation` trial cites the
+  loss/accuracy inconsistency in any arm; every detection reasons from the config knob
+  `eval_subset_fraction`. G1 is therefore **not** confounded by consistency-checking. It does
+  surface a **config-legibility** confound (detection is config-knob reading), but that is
+  **equal across all three operators**, so it does not bias the G1 cross-operator contrast (L22).
+- **Exploratory magnitude sub-question — no boundary readable.** `metric_inflation` off-arm
+  detection by strength (mild 0.500 > moderate 0.125 ≈ severe 0.125) runs opposite the "detection
+  rises with implausibility" guess, but at n=8 trials / 2 cases per strength and driven by
+  knob-inspection incidence (not magnitude perception) it is **uninterpretable — not a null**.
+- **Measured secondaries.** Agent-phase cost **$11.71 / 252 cells** (estimate). Evidence
+  **v2 == v1** on every trial (Δ 0.000; the v2 machinery is inert on these submissions —
+  comparison deferred). Repair **folding: 16** submissions (13 recovered via `parser_fix_v1`).
+  Recovery axis **degenerate** on these operators (`not_recovered` 0/138; see FINDINGS/L19) —
+  reported for completeness, not a discrimination axis this gate.

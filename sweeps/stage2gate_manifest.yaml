@@ -3,6 +3,9 @@ timestamp_utc: '2026-09-14T22:32:22.790146+00:00'
 estimated_spend_usd: 24.8119
 actual_spend_usd: null
 hardware:
+  # Machine that LAUNCHED the sweep and ran the AGENT phase (Anthropic API calls
+  # only — platform-independent). The VERIFY phase ran in the canonical container
+  # and has DIFFERENT provenance; see verify_phase.provenance below.
   cpu_model: i386
   cpu_cores: 8
   ram_gb: null
@@ -13,9 +16,16 @@ hardware:
   git_commit: 4b4af43b0dd6fe40e25a7cd5e2b1be097688741e
   in_container: false
   image_digest: null
-  canonical_environment_note: Linux/amd64 in the pinned container is canonical (Stage
-    1). This manifest produced on Darwin; in_container=False.
+  canonical_environment_note: This block is the AGENT-phase host (Darwin). The agent
+    phase is API calls, so the host identity does not affect its results. The verify
+    phase was RE-RUN in the canonical linux/amd64 container (thread-pinned) after the
+    verify thread-pin fix (PR #6); its provenance is recorded separately under
+    verify_phase.provenance. The two phases intentionally have different provenance.
 agent_phase:
+  provenance:
+    environment: host (Darwin/arm64 launcher; macOS-10.16 x86_64 identity above)
+    in_container: false
+    kind: Anthropic API calls (no local training) — platform-independent
   trials: 252
   input_tokens: 9920569
   output_tokens: 358036
@@ -23,8 +33,20 @@ agent_phase:
   cost_is_estimate: true
   api_wall_clock_sec: 4115.05
 verify_phase:
-  reruns: 432
-  cpu_core_hours: 2.3119
-  wall_clock_sec: 7707.1
+  provenance:
+    environment: canonical container (Linux/amd64, BLAS/OpenMP threads pinned to 1)
+    in_container: true
+    image: trainmd:canonical
+    image_digest: sha256:0354db57c29a5092ace862a0d8716dfe3729d4f8b893fe3079c66d947daeb25d
+    git_commit_note: Re-run 2026-09-15 in-container after PR #6 (verify thread-pin
+      fix). Counts below are the CANONICAL run only. An earlier off-canonical attempt
+      (unpinned macOS parent — every rerun aborted exit 2, 138 false not_recovered)
+      is excluded; the manifest's accumulated 432 reruns / 2.31 core-hours double-
+      counted that dead pass and is corrected here to the canonical 216 reruns.
+  reruns: 216
+  trained_cells: 138
+  zero_compute_cells: 78
+  cpu_core_hours: 1.991
+  wall_clock_sec: 7219.6
   peak_memory_mb: 365.53
   ru_maxrss_platform: linux

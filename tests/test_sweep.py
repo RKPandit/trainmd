@@ -267,3 +267,34 @@ def test_operators_filter_restricts_design_and_rejects_unknown():
     with pytest.raises(ValueError):
         sweep.enumerate_cells(tmp, ["moderate"], [42], [0], repeats=2,
                               operators=["silent.not_a_real_op.v1"])
+
+
+# ---------------------------------------------------------------------------
+# verify-phase manifest accounting: REPLACE, not accumulate (2026-09-15 bug)
+# ---------------------------------------------------------------------------
+
+def test_verify_totals_replace_not_accumulate():
+    """A re-run of the verify phase must MIRROR the progress file, not add to
+    prior manifest counts. Regression for the Stage-2 double-count (432 reruns /
+    2.31 core-hours reported for a 216-rerun / 1.991 canonical run)."""
+    # Manifest carries INFLATED prior counts (e.g. from an earlier aborted pass).
+    manifest = {"verify_phase": {"reruns": 216, "cpu_core_hours": 0.32,
+                                 "wall_clock_sec": 487.0, "peak_memory_mb": 270.0,
+                                 "ru_maxrss_platform": "darwin"}}
+    # The current progress file has exactly 3 real reruns.
+    vdone = {
+        "c1": {"cpu_sec": 3600.0, "wall_sec": 100.0, "peak_mb": 300.0},
+        "c2": {"cpu_sec": 3600.0, "wall_sec": 100.0, "peak_mb": 365.0},
+        "c3": {"cpu_sec": 0.0,    "wall_sec": 0.1,   "peak_mb": 0.0},  # a rejection
+    }
+    sweep._finalize_verify_totals(manifest, vdone)
+    vp = manifest["verify_phase"]
+    assert vp["reruns"] == 3                     # replaced, NOT 216 + 3
+    assert vp["cpu_core_hours"] == 2.0           # (3600+3600+0)/3600, not +0.32
+    assert vp["wall_clock_sec"] == 200.1
+    assert vp["peak_memory_mb"] == 365.0         # max over THIS run, not prior 270
+
+    # Re-running with a smaller progress file replaces again (idempotent mirror).
+    sweep._finalize_verify_totals(manifest, {"c1": {"cpu_sec": 3600.0, "wall_sec": 50.0, "peak_mb": 100.0}})
+    assert manifest["verify_phase"]["reruns"] == 1
+    assert manifest["verify_phase"]["cpu_core_hours"] == 1.0

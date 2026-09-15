@@ -526,17 +526,39 @@ def run_verify(project_root, name, *, recovery_fn=None):
         reruns += 1
         _append_progress(vprog_path, {"cell_id": cell_id, "run_id": run_id,
                                       "cpu_sec": round(cpu, 3), "wall_sec": round(w1 - w0, 3),
+                                      "peak_mb": round(_maxrss_to_mb(r1.ru_maxrss), 2),
                                       "ts": datetime.now(timezone.utc).isoformat()})
 
-    manifest["verify_phase"].update({
-        "reruns": manifest["verify_phase"]["reruns"] + reruns,
-        "cpu_core_hours": round(manifest["verify_phase"]["cpu_core_hours"] + cpu_sec / 3600, 4),
-        "wall_clock_sec": round(manifest["verify_phase"]["wall_clock_sec"] + wall, 2),
-        "peak_memory_mb": round(max(manifest["verify_phase"]["peak_memory_mb"], peak_mb), 2),
-        "ru_maxrss_platform": sys.platform,
-    })
+    # REPLACE semantics: the manifest MIRRORS the current verify progress file,
+    # it does NOT accumulate across invocations. A re-run of the phase (progress
+    # file reset) therefore reports THAT run's compute, not prior + this. The old
+    # code added to whatever was in the manifest, which double-counted an earlier
+    # (e.g. aborted, off-canonical) pass into the compute statement — a number a
+    # reviewer checks. The progress file is the single source of truth for what
+    # actually ran; totals are recomputed from it. (docs/DECISIONS.md 2026-09-15)
+    _finalize_verify_totals(manifest, _load_progress(vprog_path))
     write_manifest(project_root, manifest)
     return {"reruns": reruns, "cpu_sec": round(cpu_sec, 2)}
+
+
+def _finalize_verify_totals(manifest: dict, vdone: dict) -> None:
+    """Set verify_phase compute totals from the progress file (replace, not add).
+
+    ``vdone`` maps cell_id -> progress entry (from :func:`_load_progress`). Every
+    completed verify cell contributes exactly once, so re-running the phase after
+    resetting its progress file yields that run's totals rather than accumulating.
+    """
+    entries = list(vdone.values())
+    cpu_sec = sum(e.get("cpu_sec", 0.0) or 0.0 for e in entries)
+    wall = sum(e.get("wall_sec", 0.0) or 0.0 for e in entries)
+    peak_mb = max((e.get("peak_mb", 0.0) or 0.0 for e in entries), default=0.0)
+    manifest["verify_phase"].update({
+        "reruns": len(entries),
+        "cpu_core_hours": round(cpu_sec / 3600, 4),
+        "wall_clock_sec": round(wall, 2),
+        "peak_memory_mb": round(peak_mb, 2),
+        "ru_maxrss_platform": sys.platform,
+    })
 
 
 def _find_record(project_root, run_id):

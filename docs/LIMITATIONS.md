@@ -193,3 +193,45 @@ byte-exactness across the fleet ever matters:* pin CI to a fixed-CPU runner, or 
 reduction order (e.g. a fixed BLAS kernel / higher-precision accumulation). Stage 1b's "byte-identical
 across two independent runners" was an over-reading — two agreeing runners are not the fleet (see the
 RESEARCH_LOG standing lesson).
+
+**L19 — The recovery axis is DEGENERATE on the three Stage-2 gate operators.** `not_recovered
+= 0/138`: every admissible structured repair recovered, because each operator's admissible-repair
+space is effectively a single oracle-equivalent point (unset the leak key / reset
+`label_noise_fraction` / unset `eval_subset_fraction`) — any admissible repair reconstructs the
+clean run and clears tolerance. Proof (harness probe, free, no LLM; `docs/audits/sweep_stage2gate_2026-09-15.md`
+§0.1): the trusted `DegenerateAgent` — detect=True, **wrong class, no evidence**, blind admissible
+repair — scores **18/18 = 1.000** strict recovery across all three operators. So on these operators
+**strict recovery measures submission-format compliance + admissibility, not repair correctness**,
+and cannot discriminate diagnosis quality (this generalizes the 2026-09-07 lr_warmup note in
+DECISIONS). *Sweep-2 remedy:* operators with a genuinely **wide** admissible-repair space, where a
+*wrong-but-admissible* value fails to recover (a continuous knob with a broad admissible band whose
+sub-range alone restores health, or a multi-key repair where a plausible-but-wrong key leaves the
+fault). Until then recovery is reported for completeness but is not a discrimination axis.
+
+**L20 — Controls are under-powered: 3 unique healthy cases.** The gate has 3 control cases (one per
+control-seed); per anchor arm that is 12 trials from 3 clusters, so the case-clustered control
+false-positive CIs are enormous — off **[0.000, 0.000]**, numbers 0.500 **[0.000, 0.750]**, rule
+0.167 **[0.000, 0.500]**, numbers−rule +0.336 **[0.000, 0.750]**. No control-arm contrast is
+decidable and the control FPR is not a population rate. This extends L12/S3's under-powering from
+Sweep 1. *Remedy:* **≥20 unique control cases per workload** before any false-positive claim
+(detection specificity, false-intervention rate, or an anchor-arm FP contrast) is stated as
+established rather than suggestive.
+
+**L21 — The Stage-2 gate has SPLIT PROVENANCE across its two phases.** The agent phase ran on the
+host (macOS-10.16 / py3.9, `in_container: false`) — acceptable because it is Anthropic API calls,
+which are platform-independent and involve no local training. The verify/recovery phase ran in the
+canonical container (Linux/amd64, threads pinned, `in_container: true`, image `trainmd:canonical`
+`sha256:0354db57…`) after the verify thread-pin fix (DECISIONS 2026-09-15). Both are recorded
+separately in `sweeps/stage2gate_manifest.yaml` (`agent_phase` / `verify_phase.provenance`). The
+two phases having different provenance is intentional and disclosed; a reader must not assume a
+single environment produced the whole gate.
+
+**L22 — Detection on the Stage-2 operators proceeds by CONFIG LEGIBILITY, not metric reasoning.**
+Each gate operator injects a single non-default config key, and G3 showed detection reasons from
+that key (0/72 use the loss/accuracy inconsistency; every `metric_inflation` detection cites
+`eval_subset_fraction`). So the gate's detection axis substantially measures "spot the anomalous
+config knob given a reference band," not "reason about the metrics." This is **equal across all
+three operators**, so it does not bias the G1 cross-operator contrast, but it limits what the gate
+says about metric-*based* diagnosis. *Sweep-2 remedy:* include at least one operator whose fault is
+**not** a single legible config key (a code-path or data-distribution fault), and pre-register the
+config-legibility factor before leaning on cross-operator detection contrasts.
