@@ -30,6 +30,7 @@ from random import Random
 
 import yaml
 
+from harness.thread_pins import pinned_thread_env
 from operators.base import IncidentOperator, Manifest
 
 # Workload source files copied verbatim into every case workspace.  ``datautil``
@@ -263,6 +264,7 @@ def build_case(
         ],
         capture_output=True,
         text=True,
+        env=pinned_thread_env(),  # satisfy train.py's thread-pin guard on any host
     )
 
     # ---- completed-run guards (silent + control + metric must complete) ---

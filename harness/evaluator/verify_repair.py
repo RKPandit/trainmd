@@ -32,6 +32,14 @@ from harness.evaluator.repair_spec import (
     parse_repair_spec,
     validate_repair,
 )
+from harness.thread_pins import pinned_thread_env
+
+# Verdict for a rerun whose training subprocess failed to start / crashed
+# (e.g. the thread-pin guard, a missing interpreter). This is a HARNESS/environment
+# failure, NOT a repair-quality judgement — it must never be silently reported as
+# ``not_recovered`` (which asserts "trained, but did not restore health").
+VERIFY_ERROR = "verify_error"
+_TRAINING_SUBPROCESS_FAILED = "TRAINING_SUBPROCESS_FAILED"
 
 
 # ---------------------------------------------------------------------------
@@ -341,6 +349,11 @@ def verify_repair(
                 ],
                 capture_output=True,
                 text=True,
+                # Inject the five thread caps so train.py's require_pinned_threads
+                # guard is satisfied regardless of the parent environment. Without
+                # this the rerun exits 2 on any unpinned host and the verdict is a
+                # false not_recovered (the Stage-2 gate bug).
+                env=pinned_thread_env(),
             )
 
             exitcode = run_result.returncode
@@ -359,18 +372,60 @@ def verify_repair(
                     )
                     metric = eval_result["metric_hidden_test_acc"]
 
-            per_seed_results.append({
+            seed_entry = {
                 "seed": seed,
                 "metric_hidden_test_acc": metric,
                 "metric_visible_val_acc": visible,
                 "exitcode": exitcode,
-            })
+            }
+            if exitcode != 0:
+                # Surface WHY it failed — "training failed to start" must never
+                # silently collapse into a not_recovered verdict.
+                seed_entry["stderr_tail"] = (run_result.stderr or "")[-2000:]
+            per_seed_results.append(seed_entry)
 
     compute_sec = time.monotonic() - compute_start
 
     # ---- Step 6: Determine verdict (tier-aware) --------------------------
     tolerance = verify["tolerance_lower"]
     layer = hidden_card.get("layer", "dynamics")
+
+    # Step 6a: a failed training subprocess is a HARNESS/environment error, not a
+    # recovery judgement. Report it as verify_error with the offending exit codes
+    # and stderr so it can be diagnosed and re-run — never as not_recovered.
+    failed_seeds = [r for r in per_seed_results if r["exitcode"] != 0]
+    if failed_seeds:
+        reason_codes = [_TRAINING_SUBPROCESS_FAILED]
+        details = [
+            f"seed {r['seed']}: training exited {r['exitcode']}; "
+            f"stderr tail: {(r.get('stderr_tail') or '').strip()[-400:]}"
+            for r in failed_seeds
+        ]
+        result = _make_result(
+            case_id, run_id, VERIFY_ERROR,
+            reason_codes=reason_codes,
+            details=details,
+            repair_spec=raw,
+            per_seed=per_seed_results,
+            compute_sec=time.monotonic() - compute_start,
+            integrity={
+                "hashes": {
+                    name: _hash_file(path) for name, path in integrity_files.items()
+                },
+                "hash_verified": True,
+            },
+            trial_run_id=trial_run_id,
+        )
+        # Post-run integrity check still applies (immutable ground truth).
+        for name, path in integrity_files.items():
+            if hashes_before[name] != _hash_file(path):
+                raise RuntimeError(
+                    f"{name} was modified during evaluation! "
+                    f"Before: {hashes_before[name]}"
+                )
+        if trial_run_id is not None:
+            _write_result(project_root, result, trial_run_id=trial_run_id)
+        return result
 
     if layer == "metric":
         # Metric tier: recovery = restore the correct computation. The REPORTED
