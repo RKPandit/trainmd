@@ -11,6 +11,7 @@ run it after building cases against the reference you intend to adopt.
 """
 from __future__ import annotations
 
+import argparse
 import glob
 import os
 import sys
@@ -47,11 +48,20 @@ def margin_flag(layer: str, fv: float, tol: float, two_std: float) -> tuple[floa
 
 
 def main() -> int:
-    stats = yaml.safe_load((ROOT / "workloads" / WORKLOAD / "reference" / "stats.yaml").read_text())
+    default_stats = ROOT / "workloads" / WORKLOAD / "reference" / "stats.yaml"
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--stats", type=Path, default=default_stats,
+                    help="reference stats.yaml to score margins against "
+                         "(default: the committed workload reference; pass the 30-seed CANDIDATE "
+                         "stats to preview margins before adoption, STAGE3_PLAN §0.5)")
+    a = ap.parse_args()
+
+    stats = yaml.safe_load(a.stats.read_text())
     hid = stats["metric_hidden_test_acc"]
     tol = hid["tolerance_lower"]
     std = hid["std"]
     two_std = 2 * std
+    print(f"reference stats: {a.stats}  (num_seeds={stats.get('num_seeds', '?')})")
     print(f"reference: tolerance_lower={tol:.6f}  hidden_std={std:.6f}  2*std={two_std:.6f}")
     print(f"{'case':11} {'operator':16} {'strength':8} {'layer':10} {'faulty_value':13} {'margin':11} {'flag'}")
     print("-" * 88)
