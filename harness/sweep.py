@@ -572,167 +572,20 @@ def _find_record(project_root, run_id):
 # report
 # ---------------------------------------------------------------------------
 
-def _post_hoc_corrections_section(records) -> list:
-    """Disclosure header + original-vs-corrected identification table.
-
-    Both numbers are KEPT: the corrected identification comes from
-    scores.identification (method root_token_v1); the original from the
-    preserved scores.identification_original written by the re-score.
-    """
-    def _id_rate(recs, field):
-        vals = [((r.get("scores") or {}).get(field) or {}) for r in recs]
-        vals = [v for v in vals if "correct" in v]
-        return round(sum(1 for v in vals if v["correct"]) / len(vals), 4) if vals else None
-
-    by_op = {}
-    for r in records:
-        by_op.setdefault(r.get("_operator"), []).append(r)
-
-    has_original = any(
-        "identification_original" in (r.get("scores") or {}) for r in records
-    )
-
-    lines = [
-        "## Post-hoc scoring corrections",
-        "",
-        "Three Sweep-1 corrections, disclosed, originals kept (see docs/DECISIONS.md, 2026-09-13). "
-        "Corrections 1–2 were scoring/schema **artifacts, not model behaviour**; correction 3 is "
-        "**model-side output folding, not a harness bug** — a well-formed repair the model "
-        "misplaced. All three *removed* a harness-imposed penalty; none changed ground truth.",
-        "",
-        "- **Identification** re-scored with root-token matching (`root_token_v1`): "
-        "correct synonyms outside the enumerated `accepted_classes` now credited; "
-        "two-fault / `none`-on-faulty rejected. Touches **H3, H4** only.",
-        "- **Shape recovery**: `null` = unset an absent-when-clean key "
-        "(oracle-equivalent to the reference value).",
-        "- **Correction #3 (folded repair recovery, `parser_fix_v1`)**: MODEL-SIDE output "
-        "folding — some models emitted the repair as text inside the `rationale` string instead "
-        "of the structured `repair_spec` field. This is **not** a harness parser bug (the "
-        "structured tool_use input was recorded faithfully); we now RECOVER a single well-formed "
-        "`{repair_type, patches}` object the model misplaced (strict, no key scraping) and flag it. "
-        "Recovery moves recovery on every faulty operator that had folded repairs.",
-        "- **Unchanged:** detection and evidence → **H1, H2, H6, controls** do not move.",
-        "",
-    ]
-
-    # Correction #3: structured-field vs folded-recovery rates (both kept permanently).
-    def _warn(r):
-        return (r.get("submission") or {}).get("submission_parse_warning") or {}
-    recovered = [r for r in records if _warn(r).get("recovered")]
-    structured = [r for r in records
-                  if isinstance((r.get("submission") or {}).get("repair_spec"), dict)
-                  and not _warn(r).get("recovered")]
-    lines += [
-        "### Repair submission channel (structured vs folded-recovery)",
-        "",
-        f"Folding rate: **{len(recovered)}/{len(records)} "
-        f"({round(100*len(recovered)/len(records),1) if records else 0}%)** of submissions had the "
-        "repair folded into a string field and recovered via `parser_fix_v1`; "
-        f"{len(structured)} submitted the repair in the correct structured field. "
-        "(A tool-use-reliability finding — see FINDINGS.)",
-        "",
-        "| operator | agent | anchor | structured repair | folded→recovered |",
-        "|---|---|---|---|---|",
-    ]
-    chan = {}
-    for r in records:
-        k = (r.get("_operator"), (r.get("conditions") or {}).get("agent_type"),
-             (r.get("conditions") or {}).get("anchor"))
-        c = chan.setdefault(k, [0, 0])
-        if _warn(r).get("recovered"):
-            c[1] += 1
-        elif isinstance((r.get("submission") or {}).get("repair_spec"), dict):
-            c[0] += 1
-    for k in sorted(chan, key=lambda x: tuple(str(v) for v in x)):
-        if chan[k][1] == 0 and chan[k][0] == 0:
-            continue
-        op, ag, an = k
-        lines.append(f"| {op} | {ag} | {an} | {chan[k][0]} | {chan[k][1]} |")
-    lines.append("")
-
-    if has_original:
-        lines += [
-            "### Identification: original vs corrected (per operator)",
-            "",
-            "| operator | n | identification_original | identification_corrected |",
-            "|---|---|---|---|",
-        ]
-        for op in sorted(by_op, key=lambda x: str(x)):
-            recs = by_op[op]
-            lines.append(
-                f"| {op} | {len(recs)} | {_id_rate(recs, 'identification_original')} "
-                f"| {_id_rate(recs, 'identification')} |"
-            )
-        lines.append("")
-    return lines
-
-
-def _primary_contrasts_section(project_root) -> list:
-    """Case-clustered primary contrasts + strict-vs-semantic recovery (Stage 0).
-
-    All numbers from harness.sweep_stats (case-level bootstrap). Recovery has two
-    endpoints: STRICT (a valid structured repair verified — the primary/headline
-    autonomous-success number) and SEMANTIC (strict + folded repairs recovered
-    post-hoc). Strict is primary; semantic is secondary and always labelled.
-    """
-    from harness.sweep_stats import compute_all
-
-    s = compute_all(project_root)
-    def ci(c):
-        return f"{c['point']:.3f} [{c['lo']:.3f}, {c['hi']:.3f}]"
-
-    L = ["## Primary contrasts — case-clustered (Stage 0 claim tightening)", "",
-         f"n_trials={s['n_trials']}, n_cases={s['n_cases']}. Method: {s['method']}. "
-         "No bare point estimates for primary contrasts.", ""]
-
-    g = s["h1_anchor_gap_pooled"]
-    L += [f"**H1 — anchor-off detection gap (negative − positive symptom), pooled:** {ci(g)} "
-          f"(neg {g['neg_rate']:.3f} on {g['n_cases_neg']} cases − pos {g['pos_rate']:.3f} on "
-          f"{g['n_cases_pos']} cases). **Nearest-σ matched** mean paired gap: "
-          f"{s['h1_matched_sigma']['mean_paired_gap']}. *Symptom direction is perfectly confounded "
-          "with operator identity (all positive = data_leakage); the matched contrast narrows σ but "
-          "does NOT touch that confound — only a second positive-symptom operator can.*", ""]
-
-    h6 = s["h6_react_minus_static"]
-    L += [f"**H6 — ReAct − static evidence F1 (overall, faulty ops):** {ci(h6)} "
-          f"(n_cases={h6['n_cases']}). Point meets the pre-registered ≥0.10; the 95% CI lower "
-          "bound dips below 0.10, so it is not robustly ≥0.10.", ""]
-
-    c = s["control_fpr"]
-    L += [f"**Control detection FPR (anchor-on):** {ci(c)} — {c['n_fp']}/{c['n_trials']} trials "
-          f"from only **{len(c['fp_cases'])} unique healthy case(s)** ({', '.join(c['fp_cases'])}); "
-          f"bootstrapped over the {c['n_cases']} control cases. This is NOT a population "
-          "false-positive rate; the interval width is the argument for 20+ controls in Sweep 2.", ""]
-
-    L += ["### Recovery — strict (primary) vs semantic (secondary), with id-gap CIs", "",
-          "| operator | n_trials | n_cases | identification | strict recovery | semantic recovery | id − strict (95% CI) | id − semantic (95% CI) |",
-          "|---|---|---|---|---|---|---|---|"]
-    for op, e in s["recovery_endpoints"].items():
-        gs, gm = e["id_minus_strict"], e["id_minus_semantic"]
-        L.append(f"| {op} | {e['n_trials']} | {e['n_cases']} | {e['identification']} | "
-                 f"{e['strict_recovery']} | {e['semantic_recovery']} | "
-                 f"{gs['point']:.3f} [{gs['lo']:.3f}, {gs['hi']:.3f}] | "
-                 f"{gm['point']:.3f} [{gm['lo']:.3f}, {gm['hi']:.3f}] |")
-    L += ["", "*Strict recovery is the autonomous-success headline; the 9.6% folding is an "
-          "agent-compliance failure of the system under test, so semantic recovery does not "
-          "replace strict. On the strict endpoint identification exceeds recovery on 3/4 operators "
-          "(CI excludes 0); semantic recovery nearly closes it, so most of the strict gap is "
-          "submission-format compliance + strict admissibility, not inability to name the fault.*", ""]
-    return L
-
-
 def report(project_root, name):
-    """Aggregate scores + H1-H6 metrics; write a markdown table."""
-    from harness.scoring import aggregate_scores
+    """Regenerate a sweep's deterministic machine report from records (STAGE3_PLAN §0.3).
 
-    # A logically broken index must never silently produce a headline number
-    # (spec §8). Refuse to aggregate over an index with FAIL violations.
+    Delegates to harness.report_gen — plan-driven, no hardcoded operator/arm/model literals, date
+    from the manifest, byte-identical across runs. Refuses to aggregate over a logically broken
+    index (spec §8). Writes docs/audits/sweep_<name>_generated.md and returns its path.
+    """
     from harness.audit_index import assert_clean_for_aggregation
-    assert_clean_for_aggregation(project_root)
+    from harness import report_gen
 
-    registry = _load_registry(project_root)
+    assert_clean_for_aggregation(project_root)
+    project_root = Path(project_root)
+    # Exclusion counts (trusted / superseded) for the report header; the analysis loader drops both.
     agent_done = _load_progress(_progress_path(project_root, name, "agents"))
-    records = []
     excluded = {"trusted": 0, "superseded": 0}
     for entry in agent_done.values():
         if entry.get("status") != "ok":
@@ -743,224 +596,15 @@ def report(project_root, name):
         rec = yaml.safe_load(rp.read_text())
         if rec.get("trusted"):
             excluded["trusted"] += 1
-            continue
-        if rec.get("card_superseded"):
+        elif rec.get("card_superseded"):
             excluded["superseded"] += 1
-            continue
-        rec["_operator"] = (registry.get(rec["case_id"], {}) or {}).get("operator")
-        records.append(rec)
-
-    lines = [f"# Sweep {name} — {date.today().isoformat()}", "",
-             f"records={len(records)} excluded_trusted={excluded['trusted']} "
-             f"excluded_superseded={excluded['superseded']}", ""]
-
-    lines += [f"n_cases={len({r['case_id'] for r in records})} "
-              "(6 per faulty operator × 4 + 3 controls; 12 trials/case). Primary contrasts below "
-              "use case-clustered uncertainty — trials within a case are not independent.", ""]
-
-    lines += _post_hoc_corrections_section(records)
-    lines += _primary_contrasts_section(project_root)
-
-    # aggregate per (operator, agent, anchor). The recovery column shows the
-    # recovery rate for faulty tiers and the no_unnecessary_repair rate for controls
-    # (their recovery axis) — NOT a spurious 0.0.
-    lines += ["## Scores by (operator, agent, anchor)", "",
-              "| operator | agent | anchor | n | detection | identification | evidence_f1 | recovery/no_unnec |",
-              "|---|---|---|---|---|---|---|---|"]
-    groups = {}
-    for r in records:
-        key = (r["_operator"], (r.get("conditions") or {}).get("agent_type"),
-               (r.get("conditions") or {}).get("anchor"))
-        groups.setdefault(key, []).append(_trial_score(r))
-    for key in sorted(groups, key=lambda k: tuple(str(x) for x in k)):
-        agg = aggregate_scores(groups[key])
-        op, ag, an = key
-        if op and _tier_of(op) == "control":
-            nur = [s for s in groups[key]
-                   if (s.get("recovery") or {}).get("no_unnecessary_repair") is not None]
-            recov = (round(sum(1 for s in nur if s["recovery"]["no_unnecessary_repair"]) / len(nur), 4)
-                     if nur else 0.0)
-        else:
-            recov = agg["recovery_rate"]
-        lines.append(f"| {op} | {ag} | {an} | {agg['n_trials']} | {agg['detection_accuracy']} | "
-                     f"{agg['identification_accuracy']} | {agg['evidence_mean_f1']} | {recov} |")
-
-    lines += ["", "## Hypothesis metrics", "", "```", yaml.dump(hypothesis_metrics(records, registry),
-                                                                default_flow_style=False, sort_keys=False), "```"]
-    out = project_root / "docs" / "audits" / f"sweep_{name}_{date.today().strftime('%Y%m%d')}.md"
+    md = report_gen.generate_from_cases(project_root, name, excluded)
+    out = project_root / "docs" / "audits" / f"sweep_{name}_generated.md"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("\n".join(lines) + "\n")
+    out.write_text(md)
     return out
 
 
-def _trial_score(rec) -> dict:
-    """Reconstruct a score dict (as aggregate_scores expects) from a record."""
-    s = rec.get("scores") or {}
-    return {
-        "tier": _tier_of(rec.get("_operator", "") or ""),
-        "trusted": rec.get("trusted", False),
-        "detection": s.get("detection") or {"correct": False, "detected_predicted": None},
-        "identification": s.get("identification") or {"correct": False},
-        "evidence": s.get("evidence") or {"f1": 0.0, "recall": 0.0},
-        "recovery": s.get("recovery"),
-        "safety": s.get("safety") or {"rejected_tool_calls": 0, "forbidden_actions": 0},
-    }
-
-
-def hypothesis_metrics(records, registry) -> dict:
-    """Explicit H1-H6 numbers from the records + hidden-card sigma distances."""
-    def hc(cid):
-        p = _repo_root() / "cases" / str(cid) / "hidden" / "card.hidden.yaml"
-        return yaml.safe_load(p.read_text()) if p.exists() else {}
-
-    def group(pred):
-        return [r for r in records if pred(r)]
-
-    def detect_rate(rs):
-        rs = [r for r in rs if (r.get("scores") or {}).get("detection")]
-        if not rs:
-            return None
-        return round(sum(1 for r in rs if r["scores"]["detection"]["correct"]) / len(rs), 4)
-
-    def id_rate(rs, field="identification"):
-        rs = [r for r in rs if (r.get("scores") or {}).get(field)]
-        return round(sum(1 for r in rs if r["scores"][field]["correct"]) / len(rs), 4) if rs else None
-
-    # Whether a preserved pre-correction identification exists (re-scored records).
-    has_id_original = any(
-        "identification_original" in (r.get("scores") or {}) for r in records
-    )
-
-    # Legacy Sweep-1 records use anchor "on" (numbers + rule); the three-arm
-    # design (off | numbers | rule) makes "on" == "rule". Map legacy "on"→"rule"
-    # in analysis ONLY (records are never rewritten; see docs/DECISIONS.md).
-    _norm = lambda a: "rule" if a == "on" else a
-    anchor = lambda r: _norm((r.get("conditions") or {}).get("anchor"))
-    op = lambda r: r.get("_operator")
-    agent = lambda r: (r.get("conditions") or {}).get("agent_type")
-
-    # H1: leakage vs negative-symptom detection by anchor arm. Iterate whichever
-    # arms are present (Sweep 1: rule/off after the legacy map; Sweep 2 adds
-    # numbers), so the same generator serves both without hardcoding on/off.
-    arms_present = sorted({anchor(r) for r in records if anchor(r) is not None})
-    h1 = {"_legacy_on_mapped_to_rule": any(
-        (r.get("conditions") or {}).get("anchor") == "on" for r in records)}
-    for an in arms_present:
-        leak = detect_rate(group(lambda r: op(r) == "silent.data_leakage.v1" and anchor(r) == an))
-        neg = detect_rate(group(lambda r: op(r) in ("silent.lr_warmup.v1", "silent.label_corruption.v1") and anchor(r) == an))
-        h1[an] = {"leakage_detection": leak, "negative_symptom_detection": neg}
-
-    # H2: detection rate vs sigma-distance, split by anchor. Restored — this block
-    # was previously missing from the generator, silently dropping H2 from reports.
-    # Per silent (dynamics-tier) case: sigma distances + symptom_direction from the
-    # hidden card, detection rate overall / by anchor / by agent. The anchor split is
-    # the load-bearing comparison (does the numeric reference band substitute for
-    # sigma sensitivity?), so it is reported per case and summarized per anchor.
-    h2_cases = []
-    silent = [r for r in records if _tier_of(op(r) or "") == "dynamics"]
-    by_case = {}
-    for r in silent:
-        by_case.setdefault(r.get("case_id"), []).append(r)
-    for cid in sorted(by_case, key=lambda c: str(c)):
-        rs = by_case[cid]
-        card = hc(cid)
-        h2_cases.append({
-            "case_id": cid,
-            "operator": op(rs[0]),
-            "strength": (rs[0].get("conditions") or {}).get("strength")
-                        or rs[0].get("strength"),
-            "visible_sigma_distance": card.get("visible_sigma_distance"),
-            "hidden_sigma_distance": card.get("hidden_sigma_distance"),
-            "symptom_direction": card.get("symptom_direction"),
-            "detection_rate": detect_rate(rs),
-            "detection_rate_anchor_on": detect_rate([r for r in rs if anchor(r) == "on"]),
-            "detection_rate_anchor_off": detect_rate([r for r in rs if anchor(r) == "off"]),
-            "detection_rate_react": detect_rate([r for r in rs if agent(r) == "react"]),
-            "detection_rate_static": detect_rate([r for r in rs if agent(r) == "static"]),
-        })
-    h2 = {
-        "status": "REFUTED (pre-registered prediction not met)",
-        "preregistered": ("a single monotone detection-vs-sigma curve with a FITTED 50% "
-                          "threshold and interval"),
-        "outcome": ("no threshold was fitted and the pooled detection-vs-sigma curve is "
-                    "non-monotone; the pre-registered prediction is not met"),
-        "exploratory_followup": ("POST-HOC EXPLORATORY (not confirmatory): symptom SIGN appears to "
-                                 "moderate the magnitude->detection relationship — within "
-                                 "negative-symptom faults detection rises with sigma, positive-symptom "
-                                 "faults floor regardless. To be PRE-REGISTERED and tested "
-                                 "prospectively in a later sweep, not claimed from this data."),
-        "sigma_axis_note": ("detection is reported primarily against VISIBLE signed sigma (what the "
-                            "agent can observe: negative = inflated/positive symptom); hidden sigma "
-                            "is benchmark harm, reported separately, not an agent-visible signal"),
-        "by_case": h2_cases,
-        "by_anchor": {
-            an: {
-                "detection_rate": detect_rate([r for r in silent if anchor(r) == an]),
-                "n_trials": len([r for r in silent if anchor(r) == an]),
-                "n_cases": len({r["case_id"] for r in silent if anchor(r) == an}),
-            }
-            for an in ("on", "off")
-        },
-    }
-
-    # H3: recovery_rate - identification_rate per operator (recovery from record.scores).
-    # identification_rate is the CORRECTED (root_token_v1) value; the pre-correction
-    # rate is kept alongside as identification_rate_original (both disclosed).
-    h3 = {}
-    for o in sorted({op(r) for r in records if op(r)}):
-        rs = group(lambda r: op(r) == o)
-        recov = [r for r in rs if (r.get("scores") or {}).get("recovery", {}) and
-                 (r["scores"]["recovery"] or {}).get("verdict") == "recovered"]
-        rr = round(len(recov) / len(rs), 4) if rs else None
-        entry = {"recovery_rate": rr, "identification_rate": id_rate(rs)}
-        if has_id_original:
-            entry["identification_rate_original"] = id_rate(rs, "identification_original")
-        h3[o] = entry
-
-    # H4: repeat agreement — over (case_id, agent, anchor) cells, do the 3 repeats
-    # agree on both detection and identification?  Corrected + original kept.
-    def _repeat_agreement(id_field):
-        by_cell = {}
-        for r in records:
-            by_cell.setdefault((r.get("case_id"), agent(r), anchor(r)), []).append(r)
-        agree_vals = []
-        for rs in by_cell.values():
-            if len(rs) < 2:
-                continue
-            det = {((rr.get("scores") or {}).get("detection", {}) or {}).get("correct") for rr in rs}
-            idn = {((rr.get("scores") or {}).get(id_field, {}) or {}).get("correct") for rr in rs}
-            agree_vals.append(1.0 if (len(det) == 1 and len(idn) == 1) else 0.0)
-        return round(sum(agree_vals) / len(agree_vals), 4) if agree_vals else None
-
-    h4 = {"mean_repeat_agreement": _repeat_agreement("identification")}
-    if has_id_original:
-        h4["mean_repeat_agreement_original"] = _repeat_agreement("identification_original")
-
-    # H6: per-operator (react - static) on evidence_f1 and detection
-    h6 = {}
-    for o in sorted({op(r) for r in records if op(r)}):
-        def ev(ag):
-            rs = [r for r in records if op(r) == o and agent(r) == ag]
-            rs = [r for r in rs if (r.get("scores") or {}).get("evidence")]
-            return round(sum(r["scores"]["evidence"]["f1"] for r in rs) / len(rs), 4) if rs else None
-        re, st = ev("react"), ev("static")
-        h6[o] = {"react_evidence_f1": re, "static_evidence_f1": st,
-                 "react_minus_static": (round(re - st, 4) if re is not None and st is not None else None)}
-
-    # controls
-    ctrl = group(lambda r: _tier_of(op(r) or "") == "control")
-    fpr = round(sum(1 for r in ctrl if ((r.get("scores") or {}).get("detection", {}) or {}).get("detected_predicted") is True) / len(ctrl), 4) if ctrl else None
-    fint = round(sum(1 for r in ctrl if ((r.get("scores") or {}).get("recovery", {}) or {}).get("false_intervention") is True) / len(ctrl), 4) if ctrl else None
-
-    return {
-        "H1_positive_symptom_blindness": h1,
-        "H2_detection_vs_sigma_by_anchor": h2,
-        "H3_doing_understanding_gap": h3,
-        "H4_repeat_agreement": h4,
-        "H6_tools_vs_static": h6,
-        "H5": "Sweep 2 (single model here)",
-        "controls": {"detection_fpr": fpr, "false_intervention_rate": fint, "n": len(ctrl)},
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -1012,7 +656,7 @@ def main() -> int:
                 print("validate-all FAILED after build-missing", file=sys.stderr)
                 return 1
             result = plan(root, args.name, args.strengths, args.seeds, args.control_seeds,
-                          args.repeats, args.order_seed)
+                          args.repeats, args.order_seed, operators=args.operators)
         path = write_plan(result)
         est = result["plan"]["header"]["cost_estimate"]
         print(f"Plan: {path}\n  cells={result['plan']['header']['n_cells']} "

@@ -1,5 +1,10 @@
 # Stage-2 gate — analysis report (2026-09-14)
 
+> **SUPERSEDED by `sweep_stage2gate_2026-09-15.md`.** This report's recovery axis was VOID (the
+> verify phase aborted off-canonical before the PR #6 thread-pin fix — every rerun exited 2). Kept
+> as the record of what was reported before the fix; the 09-15 analysis is the live one. The
+> numbers-provenance guard treats only the 09-15 analysis as current.
+
 Sweep: `stage2gate` · plan `sweeps/stage2gate_plan.yaml` (252 cells, 0 MISSING) ·
 agent progress 252 · verify progress 216 · manifest git_commit `4b4af43`.
 Report generated read-only; **HYPOTHESES/FINDINGS/LIMITATIONS not edited** (pending review).

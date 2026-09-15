@@ -149,3 +149,25 @@ jobs:
           make docker-validate-all
           make docker-gate-known-answer
           make docker-case-margins
+
+  # ---- Reproducible-analysis guards (STAGE3_PLAN §0.3): pure-Python, no container ----
+  # The committed records RELEASE lets these run with no results/ or cases/ (both gitignored):
+  # rebuild each sweep's report FROM THE RELEASE and byte-match the committed generated report;
+  # validate every manifest/plan schema; and check that no analysis narrative invents a number.
+  repro-guards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pyyaml
+      - name: Manifest/plan schema
+        run: python scripts/check_manifest_schema.py
+      - name: Analysis numbers have a machine source (no invented numbers)
+        run: python scripts/check_analysis_numbers.py
+      - name: Rebuild each report FROM THE RELEASE and byte-match the committed report
+        run: |
+          python scripts/rebuild_tables.py --sweep sweep1
+          python scripts/rebuild_tables.py --sweep stage2gate

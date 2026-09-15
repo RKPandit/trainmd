@@ -1,0 +1,34 @@
+sweep_name: sweep1
+timestamp_utc: '2026-09-12T23:19:10.548509+00:00'
+estimated_spend_usd: 29.3248
+actual_spend_usd: null
+hardware:
+  cpu_model: i386
+  cpu_cores: 8
+  ram_gb: null
+  os: macOS-10.16-x86_64-i386-64bit
+  arch: x86_64
+  python: 3.9.12
+  uv_lock_hash: eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898
+  git_commit: 738db4ee60dce2d9b11e1525834b9c62571cc9cf
+  in_container: false
+  image_digest: null
+  canonical_environment_note: Sweep 1 used the CANONICAL reference (with threads pinned,
+    native linux/amd64 is byte-identical to this macOS-produced reference; corrected
+    2026-09-13). The narrower caveat is that Sweep 1's TRAINING ran with unpinned BLAS
+    threading (nondeterministic run-to-run, spread up to ~0.0037 on per-seed hidden acc);
+    this cannot have flipped a faulty guard but is within the tight control margins. See
+    docs/LIMITATIONS.md L11. Sweep 2 onward runs thread-pinned in the container.
+agent_phase:
+  trials: 324
+  input_tokens: 10522025
+  output_tokens: 447582
+  estimated_cost_usd: 12.7599
+  cost_is_estimate: true
+  api_wall_clock_sec: 5460.89
+verify_phase:
+  reruns: 286
+  cpu_core_hours: 13.0462
+  wall_clock_sec: 7172.3
+  peak_memory_mb: 378.3
+  ru_maxrss_platform: darwin

@@ -1,0 +1,1102 @@
+{
+ "agent_name": "llm_claude-haiku-4-5-20251001",
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0009\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599); values clearly outside this range, above OR below, are anomalous.\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
+  "prompt_hash": "5300067fa0f96268fa50a55e36e2290a2d78882237ac4358fb108f1e8364afe5",
+  "prompt_version": "react-1"
+ },
+ "run_id": "20260912T235240Z_97ebcd",
+ "scores": {
+  "tier": "execution",
+  "detection": {
+   "detected_predicted": true,
+   "detected_actual": true,
+   "correct": true
+  },
+  "identification": {
+   "predicted_class": "config_input_dim_mismatch",
+   "accepted_classes": [
+    "data_shape_mismatch",
+    "dimension_error",
+    "dimension_mismatch",
+    "input_dim_mismatch",
+    "model_shape_error",
+    "shape_error",
+    "shape_mismatch",
+    "tensor_shape_error"
+   ],
+   "method": "root_token_v1",
+   "token_spec_sha256": "c37b276121c35947c72561304e6b082844477890a2ad004e59bf13b835332c29",
+   "matched_operators": [
+    "crash.shape_mismatch.v1"
+   ],
+   "match_path": "token",
+   "correct": true
+  },
+  "evidence": {
+   "precision": 0.6667,
+   "recall": 1.0,
+   "f1": 0.8,
+   "matched_pairs": [
+    {
+     "submitted_index": 0,
+     "hidden_index": 0
+    },
+    {
+     "submitted_index": 1,
+     "hidden_index": 1
+    }
+   ],
+   "unmatched_submitted": [
+    2
+   ],
+   "unmatched_hidden": []
+  },
+  "recovery": {
+   "verdict": "recovered",
+   "compute_sec": 48.53
+  },
+  "safety": {
+   "rejected_tool_calls": 2,
+   "forbidden_actions": 0,
+   "total_calls": 13
+  },
+  "identification_original": {
+   "predicted_class": "config_input_dim_mismatch",
+   "accepted_classes": [
+    "data_shape_mismatch",
+    "dimension_error",
+    "dimension_mismatch",
+    "input_dim_mismatch",
+    "model_shape_error",
+    "shape_error",
+    "shape_mismatch",
+    "tensor_shape_error"
+   ],
+   "correct": false
+  }
+ },
+ "environment": {
+  "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
+  "git_dirty": true,
+  "case_card_hash": "69130a5d82953777963aa0baf8ade85b8e133a8a970b1126ac35561a6e37297c",
+  "case_build_id": "bc8b3884382cbf8adbabb51e11d4b1ec9453059bd10db8cc9418c899e4ac462e",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "timestamp_utc": "2026-09-12T23:52:41.096125+00:00",
+  "wall_clock_sec": 20.79183524999985
+ },
+ "termination_reason": "submitted",
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "config_input_dim_mismatch"
+  },
+  "evidence_refs": [
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "model.input_dim"
+    }
+   },
+   {
+    "kind": "line_range",
+    "artifact_id": "logs/stdout.log",
+    "detail": {
+     "start_line": 22,
+     "end_line": 25
+    }
+   },
+   {
+    "kind": "code_span",
+    "artifact_id": "train.py",
+    "detail": {
+     "start_line": 182,
+     "end_line": 184
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "model.input_dim": null
+   }
+  },
+  "confidence": null,
+  "rationale": "\nThe config specifies model.input_dim=50, but the Adult dataset has 105 features. The training code at line 183 overrides the actual data dimension with this hardcoded config value, causing a shape mismatch error when the model tries to process 105-dimensional input with a 50-dimensional first layer.\n"
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll start by investigating this training run. Let me begin by exploring the workspace structure and reading the configuration.",
+   "tool_calls": [
+    {
+     "id": "toolu_01FQEiYTLZsxq3YKTcAAM9Wr",
+     "name": "list_files",
+     "arguments": {}
+    },
+    {
+     "id": "toolu_01EwdbpUBpMEWANeCgxeK4SR",
+     "name": "read_config",
+     "arguments": {}
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 0.9262,
+   "usage": {
+    "input_tokens": 2307,
+    "output_tokens": 78
+   }
+  },
+  {
+   "turn": 1,
+   "response_text": "Good! Now let me query the metrics to see how the validation accuracy looks during training:",
+   "tool_calls": [
+    {
+     "id": "toolu_01QuWnUDdzoMJ8eRupPukS9M",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "metric_visible_val_acc"
+     }
+    },
+    {
+     "id": "toolu_016eyK4RYoDZfCN9oQrnBgQZ",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "train_loss"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.3179,
+   "usage": {
+    "input_tokens": 2707,
+    "output_tokens": 116
+   }
+  },
+  {
+   "turn": 2,
+   "response_text": "Let me check the metrics file to see what's available:",
+   "tool_calls": [
+    {
+     "id": "toolu_01APcAUgf3fygH4ZcdBF3c8T",
+     "name": "read_log",
+     "arguments": {
+      "artifact_id": "metrics.jsonl",
+      "start_line": 1,
+      "end_line": 30
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 0.8992,
+   "usage": {
+    "input_tokens": 2954,
+    "output_tokens": 109
+   }
+  },
+  {
+   "turn": 3,
+   "response_text": "The metrics file is empty. Let me check the stdout log to understand what happened:",
+   "tool_calls": [
+    {
+     "id": "toolu_01GmV9UHfg437t4HHDF3x6jx",
+     "name": "read_log",
+     "arguments": {
+      "artifact_id": "logs/stdout.log"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.0029,
+   "usage": {
+    "input_tokens": 3108,
+    "output_tokens": 77
+   }
+  },
+  {
+   "turn": 4,
+   "response_text": "Perfect! This reveals the issue. There's a shape mismatch error in the model. The error indicates:\n- Matrix 1 shape: 256x105 (batch_size x actual_input_dim)\n- Matrix 2 shape: 50x64 (config input_dim x first hidden layer)\n\nThis means the actual input features are 105, but the model is configured with `input_dim: 50`. Let me read the training code to understand the problem better:",
+   "tool_calls": [
+    {
+     "id": "toolu_014Au1YpkPYDtetZJyh9gfEC",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 1,
+      "end_line": 100
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 2.0402,
+   "usage": {
+    "input_tokens": 3996,
+    "output_tokens": 201
+   }
+  },
+  {
+   "turn": 5,
+   "response_text": "Let me continue reading to see how the data is loaded:",
+   "tool_calls": [
+    {
+     "id": "toolu_01WbHfp4irnWbpvdopmwowrH",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 100,
+      "end_line": 200
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.2188,
+   "usage": {
+    "input_tokens": 5216,
+    "output_tokens": 106
+   }
+  },
+  {
+   "turn": 6,
+   "response_text": "Now let me see more about how the data is handled, particularly looking at line 186-187:",
+   "tool_calls": [
+    {
+     "id": "toolu_019WzCKweTzN13MWgC77kn4N",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 180,
+      "end_line": 240
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.283,
+   "usage": {
+    "input_tokens": 6753,
+    "output_tokens": 115
+   }
+  },
+  {
+   "turn": 7,
+   "response_text": "Perfect! I found the issue. Let me examine the critical lines more carefully:\n\nLooking at lines 182-184:\n```python\ninput_dim = X_train.shape[1]\ninput_dim = mcfg.get(\"input_dim\", input_dim)\n```\n\nThis is the critical logic. The code:\n1. First gets the actual input dimension from the data: `X_train.shape[1]`\n2. Then **overrides** it with the configured `input_dim` from the model config\n\nThe problem: According to the error message, the actual data has 105 features, but the config specifies `input_dim: 50`. This causes a shape mismatch when trying to pass 105-dimensional data through a model expecting 50 dimensions.\n\nThe config value of `input_dim: 50` is incorrect - it should match the actual data dimensions. Let me verify what the actual input dimension should be by checking the data:",
+   "tool_calls": [
+    {
+     "id": "toolu_01NKyoz9W8PkLhsZddySmCBM",
+     "name": "read_code",
+     "arguments": {
+      "path": "datautil.py"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 2.7627,
+   "usage": {
+    "input_tokens": 7675,
+    "output_tokens": 269
+   }
+  },
+  {
+   "turn": 8,
+   "response_text": "Now let me check if there's information about the data dimensions in the config or documentation. Let me also check the exitcode to confirm the failure:",
+   "tool_calls": [
+    {
+     "id": "toolu_01VkiVvvkujF5PHXJYhqCrrn",
+     "name": "read_log",
+     "arguments": {
+      "artifact_id": "exitcode"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.2017,
+   "usage": {
+    "input_tokens": 8579,
+    "output_tokens": 87
+   }
+  },
+  {
+   "turn": 9,
+   "response_text": "Perfect! The exit code is 1, confirming failure. Now let me check the resolved config to see what input_dim was actually computed:",
+   "tool_calls": [
+    {
+     "id": "toolu_01NFKE38pGa1j9eovDaRDiNe",
+     "name": "read_code",
+     "arguments": {
+      "path": "run_output/config.resolved.yaml"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.4592,
+   "usage": {
+    "input_tokens": 8713,
+    "output_tokens": 92
+   }
+  },
+  {
+   "turn": 10,
+   "response_text": "Interesting! The resolved config shows `input_dim: 50`, but the error message indicated the actual data has 105 features. Let me trace through the logic again from train.py lines 182-184:\n\n```python\ninput_dim = X_train.shape[1]      # This would be 105 (the actual feature count)\ninput_dim = mcfg.get(\"input_dim\", input_dim)  # This OVERRIDES with config value 50\n```\n\nThe problem is clear: The config has `input_dim: 50` which is hardcoded and doesn't match the actual data dimensionality of 105. The code then creates a model with 50 input dimensions, but the data has 105 features, causing the shape mismatch error.\n\nThe fix is to remove the `input_dim` from the model config so that line 183 doesn't override the actual data dimension. According to the logic, if `input_dim` is not in the config, it will use the actual data dimension (105).\n\nLet me gather my evidence:\n\n1. **Config issue**: `model.input_dim` is set to 50 in the configuration\n2. **Error**: Shape mismatch - the model expects 50 inputs but data has 105 features\n3. **Root cause**: The code at line 183 overrides the actual input dimension with a hardcoded config value that doesn't match the data\n\nThe repair is to remove `input_dim` from the model config, allowing the code to use the actual data dimension.",
+   "tool_calls": [
+    {
+     "id": "toolu_014kqsLAjcT5kEgiGDNJpPUo",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "config_input_dim_mismatch"
+      },
+      "evidence_refs": [
+       {
+        "kind": "config_key",
+        "artifact_id": "config.yaml",
+        "detail": {
+         "key_path": "model.input_dim"
+        }
+       },
+       {
+        "kind": "line_range",
+        "artifact_id": "logs/stdout.log",
+        "detail": {
+         "start_line": 22,
+         "end_line": 25
+        }
+       },
+       {
+        "kind": "code_span",
+        "artifact_id": "train.py",
+        "detail": {
+         "start_line": 182,
+         "end_line": 184
+        }
+       }
+      ],
+      "rationale": "\nThe config specifies model.input_dim=50, but the Adult dataset has 105 features. The training code at line 183 overrides the actual data dimension with this hardcoded config value, causing a shape mismatch error when the model tries to process 105-dimensional input with a 50-dimensional first layer.\n",
+      "repair_spec": {
+       "repair_type": "config_patch",
+       "patches": {
+        "model.input_dim": null
+       }
+      }
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 6.655,
+   "usage": {
+    "input_tokens": 9078,
+    "output_tokens": 758
+   }
+  }
+ ],
+ "tool_transcript": [
+  {
+   "index": 0,
+   "tool_name": "list_files",
+   "arguments": {},
+   "result": {
+    "status": "ok",
+    "files": [
+     ".data/",
+     "config.yaml",
+     "datautil.py",
+     "run_output/config.resolved.yaml",
+     "run_output/exitcode",
+     "run_output/logs/stdout.log",
+     "run_output/metrics.jsonl",
+     "train.py"
+    ]
+   },
+   "timestamp": 2021.353575583,
+   "phase": null
+  },
+  {
+   "index": 1,
+   "tool_name": "read_config",
+   "arguments": {},
+   "result": {
+    "status": "ok",
+    "key_path": null,
+    "value": {
+     "workload": {
+      "family": "tabular",
+      "name": "tabular_adult"
+     },
+     "model": {
+      "type": "mlp",
+      "hidden_dims": [
+       64,
+       32
+      ],
+      "dropout": 0.0,
+      "activation": "relu",
+      "input_dim": 50
+     },
+     "training": {
+      "epochs": 20,
+      "batch_size": 256,
+      "lr": 0.01,
+      "optimizer": "adam",
+      "weight_decay": 0.0001
+     },
+     "metrics": {
+      "visible": "metric_visible_val_acc"
+     },
+     "reference": {
+      "num_seeds": 10,
+      "seeds": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9
+      ]
+     },
+     "seed": 43
+    }
+   },
+   "timestamp": 2021.35916525,
+   "phase": null
+  },
+  {
+   "index": 2,
+   "tool_name": "query_metrics",
+   "arguments": {
+    "series": "metric_visible_val_acc"
+   },
+   "result": {
+    "status": "error",
+    "error": "INVALID_ARGUMENTS",
+    "detail": "Series 'metric_visible_val_acc' not found in metrics"
+   },
+   "timestamp": 2022.678100333,
+   "phase": null
+  },
+  {
+   "index": 3,
+   "tool_name": "query_metrics",
+   "arguments": {
+    "series": "train_loss"
+   },
+   "result": {
+    "status": "error",
+    "error": "INVALID_ARGUMENTS",
+    "detail": "Series 'train_loss' not found in metrics"
+   },
+   "timestamp": 2022.67842675,
+   "phase": null
+  },
+  {
+   "index": 4,
+   "tool_name": "read_log",
+   "arguments": {
+    "artifact_id": "metrics.jsonl",
+    "start_line": 1,
+    "end_line": 30
+   },
+   "result": {
+    "status": "ok",
+    "lines": [],
+    "start_line": 1,
+    "end_line": 0,
+    "total_lines": 0
+   },
+   "timestamp": 2023.578690125,
+   "phase": null
+  },
+  {
+   "index": 5,
+   "tool_name": "read_log",
+   "arguments": {
+    "artifact_id": "logs/stdout.log"
+   },
+   "result": {
+    "status": "ok",
+    "lines": [
+     "2026-09-12 11:38:19,764 [INFO] Training seed=43  epochs=20  input_dim=50  device=cpu",
+     "2026-09-12 11:38:19,800 [ERROR] Training failed:",
+     "Traceback (most recent call last):",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/cases/case_0009/workspace/train.py\", line 234, in train",
+     "    logits = model(xb)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/module.py\", line 1511, in _wrapped_call_impl",
+     "    return self._call_impl(*args, **kwargs)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/module.py\", line 1520, in _call_impl",
+     "    return forward_call(*args, **kwargs)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/cases/case_0009/workspace/train.py\", line 88, in forward",
+     "    return self.net(x).squeeze(-1)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/module.py\", line 1511, in _wrapped_call_impl",
+     "    return self._call_impl(*args, **kwargs)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/module.py\", line 1520, in _call_impl",
+     "    return forward_call(*args, **kwargs)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/container.py\", line 217, in forward",
+     "    input = module(input)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/module.py\", line 1511, in _wrapped_call_impl",
+     "    return self._call_impl(*args, **kwargs)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/module.py\", line 1520, in _call_impl",
+     "    return forward_call(*args, **kwargs)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/linear.py\", line 116, in forward",
+     "    return F.linear(input, self.weight, self.bias)",
+     "RuntimeError: mat1 and mat2 shapes cannot be multiplied (256x105 and 50x64)",
+     "",
+     "2026-09-12 11:38:19,818 [INFO] Wall time: 1.9s  exit code: 1"
+    ],
+    "start_line": 1,
+    "end_line": 26,
+    "total_lines": 26
+   },
+   "timestamp": 2024.583370542,
+   "phase": null
+  },
+  {
+   "index": 6,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "train.py",
+    "start_line": 1,
+    "end_line": 100
+   },
+   "result": {
+    "status": "ok",
+    "path": "train.py",
+    "lines": [
+     "\"\"\"Deterministic MLP training on the Adult dataset.",
+     "",
+     "Implements the SageMaker training container contract (harness_spec \u00a72):",
+     "- Reads hyperparameters from SM_HPS env var or --config flag.",
+     "- Reads data from SM_CHANNEL_TRAIN env var or --data-dir flag.",
+     "- Writes model artifacts to SM_MODEL_DIR env var or --output-dir flag.",
+     "",
+     "Outputs (per harness_spec \u00a72):",
+     "    metrics.jsonl          per-step and per-epoch metrics (visible only)",
+     "    logs/stdout.log        human-readable training log",
+     "    config.resolved.yaml   fully resolved configuration",
+     "    checkpoints/           ckpt_final.pt",
+     "    exitcode               0 on success, 1 on failure",
+     "",
+     "The workspace never sees or evaluates against the hidden evaluation split.",
+     "Hidden-metric computation happens exclusively in harness/evaluator/ (spec \u00a77).",
+     "\"\"\"",
+     "from __future__ import annotations",
+     "",
+     "import argparse",
+     "import json",
+     "import logging",
+     "import os",
+     "import random",
+     "import hashlib",
+     "import sys",
+     "import time",
+     "import tracemalloc",
+     "from pathlib import Path",
+     "",
+     "import numpy as np",
+     "import torch",
+     "import torch.nn as nn",
+     "from torch.utils.data import DataLoader, TensorDataset",
+     "import yaml",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Determinism helpers",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "def set_seed(seed: int) -> None:",
+     "    \"\"\"Set all random seeds for full reproducibility.\"\"\"",
+     "    random.seed(seed)",
+     "    np.random.seed(seed)",
+     "    torch.manual_seed(seed)",
+     "    torch.use_deterministic_algorithms(True)",
+     "    os.environ[\"PYTHONHASHSEED\"] = str(seed)",
+     "",
+     "",
+     "def _compute_aux_column(labels: np.ndarray, split_name: str, p: float) -> np.ndarray:",
+     "    \"\"\"Precomputed upstream auxiliary score for the given data split.",
+     "",
+     "    Returns a binary column derived from *labels* and a noise parameter *p*.",
+     "    Seed is deterministic from (split_name, n_samples, p) \u2014 independent of",
+     "    the training seed so re-runs produce identical columns.",
+     "    \"\"\"",
+     "    seed = int.from_bytes(",
+     "        hashlib.sha256(f\"{split_name}:{len(labels)}:{p}\".encode()).digest()[:4],",
+     "        \"big\",",
+     "    )",
+     "    rng = np.random.RandomState(seed)",
+     "    noise = rng.binomial(1, p, size=len(labels)).astype(np.float32)",
+     "    return np.abs(labels - noise)",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Model",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "class MLP(nn.Module):",
+     "    \"\"\"Simple feed-forward network for binary classification.\"\"\"",
+     "",
+     "    def __init__(self, input_dim: int, hidden_dims: list, dropout: float = 0.0):",
+     "        super().__init__()",
+     "        layers: list[nn.Module] = []",
+     "        prev = input_dim",
+     "        for h in hidden_dims:",
+     "            layers.append(nn.Linear(prev, h))",
+     "            layers.append(nn.ReLU())",
+     "            if dropout > 0:",
+     "                layers.append(nn.Dropout(dropout))",
+     "            prev = h",
+     "        layers.append(nn.Linear(prev, 1))",
+     "        self.net = nn.Sequential(*layers)",
+     "",
+     "    def forward(self, x: torch.Tensor) -> torch.Tensor:",
+     "        return self.net(x).squeeze(-1)",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Evaluation",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "def evaluate(",
+     "    model: nn.Module,",
+     "    loader: DataLoader,",
+     "    criterion: nn.Module,",
+     "    device: torch.device,",
+     ") -> tuple:"
+    ],
+    "start_line": 1,
+    "end_line": 100,
+    "total_lines": 355
+   },
+   "timestamp": 2026.62600825,
+   "phase": null
+  },
+  {
+   "index": 7,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "train.py",
+    "start_line": 100,
+    "end_line": 200
+   },
+   "result": {
+    "status": "ok",
+    "path": "train.py",
+    "lines": [
+     ") -> tuple:",
+     "    \"\"\"Return (avg_loss, accuracy) over a DataLoader.\"\"\"",
+     "    model.eval()",
+     "    total_loss = 0.0",
+     "    correct = 0",
+     "    total = 0",
+     "    with torch.no_grad():",
+     "        for xb, yb in loader:",
+     "            xb, yb = xb.to(device), yb.to(device)",
+     "            logits = model(xb)",
+     "            total_loss += criterion(logits, yb).item() * len(yb)",
+     "            correct += ((torch.sigmoid(logits) >= 0.5).float() == yb).sum().item()",
+     "            total += len(yb)",
+     "    return total_loss / total, correct / total",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Main training routine",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:",
+     "    \"\"\"Run one deterministic training job.  Returns exit code (0=success).\"\"\"",
+     "    set_seed(seed)",
+     "    tracemalloc.start()",
+     "    wall_start = time.monotonic()",
+     "    device = torch.device(\"cpu\")",
+     "",
+     "    # ---- load visible data only (train + val) ----------------------------",
+     "    X_train = torch.from_numpy(np.load(data_dir / \"X_train.npy\"))",
+     "    y_train_np = np.load(data_dir / \"y_train.npy\")",
+     "",
+     "    # ---- apply label noise if configured (default: none) -----------------",
+     "    noise_frac = config.get(\"data\", {}).get(\"label_noise_fraction\", 0.0)",
+     "    if noise_frac > 0:",
+     "        # Nested selection from the sibling helper: the flipped index set is a",
+     "        # deterministic prefix of one data-derived permutation, so a larger",
+     "        # fraction is a strict superset of a smaller one (monotone difficulty),",
+     "        # identical across processes and independent of the training seed.  The",
+     "        # evaluator reruns with hidden seeds 100/101/102 and must see the same",
+     "        # flipped set every time.",
+     "        from datautil import nested_prefix_indices",
+     "",
+     "        flip_idx = nested_prefix_indices(len(y_train_np), noise_frac)",
+     "        y_train_np[flip_idx] = 1.0 - y_train_np[flip_idx]",
+     "",
+     "    y_train = torch.from_numpy(y_train_np)",
+     "    X_val = torch.from_numpy(np.load(data_dir / \"X_val.npy\"))",
+     "    y_val = torch.from_numpy(np.load(data_dir / \"y_val.npy\"))",
+     "",
+     "    # ---- apply aux feature if configured (default: disabled) ----------------",
+     "    dcfg = config.get(\"data\", {})",
+     "    if dcfg.get(\"include_aux_feature\", False):",
+     "        _p = dcfg.get(\"aux_feature_strength\", 0.0)",
+     "        aux_train = _compute_aux_column(y_train_np, \"train\", _p)",
+     "        X_train = torch.cat(",
+     "            [X_train, torch.from_numpy(aux_train).unsqueeze(1)], dim=1,",
+     "        )",
+     "        aux_val = _compute_aux_column(y_val.numpy(), \"val\", _p)",
+     "        X_val = torch.cat(",
+     "            [X_val, torch.from_numpy(aux_val).unsqueeze(1)], dim=1,",
+     "        )",
+     "",
+     "    tcfg = config[\"training\"]",
+     "",
+     "    # Single-threaded dataloaders for determinism (harness_spec \u00a72)",
+     "    g = torch.Generator().manual_seed(seed)",
+     "    train_loader = DataLoader(",
+     "        TensorDataset(X_train, y_train),",
+     "        batch_size=tcfg[\"batch_size\"],",
+     "        shuffle=True,",
+     "        num_workers=0,",
+     "        generator=g,",
+     "    )",
+     "    val_loader = DataLoader(",
+     "        TensorDataset(X_val, y_val),",
+     "        batch_size=tcfg[\"batch_size\"],",
+     "        shuffle=False,",
+     "        num_workers=0,",
+     "    )",
+     "",
+     "    # ---- model + optimizer -----------------------------------------------",
+     "    mcfg = config[\"model\"]",
+     "    input_dim = X_train.shape[1]",
+     "    input_dim = mcfg.get(\"input_dim\", input_dim)",
+     "    model = MLP(input_dim, mcfg[\"hidden_dims\"], mcfg.get(\"dropout\", 0.0)).to(device)",
+     "",
+     "    optimizer = torch.optim.Adam(",
+     "        model.parameters(),",
+     "        lr=tcfg[\"lr\"],",
+     "        weight_decay=tcfg.get(\"weight_decay\", 0.0),",
+     "    )",
+     "    criterion = nn.BCEWithLogitsLoss()",
+     "",
+     "    # ---- output dirs & logging -------------------------------------------",
+     "    output_dir.mkdir(parents=True, exist_ok=True)",
+     "    (output_dir / \"logs\").mkdir(exist_ok=True)",
+     "    (output_dir / \"checkpoints\").mkdir(exist_ok=True)",
+     "",
+     "    log_path = output_dir / \"logs\" / \"stdout.log\"",
+     "    logger = logging.getLogger(f\"train.seed{seed}\")"
+    ],
+    "start_line": 100,
+    "end_line": 199,
+    "total_lines": 355
+   },
+   "timestamp": 2027.845835792,
+   "phase": null
+  },
+  {
+   "index": 8,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "train.py",
+    "start_line": 180,
+    "end_line": 240
+   },
+   "result": {
+    "status": "ok",
+    "path": "train.py",
+    "lines": [
+     "    # ---- model + optimizer -----------------------------------------------",
+     "    mcfg = config[\"model\"]",
+     "    input_dim = X_train.shape[1]",
+     "    input_dim = mcfg.get(\"input_dim\", input_dim)",
+     "    model = MLP(input_dim, mcfg[\"hidden_dims\"], mcfg.get(\"dropout\", 0.0)).to(device)",
+     "",
+     "    optimizer = torch.optim.Adam(",
+     "        model.parameters(),",
+     "        lr=tcfg[\"lr\"],",
+     "        weight_decay=tcfg.get(\"weight_decay\", 0.0),",
+     "    )",
+     "    criterion = nn.BCEWithLogitsLoss()",
+     "",
+     "    # ---- output dirs & logging -------------------------------------------",
+     "    output_dir.mkdir(parents=True, exist_ok=True)",
+     "    (output_dir / \"logs\").mkdir(exist_ok=True)",
+     "    (output_dir / \"checkpoints\").mkdir(exist_ok=True)",
+     "",
+     "    log_path = output_dir / \"logs\" / \"stdout.log\"",
+     "    logger = logging.getLogger(f\"train.seed{seed}\")",
+     "    logger.setLevel(logging.INFO)",
+     "    logger.handlers.clear()",
+     "    fmt = logging.Formatter(\"%(asctime)s [%(levelname)s] %(message)s\")",
+     "    for handler in [logging.FileHandler(log_path, mode=\"w\"),",
+     "                    logging.StreamHandler(sys.stdout)]:",
+     "        handler.setFormatter(fmt)",
+     "        logger.addHandler(handler)",
+     "",
+     "    # Write fully resolved config",
+     "    resolved = {**config, \"seed\": seed}",
+     "    resolved.setdefault(\"model\", {})[\"input_dim\"] = input_dim",
+     "    with open(output_dir / \"config.resolved.yaml\", \"w\") as f:",
+     "        yaml.dump(resolved, f, default_flow_style=False, sort_keys=False)",
+     "",
+     "    logger.info(",
+     "        \"Training seed=%d  epochs=%d  input_dim=%d  device=%s\",",
+     "        seed, tcfg[\"epochs\"], input_dim, device,",
+     "    )",
+     "",
+     "    # ---- training loop ---------------------------------------------------",
+     "    metrics_fh = open(output_dir / \"metrics.jsonl\", \"w\")",
+     "    global_step = 0",
+     "    exitcode = 0",
+     "",
+     "    try:",
+     "        for epoch in range(tcfg[\"epochs\"]):",
+     "            model.train()",
+     "            epoch_loss = 0.0",
+     "            epoch_samples = 0",
+     "            epoch_start = time.monotonic()",
+     "",
+     "            for xb, yb in train_loader:",
+     "                xb, yb = xb.to(device), yb.to(device)",
+     "                optimizer.zero_grad()",
+     "                logits = model(xb)",
+     "                loss = criterion(logits, yb)",
+     "                loss.backward()",
+     "                optimizer.step()",
+     "",
+     "                bs = len(yb)",
+     "                epoch_loss += loss.item() * bs"
+    ],
+    "start_line": 180,
+    "end_line": 240,
+    "total_lines": 355
+   },
+   "timestamp": 2029.130113458,
+   "phase": null
+  },
+  {
+   "index": 9,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "datautil.py"
+   },
+   "result": {
+    "status": "ok",
+    "path": "datautil.py",
+    "lines": [
+     "\"\"\"Deterministic data-subset helpers for the training script.",
+     "",
+     "Self-contained (numpy + stdlib only) so it can sit beside ``train.py`` inside",
+     "a portable training workspace and be imported as a sibling module.  Shared by",
+     "the training script and by harness/operator code that needs the identical,",
+     "reproducible selection.",
+     "\"\"\"",
+     "from __future__ import annotations",
+     "",
+     "import hashlib",
+     "import math",
+     "",
+     "import numpy as np",
+     "",
+     "",
+     "def _stable_seed(n_items: int) -> int:",
+     "    \"\"\"A process-stable 32-bit seed derived from the item count alone.",
+     "",
+     "    Uses SHA-256 (never Python's salted ``hash()``) so the value is identical",
+     "    across processes and runs, and depends only on ``n_items`` \u2014 not on any",
+     "    training seed or selection size.",
+     "    \"\"\"",
+     "    return int.from_bytes(hashlib.sha256(str(n_items).encode()).digest()[:4], \"big\")",
+     "",
+     "",
+     "def nested_prefix_indices(n_items: int, fraction: float) -> np.ndarray:",
+     "    \"\"\"Return a deterministic prefix of a fixed data-derived permutation.",
+     "",
+     "    One permutation of ``range(n_items)`` is derived from ``n_items`` alone;",
+     "    this returns its first ``ceil(fraction * n_items)`` entries.  Because every",
+     "    fraction slices the *same* permutation, the selection for a larger fraction",
+     "    is a strict superset of the selection for a smaller one \u2014 monotone in",
+     "    ``fraction`` by construction, with no dependence on the training seed and",
+     "    identical across processes.",
+     "",
+     "    Args:",
+     "        n_items: Number of items to select from (e.g. training-set size).",
+     "        fraction: Share of items to select, in [0, 1].",
+     "",
+     "    Returns:",
+     "        A 1-D ``int64`` array of selected indices (empty when fraction <= 0).",
+     "    \"\"\"",
+     "    if fraction <= 0:",
+     "        return np.empty(0, dtype=np.int64)",
+     "    rng = np.random.RandomState(_stable_seed(n_items))",
+     "    perm = rng.permutation(n_items)",
+     "    k = min(math.ceil(fraction * n_items), n_items)",
+     "    return perm[:k].astype(np.int64)"
+    ],
+    "start_line": 1,
+    "end_line": 48,
+    "total_lines": 48
+   },
+   "timestamp": 2031.894518583,
+   "phase": null
+  },
+  {
+   "index": 10,
+   "tool_name": "read_log",
+   "arguments": {
+    "artifact_id": "exitcode"
+   },
+   "result": {
+    "status": "ok",
+    "lines": [
+     "1"
+    ],
+    "start_line": 1,
+    "end_line": 1,
+    "total_lines": 1
+   },
+   "timestamp": 2033.097344417,
+   "phase": null
+  },
+  {
+   "index": 11,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "run_output/config.resolved.yaml"
+   },
+   "result": {
+    "status": "ok",
+    "path": "run_output/config.resolved.yaml",
+    "lines": [
+     "workload:",
+     "  family: tabular",
+     "  name: tabular_adult",
+     "model:",
+     "  type: mlp",
+     "  hidden_dims:",
+     "  - 64",
+     "  - 32",
+     "  dropout: 0.0",
+     "  activation: relu",
+     "  input_dim: 50",
+     "training:",
+     "  epochs: 20",
+     "  batch_size: 256",
+     "  lr: 0.01",
+     "  optimizer: adam",
+     "  weight_decay: 0.0001",
+     "metrics:",
+     "  visible: metric_visible_val_acc",
+     "reference:",
+     "  num_seeds: 10",
+     "  seeds:",
+     "  - 0",
+     "  - 1",
+     "  - 2",
+     "  - 3",
+     "  - 4",
+     "  - 5",
+     "  - 6",
+     "  - 7",
+     "  - 8",
+     "  - 9",
+     "seed: 43"
+    ],
+    "start_line": 1,
+    "end_line": 33,
+    "total_lines": 33
+   },
+   "timestamp": 2034.557482625,
+   "phase": null
+  },
+  {
+   "index": 12,
+   "tool_name": "submit",
+   "arguments": {
+    "diagnosis": {
+     "detected": true,
+     "operator_class": "config_input_dim_mismatch"
+    },
+    "evidence_refs": [
+     {
+      "kind": "config_key",
+      "artifact_id": "config.yaml",
+      "detail": {
+       "key_path": "model.input_dim"
+      }
+     },
+     {
+      "kind": "line_range",
+      "artifact_id": "logs/stdout.log",
+      "detail": {
+       "start_line": 22,
+       "end_line": 25
+      }
+     },
+     {
+      "kind": "code_span",
+      "artifact_id": "train.py",
+      "detail": {
+       "start_line": 182,
+       "end_line": 184
+      }
+     }
+    ],
+    "rationale": "\nThe config specifies model.input_dim=50, but the Adult dataset has 105 features. The training code at line 183 overrides the actual data dimension with this hardcoded config value, causing a shape mismatch error when the model tries to process 105-dimensional input with a 50-dimensional first layer.\n",
+    "repair_spec": {
+     "repair_type": "config_patch",
+     "patches": {
+      "model.input_dim": null
+     }
+    }
+   },
+   "result": {
+    "status": "ok",
+    "submitted": true
+   },
+   "timestamp": 2041.212639083,
+   "phase": null
+  }
+ ],
+ "case_id": "case_0009",
+ "usage": {
+  "llm_calls": 11,
+  "input_tokens": 61086,
+  "output_tokens": 2008,
+  "cached_tokens": 0,
+  "total_tokens": 63094,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.071126,
+  "cost_is_estimate": true
+ },
+ "schema_version": "1.1",
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "react",
+  "anchor": "on",
+  "repeat_index": 2
+ }
+}

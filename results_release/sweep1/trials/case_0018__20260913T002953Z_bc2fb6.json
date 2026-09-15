@@ -1,0 +1,1101 @@
+{
+ "agent_name": "llm_claude-haiku-4-5-20251001",
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0018\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599); values clearly outside this range, above OR below, are anomalous.\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
+  "prompt_hash": "8065c241c23ad5e86cadbd4cf9148fe32b38daeb516eaec041432475417a76b2",
+  "prompt_version": "react-1"
+ },
+ "run_id": "20260913T002953Z_bc2fb6",
+ "scores": {
+  "tier": "dynamics",
+  "detection": {
+   "detected_predicted": true,
+   "detected_actual": true,
+   "correct": true
+  },
+  "identification": {
+   "predicted_class": "label_noise_corruption",
+   "accepted_classes": [
+    "data_corruption",
+    "label_corruption",
+    "label_noise",
+    "noisy_labels"
+   ],
+   "method": "root_token_v1",
+   "token_spec_sha256": "c37b276121c35947c72561304e6b082844477890a2ad004e59bf13b835332c29",
+   "matched_operators": [
+    "silent.label_corruption.v1"
+   ],
+   "match_path": "token",
+   "correct": true
+  },
+  "evidence": {
+   "precision": 1.0,
+   "recall": 0.6667,
+   "f1": 0.8,
+   "matched_pairs": [
+    {
+     "submitted_index": 0,
+     "hidden_index": 0
+    },
+    {
+     "submitted_index": 1,
+     "hidden_index": 2
+    }
+   ],
+   "unmatched_submitted": [],
+   "unmatched_hidden": [
+    1
+   ]
+  },
+  "recovery": {
+   "verdict": "recovered",
+   "compute_sec": 47.22
+  },
+  "safety": {
+   "rejected_tool_calls": 0,
+   "forbidden_actions": 0,
+   "total_calls": 10
+  },
+  "identification_original": {
+   "predicted_class": "label_noise_corruption",
+   "accepted_classes": [
+    "data_corruption",
+    "label_corruption",
+    "label_noise",
+    "noisy_labels"
+   ],
+   "correct": false
+  }
+ },
+ "environment": {
+  "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
+  "git_dirty": true,
+  "case_card_hash": "60d0ba1df21e7918a71f03d47bb130983b7b0fe5e9c1d66655097fdc72fd9f86",
+  "case_build_id": "61ceb6df2410530207dbe954eeaea0c6ab8045ab15b5e50e3f84501f07dd4a7a",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "timestamp_utc": "2026-09-13T00:29:53.962903+00:00",
+  "wall_clock_sec": 15.724716000000626
+ },
+ "termination_reason": "submitted",
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "label_noise_corruption"
+  },
+  "evidence_refs": [
+   {
+    "kind": "config_key",
+    "artifact_id": "config.resolved.yaml",
+    "detail": {
+     "key_path": "data.label_noise_fraction"
+    }
+   },
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0,
+     "end_epoch": 19
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "data.label_noise_fraction": 0.0
+   }
+  },
+  "confidence": null,
+  "rationale": "The config applies 33% label noise to training labels, corrupting the data and causing validation accuracy (~0.842) to fall significantly below the healthy range (0.8538-0.8599). Removing this noise by setting label_noise_fraction to 0.0 will restore healthy performance.\",\n\"confidence\": 0.95\n"
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll investigate this training run systematically. Let me start by examining the files and configuration.",
+   "tool_calls": [
+    {
+     "id": "toolu_01P2kWCwSoFSNkRjzN9xgLdG",
+     "name": "list_files",
+     "arguments": {
+      "pattern": "**/*"
+     }
+    },
+    {
+     "id": "toolu_0185XDwth2s8Bimmxte2B3J2",
+     "name": "read_config",
+     "arguments": {}
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.1188,
+   "usage": {
+    "input_tokens": 2307,
+    "output_tokens": 93
+   }
+  },
+  {
+   "turn": 1,
+   "response_text": "Now let me check the metrics to see if validation accuracy is anomalous:",
+   "tool_calls": [
+    {
+     "id": "toolu_0127PgVrDg2jeJRBikYC9S3T",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "metric_visible_val_acc"
+     }
+    },
+    {
+     "id": "toolu_01SxbnrvPx5F813F1BL4FTdD",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "train_loss"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.0698,
+   "usage": {
+    "input_tokens": 2770,
+    "output_tokens": 114
+   }
+  },
+  {
+   "turn": 2,
+   "response_text": "The validation accuracy values are noticeably LOW. They range from ~0.83 to ~0.845, with a final value of 0.842105. The healthy range is approximately 0.8538\u20130.8599. This is clearly below the healthy range across all epochs. \n\nLet me check the data configuration more closely. I notice there's a `label_noise_fraction` of 0.33 (33% label noise) in the config. This could be intentional, but let me read the training code and logs to understand what's happening:",
+   "tool_calls": [
+    {
+     "id": "toolu_012MmmB3cc4HiBUyRuWXeJJP",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py"
+     }
+    },
+    {
+     "id": "toolu_01Rx3pxCfVSjXGLf8VDTA3wk",
+     "name": "read_log",
+     "arguments": {
+      "artifact_id": "logs/stdout.log"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 2.5786,
+   "usage": {
+    "input_tokens": 3589,
+    "output_tokens": 220
+   }
+  },
+  {
+   "turn": 3,
+   "response_text": "The training completed successfully. Let me check more of the training code to understand the data loading and whether the label noise is being applied:",
+   "tool_calls": [
+    {
+     "id": "toolu_01M9TFrPRKkVrhE3eJVE8qHZ",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 100,
+      "end_line": 200
+     }
+    },
+    {
+     "id": "toolu_017k8vaCGxYaQbFQBXKAM5Jy",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 200,
+      "end_line": 355
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.7838,
+   "usage": {
+    "input_tokens": 6075,
+    "output_tokens": 197
+   }
+  },
+  {
+   "turn": 4,
+   "response_text": "Now let me check the datautil to understand the data loading:",
+   "tool_calls": [
+    {
+     "id": "toolu_019f5zBL4CwRbpRfuHMNNmxf",
+     "name": "read_code",
+     "arguments": {
+      "path": "datautil.py"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 0.9014,
+   "usage": {
+    "input_tokens": 8983,
+    "output_tokens": 70
+   }
+  },
+  {
+   "turn": 5,
+   "response_text": "Now I have a clear picture. Let me analyze the situation:\n\n**Key observations:**\n1. The config has `label_noise_fraction: 0.33` which means 33% of training labels are intentionally flipped.\n2. The validation accuracy achieved is ~0.84 across all epochs, with a final value of 0.842105.\n3. The healthy range is 0.8538\u20130.8599 (approximately 0.8568 \u00b1 0.003).\n4. This run's accuracy is consistently **BELOW** the healthy range by roughly 1.0-1.5% absolute.\n\nThe presence of 33% label noise is **highly unusual** for a normal healthy run. This is a significant data corruption parameter that would severely impact model performance. A healthy run should have 0% label noise (the default).\n\nLet me verify by checking if there's any documentation about what label noise should be in a healthy run:\n\nThe issue is clear: **The config specifies 33% label noise on the training data**, which is a form of intentional data corruption. This causes the model to train on corrupted labels, resulting in lower validation accuracy than expected. The healthy runs should not have this label noise applied.\n\n**Diagnosis:** The `data.label_noise_fraction` parameter is set to 0.33, which is a data corruption parameter. This is causing the validation accuracy to be significantly lower than the healthy range (0.8420-0.8445 vs expected 0.8538-0.8599).\n\nLet me gather the evidence and submit my diagnosis:",
+   "tool_calls": [
+    {
+     "id": "toolu_019KmHTm288E5AyepPAdXeEd",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "label_noise_corruption"
+      },
+      "evidence_refs": [
+       {
+        "kind": "config_key",
+        "artifact_id": "config.resolved.yaml",
+        "detail": {
+         "key_path": "data.label_noise_fraction"
+        }
+       },
+       {
+        "kind": "metric_window",
+        "artifact_id": "metrics.jsonl",
+        "detail": {
+         "series": "metric_visible_val_acc",
+         "start_epoch": 0,
+         "end_epoch": 19
+        }
+       }
+      ],
+      "repair_spec": {
+       "repair_type": "config_patch",
+       "patches": {
+        "data.label_noise_fraction": 0.0
+       }
+      },
+      "rationale": "The config applies 33% label noise to training labels, corrupting the data and causing validation accuracy (~0.842) to fall significantly below the healthy range (0.8538-0.8599). Removing this noise by setting label_noise_fraction to 0.0 will restore healthy performance.\",\n\"confidence\": 0.95\n"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 8.2284,
+   "usage": {
+    "input_tokens": 9688,
+    "output_tokens": 727
+   }
+  }
+ ],
+ "tool_transcript": [
+  {
+   "index": 0,
+   "tool_name": "list_files",
+   "arguments": {
+    "pattern": "**/*"
+   },
+   "result": {
+    "status": "ok",
+    "files": [
+     ".data/",
+     "__pycache__/datautil.cpython-39.pyc",
+     "config.yaml",
+     "datautil.py",
+     "run_output/checkpoints/ckpt_final.pt",
+     "run_output/config.resolved.yaml",
+     "run_output/exitcode",
+     "run_output/logs/stdout.log",
+     "run_output/metrics.jsonl",
+     "train.py"
+    ]
+   },
+   "timestamp": 4254.397834292,
+   "phase": null
+  },
+  {
+   "index": 1,
+   "tool_name": "read_config",
+   "arguments": {},
+   "result": {
+    "status": "ok",
+    "key_path": null,
+    "value": {
+     "workload": {
+      "family": "tabular",
+      "name": "tabular_adult"
+     },
+     "model": {
+      "type": "mlp",
+      "hidden_dims": [
+       64,
+       32
+      ],
+      "dropout": 0.0,
+      "activation": "relu",
+      "input_dim": 105
+     },
+     "training": {
+      "epochs": 20,
+      "batch_size": 256,
+      "lr": 0.01,
+      "optimizer": "adam",
+      "weight_decay": 0.0001
+     },
+     "metrics": {
+      "visible": "metric_visible_val_acc"
+     },
+     "reference": {
+      "num_seeds": 10,
+      "seeds": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9
+      ]
+     },
+     "data": {
+      "label_noise_fraction": 0.33
+     },
+     "seed": 42
+    }
+   },
+   "timestamp": 4254.403157333,
+   "phase": null
+  },
+  {
+   "index": 2,
+   "tool_name": "query_metrics",
+   "arguments": {
+    "series": "metric_visible_val_acc"
+   },
+   "result": {
+    "status": "ok",
+    "series": "metric_visible_val_acc",
+    "values": [
+     {
+      "epoch": 0,
+      "value": 0.841958
+     },
+     {
+      "epoch": 1,
+      "value": 0.844464
+     },
+     {
+      "epoch": 2,
+      "value": 0.844612
+     },
+     {
+      "epoch": 3,
+      "value": 0.84299
+     },
+     {
+      "epoch": 4,
+      "value": 0.839304
+     },
+     {
+      "epoch": 5,
+      "value": 0.844759
+     },
+     {
+      "epoch": 6,
+      "value": 0.841221
+     },
+     {
+      "epoch": 7,
+      "value": 0.842548
+     },
+     {
+      "epoch": 8,
+      "value": 0.839599
+     },
+     {
+      "epoch": 9,
+      "value": 0.838714
+     },
+     {
+      "epoch": 10,
+      "value": 0.837682
+     },
+     {
+      "epoch": 11,
+      "value": 0.836356
+     },
+     {
+      "epoch": 12,
+      "value": 0.839746
+     },
+     {
+      "epoch": 13,
+      "value": 0.841368
+     },
+     {
+      "epoch": 14,
+      "value": 0.843137
+     },
+     {
+      "epoch": 15,
+      "value": 0.832228
+     },
+     {
+      "epoch": 16,
+      "value": 0.835324
+     },
+     {
+      "epoch": 17,
+      "value": 0.83724
+     },
+     {
+      "epoch": 18,
+      "value": 0.830164
+     },
+     {
+      "epoch": 19,
+      "value": 0.842105
+     }
+    ]
+   },
+   "timestamp": 4255.488004375,
+   "phase": null
+  },
+  {
+   "index": 3,
+   "tool_name": "query_metrics",
+   "arguments": {
+    "series": "train_loss"
+   },
+   "result": {
+    "status": "ok",
+    "series": "train_loss",
+    "values": [
+     {
+      "epoch": 0,
+      "value": 0.666064
+     },
+     {
+      "epoch": 1,
+      "value": 0.661593
+     },
+     {
+      "epoch": 2,
+      "value": 0.6603
+     },
+     {
+      "epoch": 3,
+      "value": 0.659457
+     },
+     {
+      "epoch": 4,
+      "value": 0.659227
+     },
+     {
+      "epoch": 5,
+      "value": 0.658512
+     },
+     {
+      "epoch": 6,
+      "value": 0.657986
+     },
+     {
+      "epoch": 7,
+      "value": 0.657379
+     },
+     {
+      "epoch": 8,
+      "value": 0.657329
+     },
+     {
+      "epoch": 9,
+      "value": 0.656241
+     },
+     {
+      "epoch": 10,
+      "value": 0.656488
+     },
+     {
+      "epoch": 11,
+      "value": 0.656229
+     },
+     {
+      "epoch": 12,
+      "value": 0.655251
+     },
+     {
+      "epoch": 13,
+      "value": 0.655227
+     },
+     {
+      "epoch": 14,
+      "value": 0.654306
+     },
+     {
+      "epoch": 15,
+      "value": 0.654525
+     },
+     {
+      "epoch": 16,
+      "value": 0.653506
+     },
+     {
+      "epoch": 17,
+      "value": 0.653757
+     },
+     {
+      "epoch": 18,
+      "value": 0.652757
+     },
+     {
+      "epoch": 19,
+      "value": 0.652466
+     }
+    ]
+   },
+   "timestamp": 4255.498694458,
+   "phase": null
+  },
+  {
+   "index": 4,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "train.py"
+   },
+   "result": {
+    "status": "ok",
+    "path": "train.py",
+    "lines": [
+     "\"\"\"Deterministic MLP training on the Adult dataset.",
+     "",
+     "Implements the SageMaker training container contract (harness_spec \u00a72):",
+     "- Reads hyperparameters from SM_HPS env var or --config flag.",
+     "- Reads data from SM_CHANNEL_TRAIN env var or --data-dir flag.",
+     "- Writes model artifacts to SM_MODEL_DIR env var or --output-dir flag.",
+     "",
+     "Outputs (per harness_spec \u00a72):",
+     "    metrics.jsonl          per-step and per-epoch metrics (visible only)",
+     "    logs/stdout.log        human-readable training log",
+     "    config.resolved.yaml   fully resolved configuration",
+     "    checkpoints/           ckpt_final.pt",
+     "    exitcode               0 on success, 1 on failure",
+     "",
+     "The workspace never sees or evaluates against the hidden evaluation split.",
+     "Hidden-metric computation happens exclusively in harness/evaluator/ (spec \u00a77).",
+     "\"\"\"",
+     "from __future__ import annotations",
+     "",
+     "import argparse",
+     "import json",
+     "import logging",
+     "import os",
+     "import random",
+     "import hashlib",
+     "import sys",
+     "import time",
+     "import tracemalloc",
+     "from pathlib import Path",
+     "",
+     "import numpy as np",
+     "import torch",
+     "import torch.nn as nn",
+     "from torch.utils.data import DataLoader, TensorDataset",
+     "import yaml",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Determinism helpers",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "def set_seed(seed: int) -> None:",
+     "    \"\"\"Set all random seeds for full reproducibility.\"\"\"",
+     "    random.seed(seed)",
+     "    np.random.seed(seed)",
+     "    torch.manual_seed(seed)",
+     "    torch.use_deterministic_algorithms(True)",
+     "    os.environ[\"PYTHONHASHSEED\"] = str(seed)",
+     "",
+     "",
+     "def _compute_aux_column(labels: np.ndarray, split_name: str, p: float) -> np.ndarray:",
+     "    \"\"\"Precomputed upstream auxiliary score for the given data split.",
+     "",
+     "    Returns a binary column derived from *labels* and a noise parameter *p*.",
+     "    Seed is deterministic from (split_name, n_samples, p) \u2014 independent of",
+     "    the training seed so re-runs produce identical columns.",
+     "    \"\"\"",
+     "    seed = int.from_bytes(",
+     "        hashlib.sha256(f\"{split_name}:{len(labels)}:{p}\".encode()).digest()[:4],",
+     "        \"big\",",
+     "    )",
+     "    rng = np.random.RandomState(seed)",
+     "    noise = rng.binomial(1, p, size=len(labels)).astype(np.float32)",
+     "    return np.abs(labels - noise)",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Model",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "class MLP(nn.Module):",
+     "    \"\"\"Simple feed-forward network for binary classification.\"\"\"",
+     "",
+     "    def __init__(self, input_dim: int, hidden_dims: list, dropout: float = 0.0):",
+     "        super().__init__()",
+     "        layers: list[nn.Module] = []",
+     "        prev = input_dim",
+     "        for h in hidden_dims:",
+     "            layers.append(nn.Linear(prev, h))",
+     "            layers.append(nn.ReLU())",
+     "            if dropout > 0:",
+     "                layers.append(nn.Dropout(dropout))",
+     "            prev = h",
+     "        layers.append(nn.Linear(prev, 1))",
+     "        self.net = nn.Sequential(*layers)",
+     "",
+     "    def forward(self, x: torch.Tensor) -> torch.Tensor:",
+     "        return self.net(x).squeeze(-1)",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Evaluation",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "def evaluate(",
+     "    model: nn.Module,",
+     "    loader: DataLoader,",
+     "    criterion: nn.Module,",
+     "    device: torch.device,",
+     ") -> tuple:"
+    ],
+    "start_line": 1,
+    "end_line": 100,
+    "total_lines": 355
+   },
+   "timestamp": 4258.078287042,
+   "phase": null
+  },
+  {
+   "index": 5,
+   "tool_name": "read_log",
+   "arguments": {
+    "artifact_id": "logs/stdout.log"
+   },
+   "result": {
+    "status": "ok",
+    "lines": [
+     "2026-09-12 11:39:56,023 [INFO] Training seed=42  epochs=20  input_dim=105  device=cpu",
+     "2026-09-12 11:39:56,716 [INFO] Epoch   0 | train_loss=0.6661 | val_acc=0.8420 | 45685 samples/s",
+     "2026-09-12 11:39:57,386 [INFO] Epoch   1 | train_loss=0.6616 | val_acc=0.8445 | 47282 samples/s",
+     "2026-09-12 11:39:58,070 [INFO] Epoch   2 | train_loss=0.6603 | val_acc=0.8446 | 46338 samples/s",
+     "2026-09-12 11:39:58,709 [INFO] Epoch   3 | train_loss=0.6595 | val_acc=0.8430 | 49590 samples/s",
+     "2026-09-12 11:39:59,326 [INFO] Epoch   4 | train_loss=0.6592 | val_acc=0.8393 | 51341 samples/s",
+     "2026-09-12 11:39:59,946 [INFO] Epoch   5 | train_loss=0.6585 | val_acc=0.8448 | 51009 samples/s",
+     "2026-09-12 11:40:00,609 [INFO] Epoch   6 | train_loss=0.6580 | val_acc=0.8412 | 47813 samples/s",
+     "2026-09-12 11:40:01,227 [INFO] Epoch   7 | train_loss=0.6574 | val_acc=0.8425 | 51260 samples/s",
+     "2026-09-12 11:40:01,846 [INFO] Epoch   8 | train_loss=0.6573 | val_acc=0.8396 | 51188 samples/s",
+     "2026-09-12 11:40:02,483 [INFO] Epoch   9 | train_loss=0.6562 | val_acc=0.8387 | 49740 samples/s",
+     "2026-09-12 11:40:03,106 [INFO] Epoch  10 | train_loss=0.6565 | val_acc=0.8377 | 50816 samples/s",
+     "2026-09-12 11:40:03,760 [INFO] Epoch  11 | train_loss=0.6562 | val_acc=0.8364 | 48415 samples/s",
+     "2026-09-12 11:40:04,376 [INFO] Epoch  12 | train_loss=0.6553 | val_acc=0.8397 | 51445 samples/s",
+     "2026-09-12 11:40:04,995 [INFO] Epoch  13 | train_loss=0.6552 | val_acc=0.8414 | 51167 samples/s",
+     "2026-09-12 11:40:05,614 [INFO] Epoch  14 | train_loss=0.6543 | val_acc=0.8431 | 51126 samples/s",
+     "2026-09-12 11:40:06,233 [INFO] Epoch  15 | train_loss=0.6545 | val_acc=0.8322 | 51178 samples/s",
+     "2026-09-12 11:40:06,887 [INFO] Epoch  16 | train_loss=0.6535 | val_acc=0.8353 | 48449 samples/s",
+     "2026-09-12 11:40:07,506 [INFO] Epoch  17 | train_loss=0.6538 | val_acc=0.8372 | 51167 samples/s",
+     "2026-09-12 11:40:08,132 [INFO] Epoch  18 | train_loss=0.6528 | val_acc=0.8302 | 50630 samples/s",
+     "2026-09-12 11:40:08,749 [INFO] Epoch  19 | train_loss=0.6525 | val_acc=0.8421 | 51360 samples/s",
+     "2026-09-12 11:40:08,752 [INFO] Training complete.  val_acc=0.8421",
+     "2026-09-12 11:40:08,769 [INFO] Wall time: 14.6s  exit code: 0"
+    ],
+    "start_line": 1,
+    "end_line": 23,
+    "total_lines": 23
+   },
+   "timestamp": 4258.079128625,
+   "phase": null
+  },
+  {
+   "index": 6,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "train.py",
+    "start_line": 100,
+    "end_line": 200
+   },
+   "result": {
+    "status": "ok",
+    "path": "train.py",
+    "lines": [
+     ") -> tuple:",
+     "    \"\"\"Return (avg_loss, accuracy) over a DataLoader.\"\"\"",
+     "    model.eval()",
+     "    total_loss = 0.0",
+     "    correct = 0",
+     "    total = 0",
+     "    with torch.no_grad():",
+     "        for xb, yb in loader:",
+     "            xb, yb = xb.to(device), yb.to(device)",
+     "            logits = model(xb)",
+     "            total_loss += criterion(logits, yb).item() * len(yb)",
+     "            correct += ((torch.sigmoid(logits) >= 0.5).float() == yb).sum().item()",
+     "            total += len(yb)",
+     "    return total_loss / total, correct / total",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Main training routine",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:",
+     "    \"\"\"Run one deterministic training job.  Returns exit code (0=success).\"\"\"",
+     "    set_seed(seed)",
+     "    tracemalloc.start()",
+     "    wall_start = time.monotonic()",
+     "    device = torch.device(\"cpu\")",
+     "",
+     "    # ---- load visible data only (train + val) ----------------------------",
+     "    X_train = torch.from_numpy(np.load(data_dir / \"X_train.npy\"))",
+     "    y_train_np = np.load(data_dir / \"y_train.npy\")",
+     "",
+     "    # ---- apply label noise if configured (default: none) -----------------",
+     "    noise_frac = config.get(\"data\", {}).get(\"label_noise_fraction\", 0.0)",
+     "    if noise_frac > 0:",
+     "        # Nested selection from the sibling helper: the flipped index set is a",
+     "        # deterministic prefix of one data-derived permutation, so a larger",
+     "        # fraction is a strict superset of a smaller one (monotone difficulty),",
+     "        # identical across processes and independent of the training seed.  The",
+     "        # evaluator reruns with hidden seeds 100/101/102 and must see the same",
+     "        # flipped set every time.",
+     "        from datautil import nested_prefix_indices",
+     "",
+     "        flip_idx = nested_prefix_indices(len(y_train_np), noise_frac)",
+     "        y_train_np[flip_idx] = 1.0 - y_train_np[flip_idx]",
+     "",
+     "    y_train = torch.from_numpy(y_train_np)",
+     "    X_val = torch.from_numpy(np.load(data_dir / \"X_val.npy\"))",
+     "    y_val = torch.from_numpy(np.load(data_dir / \"y_val.npy\"))",
+     "",
+     "    # ---- apply aux feature if configured (default: disabled) ----------------",
+     "    dcfg = config.get(\"data\", {})",
+     "    if dcfg.get(\"include_aux_feature\", False):",
+     "        _p = dcfg.get(\"aux_feature_strength\", 0.0)",
+     "        aux_train = _compute_aux_column(y_train_np, \"train\", _p)",
+     "        X_train = torch.cat(",
+     "            [X_train, torch.from_numpy(aux_train).unsqueeze(1)], dim=1,",
+     "        )",
+     "        aux_val = _compute_aux_column(y_val.numpy(), \"val\", _p)",
+     "        X_val = torch.cat(",
+     "            [X_val, torch.from_numpy(aux_val).unsqueeze(1)], dim=1,",
+     "        )",
+     "",
+     "    tcfg = config[\"training\"]",
+     "",
+     "    # Single-threaded dataloaders for determinism (harness_spec \u00a72)",
+     "    g = torch.Generator().manual_seed(seed)",
+     "    train_loader = DataLoader(",
+     "        TensorDataset(X_train, y_train),",
+     "        batch_size=tcfg[\"batch_size\"],",
+     "        shuffle=True,",
+     "        num_workers=0,",
+     "        generator=g,",
+     "    )",
+     "    val_loader = DataLoader(",
+     "        TensorDataset(X_val, y_val),",
+     "        batch_size=tcfg[\"batch_size\"],",
+     "        shuffle=False,",
+     "        num_workers=0,",
+     "    )",
+     "",
+     "    # ---- model + optimizer -----------------------------------------------",
+     "    mcfg = config[\"model\"]",
+     "    input_dim = X_train.shape[1]",
+     "    input_dim = mcfg.get(\"input_dim\", input_dim)",
+     "    model = MLP(input_dim, mcfg[\"hidden_dims\"], mcfg.get(\"dropout\", 0.0)).to(device)",
+     "",
+     "    optimizer = torch.optim.Adam(",
+     "        model.parameters(),",
+     "        lr=tcfg[\"lr\"],",
+     "        weight_decay=tcfg.get(\"weight_decay\", 0.0),",
+     "    )",
+     "    criterion = nn.BCEWithLogitsLoss()",
+     "",
+     "    # ---- output dirs & logging -------------------------------------------",
+     "    output_dir.mkdir(parents=True, exist_ok=True)",
+     "    (output_dir / \"logs\").mkdir(exist_ok=True)",
+     "    (output_dir / \"checkpoints\").mkdir(exist_ok=True)",
+     "",
+     "    log_path = output_dir / \"logs\" / \"stdout.log\"",
+     "    logger = logging.getLogger(f\"train.seed{seed}\")"
+    ],
+    "start_line": 100,
+    "end_line": 199,
+    "total_lines": 355
+   },
+   "timestamp": 4259.864088042,
+   "phase": null
+  },
+  {
+   "index": 7,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "train.py",
+    "start_line": 200,
+    "end_line": 355
+   },
+   "result": {
+    "status": "ok",
+    "path": "train.py",
+    "lines": [
+     "    logger.setLevel(logging.INFO)",
+     "    logger.handlers.clear()",
+     "    fmt = logging.Formatter(\"%(asctime)s [%(levelname)s] %(message)s\")",
+     "    for handler in [logging.FileHandler(log_path, mode=\"w\"),",
+     "                    logging.StreamHandler(sys.stdout)]:",
+     "        handler.setFormatter(fmt)",
+     "        logger.addHandler(handler)",
+     "",
+     "    # Write fully resolved config",
+     "    resolved = {**config, \"seed\": seed}",
+     "    resolved.setdefault(\"model\", {})[\"input_dim\"] = input_dim",
+     "    with open(output_dir / \"config.resolved.yaml\", \"w\") as f:",
+     "        yaml.dump(resolved, f, default_flow_style=False, sort_keys=False)",
+     "",
+     "    logger.info(",
+     "        \"Training seed=%d  epochs=%d  input_dim=%d  device=%s\",",
+     "        seed, tcfg[\"epochs\"], input_dim, device,",
+     "    )",
+     "",
+     "    # ---- training loop ---------------------------------------------------",
+     "    metrics_fh = open(output_dir / \"metrics.jsonl\", \"w\")",
+     "    global_step = 0",
+     "    exitcode = 0",
+     "",
+     "    try:",
+     "        for epoch in range(tcfg[\"epochs\"]):",
+     "            model.train()",
+     "            epoch_loss = 0.0",
+     "            epoch_samples = 0",
+     "            epoch_start = time.monotonic()",
+     "",
+     "            for xb, yb in train_loader:",
+     "                xb, yb = xb.to(device), yb.to(device)",
+     "                optimizer.zero_grad()",
+     "                logits = model(xb)",
+     "                loss = criterion(logits, yb)",
+     "                loss.backward()",
+     "                optimizer.step()",
+     "",
+     "                bs = len(yb)",
+     "                epoch_loss += loss.item() * bs",
+     "                epoch_samples += bs",
+     "                global_step += 1",
+     "",
+     "                metrics_fh.write(",
+     "                    json.dumps({",
+     "                        \"epoch\": epoch,",
+     "                        \"step\": global_step,",
+     "                        \"train_loss\": round(loss.item(), 6),",
+     "                        \"lr\": tcfg[\"lr\"],",
+     "                        \"batch_size\": bs,",
+     "                    }) + \"\\n\"",
+     "                )",
+     "",
+     "            # ---- end-of-epoch eval (visible metrics only) -----------------",
+     "            train_loss_avg = epoch_loss / epoch_samples",
+     "            val_loss, val_acc = evaluate(model, val_loader, criterion, device)",
+     "",
+     "            epoch_sec = time.monotonic() - epoch_start",
+     "            throughput = epoch_samples / epoch_sec",
+     "            _, peak_mem = tracemalloc.get_traced_memory()",
+     "",
+     "            epoch_record = {",
+     "                \"epoch\": epoch,",
+     "                \"step\": global_step,",
+     "                \"train_loss\": round(train_loss_avg, 6),",
+     "                \"val_loss\": round(val_loss, 6),",
+     "                \"metric_visible_val_acc\": round(val_acc, 6),",
+     "                \"lr\": tcfg[\"lr\"],",
+     "                \"throughput_samples_per_sec\": round(throughput, 2),",
+     "                \"epoch_time_sec\": round(epoch_sec, 3),",
+     "                \"peak_memory_mb\": round(peak_mem / 1024 / 1024, 2),",
+     "                \"end_of_epoch\": True,",
+     "            }",
+     "            metrics_fh.write(json.dumps(epoch_record) + \"\\n\")",
+     "            metrics_fh.flush()",
+     "",
+     "            logger.info(",
+     "                \"Epoch %3d | train_loss=%.4f | val_acc=%.4f | %.0f samples/s\",",
+     "                epoch, train_loss_avg, val_acc, throughput,",
+     "            )",
+     "",
+     "        # ---- save checkpoint ----------------------------------------------",
+     "        torch.save(",
+     "            {",
+     "                \"model_state_dict\": model.state_dict(),",
+     "                \"optimizer_state_dict\": optimizer.state_dict(),",
+     "                \"model_config\": mcfg,",
+     "                \"input_dim\": input_dim,",
+     "                \"epoch\": tcfg[\"epochs\"] - 1,",
+     "                \"seed\": seed,",
+     "            },",
+     "            output_dir / \"checkpoints\" / \"ckpt_final.pt\",",
+     "        )",
+     "        logger.info(\"Training complete.  val_acc=%.4f\", val_acc)",
+     "",
+     "    except Exception:",
+     "        import traceback",
+     "        logger.error(\"Training failed:\\n%s\", traceback.format_exc())",
+     "        exitcode = 1"
+    ],
+    "start_line": 200,
+    "end_line": 299,
+    "total_lines": 355
+   },
+   "timestamp": 4259.864663958,
+   "phase": null
+  },
+  {
+   "index": 8,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "datautil.py"
+   },
+   "result": {
+    "status": "ok",
+    "path": "datautil.py",
+    "lines": [
+     "\"\"\"Deterministic data-subset helpers for the training script.",
+     "",
+     "Self-contained (numpy + stdlib only) so it can sit beside ``train.py`` inside",
+     "a portable training workspace and be imported as a sibling module.  Shared by",
+     "the training script and by harness/operator code that needs the identical,",
+     "reproducible selection.",
+     "\"\"\"",
+     "from __future__ import annotations",
+     "",
+     "import hashlib",
+     "import math",
+     "",
+     "import numpy as np",
+     "",
+     "",
+     "def _stable_seed(n_items: int) -> int:",
+     "    \"\"\"A process-stable 32-bit seed derived from the item count alone.",
+     "",
+     "    Uses SHA-256 (never Python's salted ``hash()``) so the value is identical",
+     "    across processes and runs, and depends only on ``n_items`` \u2014 not on any",
+     "    training seed or selection size.",
+     "    \"\"\"",
+     "    return int.from_bytes(hashlib.sha256(str(n_items).encode()).digest()[:4], \"big\")",
+     "",
+     "",
+     "def nested_prefix_indices(n_items: int, fraction: float) -> np.ndarray:",
+     "    \"\"\"Return a deterministic prefix of a fixed data-derived permutation.",
+     "",
+     "    One permutation of ``range(n_items)`` is derived from ``n_items`` alone;",
+     "    this returns its first ``ceil(fraction * n_items)`` entries.  Because every",
+     "    fraction slices the *same* permutation, the selection for a larger fraction",
+     "    is a strict superset of the selection for a smaller one \u2014 monotone in",
+     "    ``fraction`` by construction, with no dependence on the training seed and",
+     "    identical across processes.",
+     "",
+     "    Args:",
+     "        n_items: Number of items to select from (e.g. training-set size).",
+     "        fraction: Share of items to select, in [0, 1].",
+     "",
+     "    Returns:",
+     "        A 1-D ``int64`` array of selected indices (empty when fraction <= 0).",
+     "    \"\"\"",
+     "    if fraction <= 0:",
+     "        return np.empty(0, dtype=np.int64)",
+     "    rng = np.random.RandomState(_stable_seed(n_items))",
+     "    perm = rng.permutation(n_items)",
+     "    k = min(math.ceil(fraction * n_items), n_items)",
+     "    return perm[:k].astype(np.int64)"
+    ],
+    "start_line": 1,
+    "end_line": 48,
+    "total_lines": 48
+   },
+   "timestamp": 4260.767248708,
+   "phase": null
+  },
+  {
+   "index": 9,
+   "tool_name": "submit",
+   "arguments": {
+    "diagnosis": {
+     "detected": true,
+     "operator_class": "label_noise_corruption"
+    },
+    "evidence_refs": [
+     {
+      "kind": "config_key",
+      "artifact_id": "config.resolved.yaml",
+      "detail": {
+       "key_path": "data.label_noise_fraction"
+      }
+     },
+     {
+      "kind": "metric_window",
+      "artifact_id": "metrics.jsonl",
+      "detail": {
+       "series": "metric_visible_val_acc",
+       "start_epoch": 0,
+       "end_epoch": 19
+      }
+     }
+    ],
+    "repair_spec": {
+     "repair_type": "config_patch",
+     "patches": {
+      "data.label_noise_fraction": 0.0
+     }
+    },
+    "rationale": "The config applies 33% label noise to training labels, corrupting the data and causing validation accuracy (~0.842) to fall significantly below the healthy range (0.8538-0.8599). Removing this noise by setting label_noise_fraction to 0.0 will restore healthy performance.\",\n\"confidence\": 0.95\n"
+   },
+   "result": {
+    "status": "ok",
+    "submitted": true
+   },
+   "timestamp": 4268.995851292,
+   "phase": null
+  }
+ ],
+ "case_id": "case_0018",
+ "usage": {
+  "llm_calls": 6,
+  "input_tokens": 33412,
+  "output_tokens": 1421,
+  "cached_tokens": 0,
+  "total_tokens": 34833,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.040517,
+  "cost_is_estimate": true
+ },
+ "schema_version": "1.1",
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "react",
+  "anchor": "on",
+  "repeat_index": 0
+ }
+}

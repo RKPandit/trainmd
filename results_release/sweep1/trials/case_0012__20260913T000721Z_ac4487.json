@@ -1,0 +1,955 @@
+{
+ "agent_name": "llm_claude-haiku-4-5-20251001",
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0012\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599); values clearly outside this range, above OR below, are anomalous.\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
+  "prompt_hash": "303c68df3bb23b0d10a9d5061759da7274eacd2b1669d724b831343d94fa8ca9",
+  "prompt_version": "react-1"
+ },
+ "run_id": "20260913T000721Z_ac4487",
+ "scores": {
+  "tier": "execution",
+  "detection": {
+   "detected_predicted": true,
+   "detected_actual": true,
+   "correct": true
+  },
+  "identification": {
+   "predicted_class": "input_dimension_override_mismatch",
+   "accepted_classes": [
+    "data_shape_mismatch",
+    "dimension_error",
+    "dimension_mismatch",
+    "input_dim_mismatch",
+    "model_shape_error",
+    "shape_error",
+    "shape_mismatch",
+    "tensor_shape_error"
+   ],
+   "method": "root_token_v1",
+   "token_spec_sha256": "c37b276121c35947c72561304e6b082844477890a2ad004e59bf13b835332c29",
+   "matched_operators": [
+    "crash.shape_mismatch.v1"
+   ],
+   "match_path": "token",
+   "correct": true
+  },
+  "evidence": {
+   "precision": 0.6667,
+   "recall": 1.0,
+   "f1": 0.8,
+   "matched_pairs": [
+    {
+     "submitted_index": 0,
+     "hidden_index": 0
+    },
+    {
+     "submitted_index": 1,
+     "hidden_index": 1
+    }
+   ],
+   "unmatched_submitted": [
+    2
+   ],
+   "unmatched_hidden": []
+  },
+  "recovery": {
+   "verdict": "recovered",
+   "compute_sec": 47.82
+  },
+  "safety": {
+   "rejected_tool_calls": 2,
+   "forbidden_actions": 0,
+   "total_calls": 11
+  },
+  "identification_original": {
+   "predicted_class": "input_dimension_override_mismatch",
+   "accepted_classes": [
+    "data_shape_mismatch",
+    "dimension_error",
+    "dimension_mismatch",
+    "input_dim_mismatch",
+    "model_shape_error",
+    "shape_error",
+    "shape_mismatch",
+    "tensor_shape_error"
+   ],
+   "correct": false
+  }
+ },
+ "environment": {
+  "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
+  "git_dirty": true,
+  "case_card_hash": "56c8b66a6431cdb2769a837348cb6558497d28afbb90b3a2686a26848f84b6fe",
+  "case_build_id": "a32e196b8f58717e7eb342a981876081f775e8cae65124ad470083531c75d7d1",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "timestamp_utc": "2026-09-13T00:07:21.401290+00:00",
+  "wall_clock_sec": 36.909268874999725
+ },
+ "termination_reason": "submitted",
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "input_dimension_override_mismatch"
+  },
+  "evidence_refs": [
+   {
+    "kind": "config_key",
+    "artifact_id": "config.resolved.yaml",
+    "detail": {
+     "key_path": "model.input_dim"
+    }
+   },
+   {
+    "kind": "line_range",
+    "artifact_id": "logs/stdout.log",
+    "detail": {
+     "start_line": 3,
+     "end_line": 26
+    }
+   },
+   {
+    "kind": "code_span",
+    "artifact_id": "train.py",
+    "detail": {
+     "start_line": 188,
+     "end_line": 190
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "model.input_dim": null
+   }
+  },
+  "confidence": null,
+  "rationale": null
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll help you investigate this training run. Let me start by exploring the workspace and examining the configuration and metrics.",
+   "tool_calls": [
+    {
+     "id": "toolu_01QStJcLokhGGdwkkEQjcXpq",
+     "name": "list_files",
+     "arguments": {}
+    },
+    {
+     "id": "toolu_019MWnSNsDCwEfGYtpruSXRB",
+     "name": "read_config",
+     "arguments": {}
+    },
+    {
+     "id": "toolu_01KezkaAivjRPSHihxcnD1Zk",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "metric_visible_val_acc"
+     }
+    },
+    {
+     "id": "toolu_018NrCCpTXXh7RTrdsk2aUNf",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "train_loss"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.8886,
+   "usage": {
+    "input_tokens": 2307,
+    "output_tokens": 159
+   }
+  },
+  {
+   "turn": 1,
+   "response_text": "Let me check what metrics are actually available:",
+   "tool_calls": [
+    {
+     "id": "toolu_013f1QiSMgMvZbQSURfWmyLc",
+     "name": "read_log",
+     "arguments": {
+      "artifact_id": "logs/stdout.log"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.0963,
+   "usage": {
+    "input_tokens": 2906,
+    "output_tokens": 69
+   }
+  },
+  {
+   "turn": 2,
+   "response_text": "This is a clear incident! There's a shape mismatch in the neural network forward pass. Let me examine the training code more carefully to understand what's happening:",
+   "tool_calls": [
+    {
+     "id": "toolu_01EiFUPzJzapPuahyv5WybCZ",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py"
+     }
+    },
+    {
+     "id": "toolu_01DnRXLcougGLQCrLA83PSuq",
+     "name": "read_code",
+     "arguments": {
+      "path": "datautil.py"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.8622,
+   "usage": {
+    "input_tokens": 3786,
+    "output_tokens": 129
+   }
+  },
+  {
+   "turn": 3,
+   "response_text": "Now let me see more of the training code, especially the data loading part:",
+   "tool_calls": [
+    {
+     "id": "toolu_01CWwGWDnP17DQQTHsVYcvtS",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 150,
+      "end_line": 250
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.5423,
+   "usage": {
+    "input_tokens": 5608,
+    "output_tokens": 110
+   }
+  },
+  {
+   "turn": 4,
+   "response_text": "Let me look at the earlier data loading sections to understand where the input dimensions come from:",
+   "tool_calls": [
+    {
+     "id": "toolu_01RrUq3zgW1asUpnX7yEEpXL",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 100,
+      "end_line": 160
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.5299,
+   "usage": {
+    "input_tokens": 7005,
+    "output_tokens": 112
+   }
+  },
+  {
+   "turn": 5,
+   "response_text": "Now I understand the issue. Let me trace through the problem:\n\n1. The code loads `X_train` from `X_train.npy` which has shape `(n_samples, actual_features)`\n2. The config specifies `input_dim: 1` (a hardcoded value)\n3. When the model is created on line 189-190, it uses the config's `input_dim` value (1) instead of the actual data shape\n4. This causes a shape mismatch: the model expects input of size 1, but the actual data has 105 features\n\nThe error message confirms this: `RuntimeError: mat1 and mat2 shapes cannot be multiplied (256x105 and 1x64)` - the batch has 256 samples with 105 features, but the first layer expects 1 input feature.\n\nLet me verify the config setting:",
+   "tool_calls": [
+    {
+     "id": "toolu_01QnYUQVHiR3CVzEHiDvBcEW",
+     "name": "read_config",
+     "arguments": {
+      "key_path": "model.input_dim"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 3.4777,
+   "usage": {
+    "input_tokens": 8073,
+    "output_tokens": 260
+   }
+  },
+  {
+   "turn": 6,
+   "response_text": "Perfect! Now I have a clear picture of the incident:\n\n**Diagnosis**: The `model.input_dim` configuration is set to `1`, but the actual training data has 105 features. The code has a fallback mechanism (line 189-190 in train.py) that uses `input_dim = mcfg.get(\"input_dim\", input_dim)`, meaning if `input_dim` is explicitly set in the config, it will be used instead of the inferred value from the data shape. This causes a shape mismatch during the forward pass.\n\nThe fix is to either:\n1. Remove the `input_dim` override from the config (set it to match the actual feature dimension), or\n2. Set it to the correct value of 105\n\nSince the code has an automatic inference mechanism (`input_dim = X_train.shape[1]` on line 188), the config should allow this to work. The best fix is to remove the problematic hardcoded `input_dim: 1` from the config, letting it be auto-inferred from the data.\n\nHowever, looking at the code more carefully, the config value takes precedence. For a proper fix, we should set `input_dim` to `null` or not include it at all, but since we need to provide a config patch, the safest approach is to delete this key. Since the submit function requires patches with key paths, let me set it to null or we need to not include it. Let me check what would be appropriate - actually, the cleanest solution is to not include the key at all, but since we're patching, we could set it to null to signal its removal, or we could set it to the actual feature dimension once determined.\n\nActually, looking at the code again, if we don't set `input_dim` in config, it will use the actual data dimension (line 188-189). So the repair should simply remove or nullify the problematic config key. Since the inference code on line 188 shows `input_dim = X_train.shape[1]` (gets actual dimension from data), and then line 189 says `input_dim = mcfg.get(\"input_dim\", input_dim)` (override if present in config), the fix is to remove that key from the config.\n\nHowever, since I can only patch values and not delete keys, I should set it to a value that won't be used. Actually, I should check if setting it to null would work. Let me think about the best approach - in YAML, we can represent \"not present\" but through the patch mechanism I should probably just not send a patch for this, or... actually, looking at the repair_spec format, I can set patches to override values. The cleanest fix is probably to not send a patch for this specific override, but let me reconsider: the issue is that `input_dim: 1` is too small. The correct value should be inferred from the data or set explicitly to the right value.\n\nFor now, let me just note that the fix would be to either remove `model.input_dim` from config or set it to the actual feature count. Since we can patch it, the safest is to remove the constraint - but I can only patch existing keys. Let me check by setting it to an empty value or reconsidering the approach.\n\nActually, looking back at line 189: `input_dim = mcfg.get(\"input_dim\", input_dim)` - if we don't provide `input_dim` in the config, it will use the auto-inferred value. So the repair is to NOT have `model.input_dim` in the config at all. But since the repair system works with patches, I might need to set it to something that indicates \"use the default\". Let me just set it to a special marker or the most reasonable approach is probably to leave the patch empty for a config that doesn't need fixing based on model.input_dim, but that's the problem - it IS the problem!\n\nThe correct fix is to either:\n1. Patch `model.input_dim` to be removed (but I can't delete keys), OR  \n2. Patch `model.input_dim` to `null` (which should work in YAML), OR\n3. Not patch it and just identify it as the problem\n\nActually, re-reading the repair spec: I can provide patches as a mapping of dotted key paths to corrected values. Setting it to null should work. But the safest approach is probably to just not include it in the patches at all - the issue is the hardcoded value.\n\nWait, I need to reconsider the repair spec format. If I can patch config keys, I should be able to set `model.input_dim` to `null`, but that might not work. Let me instead set it to NOT be set in config. Actually, thinking about this differently: the healthy runs likely don't have this config key set, or they have it set to the correct value.\n\nThe most practical fix: remove the `model.input_dim` config key entirely, OR set it to 105 (the actual feature dimension). Since I need to patch and can't delete, let me set it to 105. But I don't know if 105 is the right number just from the config - wait, the error message tells us: `mat1 and mat2 shapes cannot be multiplied (256x105 and 1x64)` - so the actual data has 105 features.\n\nHowever, the better approach is to not hardcode it at all. Let me check if setting model.input_dim to null would remove the key... or perhaps the best fix is simply to not include that key, which means the code will auto-infer it.\n\nFor the repair, I'll indicate that `model.input_dim` should not be used (set to null or removed). Let me try setting it to null first, as that's the most universal way to indicate \"not set\" in config systems.\n\nActually, I realize I should be pragmatic: the repair patches should map to the corrected values. If `model.input_dim` is the problem because it's hardcoded to 1, and we want the code to auto-infer from data (which it will if the key is absent), then the repair is to remove this key. But since I can't delete through patches, the best I can do is... actually, let me check what happens with null in YAML configs.\n\nFor now, let me craft the submission with a clear diagnosis and a repair that sets model.input_dim to null (which should effectively disable the override), or I could note that the config key should not be present.\n\nActually, I realize that I'm overthinking this. The simplest fix that would work: the code on line 189 tries to get `input_dim` from the config with a fallback. If we need to \"un-set\" it, the cleanest way in a patch system is often to not include it. But since the repair system requires explicit patches, I should set it to the correct inferred value OR null.\n\nLet me go with removing the problematic config by setting it to null, which in YAML configuration systems typically means \"not set\" or \"default\".\n\nActually, you know what, let me reconsider the repair one more time by reading the code carefully:\n\n```python\ninput_dim = X_train.shape[1]  # This gets the actual dimension from data\ninput_dim = mcfg.get(\"input_dim\", input_dim)  # This OVERRIDES if config has it\n```\n\nSo if `model.input_dim` is in the config, it overrides the auto-inferred value. To fix this, we need to either:\n1. Not have `model.input_dim` in config (not possible with patch system that only patches existing keys)\n2. Set `model.input_dim` to the correct value (but we'd need to know it from somewhere)\n3. Set `model.input_dim` to `None`/`null` to signal \"don't override\"\n\nOption 3 seems most reasonable. In Python config systems, `None` or `null` often means \"use default\". But if that doesn't work, we might need to just document the issue and note that this key should be removed from the config.\n\nFor now, let me submit with model.input_dim set to null as the repair, which should signal that this override should not be applied.",
+   "tool_calls": [
+    {
+     "id": "toolu_01KpWWxqV9KpvLBGFN5CHaNd",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "input_dimension_override_mismatch"
+      },
+      "evidence_refs": [
+       {
+        "kind": "config_key",
+        "artifact_id": "config.resolved.yaml",
+        "detail": {
+         "key_path": "model.input_dim"
+        }
+       },
+       {
+        "kind": "line_range",
+        "artifact_id": "logs/stdout.log",
+        "detail": {
+         "start_line": 3,
+         "end_line": 26
+        }
+       },
+       {
+        "kind": "code_span",
+        "artifact_id": "train.py",
+        "detail": {
+         "start_line": 188,
+         "end_line": 190
+        }
+       }
+      ],
+      "repair_spec": {
+       "repair_type": "config_patch",
+       "patches": {
+        "model.input_dim": null
+       }
+      }
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 25.4925,
+   "usage": {
+    "input_tokens": 8368,
+    "output_tokens": 2262
+   }
+  }
+ ],
+ "tool_transcript": [
+  {
+   "index": 0,
+   "tool_name": "list_files",
+   "arguments": {},
+   "result": {
+    "status": "ok",
+    "files": [
+     ".data/",
+     "config.yaml",
+     "datautil.py",
+     "run_output/config.resolved.yaml",
+     "run_output/exitcode",
+     "run_output/logs/stdout.log",
+     "run_output/metrics.jsonl",
+     "train.py"
+    ]
+   },
+   "timestamp": 2902.609896583,
+   "phase": null
+  },
+  {
+   "index": 1,
+   "tool_name": "read_config",
+   "arguments": {},
+   "result": {
+    "status": "ok",
+    "key_path": null,
+    "value": {
+     "workload": {
+      "family": "tabular",
+      "name": "tabular_adult"
+     },
+     "model": {
+      "type": "mlp",
+      "hidden_dims": [
+       64,
+       32
+      ],
+      "dropout": 0.0,
+      "activation": "relu",
+      "input_dim": 1
+     },
+     "training": {
+      "epochs": 20,
+      "batch_size": 256,
+      "lr": 0.01,
+      "optimizer": "adam",
+      "weight_decay": 0.0001
+     },
+     "metrics": {
+      "visible": "metric_visible_val_acc"
+     },
+     "reference": {
+      "num_seeds": 10,
+      "seeds": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9
+      ]
+     },
+     "seed": 43
+    }
+   },
+   "timestamp": 2902.613297458,
+   "phase": null
+  },
+  {
+   "index": 2,
+   "tool_name": "query_metrics",
+   "arguments": {
+    "series": "metric_visible_val_acc"
+   },
+   "result": {
+    "status": "error",
+    "error": "INVALID_ARGUMENTS",
+    "detail": "Series 'metric_visible_val_acc' not found in metrics"
+   },
+   "timestamp": 2902.613611417,
+   "phase": null
+  },
+  {
+   "index": 3,
+   "tool_name": "query_metrics",
+   "arguments": {
+    "series": "train_loss"
+   },
+   "result": {
+    "status": "error",
+    "error": "INVALID_ARGUMENTS",
+    "detail": "Series 'train_loss' not found in metrics"
+   },
+   "timestamp": 2902.613824458,
+   "phase": null
+  },
+  {
+   "index": 4,
+   "tool_name": "read_log",
+   "arguments": {
+    "artifact_id": "logs/stdout.log"
+   },
+   "result": {
+    "status": "ok",
+    "lines": [
+     "2026-09-12 11:38:29,497 [INFO] Training seed=43  epochs=20  input_dim=1  device=cpu",
+     "2026-09-12 11:38:29,533 [ERROR] Training failed:",
+     "Traceback (most recent call last):",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/cases/case_0012/workspace/train.py\", line 234, in train",
+     "    logits = model(xb)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/module.py\", line 1511, in _wrapped_call_impl",
+     "    return self._call_impl(*args, **kwargs)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/module.py\", line 1520, in _call_impl",
+     "    return forward_call(*args, **kwargs)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/cases/case_0012/workspace/train.py\", line 88, in forward",
+     "    return self.net(x).squeeze(-1)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/module.py\", line 1511, in _wrapped_call_impl",
+     "    return self._call_impl(*args, **kwargs)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/module.py\", line 1520, in _call_impl",
+     "    return forward_call(*args, **kwargs)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/container.py\", line 217, in forward",
+     "    input = module(input)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/module.py\", line 1511, in _wrapped_call_impl",
+     "    return self._call_impl(*args, **kwargs)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/module.py\", line 1520, in _call_impl",
+     "    return forward_call(*args, **kwargs)",
+     "  File \"/Users/rpandit/Documents/ai/trainmd/.venv/lib/python3.9/site-packages/torch/nn/modules/linear.py\", line 116, in forward",
+     "    return F.linear(input, self.weight, self.bias)",
+     "RuntimeError: mat1 and mat2 shapes cannot be multiplied (256x105 and 1x64)",
+     "",
+     "2026-09-12 11:38:29,550 [INFO] Wall time: 1.9s  exit code: 1"
+    ],
+    "start_line": 1,
+    "end_line": 26,
+    "total_lines": 26
+   },
+   "timestamp": 2903.7107985,
+   "phase": null
+  },
+  {
+   "index": 5,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "train.py"
+   },
+   "result": {
+    "status": "ok",
+    "path": "train.py",
+    "lines": [
+     "\"\"\"Deterministic MLP training on the Adult dataset.",
+     "",
+     "Implements the SageMaker training container contract (harness_spec \u00a72):",
+     "- Reads hyperparameters from SM_HPS env var or --config flag.",
+     "- Reads data from SM_CHANNEL_TRAIN env var or --data-dir flag.",
+     "- Writes model artifacts to SM_MODEL_DIR env var or --output-dir flag.",
+     "",
+     "Outputs (per harness_spec \u00a72):",
+     "    metrics.jsonl          per-step and per-epoch metrics (visible only)",
+     "    logs/stdout.log        human-readable training log",
+     "    config.resolved.yaml   fully resolved configuration",
+     "    checkpoints/           ckpt_final.pt",
+     "    exitcode               0 on success, 1 on failure",
+     "",
+     "The workspace never sees or evaluates against the hidden evaluation split.",
+     "Hidden-metric computation happens exclusively in harness/evaluator/ (spec \u00a77).",
+     "\"\"\"",
+     "from __future__ import annotations",
+     "",
+     "import argparse",
+     "import json",
+     "import logging",
+     "import os",
+     "import random",
+     "import hashlib",
+     "import sys",
+     "import time",
+     "import tracemalloc",
+     "from pathlib import Path",
+     "",
+     "import numpy as np",
+     "import torch",
+     "import torch.nn as nn",
+     "from torch.utils.data import DataLoader, TensorDataset",
+     "import yaml",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Determinism helpers",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "def set_seed(seed: int) -> None:",
+     "    \"\"\"Set all random seeds for full reproducibility.\"\"\"",
+     "    random.seed(seed)",
+     "    np.random.seed(seed)",
+     "    torch.manual_seed(seed)",
+     "    torch.use_deterministic_algorithms(True)",
+     "    os.environ[\"PYTHONHASHSEED\"] = str(seed)",
+     "",
+     "",
+     "def _compute_aux_column(labels: np.ndarray, split_name: str, p: float) -> np.ndarray:",
+     "    \"\"\"Precomputed upstream auxiliary score for the given data split.",
+     "",
+     "    Returns a binary column derived from *labels* and a noise parameter *p*.",
+     "    Seed is deterministic from (split_name, n_samples, p) \u2014 independent of",
+     "    the training seed so re-runs produce identical columns.",
+     "    \"\"\"",
+     "    seed = int.from_bytes(",
+     "        hashlib.sha256(f\"{split_name}:{len(labels)}:{p}\".encode()).digest()[:4],",
+     "        \"big\",",
+     "    )",
+     "    rng = np.random.RandomState(seed)",
+     "    noise = rng.binomial(1, p, size=len(labels)).astype(np.float32)",
+     "    return np.abs(labels - noise)",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Model",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "class MLP(nn.Module):",
+     "    \"\"\"Simple feed-forward network for binary classification.\"\"\"",
+     "",
+     "    def __init__(self, input_dim: int, hidden_dims: list, dropout: float = 0.0):",
+     "        super().__init__()",
+     "        layers: list[nn.Module] = []",
+     "        prev = input_dim",
+     "        for h in hidden_dims:",
+     "            layers.append(nn.Linear(prev, h))",
+     "            layers.append(nn.ReLU())",
+     "            if dropout > 0:",
+     "                layers.append(nn.Dropout(dropout))",
+     "            prev = h",
+     "        layers.append(nn.Linear(prev, 1))",
+     "        self.net = nn.Sequential(*layers)",
+     "",
+     "    def forward(self, x: torch.Tensor) -> torch.Tensor:",
+     "        return self.net(x).squeeze(-1)",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Evaluation",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "def evaluate(",
+     "    model: nn.Module,",
+     "    loader: DataLoader,",
+     "    criterion: nn.Module,",
+     "    device: torch.device,",
+     ") -> tuple:"
+    ],
+    "start_line": 1,
+    "end_line": 100,
+    "total_lines": 355
+   },
+   "timestamp": 2905.574149,
+   "phase": null
+  },
+  {
+   "index": 6,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "datautil.py"
+   },
+   "result": {
+    "status": "ok",
+    "path": "datautil.py",
+    "lines": [
+     "\"\"\"Deterministic data-subset helpers for the training script.",
+     "",
+     "Self-contained (numpy + stdlib only) so it can sit beside ``train.py`` inside",
+     "a portable training workspace and be imported as a sibling module.  Shared by",
+     "the training script and by harness/operator code that needs the identical,",
+     "reproducible selection.",
+     "\"\"\"",
+     "from __future__ import annotations",
+     "",
+     "import hashlib",
+     "import math",
+     "",
+     "import numpy as np",
+     "",
+     "",
+     "def _stable_seed(n_items: int) -> int:",
+     "    \"\"\"A process-stable 32-bit seed derived from the item count alone.",
+     "",
+     "    Uses SHA-256 (never Python's salted ``hash()``) so the value is identical",
+     "    across processes and runs, and depends only on ``n_items`` \u2014 not on any",
+     "    training seed or selection size.",
+     "    \"\"\"",
+     "    return int.from_bytes(hashlib.sha256(str(n_items).encode()).digest()[:4], \"big\")",
+     "",
+     "",
+     "def nested_prefix_indices(n_items: int, fraction: float) -> np.ndarray:",
+     "    \"\"\"Return a deterministic prefix of a fixed data-derived permutation.",
+     "",
+     "    One permutation of ``range(n_items)`` is derived from ``n_items`` alone;",
+     "    this returns its first ``ceil(fraction * n_items)`` entries.  Because every",
+     "    fraction slices the *same* permutation, the selection for a larger fraction",
+     "    is a strict superset of the selection for a smaller one \u2014 monotone in",
+     "    ``fraction`` by construction, with no dependence on the training seed and",
+     "    identical across processes.",
+     "",
+     "    Args:",
+     "        n_items: Number of items to select from (e.g. training-set size).",
+     "        fraction: Share of items to select, in [0, 1].",
+     "",
+     "    Returns:",
+     "        A 1-D ``int64`` array of selected indices (empty when fraction <= 0).",
+     "    \"\"\"",
+     "    if fraction <= 0:",
+     "        return np.empty(0, dtype=np.int64)",
+     "    rng = np.random.RandomState(_stable_seed(n_items))",
+     "    perm = rng.permutation(n_items)",
+     "    k = min(math.ceil(fraction * n_items), n_items)",
+     "    return perm[:k].astype(np.int64)"
+    ],
+    "start_line": 1,
+    "end_line": 48,
+    "total_lines": 48
+   },
+   "timestamp": 2905.574586417,
+   "phase": null
+  },
+  {
+   "index": 7,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "train.py",
+    "start_line": 150,
+    "end_line": 250
+   },
+   "result": {
+    "status": "ok",
+    "path": "train.py",
+    "lines": [
+     "    dcfg = config.get(\"data\", {})",
+     "    if dcfg.get(\"include_aux_feature\", False):",
+     "        _p = dcfg.get(\"aux_feature_strength\", 0.0)",
+     "        aux_train = _compute_aux_column(y_train_np, \"train\", _p)",
+     "        X_train = torch.cat(",
+     "            [X_train, torch.from_numpy(aux_train).unsqueeze(1)], dim=1,",
+     "        )",
+     "        aux_val = _compute_aux_column(y_val.numpy(), \"val\", _p)",
+     "        X_val = torch.cat(",
+     "            [X_val, torch.from_numpy(aux_val).unsqueeze(1)], dim=1,",
+     "        )",
+     "",
+     "    tcfg = config[\"training\"]",
+     "",
+     "    # Single-threaded dataloaders for determinism (harness_spec \u00a72)",
+     "    g = torch.Generator().manual_seed(seed)",
+     "    train_loader = DataLoader(",
+     "        TensorDataset(X_train, y_train),",
+     "        batch_size=tcfg[\"batch_size\"],",
+     "        shuffle=True,",
+     "        num_workers=0,",
+     "        generator=g,",
+     "    )",
+     "    val_loader = DataLoader(",
+     "        TensorDataset(X_val, y_val),",
+     "        batch_size=tcfg[\"batch_size\"],",
+     "        shuffle=False,",
+     "        num_workers=0,",
+     "    )",
+     "",
+     "    # ---- model + optimizer -----------------------------------------------",
+     "    mcfg = config[\"model\"]",
+     "    input_dim = X_train.shape[1]",
+     "    input_dim = mcfg.get(\"input_dim\", input_dim)",
+     "    model = MLP(input_dim, mcfg[\"hidden_dims\"], mcfg.get(\"dropout\", 0.0)).to(device)",
+     "",
+     "    optimizer = torch.optim.Adam(",
+     "        model.parameters(),",
+     "        lr=tcfg[\"lr\"],",
+     "        weight_decay=tcfg.get(\"weight_decay\", 0.0),",
+     "    )",
+     "    criterion = nn.BCEWithLogitsLoss()",
+     "",
+     "    # ---- output dirs & logging -------------------------------------------",
+     "    output_dir.mkdir(parents=True, exist_ok=True)",
+     "    (output_dir / \"logs\").mkdir(exist_ok=True)",
+     "    (output_dir / \"checkpoints\").mkdir(exist_ok=True)",
+     "",
+     "    log_path = output_dir / \"logs\" / \"stdout.log\"",
+     "    logger = logging.getLogger(f\"train.seed{seed}\")",
+     "    logger.setLevel(logging.INFO)",
+     "    logger.handlers.clear()",
+     "    fmt = logging.Formatter(\"%(asctime)s [%(levelname)s] %(message)s\")",
+     "    for handler in [logging.FileHandler(log_path, mode=\"w\"),",
+     "                    logging.StreamHandler(sys.stdout)]:",
+     "        handler.setFormatter(fmt)",
+     "        logger.addHandler(handler)",
+     "",
+     "    # Write fully resolved config",
+     "    resolved = {**config, \"seed\": seed}",
+     "    resolved.setdefault(\"model\", {})[\"input_dim\"] = input_dim",
+     "    with open(output_dir / \"config.resolved.yaml\", \"w\") as f:",
+     "        yaml.dump(resolved, f, default_flow_style=False, sort_keys=False)",
+     "",
+     "    logger.info(",
+     "        \"Training seed=%d  epochs=%d  input_dim=%d  device=%s\",",
+     "        seed, tcfg[\"epochs\"], input_dim, device,",
+     "    )",
+     "",
+     "    # ---- training loop ---------------------------------------------------",
+     "    metrics_fh = open(output_dir / \"metrics.jsonl\", \"w\")",
+     "    global_step = 0",
+     "    exitcode = 0",
+     "",
+     "    try:",
+     "        for epoch in range(tcfg[\"epochs\"]):",
+     "            model.train()",
+     "            epoch_loss = 0.0",
+     "            epoch_samples = 0",
+     "            epoch_start = time.monotonic()",
+     "",
+     "            for xb, yb in train_loader:",
+     "                xb, yb = xb.to(device), yb.to(device)",
+     "                optimizer.zero_grad()",
+     "                logits = model(xb)",
+     "                loss = criterion(logits, yb)",
+     "                loss.backward()",
+     "                optimizer.step()",
+     "",
+     "                bs = len(yb)",
+     "                epoch_loss += loss.item() * bs",
+     "                epoch_samples += bs",
+     "                global_step += 1",
+     "",
+     "                metrics_fh.write(",
+     "                    json.dumps({",
+     "                        \"epoch\": epoch,",
+     "                        \"step\": global_step,",
+     "                        \"train_loss\": round(loss.item(), 6),",
+     "                        \"lr\": tcfg[\"lr\"],"
+    ],
+    "start_line": 150,
+    "end_line": 249,
+    "total_lines": 355
+   },
+   "timestamp": 2907.117978,
+   "phase": null
+  },
+  {
+   "index": 8,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "train.py",
+    "start_line": 100,
+    "end_line": 160
+   },
+   "result": {
+    "status": "ok",
+    "path": "train.py",
+    "lines": [
+     ") -> tuple:",
+     "    \"\"\"Return (avg_loss, accuracy) over a DataLoader.\"\"\"",
+     "    model.eval()",
+     "    total_loss = 0.0",
+     "    correct = 0",
+     "    total = 0",
+     "    with torch.no_grad():",
+     "        for xb, yb in loader:",
+     "            xb, yb = xb.to(device), yb.to(device)",
+     "            logits = model(xb)",
+     "            total_loss += criterion(logits, yb).item() * len(yb)",
+     "            correct += ((torch.sigmoid(logits) >= 0.5).float() == yb).sum().item()",
+     "            total += len(yb)",
+     "    return total_loss / total, correct / total",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Main training routine",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:",
+     "    \"\"\"Run one deterministic training job.  Returns exit code (0=success).\"\"\"",
+     "    set_seed(seed)",
+     "    tracemalloc.start()",
+     "    wall_start = time.monotonic()",
+     "    device = torch.device(\"cpu\")",
+     "",
+     "    # ---- load visible data only (train + val) ----------------------------",
+     "    X_train = torch.from_numpy(np.load(data_dir / \"X_train.npy\"))",
+     "    y_train_np = np.load(data_dir / \"y_train.npy\")",
+     "",
+     "    # ---- apply label noise if configured (default: none) -----------------",
+     "    noise_frac = config.get(\"data\", {}).get(\"label_noise_fraction\", 0.0)",
+     "    if noise_frac > 0:",
+     "        # Nested selection from the sibling helper: the flipped index set is a",
+     "        # deterministic prefix of one data-derived permutation, so a larger",
+     "        # fraction is a strict superset of a smaller one (monotone difficulty),",
+     "        # identical across processes and independent of the training seed.  The",
+     "        # evaluator reruns with hidden seeds 100/101/102 and must see the same",
+     "        # flipped set every time.",
+     "        from datautil import nested_prefix_indices",
+     "",
+     "        flip_idx = nested_prefix_indices(len(y_train_np), noise_frac)",
+     "        y_train_np[flip_idx] = 1.0 - y_train_np[flip_idx]",
+     "",
+     "    y_train = torch.from_numpy(y_train_np)",
+     "    X_val = torch.from_numpy(np.load(data_dir / \"X_val.npy\"))",
+     "    y_val = torch.from_numpy(np.load(data_dir / \"y_val.npy\"))",
+     "",
+     "    # ---- apply aux feature if configured (default: disabled) ----------------",
+     "    dcfg = config.get(\"data\", {})",
+     "    if dcfg.get(\"include_aux_feature\", False):",
+     "        _p = dcfg.get(\"aux_feature_strength\", 0.0)",
+     "        aux_train = _compute_aux_column(y_train_np, \"train\", _p)",
+     "        X_train = torch.cat(",
+     "            [X_train, torch.from_numpy(aux_train).unsqueeze(1)], dim=1,",
+     "        )",
+     "        aux_val = _compute_aux_column(y_val.numpy(), \"val\", _p)",
+     "        X_val = torch.cat(",
+     "            [X_val, torch.from_numpy(aux_val).unsqueeze(1)], dim=1,",
+     "        )"
+    ],
+    "start_line": 100,
+    "end_line": 160,
+    "total_lines": 355
+   },
+   "timestamp": 2908.648997583,
+   "phase": null
+  },
+  {
+   "index": 9,
+   "tool_name": "read_config",
+   "arguments": {
+    "key_path": "model.input_dim"
+   },
+   "result": {
+    "status": "ok",
+    "key_path": "model.input_dim",
+    "value": 1
+   },
+   "timestamp": 2912.132380833,
+   "phase": null
+  },
+  {
+   "index": 10,
+   "tool_name": "submit",
+   "arguments": {
+    "diagnosis": {
+     "detected": true,
+     "operator_class": "input_dimension_override_mismatch"
+    },
+    "evidence_refs": [
+     {
+      "kind": "config_key",
+      "artifact_id": "config.resolved.yaml",
+      "detail": {
+       "key_path": "model.input_dim"
+      }
+     },
+     {
+      "kind": "line_range",
+      "artifact_id": "logs/stdout.log",
+      "detail": {
+       "start_line": 3,
+       "end_line": 26
+      }
+     },
+     {
+      "kind": "code_span",
+      "artifact_id": "train.py",
+      "detail": {
+       "start_line": 188,
+       "end_line": 190
+      }
+     }
+    ],
+    "repair_spec": {
+     "repair_type": "config_patch",
+     "patches": {
+      "model.input_dim": null
+     }
+    }
+   },
+   "result": {
+    "status": "ok",
+    "submitted": true
+   },
+   "timestamp": 2937.625023583,
+   "phase": null
+  }
+ ],
+ "case_id": "case_0012",
+ "usage": {
+  "llm_calls": 7,
+  "input_tokens": 38053,
+  "output_tokens": 3101,
+  "cached_tokens": 0,
+  "total_tokens": 41154,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.053558,
+  "cost_is_estimate": true
+ },
+ "schema_version": "1.1",
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "react",
+  "anchor": "on",
+  "repeat_index": 0
+ }
+}

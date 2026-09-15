@@ -109,6 +109,16 @@ diagnostics and corrected by principle — never by copying observed outputs int
 the controls finding stand exactly as pre-registered. Recovery moves (Corrections 2–3), sharpening
 H3. **H1's headline is revised** by the analysis-aggregation correction #4 + Stage-2 G1 (below).
 
+**Latent-bug fixes (2026-09-15; NOT corrections — no published number was wrong).** Two defects in
+the analysis code were repaired while making the report pipeline plan-driven (STAGE3_PLAN §0.3), each
+caught *before* it reached a committed number, so the corrections count stays **four**: (i) the H2
+`detection_rate_anchor_on` filter matched "on" *after* the on→rule normalization (always empty) — but
+the committed `sweep_sweep1_20260913.md` shows `anchor_on: 1.0`, so the bug postdates it and never
+published; (ii) `recovery_endpoints` iterated a hardcoded 4-operator list that predated
+`metric_inflation`, which would have dropped its recovery row from a generated stage2gate report (none
+was ever committed; the hand analysis had it right). Both are fixed by the generic pipeline. See
+DECISIONS 2026-09-15 (the correction-vs-latent-bug-fix distinction).
+
 **The corrected recovery ordering is the designed difficulty gradient.** Final recovery —
 shape_mismatch **0.944**, lr_warmup **0.903**, label_corruption **0.583**, data_leakage **0.431**
 — ranks the operators exactly as the benchmark intended them to be hard: a mechanical crash with a

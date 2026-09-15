@@ -197,26 +197,32 @@ def test_three_arm_anchor_prompt_content():
 # hypothesis metrics on a synthetic set
 # ---------------------------------------------------------------------------
 
-def test_hypothesis_metrics_h1_and_h6():
-    def rec(op, agent, anchor, detected, ev_f1):
-        return {"case_id": "x", "_operator": op,
-                "conditions": {"agent_type": agent, "anchor": anchor},
-                "scores": {"detection": {"correct": detected, "detected_predicted": detected},
-                           "identification": {"correct": True},
-                           "evidence": {"f1": ev_f1, "recall": ev_f1},
-                           "recovery": {"verdict": "recovered"}}}
+def test_generic_stats_h1_and_h6():
+    """The generic (plan-driven) analysis computes H1/H6 from symptom-derived sets — no hardcodes."""
+    from harness import sweep_stats as ss
+
+    def rec(cid, op, symptom, agent, anchor, detected, ev_f1):
+        r = {"case_id": cid,
+             "conditions": {"agent_type": agent, "anchor": anchor},
+             "scores": {"detection": {"correct": detected, "detected_predicted": detected},
+                        "identification": {"correct": True},
+                        "evidence": {"f1": ev_f1, "recall": ev_f1},
+                        "recovery": {"verdict": "recovered"}}}
+        return ss.attach_meta(r, {"operator_id": op, "tier": "dynamics",
+                                  "symptom_direction": symptom, "visible_sigma_distance": 1.0,
+                                  "hidden_sigma_distance": 1.0})
     records = [
-        rec("silent.data_leakage.v1", "react", "off", False, 0.5),
-        rec("silent.lr_warmup.v1", "react", "off", True, 1.0),
-        rec("silent.data_leakage.v1", "static", "off", False, 0.2),
+        rec("c1", "silent.data_leakage.v1", "positive", "react", "off", False, 0.5),
+        rec("c2", "silent.lr_warmup.v1", "negative", "react", "off", True, 1.0),
+        rec("c1", "silent.data_leakage.v1", "positive", "static", "off", False, 0.2),
+        rec("c2", "silent.lr_warmup.v1", "negative", "static", "off", True, 0.7),
     ]
-    m = sweep.hypothesis_metrics(records, {})
-    # H1 anchor-off: leakage detection 0.0, negative-symptom 1.0
-    assert m["H1_positive_symptom_blindness"]["off"]["leakage_detection"] == 0.0
-    assert m["H1_positive_symptom_blindness"]["off"]["negative_symptom_detection"] == 1.0
-    # H6 data_leakage: react 0.5 - static 0.2 = 0.3
-    h6 = m["H6_tools_vs_static"]["silent.data_leakage.v1"]
-    assert h6["react_minus_static"] == 0.3
+    g = ss.h1_anchor_gap(records)
+    assert g["pos_rate"] == 0.0 and g["neg_rate"] == 1.0 and g["point"] == 1.0
+    assert g["positive_ops"] == ["silent.data_leakage.v1"]
+    h6 = ss.h6_react_minus_static(records)
+    # react evidence mean (0.5,1.0)=0.75 − static (0.2,0.7)=0.45 = 0.30
+    assert h6["available"] and abs(h6["point"] - 0.30) < 1e-9
 
 
 # ---------------------------------------------------------------------------
@@ -267,6 +273,29 @@ def test_operators_filter_restricts_design_and_rejects_unknown():
     with pytest.raises(ValueError):
         sweep.enumerate_cells(tmp, ["moderate"], [42], [0], repeats=2,
                               operators=["silent.not_a_real_op.v1"])
+
+
+def test_operators_survive_build_missing(tmp_path, monkeypatch):
+    """CLI regression (STAGE3_PLAN §0.3): --build-missing re-plan must keep the --operators filter."""
+    import sys
+    import pytest
+    from operators.registry import all_operator_ids
+
+    faulty = tuple(op for op in all_operator_ids() if op != sweep.CONTROL_OPERATOR)
+    _mk_root(tmp_path, faulty=faulty)  # default design leaves most tuples MISSING -> build_missing runs
+    monkeypatch.setattr(sweep, "build_missing",
+                        lambda root, missing: {"built": [], "skipped": missing, "failed": []})
+    import harness.validate_case as vc
+    monkeypatch.setattr(vc, "validate_all", lambda root: [])  # all(...) over [] is True
+    monkeypatch.setattr(sys, "argv",
+                        ["sweep", "plan", "--name", "s", "--operators", "silent.data_leakage.v1",
+                         "--build-missing", "--project-root", str(tmp_path)])
+    try:
+        sweep.main()
+    except SystemExit:
+        pass  # may exit nonzero on remaining MISSING; the plan file is written first
+    plan = yaml.safe_load((tmp_path / "sweeps" / "s_plan.yaml").read_text())
+    assert plan["header"]["scope"]["gate_operators"] == ["silent.data_leakage.v1"]
 
 
 # ---------------------------------------------------------------------------

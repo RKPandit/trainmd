@@ -149,13 +149,25 @@ SWEEP_ARGS ?= report --name sweep1
 docker-sweep:
 	$(DOCKER_RUN_LLM) python -m harness.sweep $(SWEEP_ARGS)
 
+# Reproducible analysis pipeline (STAGE3_PLAN §0.3). NAME=<sweep>.
+# report: regenerate the deterministic machine report from records (needs results/ + cases/, local).
+# export-release: write the sanitized, committed records release. rebuild-tables: reproduce the
+# report FROM THE RELEASE ONLY and byte-match the committed one (the external-reviewer path, CI).
+NAME ?= stage2gate
+report:
+	python -m harness.sweep report --name $(NAME)
+export-release:
+	python scripts/export_release.py --sweep $(NAME)
+rebuild-tables:
+	python scripts/rebuild_tables.py --sweep $(NAME)
+
 docker-shell:
 	docker run --rm -it --platform $(PLATFORM) -e TRAINMD_IN_CONTAINER=1 \
 		-v "$(PWD)":/work -w /work $(IMAGE) bash
 
-# Build the entire 27-case design from a fresh checkout, in-container, against
-# the current reference (regenerate it first for a canonical build). Cases are
-# generated, NOT committed — this is the one command a stranger runs.
+# Build the entire registry-driven case design (currently 33 cases) from a fresh
+# checkout, in-container, against the current reference (regenerate it first for a
+# canonical build). Cases are generated, NOT committed — the one command a stranger runs.
 docker-build-all-cases:
 	$(DOCKER_RUN) python scripts/build_all_cases.py
 
