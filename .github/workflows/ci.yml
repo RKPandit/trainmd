@@ -66,7 +66,7 @@ jobs:
           make docker-data
           bash scripts/ci_fingerprint.sh           # CPU + data hashes (diagnostic)
           make docker-reference                    # canonical candidate (ephemeral)
-          make docker-build-all-cases              # 27 cases from the design, fresh
+          make docker-build-all-cases              # all cases from the registry design (currently 33), fresh
           make docker-validate-all
           make docker-gate-known-answer
           make docker-case-margins
@@ -84,6 +84,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - name: CURRENT_STATE consistency guard (fast — fails before the suite on doc drift)
+        run: |
+          docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work \
+            trainmd:canonical python scripts/check_current_state.py
       - run: make docker-data
       - name: CI fingerprint (CPU + data hashes)
         run: bash scripts/ci_fingerprint.sh

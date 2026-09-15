@@ -1,5 +1,8 @@
 # G1 Hardening Gate — Detailed Plan
 
+> **HISTORICAL planning document (2026-09).** The G1 gate has run; its work is finished. Superseded
+> where it conflicts with `CURRENT_STATE.md`. Kept as the record of what was planned.
+
 **Purpose:** the pre-sweep gate from HARDENING_PLAN.md. Everything here is free (no paid
 trials), catches bug *classes* without knowing the instance, and produces *informative*
 output that shortens debugging. Split into two batches, each its own Claude Code plan.

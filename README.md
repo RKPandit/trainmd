@@ -63,10 +63,10 @@ make audit-index                # impossible-combination audit over results/inde
   conditions (superseded trials) as INFO. Exits nonzero on any FAIL.
 
 `--fast` (default) skips recovery reruns; `--full` / `FULL=1` includes them. The
-current CI workflow (`.github/workflows/reference.yml`) runs the reference-run
-protocol on **push and pull_request**; there is no nightly/full job yet (it arrives
-in Stage 1 with the container). Gate/validate/audit are run locally and their dated
-tables land in `docs/audits/`.
+current CI workflow (`.github/workflows/ci.yml`) builds the canonical container and
+runs the reference-run protocol + full suite on **push and pull_request**; there is
+no nightly/full job. Gate/validate/audit are run locally and their dated tables land
+in `docs/audits/`.
 
 ## Running a sweep
 
@@ -100,14 +100,11 @@ The scientific narrative and its caveats live in the running docs:
 disclosure rule and Sweep-2 remedies), [docs/DECISIONS.md](docs/DECISIONS.md), and
 [docs/RESEARCH_LOG.md](docs/RESEARCH_LOG.md). Machine-generated evidence is under `docs/audits/`.
 
-## Current milestone
+## Status
 
-**Sweep 1 complete** (Haiku 4.5, tabular_adult, 324 trials / 27 cases, two agents,
-anchor on/off) with disclosed post-hoc corrections and an external claim-tightening
-review — see `docs/FINDINGS.md`, `docs/HYPOTHESES.md` Results, and `docs/LIMITATIONS.md`.
-**Next (Stage 1):** Linux container + canonical re-run, then Sweep 2 (second model /
-workload, factorial symptom×operator, three-arm anchor). Earlier milestones (M2.1 repo
-scaffold + reference-run protocol green in CI) are done.
+For the single authoritative snapshot — what exists, every claim and its status, known
+limitations, and the next gate — see **[docs/CURRENT_STATE.md](docs/CURRENT_STATE.md)**.
+Two paid sweeps have run (Sweep 1 and the Stage-2 gate); the canonical Linux container is in use.
 
 ## License
 

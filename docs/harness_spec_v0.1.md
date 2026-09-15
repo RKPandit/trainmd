@@ -1,5 +1,8 @@
 # TrainMD Harness Specification v0.1
 
+> **HISTORICAL planning document (2026-08).** Superseded by `harness_spec_v0.3.md` (as-built) and,
+> where it conflicts on current facts, by `CURRENT_STATE.md`. Kept as the original spec of record.
+
 **Scope:** implementation spec for the v1 benchmark defined in Problem Statement v0.3.
 **Design priorities, in order:** (1) verification integrity, (2) deterministic reproducibility,
 (3) cheap execution, (4) ease of adding cases. Anything that trades (1) or (2) for convenience

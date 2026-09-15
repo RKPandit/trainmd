@@ -1,5 +1,9 @@
 # TrainMD — Codebase Walkthrough (Plain English), v3
 
+> **NEEDS UPDATE — content may be stale (last synced `0965f3a`, 2026-09-12).** A v4 sync is scheduled
+> separately. For current state, counts, and claim statuses see `CURRENT_STATE.md`. Its *purpose*
+> (a plain-English tour of the codebase) is not superseded; its *facts* may lag the current tree.
+
 A guide for reviewing the whole project line by line. It assumes no prior
 knowledge of the code. Read it top to bottom: the order follows how data and
 control actually flow through the system.

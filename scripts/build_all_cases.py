@@ -7,7 +7,9 @@ force=True (idempotent) against the CURRENT reference. Does NOT validate — CI
 runs validate-all + gate + margins as separate, individually-reportable steps.
 
 Design: faulty operators x {mild,moderate,severe} x seeds[42,43]
-        + control x seeds[0,1,2] (strength mild) = 27 cases.
+        + control x seeds[0,1,2] (strength mild). Registry-driven: the count follows the
+        faulty-operator set in operators/registry.py (5 faulty operators -> 33 cases as of
+        2026-09-15; was 27 with 4 operators pre-metric_inflation). See docs/CURRENT_STATE.md.
 """
 from __future__ import annotations
 

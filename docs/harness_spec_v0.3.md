@@ -1,12 +1,19 @@
 # TrainMD Harness Specification v0.3 (as-built)
 
+> **AUTHORITATIVE for the as-built architecture.** For current status, operator/case counts, and
+> claim statuses see `CURRENT_STATE.md` (it supersedes any status text here). This spec is frozen at
+> the pre-sweep commit `75b6e2d`; the *architecture* it describes is current, individual *status*
+> lines below are annotated where they have since changed.
+
 **Status:** v0.3 supersedes v0.2, **frozen at the pre-sweep commit `75b6e2d`**. It describes the
 system as built and validated through **four operators + a healthy control tier** across the
 tabular workload, plus the two experiment agents (ReAct + static baseline), the pre-sweep
 validation gates, schema-1.1 capture, and the sweep orchestrator. It keeps v0.2's section spine
 and adds §16 (sweep orchestration) and §17 (validation gates). Where v0.2 said "three operators,"
-v0.3 says "four + controls"; new subsystems are documented in their real form. No paid sweep has
-run yet.
+v0.3 says "four + controls"; new subsystems are documented in their real form. ~~No paid sweep has
+run yet.~~ **[STATUS UPDATE: as of 2026-09-15 the registry holds 6 operators (metric_inflation added,
+metric tier) / 33 cases, and TWO paid sweeps have run (Sweep 1 + the Stage-2 gate) — see
+CURRENT_STATE.md.]**
 
 **Design priorities (unchanged), in order:** (1) verification integrity, (2) deterministic
 reproducibility, (3) cheap execution, (4) ease of adding operators — plus a fifth that emerged:

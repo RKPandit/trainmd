@@ -5,8 +5,11 @@ TrainMD is a research benchmark: controlled, injected incidents in small PyTorch
 jobs, with hidden verified grading of agent diagnoses and repairs. The benchmark is the
 product; agents are contestants. Authoritative docs, in priority order:
 1. docs/problem_statement_v0.3.md  (scope, claims, RQs — do not exceed this scope)
-2. docs/harness_spec_v0.1.md       (architecture, interfaces, milestones)
+2. docs/harness_spec_v0.3.md       (architecture, interfaces, as-built)
 3. docs/lit_review_v1.md           (positioning; claims-to-avoid list)
+
+For current status, claims and their status, and the next gate, see docs/CURRENT_STATE.md
+(the single source of truth; it supersedes any stale status text here or in the docs above).
 
 ## Non-negotiable integrity rules
 - `cases/*/hidden/` is NEVER mounted, copied, read, or referenced by anything in the
@@ -29,10 +32,10 @@ product; agents are contestants. Authoritative docs, in priority order:
 - Every design decision that deviates from the spec gets a line in docs/DECISIONS.md
   (date, decision, reason). The spec is then updated, not silently bypassed.
 
-## Current milestone
-M2.1: repo scaffold + tabular workload + reference-run protocol green in CI.
-Definition of done: `make reference WORKLOAD=tabular_adult` produces reference/stats.yaml
-from 10 seeded runs, and CI re-verifies it from a clean clone.
+## Current status
+Current status, claims and their status, and the next gate: see docs/CURRENT_STATE.md.
+(The M2.1 scaffold + reference-run milestone is long done; two paid sweeps have run and the
+canonical container is in use. This file stays the authority for the RULES above, not for status.)
 
 ## Working style for Claude Code sessions
 - Read the relevant spec section before implementing; quote the section number in the PR.

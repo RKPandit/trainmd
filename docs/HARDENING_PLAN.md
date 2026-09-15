@@ -1,5 +1,9 @@
 # TrainMD — Pre-Release Hardening Program
 
+> **HISTORICAL planning document (2026-09).** Its work is finished (the G1 gate ran; the harness is
+> hardened through the Stage-2 gate). Superseded where it conflicts with `CURRENT_STATE.md`. Kept as
+> the record of what was planned.
+
 **Goal:** a public benchmark that thousands can run where (1) no bug undermines a claim in
 the paper, (2) every remaining bug is *findable* because the system is auditable, and (3) we
 have found and documented more bugs than any reviewer will. "Zero bugs" is not a credible

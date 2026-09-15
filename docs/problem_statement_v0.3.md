@@ -8,6 +8,10 @@
 to DaiFu, RFT-FaultBench, FT-Dojo/PostTrainBench/Agent² RL-Bench, AgentHPO, and the
 autoresearch HPO study. Re-run the kill-check against the watch-list groups before submission.
 
+> **Scope and research questions here are authoritative.** For current status, findings, and
+> claim statuses see [CURRENT_STATE.md](CURRENT_STATE.md). Where a *status* line below has since
+> changed, it is annotated inline; the scope/RQ content is unchanged.
+
 ---
 
 ## 1. Motivation
@@ -66,8 +70,10 @@ set + immutable split checks; efficiency → throughput target AND no quality re
 - **Framing:** "containerized / cloud-inspired execution," not "real SageMaker failures."
 
 **Deferred to Phase II:** real AWS IAM/quota/capacity errors; CUDA wheel/image mismatch across
-heterogeneous hardware; distributed/NCCL/straggler incidents; genuine S3 streaming; data leakage
-(until the hidden-evaluation design is proven); dataloader performance incidents (until a
+heterogeneous hardware; distributed/NCCL/straggler incidents; genuine S3 streaming; ~~data leakage
+(until the hidden-evaluation design is proven)~~ **[STATUS UPDATE: data leakage is now a CENTRAL
+operator in Sweeps 1–2 — the hidden-evaluation design is proven; see CURRENT_STATE.md]**;
+dataloader performance incidents (until a
 quality-preserving throughput oracle exists).
 
 ## 5. Research questions (neutral, controlled)

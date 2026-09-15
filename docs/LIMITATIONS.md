@@ -6,8 +6,11 @@ per-hypothesis verdicts live in `docs/HYPOTHESES.md` Results and the evidence in
 
 ## The corrections, stated plainly
 
-All three post-hoc corrections removed harness-imposed penalties on the model; none inflated a
-score by changing ground truth. Originals are kept beside corrected values throughout.
+All four post-hoc corrections removed harness-imposed penalties or fixed an analysis-aggregation
+error; none inflated a score by changing ground truth. (The first three are the Sweep-1 scoring/
+schema + folded-repair corrections; the fourth, 2026-09-15, disaggregated the pooled H1
+negative-symptom comparator — see FINDINGS "Post-hoc corrections" #4.) Originals are kept beside
+corrected values throughout.
 
 ## Disclosure rule
 

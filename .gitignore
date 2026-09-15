@@ -37,8 +37,9 @@ cases/
 
 # Jupyter
 .ipynb_checkpoints/
-trainmd_*.zip
-*.zip # or this, if you never intend to commit any zip
-trainmd_*.zip
+# Zip archives are never committed — they may bundle hidden-side data (e.g. stage2_trials.zip).
+# NOTE: gitignore has no inline comments; a trailing "# ..." makes the pattern literal, so keep
+# this rule on its own line.
+*.zip
 results_old_*/
 **/.DS_Store
