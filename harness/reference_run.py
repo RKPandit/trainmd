@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -22,6 +23,7 @@ import numpy as np
 import yaml
 
 from harness.evaluator.evaluate_checkpoint import evaluate_checkpoint
+from harness.thread_pins import pinned_thread_env
 
 
 def _read_epoch_metrics(metrics_path: Path) -> list[dict]:
@@ -40,7 +42,6 @@ def run_reference(workload_dir: Path, num_seeds: int = 10) -> dict:
 
     Returns the stats dict that is written to stats.yaml.
     """
-    import subprocess
 
     config_path = workload_dir / "config.yaml"
     with open(config_path) as f:
@@ -71,6 +72,7 @@ def run_reference(workload_dir: Path, num_seeds: int = 10) -> dict:
                 "--output-dir", str(seed_dir),
                 "--seed", str(seed),
             ],
+            env=pinned_thread_env(),  # satisfy train.py's thread-pin guard on any host
         )
         if result.returncode != 0:
             raise RuntimeError(

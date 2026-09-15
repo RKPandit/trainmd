@@ -56,3 +56,35 @@ def test_fully_pinned_env_passes_the_guard():
     # e.g. missing data — but must not be the guard's FATAL message).
     r = _run({c: "1" for c in CAPS})
     assert "FATAL: training refuses to run" not in r.stderr
+
+
+# --------------------------------------------------------------------------
+# Spawn side: the harness helper that harness paths pass as subprocess env.
+# The CHECK side (train.py) and the SPAWN side (harness.thread_pins) must agree.
+# --------------------------------------------------------------------------
+
+
+def test_spawn_caps_match_train_guard_caps():
+    """harness.thread_pins.THREAD_CAPS must equal train.py's _THREAD_CAPS.
+
+    If these drift, the spawn side pins a different set than the guard checks and
+    the guard fires again — silently reintroducing the Stage-2 verify bug.
+    """
+    from harness.thread_pins import THREAD_CAPS
+    from workloads.tabular_adult.train import _THREAD_CAPS
+
+    assert tuple(THREAD_CAPS) == tuple(_THREAD_CAPS)
+    assert set(THREAD_CAPS) == set(CAPS)
+
+
+def test_pinned_thread_env_sets_all_five_over_an_unpinned_base():
+    """pinned_thread_env re-pins every cap even when the base env has them unset
+    or wrong — this is what makes a spawn work from a bare/unpinned parent."""
+    from harness.thread_pins import pinned_thread_env
+
+    base = {"OMP_NUM_THREADS": "8", "PATH": "/usr/bin"}  # unpinned + unrelated key
+    env = pinned_thread_env(base)
+    for c in CAPS:
+        assert env[c] == "1", c
+    assert env["PATH"] == "/usr/bin"  # unrelated keys preserved
+    assert base["OMP_NUM_THREADS"] == "8"  # caller's dict not mutated

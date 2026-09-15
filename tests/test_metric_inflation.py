@@ -455,3 +455,70 @@ def test_recovery_wrong_key_is_rejected(tmp_path):
     )
     assert result["verdict"] == "rejected"
     assert "KEY_NOT_ALLOWED" in result["reason_codes"]
+
+
+def test_verify_repair_trains_from_unpinned_parent_env(tmp_path, monkeypatch):
+    """Regression for the Stage-2 gate bug: verify_repair spawned train.py with
+    no thread-pin env, so from an UNPINNED parent every rerun exited 2 and became
+    not_recovered by construction (138 cells). verify_repair must inject the pins
+    itself and train successfully regardless of the parent environment.
+
+    This also exercises build_case's spawn (which build_metric_case triggers) —
+    both must inject the pins, so the whole path works from a bare parent env.
+    """
+    _skip_if_no_data()
+    from harness.thread_pins import THREAD_CAPS
+
+    # Simulate a bare/unpinned parent shell: strip ALL five caps from the env.
+    for cap in THREAD_CAPS:
+        monkeypatch.delenv(cap, raising=False)
+
+    project_root, case_dir = _build_metric_case(tmp_path)  # build_case spawns train.py
+    from harness.evaluator.verify_repair import verify_repair
+
+    oracle = MetricInflationOperator().oracle_repair()
+    result = verify_repair(case_dir, oracle, project_root=project_root)
+
+    # It must have actually TRAINED (not exited 2 into a false not_recovered).
+    assert result["verdict"] == "recovered", result
+    for r in result["per_seed_hidden_metrics"]:
+        assert r["exitcode"] == 0, r
+        assert r["metric_hidden_test_acc"] is not None, r
+        assert r["metric_visible_val_acc"] is not None, r
+        assert "stderr_tail" not in r  # no failure recorded on a clean run
+
+
+def test_verify_repair_subprocess_failure_is_verify_error_not_not_recovered(
+    tmp_path, monkeypatch
+):
+    """A training subprocess that exits non-zero must yield the distinct
+    verify_error verdict with the exit code + stderr recorded — never a silent
+    not_recovered (which would assert 'trained but did not restore health')."""
+    _skip_if_no_data()
+    project_root, case_dir = _build_metric_case(tmp_path)  # real case (real build)
+
+    import harness.evaluator.verify_repair as vr
+
+    class _FailedProc:
+        returncode = 2
+        stdout = ""
+        stderr = (
+            "FATAL: training refuses to run without single-threaded math.\n"
+            "  Not set to 1: OMP_NUM_THREADS\n"
+        )
+
+    # Only fake the TRAINING spawn (after the real build has completed).
+    monkeypatch.setattr(vr.subprocess, "run", lambda *a, **k: _FailedProc())
+
+    oracle = MetricInflationOperator().oracle_repair()
+    result = vr.verify_repair(case_dir, oracle, project_root=project_root)
+
+    assert result["verdict"] == "verify_error", result
+    assert result["verdict"] != "not_recovered"
+    assert "TRAINING_SUBPROCESS_FAILED" in result["reason_codes"]
+    # Exit code and stderr recorded on every seed, and surfaced in details.
+    assert result["per_seed_hidden_metrics"], result
+    for r in result["per_seed_hidden_metrics"]:
+        assert r["exitcode"] == 2, r
+        assert "FATAL" in r.get("stderr_tail", ""), r
+    assert any("exited 2" in d for d in result["details"]), result["details"]
