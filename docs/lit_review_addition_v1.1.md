@@ -65,13 +65,13 @@ The flagship operator (data_leakage) is the best-evidenced in the portfolio:
 - **Magnitude:** Roth, "Which Leakage Types Matter? A Quantitative Landscape Across 2,047 Benchmark
   Datasets" (arXiv 2604.04199, 2026), quantifies selection/peeking leakage inflation (ΔAUC =
   +0.013–0.045; d_z = 0.27–0.93; +0.040 in 92% of datasets at k=10) and train/test-overlap
-  memorization (d_z = 0.37 to 1.11 at 10% duplication, scaling with model capacity). A medical-
-  imaging case saw validation AUC 0.75–0.99 collapse to a true-test AUC of 0.72.
+  memorization (d_z = 0.37 to 1.11 at 10% duplication, scaling with model capacity).
 
 These establish that leakage is common, consequential, and produces a *reproducible* val↑/test↓
-signature — exactly the property that makes it TrainMD's discriminating flagship. **Verification
-note:** the Roth (arXiv 2604.04199) and Kapoor & Narayanan figures should be confirmed against
-primary PDFs before submission; the 2026 Roth preprint in particular is recent and unreviewed.
+signature — exactly the property that makes it TrainMD's discriminating flagship. **Provenance
+note:** a tooling-assisted primary-source audit was completed on 2026-09-15; the project author's
+required human sign-off remains tracked in `CITATIONS.md`. The 2026 Roth preprint is recent and
+unreviewed.
 Use magnitude figures as existence-and-scale evidence; tune the operator's own leak strength to a
 clean signature rather than citing these as target effect sizes.
 
@@ -90,9 +90,10 @@ reproducible. Cited in the problem statement §12.
 - **Seed variance** (for the deferred seed operator and to justify multi-seed recovery): Picard,
   "torch.manual_seed(3407) is all you need" (arXiv 2109.08203) — up to 1.82% CIFAR-10 test-
   accuracy spread from seed alone.
-- **Loss/activation coupling and normalization** (mechanism references): DL bug-localization tools
-  (e.g. Theia) enumerate "Labels/output-activation/Loss Mismatch" and "Input Data not Normalized"
-  as recognised fault checks.
+- **Loss/activation coupling and normalization** (mechanism references): Manke et al.,
+  "Leveraging Data Characteristics for Bug Localization in Deep Learning Programs" (Theia;
+  arXiv 2412.05775, accepted in TOSEM), enumerate "Labels/output-activation/Loss Mismatch" and
+  "Input Data not Normalized" as recognised fault checks.
 - **Class imbalance** (mechanism): the classical imbalance literature (Japkowicz & Stephen 2002;
   He & Garcia 2009; Krawczyk 2016) documents that aggregate accuracy masks minority-class collapse
   — the basis for scoring that operator against macro-F1, not accuracy.
@@ -122,16 +123,21 @@ Append this block to the end of the existing "## Primary sources" section.
 - Yang, Brower-Sinning, Lewis, Kästner. "Data Leakage in Notebooks: Static Detection and Better
   Processes." ASE 2022. arXiv 2209.03345. *(Leakage pervasiveness across 100k+ notebooks.)*
 - Kapoor, Narayanan. "Leakage and the reproducibility crisis in machine-learning-based science."
-  *Patterns* 4, 100804, 2023 (preprint arXiv 2207.07048). *(294 studies across 17 fields — VERIFY
-  count against primary PDF.)*
+  *Patterns* 4, 100804, 2023 (preprint arXiv 2207.07048). *(The published article reports at least
+  294 papers across 17 fields; the earlier arXiv abstract reports 329. Use the published count when
+  citing the published article.)*
 - Roth. "Which Leakage Types Matter? A Quantitative Landscape Across 2,047 Benchmark Datasets."
-  arXiv 2604.04199, 2026. *(Leakage magnitude — recent preprint, VERIFY against primary PDF.)*
+  arXiv 2604.04199, 2026. *(Leakage magnitude; recent, unreviewed preprint.)*
 - Zhang et al. "An Empirical Study on Program Failures of Deep Learning Jobs" (Microsoft Philly).
   ICSE 2020. *(48% platform-interaction failures — Phase II justification.)*
 - Picard. "torch.manual_seed(3407) is all you need." arXiv 2109.08203. *(Seed variance — deferred
   seed operator.)*
+- Manke, Wardat, Khomh, Rajan. "Leveraging Data Characteristics for Bug Localization in Deep
+  Learning Programs." Accepted in TOSEM; arXiv 2412.05775. *(Theia; loss/activation and
+  normalization checks.)*
 
-**Verification checklist before submission (extends §13.4):** confirm arXiv IDs and reported
-figures for the CMU study (2403.16795), Yang et al. (2209.03345), Kapoor & Narayanan (count: 294
-vs 329 across preprint/published versions), and Roth (2604.04199) against primary PDFs. The Roth
-2026 preprint and any 2026-range IDs are the highest priority to verify.
+**Verification checklist before submission (extends §13.4):** use `CITATIONS.md` as the canonical
+ledger. Tooling may populate or check it, but the project author must open the linked primary page,
+verify title, complete author list, venue, year, identifier, and the exact claim used, then replace
+`PENDING` with the date of that human check. Re-run this audit for mutable preprints immediately
+before submission.

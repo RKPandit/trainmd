@@ -339,15 +339,16 @@ The v0.2 closest-work table is the right one for the paper. The wider landscape 
 
 | Benchmark | Domain | Scoring style | Verified fix loop |
 |---|---|---|---|
-| RCAEval (WWW 2025) | Microservice RCA, 735 cases, 11 fault types | Root-cause service + indicator | No |
-| OpenRCA | Microservice RCA, 335 cases | Final-answer only | No |
-| AIOps2025 + RCA100 / AgenticOpsEval (2026) | Microservices, 500+ expert-labeled cases | Localization / Identification / Reason (evidence-grounded) | No |
-| ITBench (ICML 2025) | Kubernetes SRE/CISO/FinOps, ~94-102 scenarios | RCA + resolution | Partial |
-| AIOpsLab (MLSys 2025) | Kubernetes, 48 (~86 current) problems | Detect/Localize/RCA/Mitigate | Yes (live-health oracle; self-healing caveat) |
-| MicroRemed (2025) | Microservices, 421 fault-recovery pairs | Remediation accuracy/latency/tokens | Yes (playbook exec + status verification) |
+| RCAEval (WWW 2025 Companion) | Microservice RCA, 735 cases, 11 fault types | Root-cause service + indicator | No |
+| OpenRCA (ICLR 2025) | Enterprise-software RCA, 335 cases | Final-answer only | No |
+| ITBench (ICML 2025) | SRE/CISO/FinOps, 102 published-version scenarios | RCA + resolution | Partial |
+| AIOpsLab (MLSys 2025) | Live cloud/microservice environments | Detect/Localize/RCA/Mitigate | Yes (live-health oracle; self-healing caveat) |
+| MicroRemed (2025 preprint) | Microservices | Remediation accuracy/latency/tokens | Yes (Ansible playbook execution + status verification) |
 | SREGym (2026) | Live K8s, 90 problems | Diagnosis + mitigation | Yes (recovery-to-healthy oracle) |
-| Who&When (ICML 2025) | Multi-agent failure logs | Agent + step attribution | No |
-| AgentDebug / AgentErrorBench, TraceElephant, AgentDebugX | LLM-agent trajectories | Attribution, closed-loop recover-rerun (trajectories) | Partial |
+| Who&When (ICML 2025) | Failure logs from 127 multi-agent systems | Agent + decisive-step attribution | No |
+| AgentDebug / AgentErrorBench (2025 preprint) | ALFWorld, GAIA, and WebShop failure trajectories | Root-cause feedback + recovery experiments | Partial |
+| TraceElephant (ACL 2026) | 220 annotated failures with full execution traces | Agent + step attribution | No |
+| AgentDebugX (2026 preprint) | LLM-agent trajectories | Detect/Attribute/Recover/Rerun | Yes, on selected failed tasks |
 | MLE-Dojo (NeurIPS 2025 D&B) | 200+ Kaggle challenges | Interactive outcome verification | No injected faults |
 | SWE-bench family | GitHub code bugs, 2,294 tasks | Test pass/fail | Yes (apply patch, run tests) |
 
@@ -373,9 +374,9 @@ submission; see §13.4.)*
 ### 13.2 Empirical motivation anchors (motivation only — NOT frequency weights, per Section 5.4)
 
 - Zhang et al. (ICSE 2020, Microsoft Philly, 4,960 failures): 48.0% of deep-learning job failures occur in interaction with the platform rather than in code logic, largely from local-vs-platform environment discrepancies; DL-specific failures (13.5%) driven by inappropriate model parameters/structures and framework API misunderstanding. Canonical citation for the local-vs-cloud framing.
-- Chen et al. (arXiv 2504.03887): GPU clusters at Microsoft and Meta see roughly 9% of DL training tasks fail due to OOM. Useful single-number motivation for the OOM class.
-- Meta (arXiv 2410.21680): 11 months across ~24k A100 GPUs; job-level failure taxonomy and NCCL-timeout differential diagnosis — source of realistic "red-herring" signals for case design.
-- Gao et al. (Microsoft, ICSE 2024): average GPU utilization <=50% across 400 studied jobs — motivation for the (deferred) efficiency-incident track.
+- Shi & Elkhatib, "Accurate GPU Memory Prediction for Deep Learning Jobs through Dynamic Analysis" (arXiv 2504.03887): presents CPU-based peak-GPU-memory prediction and treats OOM errors as a practical training/scheduling problem. Use it for the OOM-prediction mechanism, not for the earlier cluster-frequency statistic that it cites second-hand.
+- Kokolis et al., "Revisiting Reliability in Large-Scale Machine Learning Research Clusters" (arXiv 2410.21680): 11 months across two FAIR research clusters spanning ~24k A100 GPUs and four million jobs; job-level failure taxonomy and NCCL-timeout differential diagnosis — source of realistic "red-herring" signals for case design.
+- Gao et al., "An Empirical Study on Low GPU Utilization of Deep Learning Jobs" (ICSE 2024, DOI 10.1145/3597503.3639232): studies 400 real jobs selected for average GPU utilization <=50%. This is motivation for the deferred efficiency-incident track, not an estimate that the average job in the population uses <=50% of its GPU.
 
 ### 13.3 Watch list before submission
 
@@ -387,7 +388,8 @@ Two author clusters are actively extending training-failure management; re-run t
 ### 13.4 Verification and provenance note
 
 - v0.2's two most consequential new citations were independently verified on 2026-08-28: DaiFu (arXiv 2507.01628; in-situ crash recovery with a 7-scenario crash benchmark — accurately characterized) and Ferreira et al., "Can LLMs Beat Classical HPO? A Study on autoresearch" (arXiv 2603.24647; 9 HPO methods, fixed 24h GPU budget, 3 seeds; CMA-ES/TPE beat LLM agents in a fixed space; code-editing agents narrow but do not close the gap; hybrid strongest — accurately characterized).
-- Remaining 2026 preprints (FT-Dojo, PostTrainBench, Agent(2) RL-Bench, DynFault, Deep4ge, SREGym) still need primary-PDF verification before the related-work section is finalized.
+- The canonical citation ledger is `CITATIONS.md`. It separates tooling-assisted primary-source checks from the project author's required human sign-off. No `PENDING` or unresolved source may be used in a submitted manuscript.
+- Re-check mutable 2026 preprints (FT-Dojo, PostTrainBench, Agent(2) RL-Bench, DynFault, Deep4ge, SREGym, BenchShield, and Roth) immediately before submission even after author sign-off.
 - Decisions adopted from v0.2 over the first-pass review: narrowed headline claim; RQ5 reframed as neutral diagnosis-vs-search with budget curves; issue mining demoted from frequency estimate to coverage study; v1 scoped to 24-48 instances with cloud/distributed tracks deferred; hidden-evaluator isolation and workload-held-out split added as requirements.
 
 ## Primary sources
@@ -400,7 +402,7 @@ Two author clusters are actively extending training-failure management; re-run t
 - Nargiz Humbatova et al., [DeepCrime: Mutation Testing of Deep Learning Systems Based on Real Faults](https://dl.acm.org/doi/10.1145/3460319.3464825), ISSTA 2021.
 - Mohammad Wardat et al., [DeepDiagnosis: Automatically Diagnosing Faults and Recommending Actionable Fixes in Deep Learning Programs](https://dl.acm.org/doi/10.1145/3510003.3510071), ICSE 2022.
 - Jialun Cao et al., [DeepFD: Automated Fault Diagnosis and Localization for Deep Learning Programs](https://dl.acm.org/doi/10.1145/3510003.3510099), ICSE 2022.
-- Jinhan Kim et al., [Repairing DNN Architecture: Are We There Yet?](https://arxiv.org/abs/2301.11568), 2023.
+- Jinhan Kim et al., [Repairing DNN Architecture: Are We There Yet?](https://arxiv.org/abs/2301.11568), ICST 2023.
 - Zhihan Jiang et al., [L4: Diagnosing Large-Scale LLM Training Failures via Automated Log Analysis](https://arxiv.org/abs/2503.20263), FSE 2025.
 - Zilong He et al., [DaiFu: In-Situ Crash Recovery for Deep Learning Systems](https://arxiv.org/abs/2507.01628), 2025 preprint.
 - Sigma Jahan, [Evaluation-Strategy Gap in Fault Diagnosis of Deep Learning Programs](https://arxiv.org/abs/2606.26492), 2026 preprint.
@@ -410,7 +412,7 @@ Two author clusters are actively extending training-failure management; re-run t
 ### ML-agent and post-training benchmarks
 
 - Jun Shern Chan et al., [MLE-bench: Evaluating Machine Learning Agents on Machine Learning Engineering](https://arxiv.org/abs/2410.07095), 2024/ICLR 2025.
-- Qian Huang et al., [MLAgentBench: Evaluating Language Agents on Machine Learning Experimentation](https://proceedings.mlr.press/v235/huang24h.html), ICML 2024.
+- Qian Huang, Jian Vora, Percy Liang & Jure Leskovec, [MLAgentBench: Evaluating Language Agents on Machine Learning Experimentation](https://proceedings.mlr.press/v235/huang24y.html), ICML 2024, PMLR 235:20271–20309; arXiv:2310.03302.
 - Deepak Nathani et al., [MLGym: A New Framework and Benchmark for Advancing AI Research Agents](https://arxiv.org/abs/2502.14499), 2025.
 - Qizheng Li et al., [FT-Dojo: Towards Autonomous LLM Fine-Tuning with Language Agents](https://arxiv.org/abs/2603.01712), 2026 preprint.
 - Ben Rank et al., [PostTrainBench: Can LLM Agents Automate LLM Post-Training?](https://arxiv.org/abs/2603.08640), 2026 preprint.
@@ -423,8 +425,15 @@ Two author clusters are actively extending training-failure management; re-run t
 - Yinfang Chen et al., [AIOpsLab: A Holistic Framework to Evaluate AI Agents for Enabling Autonomous Clouds](https://arxiv.org/abs/2501.06706), MLSys 2025.
 - [MicroRemed: Benchmarking LLMs in Microservices Remediation](https://arxiv.org/abs/2511.01166), 2025 preprint.
 - [SREGym: A Live Benchmark for AI SRE Agents with High-Fidelity Failure Scenarios](https://arxiv.org/abs/2605.07161), 2026 preprint.
+- Luan Pham et al., [RCAEval: A Benchmark for Root Cause Analysis of Microservice Systems with Telemetry Data](https://arxiv.org/abs/2412.17015), WWW 2025 Companion.
+- Junjielong Xu et al., [OpenRCA: Can Large Language Models Locate the Root Cause of Software Failures?](https://openreview.net/forum?id=M4qNIzQYpd), ICLR 2025.
+- Saurabh Jha et al., [ITBench: Evaluating AI Agents across Diverse Real-World IT Automation Tasks](https://proceedings.mlr.press/v267/jha25a.html), ICML 2025.
+- Shaokun Zhang et al., [Which Agent Causes Task Failures and When? On Automated Failure Attribution of LLM Multi-Agent Systems](https://proceedings.mlr.press/v267/zhang25cq.html), ICML 2025.
+- Kunlun Zhu et al., [Where LLM Agents Fail and How They can Learn From Failures](https://arxiv.org/abs/2509.25370), 2025 preprint.
+- Mengzhuo Chen et al., [Seeing the Whole Elephant: A Benchmark for Failure Attribution in LLM-based Multi-Agent Systems](https://aclanthology.org/2026.acl-long.912/), ACL 2026.
+- Kunlun Zhu et al., [AgentDebugX: An Open-Source Toolkit for Failure Observability, Attribution, and Recovery in LLM Agents](https://arxiv.org/abs/2607.18754), 2026 preprint.
+- Rushi Qiang et al., [MLE-Dojo: Interactive Environments for Empowering LLM Agents in Machine Learning Engineering](https://arxiv.org/abs/2505.07782), NeurIPS 2025 Datasets and Benchmarks.
 
 ### Evaluation integrity and reward-hacking (adjacent object of study)
 
-- Shenghan Zheng, …, Dawn Song, Christophe Hauser, [BenchShield: Formal Model-Backed Instrumentation for Reward Integrity in LLM-Agent Evaluation Infrastructure](https://arxiv.org/abs/2609.11028), 2026 preprint (cs.CR, submitted 2026-09-10). **Pre-submission: re-verify the arXiv ID and full author list against the primary page — recorded 2 days after submission.**
-
+- Shenghan Zheng et al., [BenchShield: Formal Model-Backed Instrumentation for Reward Integrity in LLM-Agent Evaluation Infrastructure](https://arxiv.org/abs/2609.11028), 2026 preprint (cs.CR, submitted 2026-09-10). **Mutable preprint: re-check the identifier, version, and complete author list immediately before submission; author sign-off is tracked in `CITATIONS.md`.**
