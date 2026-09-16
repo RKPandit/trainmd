@@ -42,12 +42,16 @@ corrections_count: 5
   under **v1** until 2026-09-15 (the earlier "v2 primary" docs were a mislabel — the v1→v2 rescore was
   disclosed 2026-09-13 but never persisted); all records migrated to v2.1 primary in **correction #5**.
   A `check_scorer_versions.py` guard now asserts each report's declared scorer matches its records.
-- **Canonical environment:** Linux/amd64 container, thread-pinned; base `python:3.11-slim-bookworm`;
-  image digest above (`docker/IMAGE_DIGEST`). Reference seeds `[0–29]` (**30**; adopted STAGE3_PLAN
-  §0.5, two-runner byte-exact on native amd64, `tolerance_lower` **0.843719** = mean−2σ; prior 10-seed
-  band preserved at `reference/stats.10seed.yaml`); hidden eval seeds `[100,101,102]`. **Seed-collision
-  caveat:** reference `[0–29]` overlaps control/calibration seeds `{0,1,2}`, so control false-positive
-  rate is biased **LOW by construction** — see LIMITATIONS L3; the fix is sequenced §5.1→§5.2 (§d).
+- **Canonical environment:** Linux/amd64 container **on NATIVE amd64** (`harness.platform_guard`:
+  case/reference builds refuse under emulation — the agent-facing visible metric is per-case
+  platform-sensitive up to ~2.8σ native-vs-emulated, L23; CPU stamped in each hidden card + manifest),
+  thread-pinned; base `python:3.11-slim-bookworm`; image digest above (`docker/IMAGE_DIGEST`). Reference
+  seeds `[0–29]` (**30**; adopted STAGE3_PLAN §0.5, two-runner byte-exact on native amd64,
+  `tolerance_lower` **0.843719** = mean−2σ; prior 10-seed band preserved at `reference/stats.10seed.yaml`);
+  hidden eval seeds `[100,101,102]`. **Seed-collision caveat:** reference `[0–29]` overlaps
+  control/calibration seeds `{0,1,2}`, so control false-positive rate is biased **LOW by construction** —
+  see LIMITATIONS L3. §5.1 (retain + label out-of-band controls; control FPR stratified by band position)
+  **landed 2026-09-16**; §5.2 (move reference off `[0–29]`) still pending to cure the circularity (§d).
 - **Latest committed sweep:** `stage2gate` (252 cells; agent phase on host/API, verify phase canonical
   in-container). Agent-phase cost **~$11.71 estimated** (actual pending). Prior: `sweep1` (~$12.76 est).
 
@@ -71,7 +75,7 @@ mentioned,"** never "not used"; every rate states its cluster count.
 
 - **L1** lr_warmup degradation is bimodal, not graded (retired from the σ-ladder).
 - **L2** One model, one workload (Haiku 4.5 / Adult-MLP) — everything is pending replication.
-- **L3** The mean−2σ healthy band has a structural false-alarm floor (~2.3% one-sided under the fitted normal; normality CHECKED at n=30, not assumed — §0.5), and reference/control seeds overlap `{0,1,2}` (control FPR biased LOW).
+- **L3** The mean−2σ healthy band has a structural false-alarm floor (~2.3% one-sided under the fitted normal; normality CHECKED at n=30, not assumed — §0.5), and reference/control seeds overlap `{0,1,2}` (control FPR biased LOW). §5.1 (2026-09-16) landed the retain+label+stratify build-guard change; §5.2 still cures the seed circularity. Published control FPRs (Sweep-1 0.222; gate 0/12·6/12·2/12) were measured under the OLD rejecting guard on in-band-only controls — no number changes, interpretation narrows (L3(iii)).
 - **L4** Identification depends on a principled root-token spec (versioned/hashed).
 - **L5** Cloud-native / multi-stage faults are simulated or absent (Phase I).
 - **L6** Cost figures are token-based estimates (console actuals pending).
@@ -91,6 +95,8 @@ mentioned,"** never "not used"; every rate states its cluster count.
 - **L20** Controls are under-powered: 3 unique healthy cases.
 - **L21** The Stage-2 gate has split provenance (agent host / verify canonical in-container).
 - **L22** Detection on the Stage-2 operators proceeds by config legibility, not metric reasoning.
+- **L23** Per-case cross-platform drift affects BOTH metrics (native-vs-emulated up to ~2.8σ visible / ~2.1σ hidden, seed-dependent); native-vs-native is byte-exact (EPYC 9V45 ≡ 7763). L18 was mean-level, cross-microarch, native-only — it does not license native-vs-emulated or per-case claims. Artifacts must be built native amd64 (guard enforces); pre-guard artifacts (Sweeps 1–2, macOS) are internally consistent and stand.
+- **L24** The metric tier's "the model is healthy" guarantee is partly SELECTED, not observed (the metric build guard discards out-of-band metric cases) — resolve before Sweep 3.
 
 ## d. What is next
 
@@ -103,10 +109,17 @@ but not adopted; normality checked; Sweeps 1/2 frozen as 10-seed-era historical 
 
 **Forced next sequence (seed-collision fix — §0.5 ruling):** the 30-seed band still overlaps
 control/calibration seeds `{0,1,2}`, biasing control FPR **LOW by construction**. The fix is ordered
-and must land in this order before Gate 0 closes: **§0.5 (done) → §5.1 (retain + label out-of-band
-controls) → §5.2 (disjoint seeds: reference → `[200–229]`, controls rebuilt on confirmatory seeds) →
-Gate 0.** §5.1 MUST precede §5.2, else the build guard (`build_case.py` control check) silently rejects
-the out-of-band controls that make the measurement honest.
+and must land in this order before Gate 0 closes: **§0.5 (done) → §5.1 (DONE 2026-09-16: retain + label
+out-of-band controls; control build guard records band position instead of rejecting; control FPR
+stratified in_band/out_of_band, keyed on the visible band by mechanism) → §5.2 (disjoint seeds:
+reference → `[200–229]`, controls rebuilt on confirmatory seeds — MUST run native amd64) → Gate 0.**
+§5.1 landed before §5.2, so the build guard no longer silently rejects the out-of-band controls that
+make the measurement honest. **Two §5.1 follow-ups sequenced before Sweep 3 (Part 9):** (1) native-only
+artifact generation — now enforced by `harness.platform_guard` (L23); (2) the metric-tier in-band
+selection bias — retain + label out-of-band metric cases as §5.1 did for controls (L24, reported not
+yet fixed). **Remediation note:** the three controls were rebuilt under EMULATION during §5.1 (a local
+Apple-Silicon working tree; `cases/` is gitignored, nothing committed) — they must be rebuilt on native
+amd64 (CI) before use; the canonical item-5 band table was computed from the native CI reference.
 
 **Gate 0:** citations verified; CURRENT_STATE committed and consistent; `report` regenerates the
 Stage-2 tables byte-identically from records; v2.1 tests green; 30-seed reference adopted; §5.1/§5.2

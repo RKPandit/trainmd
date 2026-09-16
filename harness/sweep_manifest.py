@@ -40,8 +40,15 @@ def capture_hardware(project_root: Path) -> dict:
     # pinned image, and which one. Set by the Makefile docker-* targets.
     in_container = os.environ.get("TRAINMD_IN_CONTAINER") == "1" or Path("/.dockerenv").exists()
     image_digest = os.environ.get("TRAINMD_IMAGE_DIGEST") or None
+    # Reliable CPU identity (vendor_id + model from /proc/cpuinfo) and the
+    # native/emulated verdict — platform.processor() is empty on Linux. This is
+    # what makes a macOS/Rosetta-run sweep (like Sweep 1) legible in the manifest
+    # rather than inferred after the fact (DECISIONS 2026-09-16).
+    from harness.platform_guard import cpu_provenance, emulation_reason
+    cpu_model = cpu_provenance()
+    emu = emulation_reason()
     return {
-        "cpu_model": platform.processor() or platform.machine(),
+        "cpu_model": cpu_model,
         "cpu_cores": os.cpu_count(),
         "ram_gb": ram_gb,
         "os": platform.platform(),
@@ -53,7 +60,8 @@ def capture_hardware(project_root: Path) -> dict:
         "image_digest": image_digest,
         "canonical_environment_note": (
             "Linux/amd64 in the pinned container is canonical (Stage 1). This manifest "
-            f"produced on {system}; in_container={in_container}."
+            f"produced on {system}; in_container={in_container}; cpu={cpu_model}; "
+            + ("native amd64." if emu is None else f"NON-CANONICAL platform ({emu}).")
         ),
     }
 

@@ -43,6 +43,11 @@ def case_meta_from_cases(root: Path):
                 "symptom_direction": card.get("symptom_direction"),
                 "visible_sigma_distance": card.get("visible_sigma_distance"),
                 "hidden_sigma_distance": card.get("hidden_sigma_distance"),
+                # §5.1 band labels — present only on cases rebuilt under the §5.1
+                # guard; None on pre-§5.1 (frozen-era) cards → control_fpr falls
+                # back to the pooled table (byte-identical for frozen sweeps).
+                "band_position_visible": card.get("band_position_visible"),
+                "band_position_hidden": card.get("band_position_hidden"),
             }
         return cache[cid]
 
@@ -56,6 +61,8 @@ def attach_meta(rec: dict, meta: dict) -> dict:
     rec["_symptom"] = meta.get("symptom_direction")
     rec["_sig_vis"] = meta.get("visible_sigma_distance")
     rec["_sig_hid"] = meta.get("hidden_sigma_distance")
+    rec["_band_vis"] = meta.get("band_position_visible")  # §5.1 (None pre-§5.1)
+    rec["_band_hid"] = meta.get("band_position_hidden")
     rec["_anchor"] = normalize_anchor((rec.get("conditions") or {}).get("anchor"))
     rec["_agent"] = (rec.get("conditions") or {}).get("agent_type")
     return rec
@@ -109,7 +116,8 @@ def case_meta_from_release(release_dir: Path):
             d = json.loads((release_dir / "cases" / f"{cid}.json").read_text())
             cache[cid] = {k: d.get(k) for k in (
                 "operator_id", "tier", "symptom_direction",
-                "visible_sigma_distance", "hidden_sigma_distance")}
+                "visible_sigma_distance", "hidden_sigma_distance",
+                "band_position_visible", "band_position_hidden")}
         return cache[cid]
 
     return meta
@@ -356,6 +364,52 @@ def control_fpr(recs):
         ci["fp_cases"] = sorted({r["case_id"] for r in fp})
         per_arm[arm] = ci
     out = {"available": True, "per_arm": per_arm}
+
+    # §5.1: stratify each arm into in_band vs out-of-band (below_band ∪ above_band).
+    # A pooled control FPR must never stand alone; the out-of-band rate is the honest
+    # false-positive measurement (the hard healthy case). Gated on the EXPLICIT band
+    # label being present on every control record: it exists only on cases rebuilt
+    # under the §5.1 guard, so frozen pre-§5.1 sweeps omit these and render the pooled
+    # table byte-identically.
+    #
+    # The STRATIFICATION KEY is the VISIBLE band position (`_band_vis`), by MECHANISM:
+    # a control false positive is a visible-metric event — the agent reads
+    # metric_visible_val_acc, compares it to its band, and flags. The HIDDEN breakdown
+    # (`_band_hid`) is reported ALONGSIDE only as a case-quality label (the agent never
+    # sees it). Both metrics are equally platform-sensitive native-vs-emulated, so
+    # robustness is NOT the basis; the guard (platform_guard) ensures native-only
+    # artifacts. See LIMITATIONS / DECISIONS 2026-09-16.
+    def _by_band(key):
+        breakdown = {}
+        for arm in arms_present(ctrl_all):
+            ctrl = [r for r in ctrl_all if r["_anchor"] == arm]
+            strata = {}
+            for name, keep in (
+                ("in_band", lambda r, k=key: r[k] == "in_band"),
+                ("out_of_band", lambda r, k=key: r[k] in ("below_band", "above_band")),
+            ):
+                sub = [r for r in ctrl if keep(r)]
+                if not sub:
+                    strata[name] = {"available": False, "n_cases": 0, "n_trials": 0}
+                    continue
+                ci = bootstrap_ci(sub, fp_pred)
+                fp = [r for r in sub if _detected(r) is True]
+                ci["available"] = True
+                ci["n_fp"] = len(fp)
+                ci["fp_cases"] = sorted({r["case_id"] for r in fp})
+                strata[name] = ci
+            breakdown[arm] = strata
+        return breakdown
+
+    if all(r.get("_band_vis") is not None for r in ctrl_all):
+        out["by_band"] = _by_band("_band_vis")          # PRIMARY key (visible, by mechanism)
+        out["stratified"] = True
+        out["stratify_key"] = "visible_band_position"
+        if all(r.get("_band_hid") is not None for r in ctrl_all):
+            out["by_band_hidden"] = _by_band("_band_hid")   # alongside: case-quality label
+    else:
+        out["stratified"] = False
+
     # numbers − rule difference (the specificity contrast), if both arms present
     if "numbers" in per_arm and "rule" in per_arm:
         num = [r for r in ctrl_all if r["_anchor"] == "numbers"]

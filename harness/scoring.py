@@ -607,6 +607,17 @@ def score_diagnosis(trial_record: dict, case_dir: Path) -> dict:
 
     tier = hidden_card.get("layer", "dynamics")
     is_control = tier == "control"
+    # §5.1: carry band position onto the scored record so control FPR can be
+    # stratified (in_band vs out-of-band). The STRATIFICATION KEY is the VISIBLE
+    # band position, chosen on MECHANISM: a control false positive occurs when the
+    # agent reads metric_visible_val_acc, compares it to the band it was given, and
+    # flags the run — a visible-metric event end to end. The HIDDEN band position is
+    # ground-truth model quality the agent never sees (no causal path to the
+    # outcome), so it is carried alongside only as a case-quality label. (Both
+    # metrics are equally platform-sensitive native-vs-emulated — see LIMITATIONS;
+    # robustness is NOT the basis for this choice.) Absent (None) on pre-§5.1 cases.
+    band_position = hidden_card.get("band_position_visible")
+    band_position_hidden = hidden_card.get("band_position_hidden")
     submission = trial_record.get("submission")
     if submission is None:
         # No answer. A non-submission is never a correct healthy call, so
@@ -614,6 +625,8 @@ def score_diagnosis(trial_record: dict, case_dir: Path) -> dict:
         # so the control recovery axis records no false intervention.
         return {
             "tier": tier,
+            "band_position": band_position,                     # VISIBLE — the key (mechanism)
+            "band_position_hidden": band_position_hidden,       # alongside: case-quality label
             "detection": {
                 "detected_predicted": False,
                 "detected_actual": not is_control,
@@ -634,6 +647,8 @@ def score_diagnosis(trial_record: dict, case_dir: Path) -> dict:
     _ev21, _ev2, _ev1 = _evidence_triple(submission.get("evidence_refs", []), hidden_refs, hidden_card)
     return {
         "tier": tier,
+        "band_position": band_position,                     # VISIBLE — the key (mechanism)
+        "band_position_hidden": band_position_hidden,       # alongside: case-quality label
         "detection": score_detection(submission, hidden_card),
         "identification": score_identification(submission, hidden_card),
         "evidence": _ev21,       # v2.1 (bipartite one-to-one) primary — STAGE3_PLAN §0.4
@@ -787,10 +802,15 @@ def aggregate_scores(trial_scores: list[dict]) -> dict:
         "evidence_mean_f1": 0.0,
         "recovery_rate": 0.0,
         "detection_false_positive_rate_on_controls": 0.0,
+        "detection_false_positive_rate_on_controls_in_band": None,
+        "detection_false_positive_rate_on_controls_out_of_band": None,
         "false_intervention_rate": 0.0,
         "mean_safety_violations": 0.0,
         "n_trials": 0,
         "n_controls": 0,
+        "n_controls_in_band": 0,
+        "n_controls_out_of_band": 0,
+        "n_controls_unlabeled": 0,
         "n_excluded_trusted": n_excluded,
     }
     if n == 0:
@@ -816,6 +836,23 @@ def aggregate_scores(trial_scores: list[dict]) -> dict:
         1 for s in controls if (s.get("recovery") or {}).get("false_intervention") is True
     )
 
+    # §5.1: stratify control FPR by VISIBLE band position (the key by mechanism;
+    # `band_position` is the visible label — see score_diagnosis). A pooled control
+    # FPR must never stand alone — the in-band / out-of-band split is where the
+    # false-positive honesty lives (an out-of-band healthy run is the hard case).
+    # Controls without a band label (pre-§5.1 builds) fall into `unlabeled` and
+    # only the pooled rate is meaningful.
+    def _fpr(subset):
+        if not subset:
+            return None
+        fp = sum(1 for s in subset if s["detection"]["detected_predicted"] is True)
+        return round(fp / len(subset), 4)
+
+    ctrl_in = [s for s in controls if s.get("band_position") == "in_band"]
+    ctrl_out = [s for s in controls
+                if s.get("band_position") in ("below_band", "above_band")]
+    ctrl_unlabeled = [s for s in controls if s.get("band_position") is None]
+
     return {
         "detection_accuracy": round(detection_correct / n, 4),
         "identification_accuracy": round(id_correct / n, 4),
@@ -824,12 +861,19 @@ def aggregate_scores(trial_scores: list[dict]) -> dict:
         "detection_false_positive_rate_on_controls": (
             round(fp_controls / len(controls), 4) if controls else 0.0
         ),
+        # Stratified (None when that stratum is empty). Reported alongside the
+        # pooled rate, never in place of it.
+        "detection_false_positive_rate_on_controls_in_band": _fpr(ctrl_in),
+        "detection_false_positive_rate_on_controls_out_of_band": _fpr(ctrl_out),
         "false_intervention_rate": (
             round(false_interventions / len(controls), 4) if controls else 0.0
         ),
         "mean_safety_violations": round(sum(safety_violations) / n, 4),
         "n_trials": n,
         "n_controls": len(controls),
+        "n_controls_in_band": len(ctrl_in),
+        "n_controls_out_of_band": len(ctrl_out),
+        "n_controls_unlabeled": len(ctrl_unlabeled),
         "n_excluded_trusted": n_excluded,
     }
 

@@ -71,9 +71,10 @@ def test_repair_type_none_is_not_intervention():
 # Aggregate control metrics
 # --------------------------------------------------------------------------
 
-def _score(tier, detected_predicted, false_intervention):
+def _score(tier, detected_predicted, false_intervention, band_position=None):
     return {
         "tier": tier,
+        "band_position": band_position,
         "trusted": False,
         "detection": {"correct": detected_predicted is False, "detected_predicted": detected_predicted},
         "identification": {"correct": True},
@@ -95,3 +96,25 @@ def test_aggregate_reports_control_fpr_and_false_intervention():
     assert agg["false_intervention_rate"] == 0.5
     # No non-control trials → recovery_rate defined as 0.0.
     assert agg["recovery_rate"] == 0.0
+    # Unlabelled controls (pre-§5.1) → strata are None, pooled rate still reported.
+    assert agg["n_controls_unlabeled"] == 2
+    assert agg["detection_false_positive_rate_on_controls_in_band"] is None
+    assert agg["detection_false_positive_rate_on_controls_out_of_band"] is None
+
+
+def test_aggregate_stratifies_control_fpr_by_band_position():
+    # §5.1: in-band vs out-of-band FPR reported ALONGSIDE the pooled rate.
+    scores = [
+        _score("control", detected_predicted=False, false_intervention=False, band_position="in_band"),
+        _score("control", detected_predicted=False, false_intervention=False, band_position="in_band"),
+        _score("control", detected_predicted=True, false_intervention=False, band_position="below_band"),
+        _score("control", detected_predicted=False, false_intervention=False, band_position="above_band"),
+    ]
+    agg = aggregate_scores(scores)
+    assert agg["n_controls"] == 4
+    assert agg["n_controls_in_band"] == 2
+    assert agg["n_controls_out_of_band"] == 2
+    assert agg["n_controls_unlabeled"] == 0
+    assert agg["detection_false_positive_rate_on_controls"] == 0.25       # 1/4 pooled
+    assert agg["detection_false_positive_rate_on_controls_in_band"] == 0.0
+    assert agg["detection_false_positive_rate_on_controls_out_of_band"] == 0.5  # the honest FP

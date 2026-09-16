@@ -30,11 +30,27 @@ _HEALTHY_MODEL_LAYERS = ("control", "metric")
 def margin_flag(layer: str, fv: float, tol: float, two_std: float) -> tuple[float, bool, str]:
     """(margin, ok, flag) for one case's tier guard against tolerance.
 
-    Healthy-model tiers (control, metric) must clear tolerance (fv >= tol);
-    every other faulty tier (dynamics) must fall below it (fv < tol). Pure and
+    control (§5.1): RETAINED at any band position — never a guard failure; the
+    flag records where it sits. metric: healthy model must clear tolerance
+    (fv >= tol). dynamics: faulty model must fall below it (fv < tol). Pure and
     tier-complete so the tier-ripple test can assert all three layers behave.
     """
-    if layer in _HEALTHY_MODEL_LAYERS:
+    if layer == "control":
+        # §5.1: a control is RETAINED at ANY band position — never a guard
+        # failure. Report where it sits vs the band (informational): rejecting an
+        # out-of-band control is the selection bias §5.1 removed. `mean+2σ`
+        # == tol + 2*two_std (mean == tol + two_std), so above-band ⇔ margin > 2*two_std.
+        margin = fv - tol
+        ok = True
+        if margin < 0:
+            flag = f"OUT-OF-BAND below ({margin:+.6f}, retained §5.1)"
+        elif margin > 2 * two_std:
+            flag = f"OUT-OF-BAND above ({margin:+.6f}, retained §5.1)"
+        elif margin < two_std:
+            flag = f"TIGHT (<2std, +{margin:.6f})"
+        else:
+            flag = ""
+    elif layer in _HEALTHY_MODEL_LAYERS:  # metric: healthy model must clear tolerance
         margin = fv - tol  # must be >= 0 (healthy clears tolerance)
         ok = margin >= 0
         flag = "" if margin >= two_std else (

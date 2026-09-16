@@ -114,6 +114,34 @@ def generate(records: list[dict], meta: dict) -> str:
         for arm in sorted(c["per_arm"]):
             a = c["per_arm"][arm]
             L.append(f"| {arm} | {_ci(a)} | {a['n_fp']}/{a['n_trials']} | {len(a['fp_cases'])}/{a['n_cases']} |")
+        # §5.1: stratified breakdown (in-band vs out-of-band) when controls carry
+        # band labels. Never present the pooled rate alone once we have this.
+        def _band_table(title, breakdown):
+            rows = ["", title, "",
+                    "| arm | band | FP rate (95% CI) | n_fp / n_trials | unique FP cases / control cases |",
+                    "|---|---|---|---|---|"]
+            for arm in sorted(breakdown):
+                for band in ("in_band", "out_of_band"):
+                    b = breakdown[arm][band]
+                    if not b.get("available"):
+                        rows.append(f"| {arm} | {band} | _no controls in stratum_ | 0/0 | 0/0 |")
+                    else:
+                        rows.append(f"| {arm} | {band} | {_ci(b)} | {b['n_fp']}/{b['n_trials']} | "
+                                    f"{len(b['fp_cases'])}/{b['n_cases']} |")
+            return rows
+        if c.get("stratified"):
+            # PRIMARY: visible band position — the key by mechanism (a control false
+            # positive is a visible-metric event: the agent reads the visible metric,
+            # compares to its band, and flags).
+            L += _band_table("### Stratified by VISIBLE band position (§5.1 — the key, by mechanism)",
+                             c["by_band"])
+            # ALONGSIDE: hidden band position as a case-quality label (the agent never
+            # sees it; no causal path to the false positive being measured).
+            if c.get("by_band_hidden"):
+                L += _band_table(
+                    "### Stratified by HIDDEN band position "
+                    "(case-quality label, reported alongside — not the key; the agent never sees it)",
+                    c["by_band_hidden"])
         if "numbers_minus_rule" in c:
             L += ["", f"- numbers − rule FP difference: {_ci(c['numbers_minus_rule'])}"]
         L += [""]

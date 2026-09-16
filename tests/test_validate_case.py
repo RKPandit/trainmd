@@ -389,10 +389,18 @@ def _make_control_case(
     case_dir = _make_case(root, case_id)
     hidden = case_dir / "hidden"
 
+    from harness.validate_case import _band_position
+
     v = yaml.safe_load((hidden / "verify.yaml").read_text())
     v["faulty_value"] = faulty_value if faulty_value is not None else _REF_MEAN  # >= tolerance
     v["admissible_repairs"] = dataclasses.asdict(HealthyControlOperator().admissible_repairs())
     v["oracle_repair"] = None
+    # §5.1: a control is RETAINED at any band position and LABELLED. The label is
+    # a pure function of the metric vs the committed reference (validator C5
+    # re-checks it). visible sits at the mean here (in_band).
+    band_hidden = _band_position(v["faulty_value"], _REF_MEAN, _REF_STD)
+    v["band_position_hidden"] = band_hidden
+    v["band_position_visible"] = "in_band"
     (hidden / "verify.yaml").write_text(yaml.dump(v))
 
     hc = yaml.safe_load((hidden / "card.hidden.yaml").read_text())
@@ -405,6 +413,8 @@ def _make_control_case(
     hc["visible_sigma_distance"] = 0.0
     hc["hidden_sigma_distance"] = round((_REF_MEAN - v["faulty_value"]) / _REF_STD, 6)
     hc["symptom_direction"] = "none"
+    hc["band_position_hidden"] = band_hidden
+    hc["band_position_visible"] = "in_band"
     (hidden / "card.hidden.yaml").write_text(yaml.dump(hc))
 
     (hidden / "evidence.yaml").write_text(yaml.dump(evidence if evidence is not None else []))
@@ -495,9 +505,31 @@ class TestControlTier:
         report = validate_case(case_dir, project_root=tmp_path)
         assert report.passed, [c.name + ":" + c.detail for c in report.failed]
 
-    def test_c5_control_below_tolerance_fails(self, tmp_path):
-        """Planted: a 'healthy' control whose metric is below tolerance is caught."""
+    def test_c5_control_below_tolerance_is_retained(self, tmp_path):
+        """§5.1: a control below tolerance is RETAINED (not rejected) as long as
+        its band label is present and consistent — the old reject was the
+        selection bias §5.1 removed."""
         case_dir = _make_control_case(tmp_path, faulty_value=0.5)  # below tolerance
+        report = validate_case(case_dir, project_root=tmp_path)
+        c5 = [c for c in report.checks if c.name == "C5_faulty_value_below_tolerance"][0]
+        assert c5.passed, c5.detail  # below_band control is valid, just labelled
+
+    def test_c5_control_missing_band_position_fails(self, tmp_path):
+        """§5.1: a control whose verify.yaml lacks band_position_hidden fails C5."""
+        case_dir = _make_control_case(tmp_path)
+        vp = case_dir / "hidden" / "verify.yaml"
+        v = yaml.safe_load(vp.read_text()); v.pop("band_position_hidden")
+        vp.write_text(yaml.dump(v))
+        report = validate_case(case_dir, project_root=tmp_path)
+        assert "C5_faulty_value_below_tolerance" in [c.name for c in report.failed]
+
+    def test_c5_control_inconsistent_band_position_fails(self, tmp_path):
+        """Planted violation: a control whose stored band_position disagrees with
+        its recorded metric is caught (item 2)."""
+        case_dir = _make_control_case(tmp_path, faulty_value=0.5)  # actually below_band
+        vp = case_dir / "hidden" / "verify.yaml"
+        v = yaml.safe_load(vp.read_text()); v["band_position_hidden"] = "in_band"  # lie
+        vp.write_text(yaml.dump(v))
         report = validate_case(case_dir, project_root=tmp_path)
         assert "C5_faulty_value_below_tolerance" in [c.name for c in report.failed]
 

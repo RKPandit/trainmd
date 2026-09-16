@@ -204,13 +204,27 @@ round-trips both stages; report shows per-stage outcomes.
 
 ## Part 5 — Controls and seeds (~1 session, CPU)
 
-### 5.1 Unfiltered controls
+### 5.1 Unfiltered controls — **DONE 2026-09-16** (guard + stratification; ≥20 controls still pending §5.2)
 - **Retain every completed unmodified run.** Do not reject controls that fall outside the
-  band; label them `natural_outlier` and **stratify** reporting (in-band / out-of-band). The
-  control build guard changes from "reject below tolerance" to "record band position."
+  band; label them and **stratify** reporting (in-band / out-of-band). The
+  control build guard changed from "reject below tolerance" to "record band position."
+  *Landed:* `build_case`/`validate_case` record `band_position ∈ {in_band,below_band,above_band}`
+  for both metrics (hidden-side only — WALL: never on the public card); control FPR is stratified
+  (overall + in_band + out_of_band, per arm, case-clustered CI), keyed on the **VISIBLE** band
+  position by mechanism (a false positive is triggered by the metric the agent reads), hidden
+  reported alongside as a case-quality label. Frozen sweeps byte-identical (graceful fallback).
 - >= 20 unmodified controls on confirmatory seeds. State plainly that these are seed replicas
   of one configuration (seed diversity, not configuration diversity); benign configuration
-  variants are a full-study item.
+  variants are a full-study item. *(Still pending — arrives with §5.2's confirmatory-seed rebuild.)*
+- **Two follow-ups surfaced during §5.1, sequenced BEFORE Sweep 3 (the study run, Part 9):**
+  1. **Native-only artifact generation.** Case/reference builds must run on native amd64 — the
+     agent-facing visible metric is per-case platform-sensitive (up to ~2.8σ native-vs-emulated;
+     LIMITATIONS L23). ENFORCED by `harness.platform_guard` (build guards refuse under emulation;
+     CPU stamped in the hidden card + manifest). §5.2's confirmatory rebuild MUST run native (CI).
+  2. **Metric-tier in-band selection bias** (LIMITATIONS L24): the metric guard discards a
+     metric-inflation case whose model drifts out-of-band via seed noise — the §5.1 bias in the
+     other tier. Retain + label out-of-band metric cases (as §5.1 did for controls) before Sweep 3
+     builds more metric cases. Reported, not yet fixed.
 
 ### 5.2 Three disjoint seed sets (declared in DECISIONS, enforced by validator)
 - **Reference seeds** (band estimation, 30 — currently `[0–29]`; **moves to `[200–229]`** to break the
