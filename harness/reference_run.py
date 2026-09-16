@@ -37,15 +37,19 @@ def _read_epoch_metrics(metrics_path: Path) -> list[dict]:
     return epochs
 
 
-def run_reference(workload_dir: Path, num_seeds: int = 10) -> dict:
+def run_reference(workload_dir: Path, num_seeds: int | None = None) -> dict:
     """Execute K seeded runs and compute reference statistics.
 
-    Returns the stats dict that is written to stats.yaml.
+    ``num_seeds`` defaults to ``config.reference.num_seeds`` (the committed 10-seed band); the
+    30-seed candidate (STAGE3_PLAN §0.5) passes ``--num-seeds 30`` explicitly, so the default path is
+    unchanged. Returns the stats dict that is written to stats.yaml.
     """
 
     config_path = workload_dir / "config.yaml"
     with open(config_path) as f:
         config = yaml.safe_load(f)
+    if num_seeds is None:
+        num_seeds = config["reference"]["num_seeds"]
 
     data_dir = workload_dir / ".data"
     hidden_data_dir = workload_dir / ".hidden_data"
@@ -172,8 +176,8 @@ if __name__ == "__main__":
         help="Path to the workload directory",
     )
     parser.add_argument(
-        "--num-seeds", type=int, default=10,
-        help="Number of seeds to run (default: 10)",
+        "--num-seeds", type=int, default=None,
+        help="Number of seeds to run (default: config.reference.num_seeds)",
     )
     args = parser.parse_args()
     run_reference(args.workload_dir, args.num_seeds)
