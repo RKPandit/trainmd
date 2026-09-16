@@ -39,9 +39,27 @@ def test_main_passes_on_real_repo():
 
 def test_planted_stale_case_count_fails():
     declared = guard.load_declared()
-    declared["case_count"] = 27  # stale (real registry has 33)
+    declared["case_count"] = 27  # stale (design has 33)
     errors = guard.check_facts(declared, ROOT)
     assert any("case_count" in e for e in errors), errors
+
+
+def test_case_count_does_not_require_built_registry():
+    """Guard A regression: the case_count check derives the expected count from the DESIGN
+    (operators/registry.py), so it must not require the generated, gitignored
+    cases/registry.hidden.yaml — this guard runs in a fresh CI clone BEFORE cases are built.
+    Previously it read the file unconditionally and crashed with FileNotFoundError."""
+    reg = ROOT / "cases" / "registry.hidden.yaml"
+    backup = reg.read_bytes() if reg.is_file() else None
+    try:
+        if reg.is_file():
+            reg.unlink()
+        errors = guard.check_facts(guard.load_declared(), ROOT)
+        assert not any("case_count" in e for e in errors), errors
+    finally:
+        if backup is not None:
+            reg.parent.mkdir(parents=True, exist_ok=True)
+            reg.write_bytes(backup)
 
 
 def test_planted_corrections_mismatch_fails():

@@ -69,10 +69,20 @@ def check_facts(declared: dict, root: Path = ROOT) -> list[str]:
     if declared.get("operators_count") != len(reg_ops):
         errors.append(f"[operators_count] CURRENT_STATE {declared.get('operators_count')} != registry {len(reg_ops)}")
 
-    # b. cases
-    reg = yaml.safe_load((root / "cases" / "registry.hidden.yaml").read_text())
-    if declared.get("case_count") != len(reg):
-        errors.append(f"[case_count] CURRENT_STATE {declared.get('case_count')} != registry {len(reg)}")
+    # b. cases — derive the expected count from the DESIGN (operators/registry.py + the build design),
+    # NOT the generated cases/registry.hidden.yaml, which is gitignored and does not exist in a fresh
+    # CI clone before cases are built (this guard runs before `make docker-build-all-cases`). If the
+    # built registry IS present (local dev), additionally assert it matches the design.
+    from scripts.build_all_cases import case_design_tuples
+    expected_cases = len(case_design_tuples())
+    if declared.get("case_count") != expected_cases:
+        errors.append(f"[case_count] CURRENT_STATE {declared.get('case_count')} != design {expected_cases}")
+    reg_path = root / "cases" / "registry.hidden.yaml"
+    if reg_path.is_file():
+        reg = yaml.safe_load(reg_path.read_text())
+        if len(reg) != expected_cases:
+            errors.append(f"[case_count] built registry {len(reg)} != design {expected_cases} "
+                          "(rebuild cases: make docker-build-all-cases)")
 
     # c. scorer versions + v2.1 primary (STAGE3_PLAN §0.4)
     scoring = (root / "harness" / "scoring.py").read_text()
