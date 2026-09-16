@@ -31,11 +31,21 @@ FAULTY_SEEDS = [42, 43]
 CONTROL_SEEDS = [0, 1, 2]
 
 
-def main() -> int:
-    root = Path(os.environ.get("TRAINMD_ROOT", os.getcwd()))
+def case_design_tuples() -> list[tuple[str, str, int]]:
+    """The full case design as (operator_id, strength, seed) tuples, sourced from operators/registry.py
+    (CODE), not the generated cases/registry.hidden.yaml. This is the single source of truth for the
+    case COUNT — so a check can derive it from a fresh checkout, before any case is built. Keep this
+    the one place the design is enumerated (main() and scripts/check_current_state.py both use it)."""
     faulty = sorted(op for op in all_operator_ids() if op != CONTROL)
     tuples = [(op, st, sd) for op in faulty for st in STRENGTHS for sd in FAULTY_SEEDS]
     tuples += [(CONTROL, "mild", sd) for sd in CONTROL_SEEDS]
+    return tuples
+
+
+def main() -> int:
+    root = Path(os.environ.get("TRAINMD_ROOT", os.getcwd()))
+    tuples = case_design_tuples()
+    faulty = sorted(op for op in all_operator_ids() if op != CONTROL)
     print(f"Building {len(tuples)} cases "
           f"({len(faulty)} faulty x {len(STRENGTHS)} x {len(FAULTY_SEEDS)} "
           f"+ control x {len(CONTROL_SEEDS)}) against the current reference.")
