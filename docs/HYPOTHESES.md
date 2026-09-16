@@ -323,8 +323,9 @@ unchanged (v1=v2=v2.1). Full detail + per-trial table: FINDINGS "Post-hoc correc
   identical σ (68.6/44.6); only 0023 differs, so lr_warmup contributes ~1 effect-size point and
   leaves an H2 x-axis gap between σ≈18 and σ≈44. Sweep-2: recalibrate mild toward the tolerance
   edge.
-- **E.** **Controls FP framing:** a 2σ band has a structural ~5% out-of-band floor by
-  construction; the 4 FPs are separated into band-edge misreads vs true out-of-band healthy runs.
+- **E.** **Controls FP framing:** the `mean−2σ` band has a structural ~2.3% one-sided out-of-band
+  floor under the fitted normal (normality CHECKED at the 30-seed band, §0.5; earlier "~5%" was the
+  two-sided figure); the 4 FPs are separated into band-edge misreads vs true out-of-band healthy runs.
   A **3σ band** is added to the Sweep-2 pre-registration candidates. The band is **not** changed now.
 
 ### Per-hypothesis verdicts (measured; source `docs/audits/sweep_sweep1_20260913.md`)

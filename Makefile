@@ -125,8 +125,11 @@ image-digest:
 docker-data:
 	$(DOCKER_RUN) python $(WORKLOAD_DIR)/data_prep.py --workload-dir $(WORKLOAD_DIR)
 
+# REF_ARGS lets the 30-seed candidate workflow pass --num-seeds 30 (STAGE3_PLAN §0.5);
+# the default (empty) path uses config.reference.num_seeds (10), so canonical CI is unchanged.
+REF_ARGS ?=
 docker-reference:
-	$(DOCKER_RUN) python -m harness.reference_run --workload-dir $(WORKLOAD_DIR)
+	$(DOCKER_RUN) python -m harness.reference_run --workload-dir $(WORKLOAD_DIR) $(REF_ARGS)
 
 docker-build-case:
 	$(DOCKER_RUN) python -m harness.build_case \
@@ -172,5 +175,7 @@ docker-build-all-cases:
 	$(DOCKER_RUN) python scripts/build_all_cases.py
 
 # Per-case margin report: faulty_value vs the current tolerance, flag < 2x std.
+# MARGIN_ARGS lets the candidate workflow pass --stats <candidate stats.yaml> (STAGE3_PLAN §0.5).
+MARGIN_ARGS ?=
 docker-case-margins:
-	$(DOCKER_RUN) python scripts/case_margins.py
+	$(DOCKER_RUN) python scripts/case_margins.py $(MARGIN_ARGS)

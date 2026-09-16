@@ -32,3 +32,18 @@ verify_phase:
   wall_clock_sec: 7172.3
   peak_memory_mb: 378.3
   ru_maxrss_platform: darwin
+
+# ---- FROZEN HISTORICAL SWEEP (added at 30-seed reference adoption, STAGE3_PLAN §0.5) ----
+frozen: true
+reference_era:
+  reference: 10-seed
+  tolerance_lower: 0.843535
+  hidden_mean: 0.847649
+  hidden_std: 0.002057
+  last_canonical_commit: 5a30e3111554ff6d20f044948ea56b1e3aa0e0cb
+frozen_note: >-
+  FROZEN HISTORICAL SWEEP. Run against the 10-seed reference era (tolerance_lower 0.843535). The
+  30-seed reference adoption supersedes every record here (a new case_build_id), but these records
+  remain valid under their own era and are NOT regenerated. "Superseded" means "do not compare to
+  CURRENT cases," not "no longer reproducible": the loader's frozen path keeps them so rebuild_tables
+  verifies this release byte-for-byte. See docs/DECISIONS.md.

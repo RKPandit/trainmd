@@ -38,7 +38,7 @@ trainmd/
 │   └── control/                  healthy.py                                 (control tier)
 ├── workloads/tabular_adult/      … + datautil.py (nested-selection helper, copied into workspaces)
 ├── harness/
-│   ├── reference_run.py          10-seed reference protocol → stats.yaml
+│   ├── reference_run.py          30-seed reference protocol → stats.yaml
 │   ├── build_case.py             tier-aware builder + build_id + effect-size labels + registry
 │   ├── validate_case.py          20 structural/consistency/well-formedness invariants (W1–W4, C1–C11, F1–F6)
 │   ├── scoring.py                tier-aware four-axis scoring + cost-split + evidence matching
@@ -85,7 +85,7 @@ where the operator sets it), `checkpoints/` (silent tier only — a crash produc
 
 ## 3. Reference-run protocol (as-built)
 
-`reference_run.py` runs the clean workload on 10 seeds, trains (visible metrics only), then calls
+`reference_run.py` runs the clean workload on 30 seeds (10-seed band before §0.5), trains (visible metrics only), then calls
 the evaluator to compute each run's **hidden** test score, and writes mean/std/min/max and the
 tolerance band (default `mean − 2·std`) to `reference/stats.yaml`. The canonical environment is the
 pinned Linux/amd64 container. With every BLAS/OpenMP thread pool pinned to 1 (`train.py` enforces

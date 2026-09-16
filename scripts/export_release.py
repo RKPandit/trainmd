@@ -24,6 +24,8 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from harness.sweep_stats import sweep_is_frozen  # noqa: E402  (needs sys.path above)
+
 # ---- trial-record field policy: every top-level key must be classified (KNOWN) so a NEW field
 #      can never leak silently — an unclassified key fails the export. -----------------------------
 _TRIAL_ALLOW = {
@@ -158,13 +160,16 @@ def export(root: Path, name: str, include_probes: bool = False) -> dict:
         if src.exists():
             shutil.copy2(src, out_dir / src.name)
 
+    frozen = sweep_is_frozen(root, name)
     case_ids: set[str] = set()
     index_rows, n_trials, n_probes, n_excluded = [], 0, 0, 0
     for f in sorted((root / "results").glob("*/trials/*.yaml")):
         rec = yaml.safe_load(f.read_text())
         if (rec.get("conditions") or {}).get("sweep_name") != name:
             continue
-        if rec.get("card_superseded"):
+        # A frozen historical sweep keeps its (legitimately all-superseded) records — see
+        # sweep_is_frozen; re-exporting it must reproduce the same release, not an empty one.
+        if rec.get("card_superseded") and not frozen:
             n_excluded += 1
             continue
         cid, run_id = rec["case_id"], rec["run_id"]
@@ -213,6 +218,7 @@ def export(root: Path, name: str, include_probes: bool = False) -> dict:
     # release meta so the reviewer-path regeneration matches the results-path report byte-for-byte
     (out_dir / "release_meta.json").write_text(json.dumps(
         {"sweep": name, "n_trials": n_trials, "n_cases": len(case_ids),
+         "frozen": frozen,
          "excluded": {"trusted": n_probes, "superseded": n_excluded}}, indent=1))
 
     if probes_dir.exists():

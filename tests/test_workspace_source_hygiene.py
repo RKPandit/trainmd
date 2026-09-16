@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import yaml
+
 from operators.registry import all_operator_ids
 
 _WORKLOAD = Path(__file__).resolve().parent.parent / "workloads" / "tabular_adult"
@@ -44,4 +46,34 @@ def test_workload_source_has_no_operator_id_segment():
         "Operator-id segment(s) in workspace-copied source — W1 will fail on the "
         "corresponding tier's cases. Reword the prose to avoid the token:\n"
         + "\n".join(violations)
+    )
+
+
+def _hidden_value_strings() -> set[str]:
+    """The committed HIDDEN reference values, formatted as they appear in stats.yaml.
+
+    These are the values W4 (workspace_no_hidden_values) forbids in a built workspace: the hidden-test
+    mean/std/min/max and the derived tolerance_lower. Visible-metric stats are shown to the agent
+    (the prompt states the healthy band), so they are NOT secrets and not scanned here.
+    """
+    stats = yaml.safe_load((_WORKLOAD / "reference" / "stats.yaml").read_text())
+    hid = stats["metric_hidden_test_acc"]
+    return {str(hid[k]) for k in ("mean", "std", "min", "max", "tolerance_lower") if k in hid}
+
+
+def test_workload_source_leaks_no_hidden_reference_value():
+    """A comment quoting the tolerance/hidden mean leaks it into control workspaces (copied VERBATIM;
+    faulty cases rewrite config.yaml via yaml.dump and strip comments, so only controls leak). This
+    is the exact regression that failed W4 on case_0031/32/33 at the 30-seed adoption (2026-09-15)."""
+    hidden = _hidden_value_strings()
+    violations = []
+    for fname in _COPIED:
+        for i, line in enumerate((_WORKLOAD / fname).read_text().splitlines(), 1):
+            for val in hidden:
+                if val in line:
+                    violations.append(f"{fname}:{i} leaks hidden value {val!r}: {line.strip()[:90]}")
+    assert not violations, (
+        "Hidden reference value(s) in workspace-copied source — W4 will fail on control cases "
+        "(config.yaml is copied verbatim into control workspaces). Remove the literal from the "
+        "comment/source:\n" + "\n".join(violations)
     )

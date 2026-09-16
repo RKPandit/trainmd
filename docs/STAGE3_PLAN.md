@@ -73,11 +73,18 @@ Nothing else starts until this lands. These are integrity issues a reviewer alre
 - Adversarial tests: duplicate-correct-ref, shotgun-over-all-sets, and the existing
   broad-span cases. Re-score stored trials under v2.1, report v2->v2.1 delta, disclose.
 
-### 0.5 Reference distribution
-- Regenerate the reference from **30 seeds** (CPU, in-container, twice-reproduced). Report the
-  band under the normal assumption *and* an empirical percentile interval; state which the
-  tolerance uses. Rebuild cases (supersession expected). Remove "5% by construction"
-  language; it holds only under normality.
+### 0.5 Reference distribution — DONE (adopted 2026-09-15)
+- Regenerated the reference from **30 seeds** on native amd64 in CI (never emulated), two-runner
+  **byte-exact** (both AMD EPYC 7763). Reported BOTH bands: normal `mean−2σ = 0.843719` and empirical
+  2.5th percentile `= 0.844825`. **Tolerance uses `mean−2σ`** (not empirical) — DECISIONS 2026-09-15,
+  reasons: (a) the empirical percentile is a high-variance order statistic at n=30; (b) it pins control
+  `case_0032` at +8.1e-5, below the ~4e-4 cross-microarch noise floor (L18). Normality **checked**
+  (Shapiro p=0.28, n=30, low-power caveat), not assumed; the "5% by construction" language is replaced
+  with the measured statement (LIMITATIONS L3). Cases rebuilt (all 33 pass their tier guard under the
+  new band; two controls tight). Sweeps 1/2 marked **frozen** (10-seed-era historical artifacts, not
+  regenerated). Prior band preserved at `reference/stats.10seed.yaml`.
+- **Seed-collision (reported, not resolved here):** reference `[0–29]` overlaps control/calibration
+  seeds `{0,1,2}` → control FPR biased **LOW**. Forced next order: **§0.5 → §5.1 → §5.2 → Gate 0.**
 
 **Gate 0:** citations verified; CURRENT_STATE committed and consistent; `report` regenerates
 the Stage-2 tables byte-identically from records; v2.1 tests green; 30-seed reference adopted.
@@ -206,9 +213,13 @@ round-trips both stages; report shows per-stage outcomes.
   variants are a full-study item.
 
 ### 5.2 Three disjoint seed sets (declared in DECISIONS, enforced by validator)
-- **Reference seeds** (band estimation, 30). **Development seeds** (operator qualification,
-  Step 0, calibration). **Confirmatory seeds** (faulty cases + controls used in sweeps). No
-  overlap; a validator check fails on any reuse.
+- **Reference seeds** (band estimation, 30 — currently `[0–29]`; **moves to `[200–229]`** to break the
+  §0.5 seed collision). **Development seeds** (operator qualification, Step 0, calibration).
+  **Confirmatory seeds** (faulty cases + controls used in sweeps). No overlap; a validator check fails
+  on any reuse.
+- **Forced order (§0.5 ruling):** §5.1 (retain + label out-of-band controls) MUST land BEFORE §5.2
+  moves the reference off `[0–29]` — else the `build_case.py` control guard silently rejects the
+  out-of-band controls. Sequence: **§0.5 (done) → §5.1 → §5.2 → Gate 0.**
 
 **Gate 5:** >= 20 controls validated with band-position labels; seed-set disjointness enforced.
 

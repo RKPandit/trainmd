@@ -19,5 +19,12 @@ metrics:
   visible: metric_visible_val_acc      # agent sees this during investigation
 
 reference:
-  num_seeds: 10
-  seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  # 30-seed reference band, adopted STAGE3_PLAN §0.5 (two-runner byte-exact on native amd64, mean-2σ
+  # band; see docs/DECISIONS.md and reference/stats.yaml). NOTE: this file is copied VERBATIM into some
+  # case workspaces, so it must NOT quote any hidden value (the tolerance / hidden mean / hidden std) —
+  # doing so leaks it past the W4 wall (regression caught 2026-09-15) — nor any operator-id segment
+  # (W1). The prior 10-seed band is preserved at reference/stats.10seed.yaml. The reference-30seed
+  # candidate workflow can regenerate a candidate at any N via --num-seeds N; default = seeds[:30].
+  num_seeds: 30
+  seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+          20, 21, 22, 23, 24, 25, 26, 27, 28, 29]

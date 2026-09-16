@@ -85,7 +85,7 @@ _PUBLIC_CARD_FORBIDDEN_TOKENS = [
 
 _BINARY_EXTENSIONS = frozenset({".pt", ".npy", ".npz"})
 
-_REFERENCE_SEEDS = set(range(10))  # [0..9]
+_REFERENCE_SEEDS = set(range(30))  # [0..29] (30-seed reference band, STAGE3_PLAN §0.5)
 
 _REQUIRED_FILES = [
     "card.public.yaml",
@@ -195,7 +195,7 @@ def _check_w2(case_dir: Path) -> CheckResult:
 
 
 def _check_w3(verify: dict) -> CheckResult:
-    """W3: hidden_eval_seeds_disjoint — no overlap with reference seeds [0..9]."""
+    """W3: hidden_eval_seeds_disjoint — no overlap with reference seeds [0..29]."""
     eval_seeds = set(verify.get("hidden_eval_seeds", []))
     overlap = eval_seeds & _REFERENCE_SEEDS
     if overlap:

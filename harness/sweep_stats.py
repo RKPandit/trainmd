@@ -61,9 +61,26 @@ def attach_meta(rec: dict, meta: dict) -> dict:
     return rec
 
 
+def sweep_is_frozen(root: Path, sweep_name: str) -> bool:
+    """True if sweeps/<name>_manifest.yaml declares `frozen: true`.
+
+    A FROZEN historical sweep was run against an earlier reference era; adopting a new reference band
+    supersedes every one of its records (a new case_build_id), but those records remain valid under
+    THEIR OWN era and must stay reproducible. So the supersession filter is bypassed for a frozen
+    sweep — "superseded" means "do not compare to CURRENT cases," not "no longer reproducible."
+    Detected from the manifest (not a CLI flag) so a frozen sweep cannot be accidentally regenerated
+    as an empty/degraded report. See docs/DECISIONS.md (STAGE3_PLAN §0.5 adoption).
+    """
+    p = Path(root) / "sweeps" / f"{sweep_name}_manifest.yaml"
+    if not p.is_file():
+        return False
+    return bool((yaml.safe_load(p.read_text()) or {}).get("frozen"))
+
+
 def load_from_cases(root: Path, sweep_name: str, include_trusted: bool = False) -> list[dict]:
     """Load a sweep's non-trusted trial records from results/, metadata from hidden cards."""
     meta = case_meta_from_cases(root)
+    frozen = sweep_is_frozen(root, sweep_name)
     recs = []
     for f in sorted(glob.glob(str(root / "results" / "*" / "trials" / "*.yaml"))):
         d = yaml.safe_load(open(f))
@@ -72,7 +89,9 @@ def load_from_cases(root: Path, sweep_name: str, include_trusted: bool = False) 
             continue
         if d.get("trusted") and not include_trusted:
             continue
-        if d.get("card_superseded"):  # scored against a stale build — excluded from aggregation
+        # Scored against a stale build → excluded from aggregation, UNLESS this is a frozen
+        # historical sweep (whose records are legitimately all-superseded by a later reference era).
+        if d.get("card_superseded") and not frozen:
             continue
         recs.append(attach_meta(d, meta(d["case_id"])))
     return recs

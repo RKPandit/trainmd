@@ -1,0 +1,126 @@
+name: Reference 30-seed candidate (STAGE3_PLAN §0.5)
+
+# Generates a CANDIDATE 30-seed reference on TWO independent native-amd64 runners, checks the
+# two-runner reproducibility gate, the distribution (normality + empirical band), and the per-case
+# margins against the candidate tolerance — WITHOUT adopting anything. Nothing here commits a
+# stats.yaml or touches the canonical 10-seed reference; the committed config default stays 10 seeds,
+# so the normal CI (ci.yml) is unaffected. Adoption is a separate, human-approved step (Phase B).
+#
+# Manual dispatch or push to a 30-seed candidate branch. Everything runs inside the canonical
+# linux/amd64 container on native amd64 runners — never emulated.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - '**30seed**'
+      - '**part-0.5**'
+
+jobs:
+  # ---- (a) Generate the 30-seed candidate on TWO independent runners --------
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        run: [1, 2]        # two fresh runners, not two invocations in one shell
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - run: make docker-data
+      - name: CI fingerprint (CPU + data hashes)
+        run: bash scripts/ci_fingerprint.sh
+      - name: Record this runner's CPU model
+        run: |
+          grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//' > cpu.txt
+      - name: Generate the 30-seed candidate reference (native amd64, NOT committed)
+        run: |
+          START=$(date +%s)
+          make docker-reference REF_ARGS="--num-seeds 30"
+          END=$(date +%s)
+          echo "REFERENCE_30SEED_WALL_SECONDS=$((END-START))"
+      - name: Stage stats.yaml at the job root so the artifact keeps it flat (not under workloads/…)
+        run: cp workloads/tabular_adult/reference/stats.yaml stats.yaml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: candidate-run-${{ matrix.run }}
+          path: |
+            stats.yaml
+            cpu.txt
+
+  # ---- (b) Two-runner reproducibility gate (byte if same microarch, else L18 tol) ----
+  compare:
+    needs: generate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - uses: actions/download-artifact@v4
+        with: { name: candidate-run-1, path: r1 }
+      - uses: actions/download-artifact@v4
+        with: { name: candidate-run-2, path: r2 }
+      - name: Compare the two 30-seed runs (microarch-aware verdict)
+        run: |
+          set -eo pipefail   # a masked `docker | tee` failure would make this gate pass vacuously
+          CPU1="$(cat r1/cpu.txt)"; CPU2="$(cat r2/cpu.txt)"
+          echo "runner-1 CPU: $CPU1"; echo "runner-2 CPU: $CPU2"
+          test -f r1/stats.yaml && test -f r2/stats.yaml   # fail loudly if artifacts are missing
+          docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
+            python scripts/compare_reference_runners.py \
+              --stats1 r1/stats.yaml --stats2 r2/stats.yaml \
+              --cpu1 "$CPU1" --cpu2 "$CPU2" | tee compare_report.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: candidate-compare, path: compare_report.txt }
+
+  # ---- (c) Distribution check: normality + both bands + 30 sorted values ----
+  distribution:
+    needs: generate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - uses: actions/download-artifact@v4
+        with: { name: candidate-run-1, path: r1 }
+      - name: Distribution report on the 30-seed candidate (run 1)
+        run: |
+          set -eo pipefail
+          test -f r1/stats.yaml   # fail loudly if the artifact is missing
+          # Write via a host-side redirect (runner uid), NOT --out: the bare `docker run` uses the
+          # image's default non-root user, which cannot write into the host-mounted /work.
+          docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
+            python scripts/reference_distribution.py --stats r1/stats.yaml | tee distribution_report.md
+      - uses: actions/upload-artifact@v4
+        with: { name: candidate-distribution, path: distribution_report.md }
+
+  # ---- (d) Build ALL cases against the GENERATED candidate + margins --------
+  # Cases are generated (not committed); this rebuilds every case against the 30-seed candidate
+  # tolerance (regenerated in-job, never committed) and reports margins + any tier-guard failure.
+  build-against-candidate:
+    needs: generate
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - name: Regenerate 30-seed candidate, build all cases against it, validate + gate + margins
+        run: |
+          set -eo pipefail   # so the tee'd margins step cannot mask a docker failure
+          make docker-data
+          bash scripts/ci_fingerprint.sh
+          # Regenerate the 30-seed candidate IN THIS JOB so stats.yaml on disk is the candidate the
+          # cases build against (ephemeral — never committed).
+          make docker-reference REF_ARGS="--num-seeds 30"
+          make docker-build-all-cases
+          make docker-validate-all
+          make docker-gate-known-answer
+          # Margins against the just-generated candidate stats (the on-disk reference IS the candidate).
+          make docker-case-margins | tee case_margins_report.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: candidate-margins
+          path: |
+            case_margins_report.txt
+            workloads/tabular_adult/reference/stats.yaml

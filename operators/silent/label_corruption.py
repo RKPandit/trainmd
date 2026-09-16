@@ -32,11 +32,14 @@ Observed symptoms:
 - metric_visible_val_acc: degraded, all 20 epochs below reference min.
   The model trained on corrupted labels generalises poorly to clean validation data.
 
-Calibration (worst-of-seeds{0,1,2} hidden_test_acc, tolerance_lower=0.843535,
-margin threshold tol-2*std=0.839421):
-- mild    (33%): worst 0.833112  (all seeds pass margin)
+Calibration (worst-of-seeds{0,1,2} hidden_test_acc) — the corruption fractions are properties of the
+operator, independent of the reference band:
+- mild    (33%): worst 0.833112
 - moderate(38%): worst 0.819107
 - severe  (42%): worst 0.807902
+All three clear the faulty-side tier guard by a wide margin under the adopted 30-seed band
+(tolerance_lower=0.843719, mean-2*std margin threshold 0.839445; §0.5); calibration was originally set
+against the 10-seed band (tolerance_lower=0.843535). Faulty runs must fall BELOW tolerance — they do.
 """
 from __future__ import annotations
 
