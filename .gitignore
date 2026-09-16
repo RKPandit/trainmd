@@ -23,8 +23,11 @@ workloads/*/reference/runs/
 results/
 !results/COMPARISON.md
 
-# Cases (generated)
-cases/
+# Cases (generated) — anchored to the repo-root build dir ONLY. The bare `cases/`
+# also matched results_release/*/cases/, silently excluding the released per-case
+# metadata the report rebuild needs (rebuild_tables), so the committed release was
+# not self-reproducing in CI. Anchored so results_release/*/cases/ is tracked.
+/cases/
 
 # macOS
 .DS_Store

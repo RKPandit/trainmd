@@ -31,7 +31,9 @@ Local (host) dev without Docker still works via `uv` (`make test`, `make validat
 ## Reference stats
 
 Data prep is **byte-identical across platforms** (verified by SHA-256 of every split).
-The committed `reference/stats.yaml` is the **verified canonical reference**: with every
+The committed `reference/stats.yaml` is the **verified canonical reference** — a **30-seed** band
+(adopted 2026-09-15, STAGE3_PLAN §0.5; two-runner byte-exact on native amd64; `tolerance_lower`
+0.843719 = mean−2σ; the prior 10-seed band is preserved at `reference/stats.10seed.yaml`): with every
 BLAS/OpenMP thread pool pinned to 1 (`train.py` enforces this) and the data pinned to committed
 hashes, the native linux/amd64 reference is **byte-exact within a microarchitecture; across
 heterogeneous native amd64 microarchitectures the means reproduce within ~1e-3 (≤0.5σ) and

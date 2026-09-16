@@ -633,8 +633,8 @@ class TestSystemPromptAnchor:
         prompt = _build_instruction_prompt(case_dir)
         assert "Healthy runs achieve" in prompt
         assert "metric_visible_val_acc" in prompt
-        # Range expressed as mean ± 2·std (reference mean 0.856848, std 0.001512).
+        # Range expressed as mean ± 2·std (30-seed reference mean 0.857079, std 0.00184; §0.5).
         assert "healthy range" in prompt
-        assert "0.8568" in prompt          # mean
-        assert "0.8538" in prompt          # mean - 2*std
-        assert "0.8599" in prompt          # mean + 2*std
+        assert "0.8571" in prompt          # mean
+        assert "0.8534" in prompt          # mean - 2*std
+        assert "0.8608" in prompt          # mean + 2*std

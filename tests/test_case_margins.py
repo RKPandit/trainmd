@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from scripts.case_margins import margin_flag
 
-_TOL = 0.843535
-_TWO_STD = 0.004114     # 2 × the committed 10-seed hidden std
+_TOL = 0.843719
+_TWO_STD = 0.004274     # 2 × the committed 30-seed hidden std (§0.5)
 
 
 def test_healthy_tight_when_margin_under_two_std():

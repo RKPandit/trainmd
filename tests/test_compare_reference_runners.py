@@ -41,11 +41,13 @@ def test_compare_ignores_timing_and_finds_identical():
 
 
 def test_compare_reports_metric_delta():
+    import copy
     a = _stats(0.8476, 0.8435)
-    b = _stats(0.8476 + 1e-9, 0.8435)                  # a 1-ulp-scale metric diff
+    b = copy.deepcopy(a)
+    b["metric_hidden_test_acc"]["mean"] += 1e-9      # perturb EXACTLY one field (no cascade to min/max)
     max_d, field, _ = compare(a, b)
     assert 0 < max_d < 1e-8
-    assert "metric_hidden_test_acc.mean" == field
+    assert field == "metric_hidden_test_acc.mean"
 
 
 def _run(tmp_path: Path, a, b, cpu1, cpu2):

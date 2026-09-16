@@ -244,8 +244,10 @@ case_0006)**, bootstrapped over the **3** control cases. It is **not a populatio
 rate**; the CI runs from 0 to 0.5, and that width is precisely the argument for **20+ controls in
 Sweep 2**. Anchor-off control FPR was 0/18. Rationales cite band-edge values (one healthy run
 genuinely above 0.8599; one misread 0.8546 as "below the floor 0.8538").
-**Interpretation.** Part of this cost is *structural*: a mean±2σ band places ~5% of healthy
-runs outside it by construction. Part is the model over-reading an edge. The band's benefit
+**Interpretation.** Part of this cost is *structural*: the one-sided `mean−2σ` health band places
+~2.3% of healthy runs below it under the fitted normal (updated §0.5 — normality CHECKED at the 30-seed
+band, Shapiro p=0.28, n=30, low power; the earlier "~5%" was the two-sided ±2σ figure). Part is the
+model over-reading an edge. The band's benefit
 (F1) is bought with a measurable false-alarm cost — which is the honest way to present the
 intervention.
 **What would change our mind / next.** A 3σ band (pre-registration candidate for Sweep 2)
@@ -461,8 +463,9 @@ finding; quoted now only as the candidate framing that replaces the refuted clai
   the tolerance edge (Sweep 2).
 - **L2 — Single model, single workload.** Every finding is Haiku 4.5 on Adult/MLP. S1–S6 are
   `pending replication` until a second provider and a second workload run the same cases.
-- **L3 — The 2σ band's structural false-positive floor** (~5% of healthy runs by
-  construction). A 3σ band is the pre-registration candidate.
+- **L3 — The mean−2σ band's structural false-positive floor** (~2.3% one-sided under the fitted
+  normal; normality CHECKED at n=30, §0.5) **and reference/control seed overlap** (control FPR biased
+  LOW). A 3σ band is a pre-registration candidate; seed-disjointness is sequenced §5.1→§5.2.
 - **L4 — Identification depends on a principled token spec** whose version and hash are
   recorded per trial; a future change to the spec requires re-scoring with disclosure.
 - **L5 — Cloud-native faults are simulated or absent** (Phase II); the crash tier is

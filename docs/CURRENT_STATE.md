@@ -5,7 +5,7 @@
 > **Rule.** If this page and any other document disagree, this page is wrong OR the other document
 > is stale — **fix whichever is stale in the same commit.** Machine-checkable facts in §a are
 > verified against the repo by `scripts/check_current_state.py` in CI; that guard fails loudly on
-> drift. Last updated: 2026-09-15 (Stage-3 v2, Part 0 / §0.2).
+> drift. Last updated: 2026-09-15 (Stage-3 v2, Part 0 / §0.5 — 30-seed reference adopted).
 
 ---
 
@@ -27,7 +27,7 @@ case_count: 33                  # cases/registry.hidden.yaml (6 × 5 faulty ops 
 evidence_scorer_primary: evidence_v2.1
 evidence_scorer_versions: [evidence_v1, evidence_v2, evidence_v2.1]
 canonical_image_digest: sha256:0354db57c29a5092ace862a0d8716dfe3729d4f8b893fe3079c66d947daeb25d
-reference_seeds: 10
+reference_seeds: 30
 latest_sweep: stage2gate
 corrections_count: 5
 ```
@@ -43,8 +43,11 @@ corrections_count: 5
   disclosed 2026-09-13 but never persisted); all records migrated to v2.1 primary in **correction #5**.
   A `check_scorer_versions.py` guard now asserts each report's declared scorer matches its records.
 - **Canonical environment:** Linux/amd64 container, thread-pinned; base `python:3.11-slim-bookworm`;
-  image digest above (`docker/IMAGE_DIGEST`). Reference seeds `[0–9]` (**10**; *in flight:* raised to
-  **30** in STAGE3_PLAN §0.5); hidden eval seeds `[100,101,102]`.
+  image digest above (`docker/IMAGE_DIGEST`). Reference seeds `[0–29]` (**30**; adopted STAGE3_PLAN
+  §0.5, two-runner byte-exact on native amd64, `tolerance_lower` **0.843719** = mean−2σ; prior 10-seed
+  band preserved at `reference/stats.10seed.yaml`); hidden eval seeds `[100,101,102]`. **Seed-collision
+  caveat:** reference `[0–29]` overlaps control/calibration seeds `{0,1,2}`, so control false-positive
+  rate is biased **LOW by construction** — see LIMITATIONS L3; the fix is sequenced §5.1→§5.2 (§d).
 - **Latest committed sweep:** `stage2gate` (252 cells; agent phase on host/API, verify phase canonical
   in-container). Agent-phase cost **~$11.71 estimated** (actual pending). Prior: `sweep1` (~$12.76 est).
 
@@ -68,7 +71,7 @@ mentioned,"** never "not used"; every rate states its cluster count.
 
 - **L1** lr_warmup degradation is bimodal, not graded (retired from the σ-ladder).
 - **L2** One model, one workload (Haiku 4.5 / Adult-MLP) — everything is pending replication.
-- **L3** The ±2σ healthy band has a structural false-alarm floor (~5% under normality).
+- **L3** The mean−2σ healthy band has a structural false-alarm floor (~2.3% one-sided under the fitted normal; normality CHECKED at n=30, not assumed — §0.5), and reference/control seeds overlap `{0,1,2}` (control FPR biased LOW).
 - **L4** Identification depends on a principled root-token spec (versioned/hashed).
 - **L5** Cloud-native / multi-stage faults are simulated or absent (Phase I).
 - **L6** Cost figures are token-based estimates (console actuals pending).
@@ -94,11 +97,20 @@ mentioned,"** never "not used"; every rate states its cluster count.
 **Stage 3 v2 (`STAGE3_PLAN.md`) — Part 0: Hygiene before science (BLOCKING).** Nothing else starts
 until Part 0 lands. Done so far: citation audit (§0.1 — `CITATIONS.md`), canonical CURRENT_STATE
 (§0.2 — this page), reproducible analysis pipeline + records release (§0.3 — plan-driven report,
-committed `results_release/`, CI byte-match + guards). Remaining: evidence scorer v2.1 (§0.4), a
-30-seed reference distribution (§0.5).
+committed `results_release/`, CI byte-match + guards), evidence scorer v2.1 (§0.4), and the **30-seed
+reference distribution (§0.5 — ADOPTED:** `tolerance_lower` 0.843719 = mean−2σ; empirical band recorded
+but not adopted; normality checked; Sweeps 1/2 frozen as 10-seed-era historical artifacts).
+
+**Forced next sequence (seed-collision fix — §0.5 ruling):** the 30-seed band still overlaps
+control/calibration seeds `{0,1,2}`, biasing control FPR **LOW by construction**. The fix is ordered
+and must land in this order before Gate 0 closes: **§0.5 (done) → §5.1 (retain + label out-of-band
+controls) → §5.2 (disjoint seeds: reference → `[200–229]`, controls rebuilt on confirmatory seeds) →
+Gate 0.** §5.1 MUST precede §5.2, else the build guard (`build_case.py` control check) silently rejects
+the out-of-band controls that make the measurement honest.
 
 **Gate 0:** citations verified; CURRENT_STATE committed and consistent; `report` regenerates the
-Stage-2 tables byte-identically from records; v2.1 tests green; 30-seed reference adopted.
+Stage-2 tables byte-identically from records; v2.1 tests green; 30-seed reference adopted; §5.1/§5.2
+seed-disjointness landed.
 
 ## e. Document map (by role)
 

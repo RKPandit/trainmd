@@ -44,11 +44,33 @@ FINDINGS (per-lr collapse table); RESEARCH_LOG.
 The standing findings are marked *pending replication* until a second provider's model and a second
 workload run the same cases. *Sweep-2 remedy:* add a second model (for H5) and a second workload.
 
-**L3 — The healthy-reference band has a structural false-alarm floor.** A mean ± 2σ band leaves about
-5% of genuinely healthy runs outside it by construction, and the band that cures positive-symptom
-blindness (H1/F1) induces those false positives at the band edge (~22% of anchor-on control trials).
-*Sweep-2 remedy:* a 3σ band is a pre-registration candidate — expected to keep the detection gain
-while cutting the structural false positives.
+**L3 — The healthy-reference band has a structural false-alarm floor, and control seeds sit inside the
+reference set.** Two distinct issues:
+
+*(i) Band floor — MEASURED, not assumed (updated §0.5).* The recovery/health band is the one-sided
+lower bound `tolerance_lower = mean − 2σ`. Under a fitted normal ~2.3% of genuinely healthy runs fall
+below it by construction. The earlier "~5% by construction" phrasing (two-sided ±2σ) has been replaced
+with the measured statement: at the adopted **30-seed** reference, normality was **checked** —
+Shapiro–Wilk W=0.9585, p=0.2835 (n=30, low power to reject, so a non-rejection is weak evidence) — and
+BOTH candidate bands are recorded: normal `mean−2σ = 0.843719` and the empirical 2.5th percentile
+`= 0.844825` (they differ 1.11e-3; the distribution is mildly platykurtic). **We adopt `mean−2σ`, not
+the empirical percentile** (DECISIONS 2026-09-15): at n=30 the empirical 2.5th percentile is an order
+statistic set by one or two tail observations (high sampling variance), and it would pin control
+`case_0032` at +8.1e-5 headroom — an order of magnitude below the measured cross-microarch
+reproducibility bound (~4e-4, L18), i.e. a validity margin smaller than known platform noise. Under
+`mean−2σ` that control clears by +0.00118. Empirically 0/30 reference seeds fell below the band. The
+band that cures positive-symptom blindness (H1/F1) still induces false positives at the band edge (~22%
+of anchor-on control trials); a 3σ band remains a Sweep-2 pre-registration candidate.
+
+*(ii) Control-band circularity — bias direction LOW (new §0.5).* The reference band is estimated from
+seeds `[0–29]`, which **overlap the control-case seeds `{0,1,2}` and the calibration/dev seeds
+`{0,1,2}`**. So the healthy controls are judged against a band their own runs helped estimate — the
+control false-positive rate is therefore biased **LOW by construction** (a control cannot easily fall
+outside a band it helped define). This matters: control FPR is half of G2's headline. *Fix (sequenced,
+forced order):* **§0.5 (30-seed band, done) → §5.1 (retain + label out-of-band controls) → §5.2
+(disjoint seeds: reference → `[200–229]`, controls rebuilt on confirmatory seeds) → Gate 0.** §5.1 must
+land before §5.2, else the `build_case.py` control guard silently rejects the out-of-band controls that
+make the measurement honest.
 
 **L4 — Identification depends on a principled token spec.** Fault naming is scored by root-token
 matching whose version and content hash are recorded on every trial. The spec is defined from each
@@ -193,7 +215,11 @@ pinned to committed hashes (identical bytes on every runner — verified by CI f
 training still differs across amd64 microarchitectures because float REDUCTION ORDER differs (AVX-512
 vs AVX2 FMA). Measured cross-microarch spread on the reference: visible mean **4.28e-4 (0.28σ)**,
 hidden mean **9.73e-4 (0.47σ)**, hidden σ-estimate ~1e-3, and `tolerance_lower` **2.99e-3** (the last
-exceeds the tightest case-guard margin, +1.37e-3). *Revised guarantee (replacing "byte-identical
+exceeds the tightest case-guard margin, +1.37e-3). *(These deltas were measured under the 10-seed
+reference era; the 30-seed adoption (§0.5) does not change them — cross-microarch divergence is a
+property of the float reduction, not the seed count. The current tightest case-guard margin under the
+30-seed band is control `case_0032` at +1.19e-3, still above the ~4e-4 reproducibility floor and the
+reason the empirical band was rejected — see L3.)* *Revised guarantee (replacing "byte-identical
 across runners"):* **byte-exact within a microarchitecture; across heterogeneous native amd64 the
 means reproduce within ~1e-3 (≤0.5σ) and σ-estimates within ~3e-3, with data pinned.** This is
 scientifically harmless — the spread is well inside seed noise (≤0.5σ) and far below every faulty

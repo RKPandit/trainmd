@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 
-def _mk_root(tmp: Path) -> Path:
+def _mk_root(tmp: Path, superseded: bool = False, frozen: bool = False) -> Path:
     (tmp / "sweeps").mkdir(parents=True)
     cases = [("case_0001", "silent.data_leakage.v1", "positive"),
              ("case_0002", "silent.label_corruption.v1", "negative")]
@@ -39,7 +39,7 @@ def _mk_root(tmp: Path) -> Path:
             for anchor in ("off", "rule"):
                 detected = (anchor == "rule")
                 rec = {"case_id": cid, "run_id": f"{cid}-{agent}-{anchor}", "trusted": False,
-                       "card_superseded": False,
+                       "card_superseded": superseded,
                        "conditions": {"sweep_name": "s", "agent_type": agent, "anchor": anchor,
                                       "repeat_index": 0},
                        "submission": {"diagnosis": {"detected": detected}},
@@ -54,7 +54,11 @@ def _mk_root(tmp: Path) -> Path:
     (tmp / "sweeps" / "s_plan.yaml").write_text(yaml.dump({"header": {
         "name": "s", "model": "m", "n_cells": 8,
         "factor_levels": {"anchors": ["off", "rule"]}}}))
-    (tmp / "sweeps" / "s_manifest.yaml").write_text(yaml.dump({"timestamp_utc": "2026-09-15T00:00:00+00:00"}))
+    manifest = {"timestamp_utc": "2026-09-15T00:00:00+00:00"}
+    if frozen:
+        manifest["frozen"] = True
+        manifest["reference_era"] = {"reference": "10-seed", "tolerance_lower": 0.843535}
+    (tmp / "sweeps" / "s_manifest.yaml").write_text(yaml.dump(manifest))
     return tmp
 
 
@@ -69,6 +73,31 @@ def test_results_path_and_release_path_are_byte_identical(tmp_path):
     exp.export(root, "s")
     from_release = report_gen.generate_from_release(root / "results_release" / "s", "s")
     assert from_cases == from_release
+
+
+def test_frozen_sweep_keeps_superseded_records_nonfrozen_drops_them(tmp_path):
+    """Simulated reference change: every record is superseded (new build era).
+
+    A FROZEN sweep must still rebuild byte-identically (its records are valid under their own era);
+    a NON-FROZEN sweep with the same superseded records legitimately drops them → a degraded report.
+    This is the guarantee that adopting a new reference band does not destroy the verifiability of
+    experiments already run against the old one. (STAGE3_PLAN §0.5 frozen historical sweeps.)
+    """
+    from harness import report_gen
+    from harness.sweep_stats import sweep_is_frozen
+
+    baseline = report_gen.generate_from_cases(
+        _mk_root(tmp_path / "base"), "s", {"trusted": 0, "superseded": 0})
+
+    frozen_root = _mk_root(tmp_path / "frozen", superseded=True, frozen=True)
+    assert sweep_is_frozen(frozen_root, "s") is True
+    frozen_report = report_gen.generate_from_cases(frozen_root, "s", {"trusted": 0, "superseded": 0})
+    assert frozen_report == baseline, "frozen sweep must rebuild byte-identically despite supersession"
+
+    drift_root = _mk_root(tmp_path / "drift", superseded=True, frozen=False)
+    assert sweep_is_frozen(drift_root, "s") is False
+    drift_report = report_gen.generate_from_cases(drift_root, "s", {"trusted": 0, "superseded": 0})
+    assert drift_report != baseline, "non-frozen sweep must DROP superseded records (drift detected)"
 
 
 def test_rebuild_from_release_in_isolated_dir_without_registry(tmp_path):

@@ -14,8 +14,8 @@ Layers and their model health:
 """
 from __future__ import annotations
 
-_TOL = 0.843535
-_TWO_STD = 0.004114
+_TOL = 0.843719          # 30-seed reference band (§0.5)
+_TWO_STD = 0.004274
 _HEALTHY_LAYERS = ("control", "metric")   # model healthy → hidden must clear tol
 _FAULTY_MODEL_LAYERS = ("dynamics",)      # model degraded → hidden below tol
 
