@@ -606,11 +606,25 @@ class TestWallChecks:
         assert "W2_public_card_no_incident_info" in failed_names
 
     def test_w3_overlapping_eval_seeds(self, tmp_path):
-        """Hidden eval seeds overlapping [0..9] fails W3."""
-        case_dir = _make_case(tmp_path, hidden_eval_seeds=[0, 1, 2])
+        """Hidden eval seeds overlapping the reference band [200..229] fails W3 (§5.2)."""
+        case_dir = _make_case(tmp_path, hidden_eval_seeds=[200, 201, 202])
         report = validate_case(case_dir, project_root=tmp_path)
         failed_names = [c.name for c in report.failed]
         assert "W3_hidden_eval_seeds_disjoint" in failed_names
+
+    def test_w3b_case_on_reference_seed_fails(self, tmp_path):
+        """§5.2: a case built on a REFERENCE seed (e.g. 200) fails W3b — that is the
+        seed reuse that reintroduces the control-band circularity."""
+        case_dir = _make_case(tmp_path, seed=200)
+        report = validate_case(case_dir, project_root=tmp_path)
+        assert "W3b_seed_sets_disjoint" in [c.name for c in report.failed]
+
+    def test_w3b_confirmatory_seed_passes(self, tmp_path):
+        """A case on a confirmatory seed (42) passes W3b."""
+        case_dir = _make_case(tmp_path, seed=42)
+        report = validate_case(case_dir, project_root=tmp_path)
+        w3b = [c for c in report.checks if c.name == "W3b_seed_sets_disjoint"][0]
+        assert w3b.passed, w3b.detail
 
 
 # ---------------------------------------------------------------------------

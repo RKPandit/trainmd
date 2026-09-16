@@ -23,7 +23,7 @@ operators:            # operator_id  (tier)
   - silent.label_corruption.v1  # dynamics
   - silent.lr_warmup.v1         # dynamics (bimodal-collapse; retired from the σ-ladder — L1/S12)
   - silent.metric_inflation.v1  # metric
-case_count: 33                  # cases/registry.hidden.yaml (6 × 5 faulty ops + 3 controls)
+case_count: 50                  # §5.2: 30 faulty (5 ops × 3 strengths × 2 seeds) + 20 controls (seeds 50–69)
 evidence_scorer_primary: evidence_v2.1
 evidence_scorer_versions: [evidence_v1, evidence_v2, evidence_v2.1]
 canonical_image_digest: sha256:0354db57c29a5092ace862a0d8716dfe3729d4f8b893fe3079c66d947daeb25d

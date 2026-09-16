@@ -226,11 +226,18 @@ round-trips both stages; report shows per-stage outcomes.
      other tier. Retain + label out-of-band metric cases (as §5.1 did for controls) before Sweep 3
      builds more metric cases. Reported, not yet fixed.
 
-### 5.2 Three disjoint seed sets (declared in DECISIONS, enforced by validator)
-- **Reference seeds** (band estimation, 30 — currently `[0–29]`; **moves to `[200–229]`** to break the
-  §0.5 seed collision). **Development seeds** (operator qualification, Step 0, calibration).
-  **Confirmatory seeds** (faulty cases + controls used in sweeps). No overlap; a validator check fails
-  on any reuse.
+### 5.2 Three disjoint seed sets (declared in DECISIONS, enforced by validator) — **CODE LANDED 2026-09-16; band regeneration + adoption pending native CI**
+- **Reference seeds** (band estimation, 30 — moved `[0–29]` → **`[200–229]`** to break the §0.5 seed
+  collision). **Development seeds** `[0–29]` (operator qualification, Step 0, calibration — the old
+  reference seeds repurposed). **Hidden-eval** `[100–102]`. **Confirmatory seeds** = faulty `[42–43]`
+  ∪ control `[50–69]` (≥20 controls; moved off `{0,1,2}`). No overlap; the sets live in
+  `harness/seed_sets.py` (single source of truth, `assert_disjoint()` import-time invariant) and
+  validator **W3b** fails any case built on a reference/development/hidden seed. Case count 33 → 50.
+- *Landed (code):* config `reference.seeds` → `[200–229]`; `build_all_cases` controls → `[50–69]`;
+  `validate_case` W3/W3b; `case_margins` reports the visible metric per case. *Pending (native CI, this
+  branch):* regenerate the `[200–229]` band on native amd64, rebuild all 50 cases against it, report the
+  band + per-case margin table (both metrics) + the emulated-vs-native delta — **before adoption** (§0.5
+  discipline). This same native rebuild REMEDIATES the §5.1 emulated local builds.
 - **Forced order (§0.5 ruling):** §5.1 (retain + label out-of-band controls) MUST land BEFORE §5.2
   moves the reference off `[0–29]` — else the `build_case.py` control guard silently rejects the
   out-of-band controls. Sequence: **§0.5 (done) → §5.1 → §5.2 → Gate 0.**

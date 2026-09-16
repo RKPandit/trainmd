@@ -77,10 +77,14 @@ def main() -> int:
     tol = hid["tolerance_lower"]
     std = hid["std"]
     two_std = 2 * std
+    vis = stats["metric_visible_val_acc"]        # §5.2: also report the VISIBLE metric per case
+    vmean, vstd = vis["mean"], vis["std"]
     print(f"reference stats: {a.stats}  (num_seeds={stats.get('num_seeds', '?')})")
-    print(f"reference: tolerance_lower={tol:.6f}  hidden_std={std:.6f}  2*std={two_std:.6f}")
-    print(f"{'case':11} {'operator':16} {'strength':8} {'layer':10} {'faulty_value':13} {'margin':11} {'flag'}")
-    print("-" * 88)
+    print(f"reference: tolerance_lower={tol:.6f}  hidden_std={std:.6f}  2*std={two_std:.6f}  "
+          f"visible mean={vmean:.6f} std={vstd:.6f}")
+    print(f"{'case':11} {'operator':16} {'strength':8} {'layer':10} {'faulty_value':13} {'margin':11} "
+          f"{'visible':10} {'vis_zσ':8} {'flag'}")
+    print("-" * 104)
 
     rows = []
     for cd in sorted(glob.glob(str(ROOT / "cases" / "case_*"))):
@@ -93,7 +97,8 @@ def main() -> int:
         op = (hc.get("operator_id") or "?").split(".")[1] if hc.get("operator_id") else "?"
         layer = hc.get("layer")
         fv = v.get("faulty_value")
-        rows.append((cd.name, op, hc.get("strength"), layer, fv))
+        vv = hc.get("faulty_visible_value")   # agent-facing visible metric (None for crash tier)
+        rows.append((cd.name, op, hc.get("strength"), layer, fv, vv))
 
     if not rows:
         print("NO CASES FOUND — build them first (make docker-build-all-cases).", file=sys.stderr)
@@ -101,16 +106,20 @@ def main() -> int:
 
     failures = []
     tight = []
-    for cid, op, st, layer, fv in rows:
+    for cid, op, st, layer, fv, vv in rows:
+        vis_str = f"{vv:.6f}" if isinstance(vv, (int, float)) else "n/a"
+        vis_z = f"{(vv - vmean) / vstd:+.2f}" if isinstance(vv, (int, float)) else "n/a"
         if fv is None:  # crash tier: no checkpoint metric, trivially below tolerance
-            print(f"{cid:11} {op:16} {str(st):8} {layer:10} {'None(crash)':13} {'n/a':11} crash<tol")
+            print(f"{cid:11} {op:16} {str(st):8} {layer:10} {'None(crash)':13} {'n/a':11} "
+                  f"{vis_str:10} {vis_z:8} crash<tol")
             continue
         margin, ok, flag = margin_flag(layer, fv, tol, two_std)
         if not ok:
             failures.append(cid)
         elif margin < two_std:
             tight.append((cid, round(margin, 6)))
-        print(f"{cid:11} {op:16} {str(st):8} {layer:10} {fv:<13.6f} {margin:+.6f}  {flag}")
+        print(f"{cid:11} {op:16} {str(st):8} {layer:10} {fv:<13.6f} {margin:+.6f}  "
+              f"{vis_str:10} {vis_z:8} {flag}")
 
     print("-" * 88)
     if tight:

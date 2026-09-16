@@ -91,7 +91,11 @@ _PUBLIC_CARD_FORBIDDEN_TOKENS = [
 
 _BINARY_EXTENSIONS = frozenset({".pt", ".npy", ".npz"})
 
-_REFERENCE_SEEDS = set(range(30))  # [0..29] (30-seed reference band, STAGE3_PLAN §0.5)
+# §5.2: the reference band and the confirmatory (case) seeds come from the single
+# source of truth so they cannot drift or re-collide (STAGE3_PLAN §5.2 / L3).
+from harness import seed_sets
+
+_REFERENCE_SEEDS = set(seed_sets.REFERENCE)  # [200..229] (moved off {0,1,2} in §5.2)
 
 _REQUIRED_FILES = [
     "card.public.yaml",
@@ -201,13 +205,40 @@ def _check_w2(case_dir: Path) -> CheckResult:
 
 
 def _check_w3(verify: dict) -> CheckResult:
-    """W3: hidden_eval_seeds_disjoint — no overlap with reference seeds [0..29]."""
+    """W3: hidden_eval_seeds_disjoint — no overlap with reference seeds [200..229] (§5.2)."""
     eval_seeds = set(verify.get("hidden_eval_seeds", []))
     overlap = eval_seeds & _REFERENCE_SEEDS
     if overlap:
         detail = f"Hidden eval seeds overlap reference seeds: {sorted(overlap)}"
         return CheckResult("W3_hidden_eval_seeds_disjoint", False, detail, "WALL")
     return CheckResult("W3_hidden_eval_seeds_disjoint", True, "", "WALL")
+
+
+def _check_w3b_seed_sets_disjoint(hidden_card: dict) -> CheckResult:
+    """W3b (§5.2): the case's build seed is a CONFIRMATORY seed, disjoint from the
+    reference/development/hidden-eval sets. This is the check that fails on any seed
+    reuse — it stops a case from being judged against a band its own run helped
+    estimate (the circularity §5.2 cures; LIMITATIONS L3). Global set disjointness
+    is guaranteed at import by seed_sets.assert_disjoint()."""
+    # Global invariant (a bad seed_sets edit fails here rather than silently).
+    global_violations = seed_sets.disjointness_violations()
+    if global_violations:
+        return CheckResult("W3b_seed_sets_disjoint", False,
+                           "seed sets overlap: " + "; ".join(global_violations), "WALL")
+    seed = hidden_card.get("seed")
+    if seed is None:
+        return CheckResult("W3b_seed_sets_disjoint", False,
+                           "hidden card missing seed", "WALL")
+    for name in ("reference", "development", "hidden_eval"):
+        if seed in seed_sets.NAMED_SETS[name]:
+            return CheckResult("W3b_seed_sets_disjoint", False,
+                               f"case seed {seed} is a {name} seed — cases must use "
+                               f"confirmatory seeds only (§5.2)", "WALL")
+    if seed not in seed_sets.CONFIRMATORY:
+        return CheckResult("W3b_seed_sets_disjoint", False,
+                           f"case seed {seed} is not in the confirmatory set "
+                           f"{sorted(seed_sets.CONFIRMATORY)} (§5.2)", "WALL")
+    return CheckResult("W3b_seed_sets_disjoint", True, "", "WALL")
 
 
 def _check_c1(case_dir: Path, public_card: dict, hidden_card: dict) -> CheckResult:
@@ -906,6 +937,7 @@ def validate_case(
     checks.append(_check_w1(case_dir, hidden_card))
     checks.append(_check_w2(case_dir))
     checks.append(_check_w3(verify))
+    checks.append(_check_w3b_seed_sets_disjoint(hidden_card))
     checks.append(_check_w4(case_dir, verify))
 
     # CONSISTENCY
