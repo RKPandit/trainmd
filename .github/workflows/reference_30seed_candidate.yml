@@ -87,10 +87,10 @@ jobs:
         run: |
           set -eo pipefail
           test -f r1/stats.yaml   # fail loudly if the artifact is missing
+          # Write via a host-side redirect (runner uid), NOT --out: the bare `docker run` uses the
+          # image's default non-root user, which cannot write into the host-mounted /work.
           docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
-            python scripts/reference_distribution.py --stats r1/stats.yaml \
-              --out distribution_report.md
-          cat distribution_report.md
+            python scripts/reference_distribution.py --stats r1/stats.yaml | tee distribution_report.md
       - uses: actions/upload-artifact@v4
         with: { name: candidate-distribution, path: distribution_report.md }
 
