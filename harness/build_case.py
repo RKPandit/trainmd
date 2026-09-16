@@ -75,6 +75,33 @@ def _symptom_direction(layer: str, faulty_visible: float | None,
     return "within_band"   # invisible in aggregate — the floor H2 measures
 
 
+def _band_position(sigma_below_mean: float | None) -> str | None:
+    """Position of a metric relative to the healthy band ``[mean-2σ, mean+2σ]``.
+
+    ``sigma_below_mean`` is the signed distance from the reference mean in units
+    of the reference std, measured as ``(mean - value) / std`` — the SAME sign
+    convention as ``visible_sigma_distance`` / ``hidden_sigma_distance``, so a
+    POSITIVE value means the run sits BELOW the mean.  Returns:
+
+    - ``"below_band"``  when the value is more than 2σ below the mean
+      (``sigma_below_mean > 2``; the old control-reject trigger),
+    - ``"above_band"``  when more than 2σ above the mean (``< -2``),
+    - ``"in_band"``     otherwise (band edges inclusive, matching the metric
+      guard's ``tolerance_lower <= acc <= mean+2σ``),
+    - ``None``          when the distance is unknown (e.g. execution tier).
+
+    STAGE3_PLAN §5.1: controls are RETAINED at any band position and labelled
+    with this, rather than rejected below tolerance.
+    """
+    if sigma_below_mean is None:
+        return None
+    if sigma_below_mean > 2:
+        return "below_band"
+    if sigma_below_mean < -2:
+        return "above_band"
+    return "in_band"
+
+
 def _compute_build_id(manifest: Manifest, seed: int, workload_dir: Path) -> str:
     """Content-derived case build id (spec §5, §7).
 
@@ -197,6 +224,12 @@ def build_case(
             accuracy is not below tolerance.
         SystemExit: If the tuple already exists and *force* is False.
     """
+    # Canonical-platform guard: a case is a committed artifact whose agent-facing
+    # visible metric must share the band's platform. Refuse under emulation.
+    from harness.platform_guard import cpu_provenance, require_native_amd64
+    require_native_amd64(context="build a case")
+    build_cpu = cpu_provenance()
+
     if project_root is None:
         project_root = Path(__file__).resolve().parent.parent
 
@@ -339,12 +372,20 @@ def build_case(
                 f"Faulty run acc={hidden_acc:.6f} >= tolerance={tolerance_lower:.6f}; "
                 f"operator must reliably degrade accuracy below tolerance."
             )
-        # Control guard (inverted): a healthy run must PASS tolerance.
-        if op.layer == "control" and hidden_acc < tolerance_lower:
+        # Control guard (§5.1 — retain + label out-of-band controls): a control
+        # is valid iff the run COMPLETED with a finite hidden metric and a
+        # checkpoint (all three enforced by the completed-run guards above). We
+        # DO NOT reject a control that falls below tolerance. Rejecting the hard
+        # healthy case — an unmodified run outside the band — is selection bias
+        # that flatters specificity: it is exactly the run that would trigger a
+        # false positive under the reference-band prompt, so discarding it biases
+        # control FPR LOW by construction. Its band position is recorded below
+        # instead (DECISIONS 2026-09-16; LIMITATIONS L3).
+        if op.layer == "control" and not math.isfinite(hidden_acc):
             shutil.rmtree(case_dir)
             raise RuntimeError(
-                f"Control run acc={hidden_acc:.6f} < tolerance={tolerance_lower:.6f}; "
-                f"a healthy control must clear tolerance (no genuine fault)."
+                f"Control run hidden acc={hidden_acc!r} is not finite; "
+                f"a genuine failure (non-finite metric) is still rejected."
             )
         # Metric guard: the MODEL must be healthy (hidden WITHIN the band); the
         # fault is metric-only. A degraded (or anomalously high) hidden accuracy
@@ -431,6 +472,13 @@ def build_case(
         else round((hid_mean - hidden_acc) / hid_std, 6)
     )
     symptom_direction = _symptom_direction(op.layer, faulty_visible, vis_mean, vis_std)
+    # Band position vs the healthy band [mean±2σ], on BOTH the visible and the
+    # hidden metric (§5.1). Derived from the signed σ distances above — a pure
+    # function of the recorded metric vs the committed reference, which the
+    # validator re-checks (validate_case C5). None where the distance is unknown
+    # (execution tier has no checkpoint metric).
+    band_position_visible = _band_position(visible_sigma)
+    band_position_hidden = _band_position(hidden_sigma)
 
     # ---- write hidden/card.hidden.yaml ------------------------------------
     hidden_card = {
@@ -450,6 +498,14 @@ def build_case(
         "visible_sigma_distance": visible_sigma,
         "hidden_sigma_distance": hidden_sigma,
         "symptom_direction": symptom_direction,
+        # §5.1 band-position labels (hidden-side only; NEVER on the public card —
+        # see validate_case._PUBLIC_CARD_FORBIDDEN_TOKENS, a wall requirement).
+        "band_position_visible": band_position_visible,
+        "band_position_hidden": band_position_hidden,
+        # Provenance: the CPU this case was built on. Native amd64 is canonical;
+        # emulation is refused above, so this records WHICH native CPU (microarch)
+        # produced the numbers — removing the platform inference (DECISIONS 2026-09-16).
+        "build_cpu": build_cpu,
     }
     with open(hidden / "card.hidden.yaml", "w") as f:
         yaml.dump(hidden_card, f, default_flow_style=False, sort_keys=False)
@@ -472,6 +528,12 @@ def build_case(
         # metric returned inside the band after the repair.
         "reference_visible_mean": stats["metric_visible_val_acc"]["mean"],
         "reference_visible_std": stats["metric_visible_val_acc"]["std"],
+        # §5.1 band position on both metrics vs the committed reference band.
+        # Recomputable from (faulty_value, reference_metric_mean/std) here and
+        # from (faulty_visible_value, reference_visible_mean/std) on the hidden
+        # card; validate_case C5 asserts consistency for controls.
+        "band_position_visible": band_position_visible,
+        "band_position_hidden": band_position_hidden,
         "admissible_repairs": _to_yaml_safe(dataclasses.asdict(op.admissible_repairs())),
         # Hidden-side ground-truth repair (never on the public card). None for controls.
         "oracle_repair": _to_yaml_safe(op.oracle_repair()),

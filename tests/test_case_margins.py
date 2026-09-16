@@ -40,3 +40,12 @@ def test_metric_layer_uses_healthy_rule():
     _, ok, flag = margin_flag("metric", _TOL - 0.001, _TOL, _TWO_STD)
     assert ok is False
     assert "GUARD-FAIL" in flag
+
+
+def test_control_below_band_is_retained_not_guard_fail():
+    # §5.1: a control below tolerance is RETAINED (ok) and labelled OUT-OF-BAND,
+    # NOT rejected — rejecting it is the selection bias §5.1 removed.
+    margin, ok, flag = margin_flag("control", _TOL - 0.01, _TOL, _TWO_STD)
+    assert ok is True
+    assert "GUARD-FAIL" not in flag and "OUT-OF-BAND" in flag
+    assert margin < 0

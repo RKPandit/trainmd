@@ -81,6 +81,12 @@ _PUBLIC_CARD_FORBIDDEN_TOKENS = [
     "manifest", "incident", "strength", "severe", "moderate", "mild",
     "execution", "crash", "shape_mismatch", "data_leakage",
     "control", "healthy", "metric_inflation",
+    # WALL REQUIREMENT (§5.1): band_position is hidden-side only. It must NEVER
+    # reach a public card — for ANY tier — because it hands the agent the exact
+    # comparison it is being asked to perform (the numbers-to-compare AND the
+    # comparison already made), leaking strictly more than the reference band.
+    # This guard makes a future change that adds it to a public card fail W2.
+    "band_position",
 ]
 
 _BINARY_EXTENSIONS = frozenset({".pt", ".npy", ".npz"})
@@ -270,6 +276,20 @@ def _compute_tolerance(mean: float, std: float) -> float:
     return round(mean - 2 * std, 6)
 
 
+def _band_position(value: float, mean: float, std: float) -> str:
+    """Band position of ``value`` vs the healthy band ``[mean-2σ, mean+2σ]``.
+
+    Mirrors ``harness.build_case._band_position`` (kept local so the validator
+    has no build-time dependency); the two MUST agree.  Band edges inclusive.
+    """
+    sigma_below_mean = (mean - value) / std
+    if sigma_below_mean > 2:
+        return "below_band"
+    if sigma_below_mean < -2:
+        return "above_band"
+    return "in_band"
+
+
 def _check_c4(verify: dict, project_root: Path, workload_name: str) -> CheckResult:
     """C4: tolerance_matches_reference — recompute from stats, epsilon compare."""
     stats_path = project_root / "workloads" / workload_name / "reference" / "stats.yaml"
@@ -320,10 +340,34 @@ def _check_c5(verify: dict, hidden_card: dict) -> CheckResult:
         detail = "verify.yaml missing faulty_value or tolerance_lower"
         return CheckResult("C5_faulty_value_below_tolerance", False, detail, "CONSISTENCY")
 
-    if layer in ("control", "metric"):
-        # Control and metric tiers have a HEALTHY model, so the hidden accuracy
-        # must CLEAR tolerance (control = no fault; metric = the fault is only in
-        # the reported visible number, never in the model).
+    if layer == "control":
+        # §5.1: a control is RETAINED at ANY band position — we no longer reject
+        # a below-tolerance control (that discards the hard healthy case and
+        # biases control FPR LOW). Instead, band_position must be PRESENT and
+        # CONSISTENT with the recorded metric vs the committed reference.
+        bp = verify.get("band_position_hidden")
+        if bp is None:
+            detail = "control verify.yaml missing band_position_hidden (§5.1)"
+            return CheckResult("C5_faulty_value_below_tolerance", False, detail, "CONSISTENCY")
+        mean = verify.get("reference_metric_mean")
+        std = verify.get("reference_metric_std")
+        if mean is None or std is None or not std:
+            detail = "control verify.yaml missing reference_metric_mean/std"
+            return CheckResult("C5_faulty_value_below_tolerance", False, detail, "CONSISTENCY")
+        expected = _band_position(faulty, mean, std)
+        if bp != expected:
+            detail = (
+                f"band_position_hidden={bp!r} inconsistent with faulty_value={faulty} "
+                f"vs reference (mean={mean}, std={std}) → expected {expected!r}"
+            )
+            return CheckResult("C5_faulty_value_below_tolerance", False, detail, "CONSISTENCY")
+        return CheckResult("C5_faulty_value_below_tolerance", True, "", "CONSISTENCY")
+
+    if layer == "metric":
+        # Metric tier has a HEALTHY model, so the hidden accuracy must CLEAR
+        # tolerance (the fault lives only in the reported visible number). NOTE:
+        # the metric-tier BUILD guard has the same in-band selection bias the
+        # control guard just shed — see LIMITATIONS L21; not changed in §5.1.
         if faulty < tolerance:
             detail = f"{layer} faulty_value={faulty} < tolerance_lower={tolerance} (must clear)"
             return CheckResult("C5_faulty_value_below_tolerance", False, detail, "CONSISTENCY")

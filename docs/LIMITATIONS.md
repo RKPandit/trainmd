@@ -55,10 +55,11 @@ Shapiro–Wilk W=0.9585, p=0.2835 (n=30, low power to reject, so a non-rejection
 BOTH candidate bands are recorded: normal `mean−2σ = 0.843719` and the empirical 2.5th percentile
 `= 0.844825` (they differ 1.11e-3; the distribution is mildly platykurtic). **We adopt `mean−2σ`, not
 the empirical percentile** (DECISIONS 2026-09-15): at n=30 the empirical 2.5th percentile is an order
-statistic set by one or two tail observations (high sampling variance), and it would pin control
-`case_0032` at +8.1e-5 headroom — an order of magnitude below the measured cross-microarch
+statistic set by one or two tail observations (high sampling variance), and it would pin metric-tier
+`case_0032` (`silent.metric_inflation.v1` — NOT a control; see the 2026-09-16 documentation-error
+correction in DECISIONS) at +8.1e-5 headroom — an order of magnitude below the measured cross-microarch
 reproducibility bound (~4e-4, L18), i.e. a validity margin smaller than known platform noise. Under
-`mean−2σ` that control clears by +0.00118. Empirically 0/30 reference seeds fell below the band. The
+`mean−2σ` that case clears by +0.00118. Empirically 0/30 reference seeds fell below the band. The
 band that cures positive-symptom blindness (H1/F1) still induces false positives at the band edge (~22%
 of anchor-on control trials); a 3σ band remains a Sweep-2 pre-registration candidate.
 
@@ -71,6 +72,19 @@ forced order):* **§0.5 (30-seed band, done) → §5.1 (retain + label out-of-ba
 (disjoint seeds: reference → `[200–229]`, controls rebuilt on confirmatory seeds) → Gate 0.** §5.1 must
 land before §5.2, else the `build_case.py` control guard silently rejects the out-of-band controls that
 make the measurement honest.
+
+*(iii) §5.1 landed (2026-09-16): the control build guard no longer rejects on band position.* A control
+is now valid iff its run COMPLETED with a finite hidden metric and a checkpoint; its band position (both
+visible and hidden) is recorded and control FPR is **stratified** (in_band / out_of_band, per arm, each
+with cluster count and case-clustered CI) — a pooled control FPR is never reported alone. Stratification
+keys on the **VISIBLE** band position by mechanism (a false positive is triggered by the metric the agent
+reads and compares to its band); the hidden band position is reported alongside as a case-quality label.
+**Any PUBLISHED control FPR was measured under the OLD rejecting guard on in-band-only controls** —
+Sweep-1's anchor-on 0.222 and the gate's off 0/12 · numbers 6/12 · rule 2/12. No published number changes
+(this is a build-guard change, not a re-score); its INTERPRETATION narrows — those rates are conditional
+on in-band controls, so they under-state out-of-band false positives. Classified a **documentation/
+interpretation update, not a correction** (`corrections_count` stays 5; DECISIONS 2026-09-16). §5.2 still
+moves the reference off `[0–29]` to break the circularity that biases even the stratified rate LOW.
 
 **L4 — Identification depends on a principled token spec.** Fault naming is scored by root-token
 matching whose version and content hash are recorded on every trial. The spec is defined from each
@@ -218,7 +232,7 @@ hidden mean **9.73e-4 (0.47σ)**, hidden σ-estimate ~1e-3, and `tolerance_lower
 exceeds the tightest case-guard margin, +1.37e-3). *(These deltas were measured under the 10-seed
 reference era; the 30-seed adoption (§0.5) does not change them — cross-microarch divergence is a
 property of the float reduction, not the seed count. The current tightest case-guard margin under the
-30-seed band is control `case_0032` at +1.19e-3, still above the ~4e-4 reproducibility floor and the
+30-seed band is metric-tier `case_0032` at +1.19e-3, still above the ~4e-4 reproducibility floor and the
 reason the empirical band was rejected — see L3.)* *Revised guarantee (replacing "byte-identical
 across runners"):* **byte-exact within a microarchitecture; across heterogeneous native amd64 the
 means reproduce within ~1e-3 (≤0.5σ) and σ-estimates within ~3e-3, with data pinned.** This is
@@ -231,6 +245,16 @@ byte-exactness across the fleet ever matters:* pin CI to a fixed-CPU runner, or 
 reduction order (e.g. a fixed BLAS kernel / higher-precision accumulation). Stage 1b's "byte-identical
 across two independent runners" was an over-reading — two agreeing runners are not the fleet (see the
 RESEARCH_LOG standing lesson).
+
+*SCOPE CORRECTION (2026-09-16, cross-reference L23).* Everything L18 characterizes is **mean-level,
+cross-microarch, NATIVE-vs-native** equivalence, and all of it is true — indeed a 2026-09-16 CI run on
+two DIFFERENT EPYC microarchs (9V45 vs 7763) was **byte-identical across all 1900 metric fields**
+(max Δ 0.000e+00), tightening "~4e-4 cross-microarch" to byte-exact for that pair. **What L18 does NOT
+license:** (a) any **native-vs-EMULATED** claim — L18 never measured emulation, and it turns out
+native-EPYC vs emulated-Rosetta diverges up to ~2.8σ (visible) / ~2.1σ (hidden) per seed (L23); and
+(b) any **per-case** robustness claim — L18's figures are on the *mean* (0.28σ), whereas per-case
+(the operative quantity for detection) is up to ~2.8σ. The "~4e-4 reproducibility floor" phrase above
+therefore means *cross-microarch native*, not "the platform floor in general". See L23.
 
 **L19 — The recovery axis is DEGENERATE on the three Stage-2 gate operators.** `not_recovered
 = 0/138`: every admissible structured repair recovered, because each operator's admissible-repair
@@ -253,7 +277,10 @@ false-positive CIs are enormous — off **[0.000, 0.000]**, numbers 0.500 **[0.0
 decidable and the control FPR is not a population rate. This extends L12/S3's under-powering from
 Sweep 1. *Remedy:* **≥20 unique control cases per workload** before any false-positive claim
 (detection specificity, false-intervention rate, or an anchor-arm FP contrast) is stated as
-established rather than suggestive.
+established rather than suggestive. *(§5.1, 2026-09-16: control FPR is now stratified by band position
+and out-of-band controls are retained rather than discarded — L3(iii). That removes the LOW selection
+bias but does NOT cure under-power: with 3 controls the strata are even smaller, so the ≥20 requirement
+is unchanged and is the binding constraint on any control claim.)*
 
 **L21 — The Stage-2 gate has SPLIT PROVENANCE across its two phases.** The agent phase ran on the
 host (macOS-10.16 / py3.9, `in_container: false`) — acceptable because it is Anthropic API calls,
@@ -273,3 +300,43 @@ three operators**, so it does not bias the G1 cross-operator contrast, but it li
 says about metric-*based* diagnosis. *Sweep-2 remedy:* include at least one operator whose fault is
 **not** a single legible config key (a code-path or data-distribution fault), and pre-register the
 config-legibility factor before leaning on cross-operator detection contrasts.
+
+**L23 — Per-case cross-platform drift affects BOTH metrics and is an order of magnitude larger than
+the mean-level equivalence L18 characterized.** Three regimes, measured (2026-09-16):
+
+- **Native-vs-native (cross-microarch): robust.** Two CI runners, AMD EPYC 9V45 and EPYC 7763,
+  produced **byte-identical** visible AND hidden metrics across all 1900 fields (max Δ 0.000e+00) —
+  tighter even than L18's ~4e-4 (EPYC-vs-Xeon). This is the regime L18 measured.
+- **Native-vs-emulated: BOTH metrics fragile.** Native EPYC vs emulated Rosetta (Apple-Silicon Docker),
+  30 clean reference seeds: **visible** mean |Δ| 1.5e-3 (0.81σ), **max 5.16e-3 (2.80σ)**, 3/30 over 2σ;
+  **hidden** mean |Δ| 2.3e-3 (1.08σ), **max 4.57e-3 (2.14σ)**, 6/30 over 2σ. Deterministic within a
+  platform (two emulated runs byte-identical); the divergence is native-vs-emulated float, seed-dependent
+  and chaotic (curves identical for ~8 epochs then diverge). The repo's own `RESEARCH_LOG:269` had already
+  recorded a single **hidden** seed moving 0.0053 (2.6σ) macOS-vs-Linux — hidden is NOT robust across
+  platforms. *(Earlier in this investigation "hidden is robust ~4e-4" was asserted; that was L18's
+  cross-microarch figure over-generalized from seed 0's coincidentally tiny delta — CORRECTED here: both
+  metrics are per-case platform-sensitive across native-vs-emulated.)*
+- **Mean-level vs per-case.** L18's equivalence is on the MEAN (visible 0.28σ). **Detection is per-case**
+  — the agent compares ONE case's visible metric to the band — so the operative figure is the per-case
+  one (up to ~2.8σ), an order of magnitude larger.
+
+*Consequence + fix.* A case built on one platform against a band computed on another is compared against
+the wrong yardstick (the agent-facing visible metric may not match its band). So **every case and
+reference artifact must be generated on native amd64** — now ENFORCED by the `harness.platform_guard`
+canonical-platform guard (`build_case`, `reference_run` refuse under emulation; the CPU is stamped into
+each hidden card / sweep manifest). *Not retroactive:* artifacts generated before the guard carry this
+caveat. **Sweeps 1–2 and the Stage-2 gate ran on macOS x86_64 (metric AND band both macOS — L21, L124/
+this entry), so they are INTERNALLY CONSISTENT and stand as run**; the hazard is a FUTURE mix of a native
+band with a non-native case, which the guard now prevents. Evidence table: the full 30-seed
+native-vs-emulated per-seed deltas (both metrics) are in `docs/audits/` / this investigation's record.
+
+**L24 — The metric tier's "the model is healthy" guarantee is partly SELECTED, not observed.** The
+`build_case` metric-tier guard rejects a `silent.metric_inflation.v1` case unless the true hidden
+accuracy lands INSIDE the band (`tolerance_lower ≤ hidden ≤ mean+2σ`). A genuine metric-inflation run
+whose model drifts out-of-band through ordinary seed noise is therefore silently DISCARDED — the same
+class of selection bias §5.1 removed from the CONTROL guard, in the other direction (it flatters the
+"model untouched" claim rather than specificity). It affects an operator that is in the Stage-2 gate and
+slated for Sweep 3. *Not fixed here* (§5.1 scope was controls). *Fix, sequenced BEFORE Sweep 3 builds
+more metric cases (STAGE3_PLAN):* retain out-of-band metric cases and record their band position (as
+§5.1 did for controls), so the metric tier's model-health property is measured rather than selected.
+The current 6 metric cases all sit in-band on hidden (σ from mean −0.53…+0.11).

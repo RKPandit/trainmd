@@ -45,6 +45,12 @@ def run_reference(workload_dir: Path, num_seeds: int | None = None) -> dict:
     unchanged. Returns the stats dict that is written to stats.yaml.
     """
 
+    # Canonical-platform guard: the reference band is the yardstick every case's
+    # visible metric is compared against — it must be native amd64, never emulated.
+    from harness.platform_guard import cpu_provenance, require_native_amd64
+    require_native_amd64(context="generate a reference")
+    print(f"[reference] build CPU: {cpu_provenance()}")
+
     config_path = workload_dir / "config.yaml"
     with open(config_path) as f:
         config = yaml.safe_load(f)
