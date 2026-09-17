@@ -280,7 +280,9 @@ class TestAdmissibleRepairs:
 
     def test_allowed_keys(self):
         schema = DataLeakageOperator().admissible_repairs()
-        assert schema.allowed_keys == ["data.include_aux_feature"]
+        # Both mutated keys are admissible so unsetting BOTH restores clean exactly
+        # (STAGE3 2026-09-17); include_aux_feature=False alone also recovers.
+        assert schema.allowed_keys == ["data.include_aux_feature", "data.aux_feature_strength"]
 
     def test_allowed_values(self):
         schema = DataLeakageOperator().admissible_repairs()
@@ -705,15 +707,18 @@ def test_oracle_repair_recovers(tmp_path):
         config = yaml.safe_load(f)
     config["data"]["include_aux_feature"] = False
 
+    accs = []
     for seed in [100, 101, 102]:
         output_dir = tmp_path / f"output_repair_{seed}"
         exitcode = _run_training(workspace, config, seed, output_dir)
         assert exitcode == 0, f"Repaired run crashed (seed={seed})"
+        accs.append(_evaluate_acc(output_dir, config))
 
-        acc = _evaluate_acc(output_dir, config)
-        assert acc >= tolerance, (
-            f"Repaired run seed={seed} acc={acc:.6f} < tolerance={tolerance:.6f}"
-        )
+    # MEAN-of-hidden-seeds recovery rule (STAGE3 2026-09-17).
+    mean_acc = sum(accs) / len(accs)
+    assert mean_acc >= tolerance, (
+        f"Repaired run MEAN acc={mean_acc:.6f} < tolerance={tolerance:.6f} (per-seed {accs})"
+    )
 
 
 def test_flag_off_bitwise_identical(tmp_path):

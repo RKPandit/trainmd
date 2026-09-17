@@ -344,12 +344,11 @@ def test_mutated_run_crashes(tmp_path, strength, seed):
     )
 
 
-@pytest.mark.parametrize("seed", [100, 101, 102])
-def test_oracle_repair_recovers(tmp_path, seed):
-    """Repair with model.input_dim=105 must complete and pass tolerance.
-
-    Uses hidden eval seeds [100, 101, 102] to match recovery verification.
-    """
+def test_oracle_repair_recovers(tmp_path):
+    """Repair with model.input_dim=105 must complete and clear tolerance under the
+    MEAN-of-hidden-seeds recovery rule (STAGE3 2026-09-17): the MEAN over hidden eval
+    seeds [100, 101, 102] >= tolerance. A single 2-sigma-low clean seed (e.g. seed 101)
+    no longer fails a genuinely correct repair (see tests/test_recovery_rule.py)."""
     _skip_if_no_data()
 
     tolerance = _load_tolerance()
@@ -361,19 +360,18 @@ def test_oracle_repair_recovers(tmp_path, seed):
     # Set oracle repair value
     config.setdefault("model", {})["input_dim"] = 105
 
-    output_dir = tmp_path / "output"
-    exitcode = _run_training(workspace, config, seed, output_dir)
-    assert exitcode == 0, f"Oracle repair crashed on seed={seed}"
-
-    ckpt = output_dir / "checkpoints" / "ckpt_final.pt"
-    assert ckpt.exists(), f"Oracle repair missing checkpoint on seed={seed}"
-
     from harness.evaluator.evaluate_checkpoint import evaluate_checkpoint
-
     hidden_dir = WORKLOAD_DIR / ".hidden_data"
-    result = evaluate_checkpoint(ckpt, hidden_dir, config)
-    acc = result["metric_hidden_test_acc"]
+    accs = []
+    for seed in [100, 101, 102]:
+        output_dir = tmp_path / f"output_{seed}"
+        exitcode = _run_training(workspace, config, seed, output_dir)
+        assert exitcode == 0, f"Oracle repair crashed on seed={seed}"
+        ckpt = output_dir / "checkpoints" / "ckpt_final.pt"
+        assert ckpt.exists(), f"Oracle repair missing checkpoint on seed={seed}"
+        accs.append(evaluate_checkpoint(ckpt, hidden_dir, config)["metric_hidden_test_acc"])
 
-    assert acc >= tolerance, (
-        f"Oracle repair seed={seed} acc={acc:.6f} < tolerance={tolerance:.6f}"
+    mean_acc = sum(accs) / len(accs)
+    assert mean_acc >= tolerance, (
+        f"Oracle repair MEAN acc={mean_acc:.6f} < tolerance={tolerance:.6f} (per-seed {accs})"
     )

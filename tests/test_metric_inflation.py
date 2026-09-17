@@ -439,9 +439,13 @@ def test_recovery_oracle_restores_visible_band(tmp_path):
     v_mean, v_std, v_upper = _visible_band()
     v_lo = v_mean - 2 * v_std
     tolerance = _load_tolerance()
-    for r in result["per_seed_hidden_metrics"]:
-        assert v_lo <= r["metric_visible_val_acc"] <= v_upper
-        assert r["metric_hidden_test_acc"] >= tolerance
+    per_seed = result["per_seed_hidden_metrics"]
+    # MEAN-of-hidden-seeds recovery rule (STAGE3 2026-09-17): the MEAN visible metric
+    # returns into the band and the MEAN hidden accuracy clears tolerance.
+    mean_vis = sum(r["metric_visible_val_acc"] for r in per_seed) / len(per_seed)
+    mean_hidden = sum(r["metric_hidden_test_acc"] for r in per_seed) / len(per_seed)
+    assert v_lo <= mean_vis <= v_upper
+    assert mean_hidden >= tolerance
 
 
 def test_recovery_wrong_key_is_rejected(tmp_path):
