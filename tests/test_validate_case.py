@@ -1090,3 +1090,38 @@ class TestF3AllowedValues:
         f3 = [c for c in report.checks if c.name == "F3_verify_yaml_required_fields"]
         assert len(f3) == 1
         assert f3[0].passed
+
+
+class TestW4SelfDerivable:
+    """§5.2: W4 must distinguish a real hidden-value leak from a coincidental collision
+    with the case's OWN legitimate visible metric (case_0038 class)."""
+
+    def _prep(self, tmp_path, faulty_value, val_acc=0.851234):
+        case_dir = _make_case(tmp_path)
+        ro = case_dir / "workspace" / "run_output"
+        ro.mkdir(parents=True, exist_ok=True)
+        (ro / "metrics.jsonl").write_text(
+            '{"epoch": 0, "step": 1, "train_loss": 0.31, '
+            f'"metric_visible_val_acc": {val_acc}, "end_of_epoch": true}}\n')
+        vp = case_dir / "hidden" / "verify.yaml"
+        v = yaml.safe_load(vp.read_text())
+        v["faulty_value"] = faulty_value
+        vp.write_text(yaml.dump(v))
+        return case_dir, v
+
+    def test_coincidental_visible_metric_collision_passes(self, tmp_path):
+        # hidden test acc == a legitimate visible val_acc in this case's own metrics.jsonl
+        from harness.validate_case import _check_w4
+        case_dir, v = self._prep(tmp_path, faulty_value=0.851234, val_acc=0.851234)
+        res = _check_w4(case_dir, v)
+        assert res.passed, res.detail  # self-derivable → NOT a leak
+
+    def test_genuine_leak_still_caught(self, tmp_path):
+        # a hidden value that is NOT any visible metric, planted into a log → still a leak
+        from harness.validate_case import _check_w4
+        case_dir, v = self._prep(tmp_path, faulty_value=0.777779, val_acc=0.851234)
+        log = case_dir / "workspace" / "run_output" / "logs"
+        log.mkdir(parents=True, exist_ok=True)
+        (log / "stdout.log").write_text("DEBUG leaked=0.777779\n")
+        res = _check_w4(case_dir, v)
+        assert not res.passed and "faulty_value" in res.detail

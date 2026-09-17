@@ -111,7 +111,7 @@ Each of these cost real time. Each is now prevented by a check.
 | 9 | A "calibration problem" was really a threading bug | We diagnosed a difference before proving the measurement was stable | Reproduce twice on independent machines before believing any difference |
 | 10 | Our citation list contained invented paper titles | AI-generated metadata was never checked by a human | `docs/CITATIONS.md` — every source human-verified, with the section a number comes from |
 | 11 | Documents contradicted each other about basic facts | Too many documents, each a "current truth" | `docs/CURRENT_STATE.md` — one page, plus a guard that fails the build on drift |
-| 12 | 25% of healthy runs were being silently discarded | The builder rejected healthy runs that looked slightly odd — exactly the hard cases | Keep them all, label them (`operators/control/healthy.py`, §5.1) |
+| 12 | The old build guard REJECTED any healthy run whose hidden metric fell below tolerance — the hard cases — so any control population built under it was SELECTED to be in-band (control FPR biased low; the excluded fraction is UNMEASURED, pending §5.2's 20-control band-position distribution) | Rejecting the hard healthy case is selection bias in the flattering direction | Retain and label out-of-band controls instead of rejecting them (`operators/control/healthy.py`, §5.1) |
 
 ---
 

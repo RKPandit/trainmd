@@ -610,6 +610,59 @@ def _check_c11_effect_size(
     return CheckResult("C11_effect_size", True, "", "CONSISTENCY")
 
 
+# §5.2: W4 refinement — a hidden value that coincides with a value the agent
+# LEGITIMATELY derives from its own visible artifacts is not a leak (see DECISIONS
+# 2026-09-16). These are the float metric fields train.py writes to metrics.jsonl.
+_VISIBLE_METRIC_FIELDS = frozenset({
+    "train_loss", "val_loss", "metric_visible_val_acc", "lr",
+    "throughput_samples_per_sec", "epoch_time_sec", "peak_memory_mb",
+})
+
+
+def _numeric_leaves(obj):
+    if isinstance(obj, bool):
+        return
+    if isinstance(obj, (int, float)):
+        yield obj
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            yield from _numeric_leaves(v)
+    elif isinstance(obj, (list, tuple)):
+        for v in obj:
+            yield from _numeric_leaves(v)
+
+
+def _self_derivable_values(case_dir: Path) -> set[str]:
+    """6-decimal string forms of numbers the agent legitimately derives from its OWN
+    visible artifacts: metrics.jsonl metric-field values and config leaves. A hidden
+    value equal to one of these is a coincidence, not a leak — the agent already has
+    that number (W4 refinement, §5.2)."""
+    vals: set[str] = set()
+    ro = case_dir / "workspace" / "run_output"
+    mpath = ro / "metrics.jsonl"
+    if mpath.exists():
+        try:
+            for line in mpath.read_text().splitlines():
+                if not line.strip():
+                    continue
+                rec = json.loads(line)
+                for k, v in rec.items():
+                    if (k in _VISIBLE_METRIC_FIELDS and isinstance(v, (int, float))
+                            and not isinstance(v, bool)):
+                        vals.add(f"{float(v):.6f}")
+        except (OSError, ValueError):
+            pass
+    for cfg in (ro / "config.resolved.yaml", case_dir / "workspace" / "config.yaml"):
+        if cfg.exists():
+            try:
+                data = yaml.safe_load(cfg.read_text())
+            except (OSError, yaml.YAMLError):
+                data = None
+            for v in _numeric_leaves(data):
+                vals.add(f"{float(v):.6f}")
+    return vals
+
+
 def _check_w4(case_dir: Path, verify: dict) -> CheckResult:
     """W4: hidden_values_not_in_workspace — scan for FORMATTED hidden values.
 
@@ -639,6 +692,10 @@ def _check_w4(case_dir: Path, verify: dict) -> CheckResult:
     if workspace.exists():
         scan_paths += [p for p in workspace.rglob("*") if p.is_file()]
 
+    # §5.2: values the agent legitimately derives from its own visible artifacts;
+    # a hidden value that coincides with one of these is not a leak.
+    self_derivable = _self_derivable_values(case_dir)
+
     violations = []
     for p in scan_paths:
         if p.suffix in _BINARY_EXTENSIONS:
@@ -651,6 +708,9 @@ def _check_w4(case_dir: Path, verify: dict) -> CheckResult:
         for needle, label in targets.items():
             off = text.find(needle)
             if off != -1:
+                if needle in self_derivable:
+                    continue  # §5.2: coincidental self-derivable value (a legit visible
+                    # metric/config value that equals a hidden value) — not a leak.
                 violations.append(f"{rel} @byte {off}: leaks {label} ({needle!r})")
 
     if violations:
