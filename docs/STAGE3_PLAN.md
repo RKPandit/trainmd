@@ -321,6 +321,15 @@ round-trips both stages; report shows per-stage outcomes.
 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 (commit) -> 9. Parts 5-7 can overlap with 2-4. The
 paper skeleton is drafted in parallel from frozen instrument sections; results wait for Part 9.
 
+## Deferred instrument refinements
+- **W1/W2 forbidden-token matching is SUBSTRING-based**, so ordinary English collides with the
+  forbidden set (`silent`, `control`, `healthy`, ...). Three collisions so far — all fixed by
+  REWORDING the offending text (config comment 2026-09-15 `tolerance_lower`; 2026-09-16 `control`;
+  and the earlier hygiene fixes). *Refinement:* match on token / word boundaries, not substrings.
+  *Deferred* because rewording has sufficed and is cheaper than a scanner rewrite. **REVIVAL
+  CONDITION:** a FOURTH collision, or any case where the offending text cannot be reworded
+  (e.g. a value that must contain the substring). Then implement word-boundary matching.
+
 ## Deferred to the full study (explicitly)
 Second workload; frontier tier; token-matched iterative no-tools baseline; human realism and
 evidence-sufficiency audit; benign configuration-variant controls; required confidence output

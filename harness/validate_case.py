@@ -94,6 +94,7 @@ _BINARY_EXTENSIONS = frozenset({".pt", ".npy", ".npz"})
 # §5.2: the reference band and the confirmatory (case) seeds come from the single
 # source of truth so they cannot drift or re-collide (STAGE3_PLAN §5.2 / L3).
 from harness import seed_sets
+from harness.reference_consts import DERIVED_STAT_EPSILON
 
 _REFERENCE_SEEDS = set(seed_sets.REFERENCE)  # [200..229] (moved off {0,1,2} in §5.2)
 
@@ -342,7 +343,7 @@ def _check_c4(verify: dict, project_root: Path, workload_name: str) -> CheckResu
         detail = "verify.yaml missing tolerance_lower"
         return CheckResult("C4_tolerance_matches_reference", False, detail, "CONSISTENCY")
 
-    if abs(actual - expected) > 2e-6:  # §5.2: match verify_reference (round-order noise up to ~1e-6 at 6dp; DECISIONS 2026-09-14)
+    if abs(actual - expected) > DERIVED_STAT_EPSILON:  # derived-from-6dp (shared constant; DECISIONS 2026-09-16)
         detail = (
             f"tolerance_lower={actual} != round(mean - 2*std, 6)={expected} "
             f"(mean={mean}, std={std}). "
@@ -594,7 +595,7 @@ def _check_c11_effect_size(
             return False
         if stored is None or exp is None:
             return True
-        return abs(stored - exp) > 1e-6
+        return abs(stored - exp) > DERIVED_STAT_EPSILON  # derived sigma-distance (shared)
 
     issues = []
     if _mismatch(hidden_card.get("visible_sigma_distance"), exp_vsig):
