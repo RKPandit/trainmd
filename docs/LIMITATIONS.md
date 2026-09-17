@@ -86,6 +86,8 @@ on in-band controls, so they under-state out-of-band false positives. Classified
 interpretation update, not a correction** (`corrections_count` stays 5; DECISIONS 2026-09-16). §5.2 still
 moves the reference off `[0–29]` to break the circularity that biases even the stratified rate LOW.
 
+*(iv) §5.2 ADOPTED (2026-09-17): reference `[0–29]` → native EPYC `[200–229]` (tol 0.844655), controls rebuilt on disjoint seeds `[50–69]`; circularity cured. The 20-control band-position distribution was MEASURED (native, run 35179221087): **visible 0/20 below-band, hidden 1/20 below-band (case_0033); 5% visible / 10% hidden out-of-band.** So the old guard would have rejected ≈1/20 = **5%** of these healthy runs — the in-band selection bias is **mild and real**, not the ~25% first (wrongly) imagined and not zero. The low-side count is boundary-sensitive across microarchs (case_0033's margin −0.001223 sits within the ~5e-3 cross-microarch per-seed noise, L18/L23), so on another native runner it can be 0/20.)*
+
 **L4 — Identification depends on a principled token spec.** Fault naming is scored by root-token
 matching whose version and content hash are recorded on every trial. The spec is defined from each
 fault's meaning, but any future change to it requires re-scoring the affected trials with disclosure
@@ -280,7 +282,7 @@ Sweep 1. *Remedy:* **≥20 unique control cases per workload** before any false-
 established rather than suggestive. *(§5.1, 2026-09-16: control FPR is now stratified by band position
 and out-of-band controls are retained rather than discarded — L3(iii). That removes the LOW selection
 bias but does NOT cure under-power: with 3 controls the strata are even smaller, so the ≥20 requirement
-is unchanged and is the binding constraint on any control claim.)*
+is unchanged and is the binding constraint on any control claim.)* *(§5.2 adopted 2026-09-17: measured on 20 native controls — visible 0/20 below-band, hidden 1/20 below-band; 5%/10% out-of-band. **Residual caveat:** these 20 are seed replicas of ONE configuration (seeds 50–69), so 0–2/20 out-of-band says the band is well calibrated FOR THIS CONFIGURATION — NOT specificity against benign configuration VARIANTS, a full-study item.)*
 
 **L21 — The Stage-2 gate has SPLIT PROVENANCE across its two phases.** The agent phase ran on the
 host (macOS-10.16 / py3.9, `in_container: false`) — acceptable because it is Anthropic API calls,

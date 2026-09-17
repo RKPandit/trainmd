@@ -46,12 +46,12 @@ corrections_count: 5
   case/reference builds refuse under emulation — the agent-facing visible metric is per-case
   platform-sensitive up to ~2.8σ native-vs-emulated, L23; CPU stamped in each hidden card + manifest),
   thread-pinned; base `python:3.11-slim-bookworm`; image digest above (`docker/IMAGE_DIGEST`). Reference
-  seeds `[0–29]` (**30**; adopted STAGE3_PLAN §0.5, two-runner byte-exact on native amd64,
-  `tolerance_lower` **0.843719** = mean−2σ; prior 10-seed band preserved at `reference/stats.10seed.yaml`);
+  seeds `[200–229]` (**30**; adopted STAGE3_PLAN §5.2 2026-09-17, native amd64 EPYC,
+  `tolerance_lower` **0.844655** = mean−2σ; prior 30-seed `[0–29]` band at `reference/stats.0-29seed.yaml`, 10-seed at `reference/stats.10seed.yaml`);
   hidden eval seeds `[100,101,102]`. **Seed-collision caveat:** reference `[0–29]` overlaps
   control/calibration seeds `{0,1,2}`, so control false-positive rate is biased **LOW by construction** —
   see LIMITATIONS L3. §5.1 (retain + label out-of-band controls; control FPR stratified by band position)
-  **landed 2026-09-16**; §5.2 (move reference off `[0–29]`) still pending to cure the circularity (§d).
+  **landed 2026-09-16**; §5.2 (reference → native EPYC `[200–229]`; controls → `[50–69]`) **adopted 2026-09-17** — circularity cured (§d).
 - **Latest committed sweep:** `stage2gate` (252 cells; agent phase on host/API, verify phase canonical
   in-container). Agent-phase cost **~$11.71 estimated** (actual pending). Prior: `sweep1` (~$12.76 est).
 
@@ -107,7 +107,9 @@ committed `results_release/`, CI byte-match + guards), evidence scorer v2.1 (§0
 reference distribution (§0.5 — ADOPTED:** `tolerance_lower` 0.843719 = mean−2σ; empirical band recorded
 but not adopted; normality checked; Sweeps 1/2 frozen as 10-seed-era historical artifacts).
 
-**Forced next sequence (seed-collision fix — §0.5 ruling):** the 30-seed band still overlaps
+**GATE 0 CLOSED (2026-09-17).** §0.5→§5.1→§5.2 landed: reference moved to native EPYC `[200–229]` (tol 0.844655), the four seed sets are disjoint (W3b), and the 50-case set (30 faulty + 20 controls, seeds 50–69) validates 50/50 with a native known-answer gate of **350 checks, 0 FAIL**. The 20-control band-position distribution was measured (visible **0/20** below-band, hidden **1/20** below-band — case_0033; **5% visible / 10% hidden** out-of-band; low-side boundary-sensitive across microarchs), correcting an earlier invented “25%”: the old-guard selection bias is **mild and real** (≈1/20 = 5% would have been rejected), not severe. **Next: STAGE3_PLAN v3 Part 1 — non-LLM baselines (free).** Per v3's standing rule, INSTRUMENT WORK STOPS here and resumes only when a deferred item's revival condition fires.
+
+*(historical, superseded)* Forced next sequence (§0.5 ruling): the 30-seed band still overlaps
 control/calibration seeds `{0,1,2}`, biasing control FPR **LOW by construction**. The fix is ordered
 and must land in this order before Gate 0 closes: **§0.5 (done) → §5.1 (DONE 2026-09-16: retain + label
 out-of-band controls; control build guard records band position instead of rejecting; control FPR
@@ -122,7 +124,7 @@ Apple-Silicon working tree; `cases/` is gitignored, nothing committed) — they 
 amd64 (CI) before use; the canonical item-5 band table was computed from the native CI reference.
 
 **Gate 0:** citations verified; CURRENT_STATE committed and consistent; `report` regenerates the
-Stage-2 tables byte-identically from records; v2.1 tests green; 30-seed reference adopted; §5.1/§5.2
+Stage-2 tables byte-identically from records; v2.1 tests green; **native EPYC `[200–229]` reference adopted (Gate 0 CLOSED 2026-09-17)**; §5.1/§5.2
 seed-disjointness landed.
 
 ## e. Document map (by role)
