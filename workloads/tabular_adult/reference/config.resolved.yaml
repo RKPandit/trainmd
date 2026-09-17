@@ -1,0 +1,56 @@
+# Clean RESOLVED config beside the reference band (STAGE3 ruling 2026-09-17).
+# B2 diffs a run's config.resolved.yaml against THIS, so train.py-written keys
+# (e.g. model.input_dim) are present on both sides. Regenerate from any clean
+# control run's workspace/run_output/config.resolved.yaml (seed stripped).
+workload:
+  family: tabular
+  name: tabular_adult
+model:
+  type: mlp
+  hidden_dims:
+  - 64
+  - 32
+  dropout: 0.0
+  activation: relu
+  input_dim: 105
+training:
+  epochs: 20
+  batch_size: 256
+  lr: 0.01
+  optimizer: adam
+  weight_decay: 0.0001
+metrics:
+  visible: metric_visible_val_acc
+reference:
+  num_seeds: 30
+  seeds:
+  - 200
+  - 201
+  - 202
+  - 203
+  - 204
+  - 205
+  - 206
+  - 207
+  - 208
+  - 209
+  - 210
+  - 211
+  - 212
+  - 213
+  - 214
+  - 215
+  - 216
+  - 217
+  - 218
+  - 219
+  - 220
+  - 221
+  - 222
+  - 223
+  - 224
+  - 225
+  - 226
+  - 227
+  - 228
+  - 229

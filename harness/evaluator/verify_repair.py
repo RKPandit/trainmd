@@ -174,6 +174,47 @@ def _make_result(
 # Main pipeline
 # ---------------------------------------------------------------------------
 
+def compute_recovery_verdict(per_seed_results, tolerance, layer,
+                             v_lo=None, v_hi=None):
+    """Recovery verdict under the MEAN-of-hidden-seeds rule (STAGE3 ruling 2026-09-17).
+
+    A repair is ``recovered`` iff every seed RAN (exitcode 0) and the MEAN hidden
+    test accuracy across seeds is >= ``tolerance`` (mean-2sigma). The old rule
+    ("every seed individually >= tolerance") fails a genuinely correct repair
+    ~7% of the time by construction (1 - 0.977**3, one seed past a 2sigma band);
+    the mean has sigma/sqrt(3) spread, so it fails only when the model is
+    genuinely degraded. For the metric tier the MEAN visible metric must also
+    return inside the healthy band [v_lo, v_hi].
+
+    Returns ``(verdict, mean_hidden, per_seed_fail_count)``; per_seed_fail_count
+    is the number of seeds that would have failed the OLD all-seeds rule, kept
+    for disclosure.
+    """
+    ran = [r for r in per_seed_results
+           if r["exitcode"] == 0 and r.get("metric_hidden_test_acc") is not None]
+    all_ran = len(per_seed_results) > 0 and len(ran) == len(per_seed_results)
+    mean_hidden = (sum(r["metric_hidden_test_acc"] for r in ran) / len(ran)
+                   if ran else None)
+    per_seed_fail_count = sum(
+        1 for r in per_seed_results
+        if not (r["exitcode"] == 0
+                and r.get("metric_hidden_test_acc") is not None
+                and r["metric_hidden_test_acc"] >= tolerance)
+    )
+    hidden_ok = all_ran and mean_hidden is not None and mean_hidden >= tolerance
+    if layer == "metric":
+        vis = [r.get("metric_visible_val_acc") for r in per_seed_results]
+        mean_vis = (sum(vis) / len(vis)
+                    if vis and all(v is not None for v in vis) else None)
+        visible_ok = (all_ran and mean_vis is not None
+                      and v_lo is not None and v_lo <= mean_vis <= v_hi)
+        recovered = hidden_ok and visible_ok
+    else:
+        recovered = hidden_ok
+    verdict = "recovered" if recovered else "not_recovered"
+    return verdict, mean_hidden, per_seed_fail_count
+
+
 def verify_repair(
     case_dir: Path,
     repair_spec: dict | Path,
@@ -442,22 +483,11 @@ def verify_repair(
                 "the metric-tier recovery check)"
             )
         v_lo, v_hi = vm - 2 * vs, vm + 2 * vs
-        all_recovered = all(
-            r["exitcode"] == 0
-            and r.get("metric_visible_val_acc") is not None
-            and v_lo <= r["metric_visible_val_acc"] <= v_hi
-            and r["metric_hidden_test_acc"] is not None
-            and r["metric_hidden_test_acc"] >= tolerance
-            for r in per_seed_results
-        )
     else:
-        all_recovered = all(
-            r["exitcode"] == 0
-            and r["metric_hidden_test_acc"] is not None
-            and r["metric_hidden_test_acc"] >= tolerance
-            for r in per_seed_results
-        )
-    verdict = "recovered" if all_recovered else "not_recovered"
+        v_lo = v_hi = None
+
+    verdict, mean_hidden, per_seed_fail_count = compute_recovery_verdict(
+        per_seed_results, tolerance, layer, v_lo, v_hi)
 
     # ---- Step 7: Integrity hash post-run ---------------------------------
     hashes_after = {
@@ -484,6 +514,11 @@ def verify_repair(
         },
         trial_run_id=trial_run_id,
     )
+    result["recovery_rule"] = "mean_hidden_test_acc>=tolerance_lower"
+    result["mean_hidden_test_acc"] = (round(mean_hidden, 6)
+                                      if mean_hidden is not None else None)
+    result["per_seed_fail_count"] = per_seed_fail_count
+    result["tolerance_lower"] = tolerance
     if trial_run_id is not None:
         _write_result(project_root, result, trial_run_id=trial_run_id)
     return result

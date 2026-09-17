@@ -152,3 +152,50 @@ def test_baseline_cannot_read_hidden_card(tmp_path):
         s._read("hidden/card.hidden.yaml")
     with pytest.raises(B.HiddenAccessError):
         s._read("hidden/verify.yaml")
+
+
+# ---- B0 exitcode crash detector -----------------------------------------
+def test_b0_detects_crash_only(tmp_path):
+    crash = _visible_case(tmp_path / "a", [], crash=True)
+    assert B.b0(B.VisibleSurface(crash, tmp_path / "a"))["diagnosis"]["detected"] is True
+    ok = _visible_case(tmp_path / "b", [0.857, 0.858])
+    assert B.b0(B.VisibleSurface(ok, tmp_path / "b"))["diagnosis"]["detected"] is False
+
+
+# ---- B2 resolved-vs-resolved + derived-key drop -------------------------
+def _with_reference(tmp: Path, ref_resolved: dict) -> Path:
+    p = tmp / "workloads" / "tabular_adult" / "reference"
+    p.mkdir(parents=True, exist_ok=True)
+    (p / "config.resolved.yaml").write_text(yaml.dump(ref_resolved))
+    return tmp
+
+
+def test_b2_detects_via_resolved_and_drops_derived_key(tmp_path):
+    # reference resolved has the train.py-derived model.input_dim=105
+    _with_reference(tmp_path, {"workload": {"name": "tabular_adult"},
+                               "model": {"input_dim": 105}, "training": {"lr": 0.01}})
+    # a leakage-style run: two aux knobs AND a derived input_dim bump to 106
+    cd = _visible_case(tmp_path, [0.90],
+                       resolved={"workload": {"name": "tabular_adult"},
+                                 "model": {"input_dim": 106},
+                                 "training": {"lr": 0.01},
+                                 "data": {"include_aux_feature": True,
+                                          "aux_feature_strength": 3.0}})
+    sub = B.b2(B.VisibleSurface(cd, tmp_path))
+    assert sub["diagnosis"]["detected"] is True
+    # derived model.input_dim is NOT patched; both aux knobs ARE (reset to clean/unset)
+    assert "model.input_dim" not in sub["repair_spec"]["patches"]
+    assert set(sub["repair_spec"]["patches"]) == {"data.include_aux_feature", "data.aux_feature_strength"}
+
+
+def test_b2_derived_key_kept_when_sole_delta(tmp_path):
+    # shape_mismatch style: the ONLY delta is the injected model.input_dim -> keep it
+    _with_reference(tmp_path, {"workload": {"name": "tabular_adult"},
+                               "model": {"input_dim": 105}})
+    cd = _visible_case(tmp_path, [0.857],
+                       resolved={"workload": {"name": "tabular_adult"},
+                                 "model": {"input_dim": 999}})
+    sub = B.b2(B.VisibleSurface(cd, tmp_path))
+    assert sub["diagnosis"]["detected"] is True
+    assert sub["repair_spec"]["patches"] == {"model.input_dim": 105}
+    assert sub["diagnosis"]["operator_class"] == "input_dim"

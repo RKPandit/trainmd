@@ -236,6 +236,16 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
     mcfg = config["model"]
     input_dim = X_train.shape[1]
     input_dim = mcfg.get("input_dim", input_dim)
+
+    # Write fully resolved config BEFORE building the model, so a run that
+    # crashes during model construction (e.g. shape_mismatch) still emits
+    # config.resolved.yaml for resolved-vs-resolved config diffing (baselines B2).
+    output_dir.mkdir(parents=True, exist_ok=True)
+    resolved = {**config, "seed": seed}
+    resolved.setdefault("model", {})["input_dim"] = input_dim
+    with open(output_dir / "config.resolved.yaml", "w") as f:
+        yaml.dump(resolved, f, default_flow_style=False, sort_keys=False)
+
     model = MLP(input_dim, mcfg["hidden_dims"], mcfg.get("dropout", 0.0)).to(device)
 
     optimizer = torch.optim.Adam(
@@ -260,11 +270,8 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
         handler.setFormatter(fmt)
         logger.addHandler(handler)
 
-    # Write fully resolved config
-    resolved = {**config, "seed": seed}
-    resolved.setdefault("model", {})["input_dim"] = input_dim
-    with open(output_dir / "config.resolved.yaml", "w") as f:
-        yaml.dump(resolved, f, default_flow_style=False, sort_keys=False)
+    # config.resolved.yaml is written earlier (before model construction) so a
+    # crash during model build still emits it.
 
     logger.info(
         "Training seed=%d  epochs=%d  input_dim=%d  device=%s",

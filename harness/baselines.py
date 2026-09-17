@@ -98,6 +98,26 @@ class VisibleSurface:
         p = self.project_root / "workloads" / wl / "config.yaml"
         return yaml.safe_load(p.read_text()) or {}
 
+    def reference_resolved_config(self) -> dict:
+        """The clean RESOLVED config committed beside the reference stats
+        (`reference/config.resolved.yaml`). B2 diffs resolved-vs-resolved against
+        this so that train.py-written keys (e.g. model.input_dim) are present on
+        BOTH sides — no longer a spurious delta on every case. Falls back to the
+        source config for old checkouts that lack the reference resolved file."""
+        wl = (self.resolved_config().get("workload", {}) or {}).get("name", "tabular_adult")
+        p = self.project_root / "workloads" / wl / "reference" / "config.resolved.yaml"
+        try:
+            return yaml.safe_load(p.read_text()) or {}
+        except FileNotFoundError:
+            return self.clean_config()
+
+    def exitcode(self):
+        """Process exit code (None if unavailable). Nonzero == crash (B0)."""
+        try:
+            return int(self._read("workspace/run_output/exitcode").strip())
+        except (FileNotFoundError, ValueError):
+            return None
+
 
 # --------------------------------------------------------------------------- #
 # Submission / evidence helpers (same shapes an agent emits)
@@ -124,9 +144,11 @@ def _config_key(key_path) -> dict:
 # Config diff (B2)
 # --------------------------------------------------------------------------- #
 
-# Keys added by train.py at resolution time (not fault knobs); the reference block
-# is not a training knob. Excluded so B2 flags only operator mutations.
-_IGNORE_KEYS = {"seed", "model.input_dim"}
+# `seed` legitimately differs per case (not a fault); the reference block is not a
+# training knob. model.input_dim is NO LONGER ignored: B2 diffs resolved-vs-resolved
+# against reference/config.resolved.yaml, where input_dim is present on both sides,
+# so a mutated input_dim (shape_mismatch) is a real delta, not a per-case artifact.
+_IGNORE_KEYS = {"seed"}
 _IGNORE_SECTIONS = {"reference"}
 
 
@@ -176,16 +198,35 @@ def b1(surface: VisibleSurface, band: tuple[float, float] | None = None) -> dict
     return _sub(True, evidence=[_metric_window("metric_visible_val_acc", oob[0][0], oob[-1][0])])
 
 
+# Keys train.py DERIVES from the data (present in resolved, not an independent knob).
+# They shift as a CONSEQUENCE of a root-cause change (e.g. an added leakage column
+# bumps model.input_dim), so B2 keeps them only when they are the SOLE delta — i.e.
+# the injected knob itself (shape_mismatch). Otherwise they are dropped from the
+# repair/identification (resetting the root cause makes train.py re-derive them).
+_DERIVED_KEYS = {"model.input_dim"}
+
+
 def b2(surface: VisibleSurface) -> dict:
-    """Config-delta heuristic."""
-    deltas = _config_deltas(surface.resolved_config(), surface.clean_config())
+    """Config-delta heuristic: diff the run's RESOLVED config against the clean
+    RESOLVED reference. A config-delta remediation resets ALL changed knobs to
+    clean (not just the first) — that is what the delta *is*."""
+    deltas = _config_deltas(surface.resolved_config(), surface.reference_resolved_config())
     if not deltas:
         return _sub(False, repair={"repair_type": "none", "patches": {}})
-    key, clean_val = deltas[0]
+    non_derived = [(k, v) for k, v in deltas if k not in _DERIVED_KEYS]
+    effective = non_derived if non_derived else deltas   # derived-only == the injected knob
+    patches = {k: v for k, v in effective}
     return _sub(True,
-                operator_class=key.split(".")[-1],          # leaf name -> scored vs core_tokens
-                evidence=[_config_key(key)],
-                repair={"repair_type": "config_patch", "patches": {key: clean_val}})
+                operator_class=effective[0][0].split(".")[-1],  # leaf -> scored vs core_tokens
+                evidence=[_config_key(k) for k, _ in effective],
+                repair={"repair_type": "config_patch", "patches": patches})
+
+
+def b0(surface: VisibleSurface) -> dict:
+    """B0 exitcode detector — the trivially honest crash detector. detected iff the
+    process exited nonzero. Detection-only floor: no identification/evidence/repair."""
+    ec = surface.exitcode()
+    return _sub(ec is not None and ec != 0)
 
 
 def b3(surface: VisibleSurface, band: tuple[float, float] | None = None) -> dict:
@@ -249,7 +290,7 @@ def operating_point_for_rate(roc: list[dict], target_tpr: float) -> dict | None:
 # Scoring — the SAME scorer as an agent (baseline reads visible; scorer reads hidden)
 # --------------------------------------------------------------------------- #
 
-_BASELINES = {"b1": b1, "b2": b2, "b3": b3}
+_BASELINES = {"b0": b0, "b1": b1, "b2": b2, "b3": b3}
 
 
 def score_baseline(case_dir, name, band=None, project_root=None) -> tuple[dict, dict]:
@@ -269,7 +310,7 @@ def score_baseline(case_dir, name, band=None, project_root=None) -> tuple[dict, 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Non-LLM baselines (STAGE3_PLAN Part 1)")
-    ap.add_argument("--baseline", choices=["b1", "b2", "b3", "b4"], required=True)
+    ap.add_argument("--baseline", choices=["b0", "b1", "b2", "b3", "b4"], required=True)
     ap.add_argument("--cases", default="cases/case_*", help="glob for case dirs")
     ap.add_argument("--project-root", type=Path, default=None)
     args = ap.parse_args()

@@ -166,10 +166,13 @@ class DataLeakageOperator:
         """
         return RepairSpecSchema(
             repair_type="config_patch",
-            allowed_keys=["data.include_aux_feature"],
+            # Both keys the operator mutates are admissible so that unsetting
+            # BOTH exactly restores clean (STAGE3 ruling 2026-09-17: every mutated
+            # key must be unsettable). include_aux_feature=False alone also recovers.
+            allowed_keys=["data.include_aux_feature", "data.aux_feature_strength"],
             allowed_values={"data.include_aux_feature": [False]},
             # Absent in clean config; unset ≡ the clean default (feature off).
-            absent_when_clean_keys=["data.include_aux_feature"],
+            absent_when_clean_keys=["data.include_aux_feature", "data.aux_feature_strength"],
             description=(
                 "Set data.include_aux_feature to false to disable the "
                 "auxiliary feature, or null to unset it (delete the injected key)."
