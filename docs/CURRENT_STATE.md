@@ -154,3 +154,19 @@ was never committed.)*
 
 **Referenced but non-existent** (drafted, never committed — do not cite as sources):
 `problem_statement_v0.4`, `harness_spec_v0.2`, `STAGE3_PLAN_v1_historical.md`.
+
+## f. Change-classification taxonomy (look it up; do not reconstruct)
+
+Four categories for a change to a committed fact, so the next classification is a lookup:
+
+- **Correction** — a PUBLISHED number was measurably wrong. Bumps `corrections_count`; the
+  corrected value becomes primary, the prior retained for audit. *e.g.* correction #5 (evidence
+  v1→v2.1); the 5 tracked in `corrections_count`.
+- **Latent-bug fix** — a defect caught BEFORE it published. No `corrections_count` change
+  (nothing wrong was ever released). *e.g.* the §0.3 scorer/analysis fixes.
+- **Documentation error** — prose that was NEVER true as written. No number changes;
+  `corrections_count` unchanged. *e.g.* `case_0031/0032` mislabelled “control” (they are
+  `silent.metric_inflation.v1`) — DECISIONS 2026-09-16.
+- **Stale snapshot** — prose that was TRUE when written but the world moved under it. Not an
+  error; update in place. *e.g.* `case_count` 33 (correct pre-§5.2, now 50); the retrospective's
+  test count (grew every PR).
