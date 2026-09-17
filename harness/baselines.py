@@ -8,10 +8,23 @@ value clears a trivial floor on detection, and expose where it does not.
   a run with no metrics has nothing out of band, so ``detected=False`` is the correct answer
   to "is a monitored metric out of band," not a miss. A band monitor is structurally blind to
   crashes; report B1 detection split crash / non-crash.
-- **B2 config-delta** — flags a non-default / newly-present config key; identification = that
-  key's leaf name (scored against the operator's ``core_tokens`` exactly like an agent, so
-  config-legibility is measured), evidence = a ``config_key`` ref, repair = reset it to clean
-  (or unset if absent-when-clean).
+- **B2 config-delta** — diffs the run's RESOLVED config against a committed clean RESOLVED
+  reference (``reference/config.resolved.yaml``) and flags any changed / newly-present key.
+  **B2 carries two pieces of WORKLOAD-SPECIFIC knowledge that a generic config-diff does NOT
+  have, and this must be stated wherever B2 is compared to an agent:** (1) the clean resolved
+  config (so a per-case value is judged against a known-good baseline, not guessed), and (2)
+  which keys are DERIVED (``_DERIVED_KEYS`` — e.g. ``model.input_dim`` is a function of the
+  data schema, so a leakage-added column bumps it as a *consequence*, not a knob). B2 keeps a
+  derived key in the repair only when it is the SOLE delta (the injected knob itself, as in
+  shape_mismatch); otherwise it resets the root-cause knobs and lets train.py re-derive it.
+  This is defensible — a real remediation tool learns which keys are derived — but it is
+  knowledge, not triviality, and is disclosed as such. identification = the changed key's leaf
+  name (scored against the operator's ``core_tokens`` exactly like an agent, so
+  config-legibility is measured); evidence = ``config_key`` refs for ALL reset knobs; repair =
+  reset every changed knob to clean (unset if absent-when-clean).
+- **B0 exitcode** — the trivially honest crash detector: detected iff the process exited
+  nonzero. Detection-only floor (no identification/evidence/repair); a band/config monitor is
+  structurally blind to crashes, B0 is not.
 - **B3 union** — B1 OR B2; identification/evidence/repair from B2 when it fires, else B1's
   evidence only.
 - **B4 REFERENCE-INFORMED ORACLE** — ``max|z|`` of the visible metric vs the reference mean/sd,

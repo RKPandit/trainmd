@@ -107,7 +107,9 @@ committed `results_release/`, CI byte-match + guards), evidence scorer v2.1 (§0
 reference distribution (§0.5 — ADOPTED:** `tolerance_lower` 0.843719 = mean−2σ; empirical band recorded
 but not adopted; normality checked; Sweeps 1/2 frozen as 10-seed-era historical artifacts).
 
-**GATE 0 CLOSED (2026-09-17).** §0.5→§5.1→§5.2 landed: reference moved to native EPYC `[200–229]` (tol 0.844655), the four seed sets are disjoint (W3b), and the 50-case set (30 faulty + 20 controls, seeds 50–69) validates 50/50 with a native known-answer gate of **350 checks, 0 FAIL**. The 20-control band-position distribution was measured (visible **0/20** below-band, hidden **1/20** below-band — case_0033; **5% visible / 10% hidden** out-of-band; low-side boundary-sensitive across microarchs), correcting an earlier invented “25%”: the old-guard selection bias is **mild and real** (≈1/20 = 5% would have been rejected), not severe. **Next: STAGE3_PLAN v3 Part 1 — non-LLM baselines (free).** Per v3's standing rule, INSTRUMENT WORK STOPS here and resumes only when a deferred item's revival condition fires.
+**GATE 0 ON HOLD (re-opened 2026-09-17).** Adopting the tighter native `[200–229]` band broke the recovery axis (18 CI failures on PR #10; the 350/0 FAST gate ran without `verify_repair`). Gate 0 does NOT close until: (1) the recovery MEAN-rule lands and the 18 recovery/oracle-round-trip tests are green in CI, (2) the known-answer gate's `--full` mode (with `verify_repair`) is green, and (3) the `--full` requirement is documented + wired into CI (the CI YAML step follows when the token has `workflow` scope). Progress: B2 re-measured (detection/recovery 30/30) ✓; recovery mean-rule + `compute_recovery_verdict` landed ✓ (CI-pending). *(The closure text below is SUPERSEDED.)*
+
+*(superseded 2026-09-17)* GATE 0 CLOSED. §0.5→§5.1→§5.2 landed: reference moved to native EPYC `[200–229]` (tol 0.844655), the four seed sets are disjoint (W3b), and the 50-case set (30 faulty + 20 controls, seeds 50–69) validates 50/50 with a native known-answer gate of **350 checks, 0 FAIL**. The 20-control band-position distribution was measured (visible **0/20** below-band, hidden **1/20** below-band — case_0033; **5% visible / 10% hidden** out-of-band; low-side boundary-sensitive across microarchs), correcting an earlier invented “25%”: the old-guard selection bias is **mild and real** (≈1/20 = 5% would have been rejected), not severe. **Next: STAGE3_PLAN v3 Part 1 — non-LLM baselines (free).** Per v3's standing rule, INSTRUMENT WORK STOPS here and resumes only when a deferred item's revival condition fires.
 
 *(historical, superseded)* Forced next sequence (§0.5 ruling): the 30-seed band still overlaps
 control/calibration seeds `{0,1,2}`, biasing control FPR **LOW by construction**. The fix is ordered
@@ -124,7 +126,7 @@ Apple-Silicon working tree; `cases/` is gitignored, nothing committed) — they 
 amd64 (CI) before use; the canonical item-5 band table was computed from the native CI reference.
 
 **Gate 0:** citations verified; CURRENT_STATE committed and consistent; `report` regenerates the
-Stage-2 tables byte-identically from records; v2.1 tests green; **native EPYC `[200–229]` reference adopted (Gate 0 CLOSED 2026-09-17)**; §5.1/§5.2
+Stage-2 tables byte-identically from records; v2.1 tests green; **native EPYC `[200–229]` reference adopted; Gate 0 ON HOLD (recovery mean-rule + full-mode gate pending, 2026-09-17)**; §5.1/§5.2
 seed-disjointness landed.
 
 ## e. Document map (by role)

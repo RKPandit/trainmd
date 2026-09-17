@@ -574,3 +574,36 @@ the canonical in-container verify re-run. Case-clustered 95% CIs (cluster = oper
   comparison deferred). Repair **folding: 16** submissions (13 recovered via `parser_fix_v1`).
   Recovery axis **degenerate** on these operators (`not_recovered` 0/138; see FINDINGS/L19) —
   reported for completeness, not a discrimination axis this gate.
+
+---
+
+## Sweep-3 pre-registration addendum (2026-09-17) — superseding H7's detection framing
+
+**Why H7 is re-framed.** H7 (STAGE3_PLAN: "reference context restores **detection**") treats
+detection as the axis where the reference/agent adds value. Part 1's non-LLM baselines refute
+that as the HEADLINE: on this workload's five config-knob operators, a config-delta baseline B2
+— knowing the clean resolved config + the derived-key set — matches the ref-anchored LLM on
+detection (30/30 vs 1.00) AND recovery (30/30 vs 0.94) at better specificity (0/20 vs 0.22).
+Detection is not where the agent's measured value concentrates; identification of non-legible
+faults is. *Integrity caveat: baselines are on the native 50-case set, the LLM on the frozen
+superseded set — per-operator DIRECTIONAL only, no cross-set gap CI, resolved by Sweep 3.*
+
+**H7′ (re-pre-registered headline for Sweep 3).** On config-knob faults, the agent's value over
+a config-delta baseline is concentrated on IDENTIFICATION (and secondarily evidence) of faults
+whose config knob does NOT name the concept (`data_leakage`, `metric_inflation`), and that value
+is ANCHOR-DEPENDENT.
+- **Prediction.** On a matched native case set: LLM_ref − B2 identification > 0 with a
+  case-clustered CI excluding 0, concentrated on `data_leakage` + `metric_inflation`; on
+  lr/label/shape the gap ≈ 0. LLM_off − B2 identification ≈ 0 or negative (anchor-dependence).
+- **Decisive test — NEUTRAL-KEY (Part 2).** Rename each operator's config knob to a
+  concept-neutral token (e.g. `training.lr` → `training.hp_a`). If the anchored LLM's
+  identification HOLDS under neutral keys while B2's (config-name match) drops → the LLM edge is
+  fault-understanding. If it collapses toward B2 → it was config-legibility. **Pre-registered
+  criterion:** LLM_ref identification under neutral keys ≥ (its legible-key identification −
+  0.15) ⇒ understanding; else legibility.
+- **Code-origin operator.** A fault living in code with NO config knob → B2 is structurally
+  blind (0 detection/identification). If the LLM detects/identifies it, the agent's value
+  extends BEYOND config-knob faults — the generalization Part 1 explicitly does not make.
+- **What would refute H7′.** Neutral keys collapse the LLM's identification to the B2 floor
+  (edge was legibility, not understanding); or the matched-set LLM_ref − B2 identification CI
+  includes 0 (no measurable edge once the sets match).

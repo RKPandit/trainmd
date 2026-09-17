@@ -238,8 +238,8 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
     input_dim = mcfg.get("input_dim", input_dim)
 
     # Write fully resolved config BEFORE building the model, so a run that
-    # crashes during model construction (e.g. shape_mismatch) still emits
-    # config.resolved.yaml for resolved-vs-resolved config diffing (baselines B2).
+    # exits early during model construction still emits config.resolved.yaml
+    # for resolved-vs-resolved config diffing (baselines B2).
     output_dir.mkdir(parents=True, exist_ok=True)
     resolved = {**config, "seed": seed}
     resolved.setdefault("model", {})["input_dim"] = input_dim
@@ -270,8 +270,8 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
         handler.setFormatter(fmt)
         logger.addHandler(handler)
 
-    # config.resolved.yaml is written earlier (before model construction) so a
-    # crash during model build still emits it.
+    # config.resolved.yaml is written earlier (before model construction) so an
+    # early exit during model build still emits it.
 
     logger.info(
         "Training seed=%d  epochs=%d  input_dim=%d  device=%s",

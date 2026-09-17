@@ -342,3 +342,21 @@ slated for Sweep 3. *Not fixed here* (§5.1 scope was controls). *Fix, sequenced
 more metric cases (STAGE3_PLAN):* retain out-of-band metric cases and record their band position (as
 §5.1 did for controls), so the metric tier's model-health property is measured rather than selected.
 The 6 metric cases sit in_band on hidden — RE-DERIVED from the native §5.2 candidate build (case_0025–0030, run 35179221087, against the 200–229 band, tol 0.844655, hidden σ 0.001796): their true hidden accuracy is **0.85σ–1.26σ ABOVE the mean** (σ from mean −1.26…−0.85), well within ±2σ, while their VISIBLE metric is inflated **+12σ to +57σ** by the fault (as designed). (Band value finalised at adoption — cross-microarch ±2e-4.)
+
+
+**L25 — Recovery uses a MEAN-of-hidden-seeds rule (disclosed definition change, 2026-09-17); the
+baseline recovery match is a degenerate-axis result.** `recovered` iff the MEAN of the 3
+hidden-seed accuracies ≥ `tolerance_lower` (was: every seed individually), every seed having run
+(exit 0), plus — metric tier — the MEAN visible metric in-band. Rationale: "all 3 seeds ≥
+mean−2σ" fails a genuinely correct repair ~7% of the time BY CONSTRUCTION (1 − 0.977³, one seed
+past a one-sided 2σ band); this bit exactly once under the tighter native band (hidden_eval
+seed 101 clean = 0.844317, 2.19σ below the mean, < tol 0.844655) and failed 18 oracle-round-trip
+tests. The mean has σ/√3 spread, so it fails only when the model is genuinely degraded
+(`compute_recovery_verdict` + `tests/test_recovery_rule.py`; frozen-sweep delta = 0). **Rejected
+alternatives:** re-selecting hidden_eval seeds (test-set selection bias, the class §5.1/§5.2
+removed) and decoupling the recovery tolerance from the detection band (one band, not two).
+**Caveat on the baseline recovery numbers:** B2 recovers 30/30 — but recovery is DEGENERATE on
+these operators (L19: any admissible repair reconstructs the clean run), so a config-reset
+matching the oracle is expected, not evidence of repair intelligence. B2's control-FPR is 0/20
+(no config delta on a clean control), so on specificity B2 dominates the band detector B1 (1/20,
+the case_0039 two-sided-band false positive) — the 0-FPR floor is B2, not B1.

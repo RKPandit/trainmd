@@ -38,6 +38,7 @@ with a more precise mechanism than predicted) · `refuted` (pre-registered crite
 | S12 | **`lr_warmup`'s failure on Adult/MLP is BIMODAL, not graded** — a per-seed collapse to the majority-class baseline whose probability rises with the learning rate (and is microarch-sensitive), with no stable partial-degradation regime. The operator yields *detection* data, not σ-magnitude; the H2 σ-axis rests on `label_corruption`. Corrects the earlier "ladder saturation" (L1). | Calibration sweep (5 seeds, emulated amd64; `scripts/calibrate_lr_warmup.py`): collapse-to-0.756008 rate 0.10→0/5, 0.12/0.15→2/5, 0.20→4/5, **0.50 & 1.00→5/5**; at lr 0.30 one seed fell to 0.684 (below the majority baseline — anti-learned). | unplanned · workload-specific |
 | S13 | **A numerical baseline restores detection** — supplying the healthy metric band flips agents from "looks fine → healthy" to detecting the fault, on **every** operator tried, and the bare band (not the decision rule) does ~all of it. **The strongest-supported claim in the project.** | Stage-2 G2 (F10): the **numbers** arm closes **94–95%** of the off→rule detection gap on all three gate operators (rule adds 4–5 pp); replicates Sweep-1 S8/F8. Control-FP cost is only *suggestive* (3 clusters, L20). | **confirmed on 3 operators (Stage-2 G2)** · replicates S8 · control-specificity cost pending ≥20 controls |
 | S14 | **Detection tracks symptom *obviousness*, not symptom sign** (candidate replacement for the refuted S1 sign-claim). Detection falls monotonically with how visible the fault's symptom is: catastrophic crash → collapse → subtle silent → inverted (leakage). | Sweep-1 + gate anchor-off detection: shape crash **1.000**, lr collapse **0.944**, subtle silent (label 0.333 / metric 0.250) **0.25–0.33**, leakage **0.042–0.083**. | **EXPLORATORY · post-hoc · must be pre-registered before it is tested** |
+| S15 | **On config-knob faults, a config-delta baseline (WITH clean-resolved-config + derived-key knowledge) matches the ref-anchored LLM on detection and recovery at better specificity; the agent's measured surviving value is identifying faults whose knob name ≠ the concept, and it is anchor-dependent.** NOT "the LLM adds nothing on detection/recovery" — that generalization is Sweep-3 / code-origin territory. | B2 (native 50-case): det **30/30**, FPR **0/20**, id **18/30**, ev 0.63, rec **30/30**. LLM ref-anchored (frozen, superseded set): det 1.00, id 0.96, rec 0.94, FPR 0.22. B2 id misses exactly `data_leakage` + `metric_inflation`; LLM off-anchor leakage id **0/30**. | unplanned · per-operator DIRECTIONAL only (baselines native, LLM frozen-superseded — no cross-set gap CI) · generalization pending Sweep 3 + neutral-key test |
 
 ---
 
@@ -531,6 +532,81 @@ finding; quoted now only as the candidate framing that replaces the refuted clai
    consistency-checking detection is distinguished from positive-symptom-*magnitude* detection
    before H1 leans on the second positive-symptom operator (diagnostics plan in HYPOTHESES.md; a
    loss-on-same-subset matched variant is a Sweep-3 candidate).
+
+---
+
+## Part 1 — Non-LLM baselines (2026-09-17) — free floor contestants
+
+### F12 — On config-knob faults, the agent's measured value is identifying faults whose knob name does not name the concept, and it is anchor-dependent
+
+**Integrity caveat (foregrounded).** The baselines are measured on the NATIVE 50-case set
+(config axes are platform-independent; per-operator verdicts deterministic, ×6 for the 30
+faulty). The LLM numbers are from the FROZEN Sweep-1/Stage-2 records on the now-SUPERSEDED
+case set + band. These are **per-operator DIRECTIONAL comparisons only — NOT a cross-set gap
+with a case-clustered CI.** A real LLM−B2 gap CI needs the LLM re-run on the identical native
+cases; the generalization is resolved by **Sweep 3** (matched set) and the **code-origin
+operator**, not here.
+
+**B2's knowledge, stated (not hidden in "trivial").** B2 diffs the run's RESOLVED config
+against a committed CLEAN RESOLVED reference (`reference/config.resolved.yaml`) and knows which
+keys are DERIVED (`model.input_dim` is a function of the data schema, so a leakage-added column
+bumps it as a *consequence*). That is WORKLOAD-SPECIFIC knowledge a generic config-diff lacks;
+it is defensible — a real remediation tool learns which keys are derived — but it is knowledge,
+so every B2 number below is a "config-delta baseline WITH the clean resolved config + derived-key
+set," not a naive differ. (`harness/baselines.py`; DECISIONS 2026-09-17.)
+
+**Evidence (re-measured; native 50-case set; `harness.baselines` through `score_diagnosis` +
+`verify_repair`).**
+
+| baseline | detection (faulty) | control-FPR | identification | evidence F1 | recovery |
+|---|---|---|---|---|---|
+| **B0** exitcode | 6/30 (crash only) | 0/20 | — | — | — |
+| **B1** band | 24/30 = 0.80 | 1/20 = 0.05 | — | 0.43 | — |
+| **B2** config-delta [^b2] | **30/30 = 1.00** | **0/20 = 0.00** | **18/30 = 0.60** | 0.63 | **30/30 = 1.00** |
+| **B3** union (B1∪B2) | **30/30 = 1.00** | 1/20 = 0.05 | 18/30 = 0.60 | 0.63 | 30/30 = 1.00 |
+
+[^b2]: B2 uses the clean RESOLVED config + the derived-key set (`model.input_dim`) — workload-specific
+knowledge, disclosed above; not a naive config-diff.
+
+LLM (FROZEN, prior superseded set; case-clustered CI within the frozen data):
+off-anchor det 0.46 [0.31,0.61] / id 0.41 [0.26,0.57] / rec 0.37 [0.24,0.52], FPR 0/30 ·
+stats (numbers) arm det 0.94 [0.90,0.99] / id 0.83 [0.74,0.92] / rec 0.85 [0.74,0.94], FPR 6/12=0.50 ·
+ref-anchored det 1.00 / id 0.96 [0.92,0.99] / rec 0.94 [0.88,0.98], FPR 4/18=0.22.
+
+Per-operator (B2): **lr, label, shape** identified AND recovered; **data_leakage,
+metric_inflation** recovered but NOT identified (`aux_feature_strength` / `eval_subset_fraction`
+do not contain the fault concept). LLM off-anchor per-operator: shape id 17/18, lr 18/18,
+label 14/30, metric 4/12, **leakage 0/30**.
+
+**Interpretation (measured, not generalized).** On THIS workload's five operators, a
+config-delta baseline with knowledge of the clean resolved config and of derived keys **matches
+the ref-anchored LLM on detection (30/30 vs 1.00) and on recovery (30/30 vs 0.94) at better
+specificity (0/20 vs 0.22).** We do NOT claim "the LLM adds nothing on detection or recovery":
+that generalization is what Sweep 3 and the code-origin operator would test and is not
+established here — and recovery in particular is a DEGENERATE axis on these operators (L19: any
+admissible repair reconstructs the clean run), so the recovery match is expected, not evidence
+of cleverness. The honest headline: **on config-knob faults, the agent's measured value is
+IDENTIFICATION of faults whose knob name does not name the concept** — `data_leakage` (knob
+`aux_feature`, concept `leak`) and `metric_inflation` (knob `eval_subset_fraction`, concept
+`bias`/`inflation`) — where B2 scores 0/6 each and the anchored LLM 0.83–0.96. **And that value
+is ANCHOR-DEPENDENT:** off-anchor the LLM's `data_leakage` identification collapses to 0/30.
+Whether it is fault-understanding or reference-anchored config-legibility is exactly what Part
+2's neutral-key test decides (HYPOTHESES, Sweep-3 addendum).
+
+**Correction folded in (RESEARCH_LOG 32).** An earlier correctly-run table read B2/B3 detection
+as 24/30 and concluded "the LLM's detection edge is the crash tier." That was an instrument
+artifact — `_IGNORE_KEYS` masking `model.input_dim` under a source-vs-resolved diff — not a
+benchmark property; with resolved-vs-resolved B2/B3 detect 30/30 and the crash-edge reading is
+**WITHDRAWN**. The number was real; the conclusion was the artifact.
+
+**What would change our mind.** (a) A neutral-key operator variant on which the anchored LLM's
+identification holds while B2's (config-name match) misses → identification is
+fault-understanding, not legibility. (b) Sweep-3 matched-set LLM trials letting a real LLM−B2
+gap CI be computed. (c) A code-origin operator (fault in code, no config knob) on which B2 is
+structurally blind but the LLM is not → the agent's value extends beyond config-knob faults.
+
+**Status:** unplanned · baselines native 50-case vs LLM frozen superseded set (per-operator
+directional only, no cross-set gap CI) · generalization pending Sweep 3.
 
 ---
 
