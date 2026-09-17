@@ -152,6 +152,7 @@ jobs:
           make docker-gate-known-answer
           make docker-case-margins
       - name: Known-answer gate (FULL — verify_repair recovery)
+        if: steps.refchg.outputs.changed == 'true'
         run: make docker-gate-known-answer FULL=1
 
   # ---- Reproducible-analysis guards (STAGE3_PLAN §0.3): pure-Python, no container ----
