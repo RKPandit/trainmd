@@ -342,7 +342,7 @@ def _check_c4(verify: dict, project_root: Path, workload_name: str) -> CheckResu
         detail = "verify.yaml missing tolerance_lower"
         return CheckResult("C4_tolerance_matches_reference", False, detail, "CONSISTENCY")
 
-    if abs(actual - expected) > 1e-9:
+    if abs(actual - expected) > 2e-6:  # §5.2: match verify_reference (round-order noise up to ~1e-6 at 6dp; DECISIONS 2026-09-14)
         detail = (
             f"tolerance_lower={actual} != round(mean - 2*std, 6)={expected} "
             f"(mean={mean}, std={std}). "

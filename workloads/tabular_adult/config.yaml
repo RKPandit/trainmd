@@ -25,8 +25,8 @@ reference:
   # doing so leaks it past the W4 wall (regression caught 2026-09-15) — nor any operator-id segment
   # (W1). The prior 10-seed band is preserved at reference/stats.10seed.yaml. The reference-30seed
   # candidate workflow can regenerate a candidate at any N via --num-seeds N; default = seeds[:30].
-  # §5.2: reference seeds moved 0–29 → 200–229 to break the seed collision with
-  # control/calibration seeds (LIMITATIONS L3; the four disjoint sets live in
+  # §5.2: reference seeds moved 0–29 → 200–229 to break the seed-collision
+  # documented in LIMITATIONS L3 (the four disjoint sets live in
   # harness/seed_sets.py). The old 0–29 are now DEVELOPMENT seeds.
   num_seeds: 30
   seeds: [200, 201, 202, 203, 204, 205, 206, 207, 208, 209,

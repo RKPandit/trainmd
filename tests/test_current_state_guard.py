@@ -39,7 +39,7 @@ def test_main_passes_on_real_repo():
 
 def test_planted_stale_case_count_fails():
     declared = guard.load_declared()
-    declared["case_count"] = 27  # stale (design has 33)
+    declared["case_count"] = 27  # stale (design has 50)
     errors = guard.check_facts(declared, ROOT)
     assert any("case_count" in e for e in errors), errors
 
