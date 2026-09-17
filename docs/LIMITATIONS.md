@@ -339,4 +339,4 @@ class of selection bias §5.1 removed from the CONTROL guard, in the other direc
 slated for Sweep 3. *Not fixed here* (§5.1 scope was controls). *Fix, sequenced BEFORE Sweep 3 builds
 more metric cases (STAGE3_PLAN):* retain out-of-band metric cases and record their band position (as
 §5.1 did for controls), so the metric tier's model-health property is measured rather than selected.
-The current 6 metric cases all sit in-band on hidden (σ from mean −0.53…+0.11).
+The 6 metric cases all sit in-band on hidden (σ from mean −0.53…+0.11 — **PROVISIONAL**: read from the pre-§5.2 on-disk cards, whose build platform is uncertain (possibly emulated); to be RE-DERIVED from the native 50-case margin table when §5.2 adopts. No stated number should carry weaker provenance than the artifact behind it — RESEARCH_LOG 32).
