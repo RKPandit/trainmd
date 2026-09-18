@@ -43,11 +43,12 @@ _STRENGTH_P: dict[str, float] = {
     # so LOWER p = STRONGER leak = higher visible inflation. mild was 0.35 (corr
     # 0.30), which sat AT the mean+2σ edge with zero margin and flaked when the
     # reference moved to the 200-229 band. Recalibrated DOWN to clear the margined
-    # symptom bar (mean+4σ+1e-3).
-    # PROVISIONAL: 0.25 is the directional (emulated-amd64) pick; the NATIVE sweep
-    # in scripts/calibrate_data_leakage.py is authoritative. If native selects a
-    # different largest-p-that-clears, that value wins over 0.25.
-    "mild": 0.25,
+    # symptom bar (mean+4σ+1e-3, operators/margins.py).
+    # 0.28 is the LARGEST p (mildest leak) that clears BOTH halves with >= 2σ+1e-3
+    # on every calibration seed, per the NATIVE sweep scripts/calibrate_data_leakage.py
+    # (CI run 35290173830: p=0.30 fails symptom by 0.0029; p=0.28 clears by +0.011
+    # visible / +0.016 hidden). mild visible val_acc ~0.877 (plausible inflation).
+    "mild": 0.28,
     "moderate": 0.20,
     "severe": 0.05,
 }
