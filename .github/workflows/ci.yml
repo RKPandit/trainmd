@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 40
     strategy:
       matrix:
-        run: [1, 2]        # two fresh runners, not two invocations in one shell
+        run: [1, 2] # two fresh runners, not two invocations in one shell
     steps:
       - uses: actions/checkout@v4
       - run: docker build --platform linux/amd64 -t trainmd:canonical .
@@ -72,6 +72,8 @@ jobs:
           make docker-case-margins
           END=$(date +%s)
           echo "BUILD_ALL_CASES_WALL_SECONDS=$((END-START))"
+      - name: Known-answer gate (FULL — verify_repair recovery)
+        run: make docker-gate-known-answer FULL=1
       - name: Positive-symptom rung margin table (all six rungs, both halves)
         run: make docker-margin-report
       - name: Disk after (cases + data footprint)
@@ -151,6 +153,9 @@ jobs:
           make docker-validate-all
           make docker-gate-known-answer
           make docker-case-margins
+      - name: Known-answer gate (FULL — verify_repair recovery)
+        if: steps.refchg.outputs.changed == 'true'
+        run: make docker-gate-known-answer FULL=1
 
   # ---- Reproducible-analysis guards (STAGE3_PLAN §0.3): pure-Python, no container ----
   # The committed records RELEASE lets these run with no results/ or cases/ (both gitignored):
@@ -163,7 +168,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
       - run: pip install pyyaml
       - name: Manifest/plan schema
         run: python scripts/check_manifest_schema.py
