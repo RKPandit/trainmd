@@ -179,3 +179,12 @@ docker-build-all-cases:
 MARGIN_ARGS ?=
 docker-case-margins:
 	$(DOCKER_RUN) python scripts/case_margins.py $(MARGIN_ARGS)
+
+# Per-seed clearance of every positive-symptom rung on BOTH halves of its tier
+# contract, under the current band (structural margin rule, operators/margins.py).
+docker-margin-report:
+	$(DOCKER_RUN) python scripts/margin_report.py
+
+# Native calibration sweep for data_leakage mild's p (authoritative on amd64).
+docker-calibrate-data-leakage:
+	$(DOCKER_RUN) python scripts/calibrate_data_leakage.py

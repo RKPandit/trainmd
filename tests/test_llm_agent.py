@@ -633,8 +633,13 @@ class TestSystemPromptAnchor:
         prompt = _build_instruction_prompt(case_dir)
         assert "Healthy runs achieve" in prompt
         assert "metric_visible_val_acc" in prompt
-        # Range expressed as mean ± 2·std (30-seed reference mean 0.857079, std 0.00184; §0.5).
         assert "healthy range" in prompt
-        assert "0.8571" in prompt          # mean
-        assert "0.8534" in prompt          # mean - 2*std
-        assert "0.8608" in prompt          # mean + 2*std
+        # Read the advertised band from the case's public card rather than
+        # hardcoding a specific reference (band moves with §5.x adoptions).
+        import yaml as _yaml
+        _card = _yaml.safe_load((case_dir / "card.public.yaml").read_text())
+        _rv = _card["reference_visible_metric"]
+        _mean, _std = _rv["mean"], _rv["std"]
+        assert f"{_mean:.4f}" in prompt                    # mean
+        assert f"{_mean - 2 * _std:.4f}" in prompt         # mean - 2*std
+        assert f"{_mean + 2 * _std:.4f}" in prompt         # mean + 2*std

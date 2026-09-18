@@ -22,13 +22,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from harness.build_case import build_case
+from harness.seed_sets import CONFIRMATORY_CONTROL, CONFIRMATORY_FAULTY
 from operators.registry import all_operator_ids
 
 WORKLOAD = os.environ.get("WORKLOAD", "tabular_adult")
 CONTROL = "control.healthy.v1"
 STRENGTHS = ["mild", "moderate", "severe"]
-FAULTY_SEEDS = [42, 43]
-CONTROL_SEEDS = [0, 1, 2]
+# §5.2: confirmatory seeds from the single source of truth (harness/seed_sets.py),
+# disjoint from the reference band (200–229). Controls moved {0,1,2} → 50–69 (≥20).
+FAULTY_SEEDS = sorted(CONFIRMATORY_FAULTY)      # [42, 43]
+CONTROL_SEEDS = sorted(CONFIRMATORY_CONTROL)    # [50..69]
 
 
 def case_design_tuples() -> list[tuple[str, str, int]]:

@@ -86,6 +86,8 @@ on in-band controls, so they under-state out-of-band false positives. Classified
 interpretation update, not a correction** (`corrections_count` stays 5; DECISIONS 2026-09-16). §5.2 still
 moves the reference off `[0–29]` to break the circularity that biases even the stratified rate LOW.
 
+*(iv) §5.2 ADOPTED (2026-09-17): reference `[0–29]` → native EPYC `[200–229]` (tol 0.844655), controls rebuilt on disjoint seeds `[50–69]`; circularity cured. The 20-control band-position distribution was MEASURED (native, run 35179221087): **visible 0/20 below-band, hidden 1/20 below-band (case_0033); 5% visible / 10% hidden out-of-band.** So the old guard would have rejected ≈1/20 = **5%** of these healthy runs — the in-band selection bias is **mild and real**, not the ~25% first (wrongly) imagined and not zero. The low-side count is boundary-sensitive across microarchs (case_0033's margin −0.001223 sits within the ~5e-3 cross-microarch per-seed noise, L18/L23), so on another native runner it can be 0/20.)*
+
 **L4 — Identification depends on a principled token spec.** Fault naming is scored by root-token
 matching whose version and content hash are recorded on every trial. The spec is defined from each
 fault's meaning, but any future change to it requires re-scoring the affected trials with disclosure
@@ -280,7 +282,7 @@ Sweep 1. *Remedy:* **≥20 unique control cases per workload** before any false-
 established rather than suggestive. *(§5.1, 2026-09-16: control FPR is now stratified by band position
 and out-of-band controls are retained rather than discarded — L3(iii). That removes the LOW selection
 bias but does NOT cure under-power: with 3 controls the strata are even smaller, so the ≥20 requirement
-is unchanged and is the binding constraint on any control claim.)*
+is unchanged and is the binding constraint on any control claim.)* *(§5.2 adopted 2026-09-17: measured on 20 native controls — visible 0/20 below-band, hidden 1/20 below-band; 5%/10% out-of-band. **Residual caveat:** these 20 are seed replicas of ONE configuration (seeds 50–69), so 0–2/20 out-of-band says the band is well calibrated FOR THIS CONFIGURATION — NOT specificity against benign configuration VARIANTS, a full-study item.)*
 
 **L21 — The Stage-2 gate has SPLIT PROVENANCE across its two phases.** The agent phase ran on the
 host (macOS-10.16 / py3.9, `in_container: false`) — acceptable because it is Anthropic API calls,
@@ -339,4 +341,22 @@ class of selection bias §5.1 removed from the CONTROL guard, in the other direc
 slated for Sweep 3. *Not fixed here* (§5.1 scope was controls). *Fix, sequenced BEFORE Sweep 3 builds
 more metric cases (STAGE3_PLAN):* retain out-of-band metric cases and record their band position (as
 §5.1 did for controls), so the metric tier's model-health property is measured rather than selected.
-The current 6 metric cases all sit in-band on hidden (σ from mean −0.53…+0.11).
+The 6 metric cases sit in_band on hidden — RE-DERIVED from the native §5.2 candidate build (case_0025–0030, run 35179221087, against the 200–229 band, tol 0.844655, hidden σ 0.001796): their true hidden accuracy is **0.85σ–1.26σ ABOVE the mean** (σ from mean −1.26…−0.85), well within ±2σ, while their VISIBLE metric is inflated **+12σ to +57σ** by the fault (as designed). (Band value finalised at adoption — cross-microarch ±2e-4.)
+
+
+**L25 — Recovery uses a MEAN-of-hidden-seeds rule (disclosed definition change, 2026-09-17); the
+baseline recovery match is a degenerate-axis result.** `recovered` iff the MEAN of the 3
+hidden-seed accuracies ≥ `tolerance_lower` (was: every seed individually), every seed having run
+(exit 0), plus — metric tier — the MEAN visible metric in-band. Rationale: "all 3 seeds ≥
+mean−2σ" fails a genuinely correct repair ~7% of the time BY CONSTRUCTION (1 − 0.977³, one seed
+past a one-sided 2σ band); this bit exactly once under the tighter native band (hidden_eval
+seed 101 clean = 0.844317, 2.19σ below the mean, < tol 0.844655) and failed 18 oracle-round-trip
+tests. The mean has σ/√3 spread, so it fails only when the model is genuinely degraded
+(`compute_recovery_verdict` + `tests/test_recovery_rule.py`; frozen-sweep delta = 0). **Rejected
+alternatives:** re-selecting hidden_eval seeds (test-set selection bias, the class §5.1/§5.2
+removed) and decoupling the recovery tolerance from the detection band (one band, not two).
+**Caveat on the baseline recovery numbers:** B2 recovers 30/30 — but recovery is DEGENERATE on
+these operators (L19: any admissible repair reconstructs the clean run), so a config-reset
+matching the oracle is expected, not evidence of repair intelligence. B2's control-FPR is 0/20
+(no config delta on a clean control), so on specificity B2 dominates the band detector B1 (1/20,
+the case_0039 two-sided-band false positive) — the 0-FPR floor is B2, not B1.

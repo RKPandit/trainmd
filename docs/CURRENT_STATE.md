@@ -23,7 +23,7 @@ operators:            # operator_id  (tier)
   - silent.label_corruption.v1  # dynamics
   - silent.lr_warmup.v1         # dynamics (bimodal-collapse; retired from the σ-ladder — L1/S12)
   - silent.metric_inflation.v1  # metric
-case_count: 33                  # cases/registry.hidden.yaml (6 × 5 faulty ops + 3 controls)
+case_count: 50                  # §5.2: 30 faulty (5 ops × 3 strengths × 2 seeds) + 20 controls (seeds 50–69)
 evidence_scorer_primary: evidence_v2.1
 evidence_scorer_versions: [evidence_v1, evidence_v2, evidence_v2.1]
 canonical_image_digest: sha256:0354db57c29a5092ace862a0d8716dfe3729d4f8b893fe3079c66d947daeb25d
@@ -46,12 +46,12 @@ corrections_count: 5
   case/reference builds refuse under emulation — the agent-facing visible metric is per-case
   platform-sensitive up to ~2.8σ native-vs-emulated, L23; CPU stamped in each hidden card + manifest),
   thread-pinned; base `python:3.11-slim-bookworm`; image digest above (`docker/IMAGE_DIGEST`). Reference
-  seeds `[0–29]` (**30**; adopted STAGE3_PLAN §0.5, two-runner byte-exact on native amd64,
-  `tolerance_lower` **0.843719** = mean−2σ; prior 10-seed band preserved at `reference/stats.10seed.yaml`);
+  seeds `[200–229]` (**30**; adopted STAGE3_PLAN §5.2 2026-09-17, native amd64 EPYC,
+  `tolerance_lower` **0.844655** = mean−2σ; prior 30-seed `[0–29]` band at `reference/stats.0-29seed.yaml`, 10-seed at `reference/stats.10seed.yaml`);
   hidden eval seeds `[100,101,102]`. **Seed-collision caveat:** reference `[0–29]` overlaps
   control/calibration seeds `{0,1,2}`, so control false-positive rate is biased **LOW by construction** —
   see LIMITATIONS L3. §5.1 (retain + label out-of-band controls; control FPR stratified by band position)
-  **landed 2026-09-16**; §5.2 (move reference off `[0–29]`) still pending to cure the circularity (§d).
+  **landed 2026-09-16**; §5.2 (reference → native EPYC `[200–229]`; controls → `[50–69]`) **adopted 2026-09-17** — circularity cured (§d).
 - **Latest committed sweep:** `stage2gate` (252 cells; agent phase on host/API, verify phase canonical
   in-container). Agent-phase cost **~$11.71 estimated** (actual pending). Prior: `sweep1` (~$12.76 est).
 
@@ -107,7 +107,11 @@ committed `results_release/`, CI byte-match + guards), evidence scorer v2.1 (§0
 reference distribution (§0.5 — ADOPTED:** `tolerance_lower` 0.843719 = mean−2σ; empirical band recorded
 but not adopted; normality checked; Sweeps 1/2 frozen as 10-seed-era historical artifacts).
 
-**Forced next sequence (seed-collision fix — §0.5 ruling):** the 30-seed band still overlaps
+**GATE 0 ON HOLD (re-opened 2026-09-17).** Adopting the tighter native `[200–229]` band broke the recovery axis (18 CI failures on PR #10; the 350/0 FAST gate ran without `verify_repair`). Gate 0 does NOT close until: (1) the recovery MEAN-rule lands and the 18 recovery/oracle-round-trip tests are green in CI, (2) the known-answer gate's `--full` mode (with `verify_repair`) is green, and (3) the `--full` requirement is documented + wired into CI (the CI YAML step follows when the token has `workflow` scope). Progress: B2 re-measured (detection/recovery 30/30) ✓; recovery mean-rule + `compute_recovery_verdict` landed ✓ (CI-pending). *(The closure text below is SUPERSEDED.)*
+
+*(superseded 2026-09-17)* GATE 0 CLOSED. §0.5→§5.1→§5.2 landed: reference moved to native EPYC `[200–229]` (tol 0.844655), the four seed sets are disjoint (W3b), and the 50-case set (30 faulty + 20 controls, seeds 50–69) validates 50/50 with a native known-answer gate of **350 checks, 0 FAIL**. The 20-control band-position distribution was measured (visible **0/20** below-band, hidden **1/20** below-band — case_0033; **5% visible / 10% hidden** out-of-band; low-side boundary-sensitive across microarchs), correcting an earlier invented “25%”: the old-guard selection bias is **mild and real** (≈1/20 = 5% would have been rejected), not severe. **Next: STAGE3_PLAN v3 Part 1 — non-LLM baselines (free).** Per v3's standing rule, INSTRUMENT WORK STOPS here and resumes only when a deferred item's revival condition fires.
+
+*(historical, superseded)* Forced next sequence (§0.5 ruling): the 30-seed band still overlaps
 control/calibration seeds `{0,1,2}`, biasing control FPR **LOW by construction**. The fix is ordered
 and must land in this order before Gate 0 closes: **§0.5 (done) → §5.1 (DONE 2026-09-16: retain + label
 out-of-band controls; control build guard records band position instead of rejecting; control FPR
@@ -122,7 +126,7 @@ Apple-Silicon working tree; `cases/` is gitignored, nothing committed) — they 
 amd64 (CI) before use; the canonical item-5 band table was computed from the native CI reference.
 
 **Gate 0:** citations verified; CURRENT_STATE committed and consistent; `report` regenerates the
-Stage-2 tables byte-identically from records; v2.1 tests green; 30-seed reference adopted; §5.1/§5.2
+Stage-2 tables byte-identically from records; v2.1 tests green; **native EPYC `[200–229]` reference adopted; Gate 0 ON HOLD (recovery mean-rule + full-mode gate pending, 2026-09-17)**; §5.1/§5.2
 seed-disjointness landed.
 
 ## e. Document map (by role)
@@ -154,3 +158,19 @@ was never committed.)*
 
 **Referenced but non-existent** (drafted, never committed — do not cite as sources):
 `problem_statement_v0.4`, `harness_spec_v0.2`, `STAGE3_PLAN_v1_historical.md`.
+
+## f. Change-classification taxonomy (look it up; do not reconstruct)
+
+Four categories for a change to a committed fact, so the next classification is a lookup:
+
+- **Correction** — a PUBLISHED number was measurably wrong. Bumps `corrections_count`; the
+  corrected value becomes primary, the prior retained for audit. *e.g.* correction #5 (evidence
+  v1→v2.1); the 5 tracked in `corrections_count`.
+- **Latent-bug fix** — a defect caught BEFORE it published. No `corrections_count` change
+  (nothing wrong was ever released). *e.g.* the §0.3 scorer/analysis fixes.
+- **Documentation error** — prose that was NEVER true as written. No number changes;
+  `corrections_count` unchanged. *e.g.* `case_0031/0032` mislabelled “control” (they are
+  `silent.metric_inflation.v1`) — DECISIONS 2026-09-16.
+- **Stale snapshot** — prose that was TRUE when written but the world moved under it. Not an
+  error; update in place. *e.g.* `case_count` 33 (correct pre-§5.2, now 50); the retrospective's
+  test count (grew every PR).

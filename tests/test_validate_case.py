@@ -606,11 +606,25 @@ class TestWallChecks:
         assert "W2_public_card_no_incident_info" in failed_names
 
     def test_w3_overlapping_eval_seeds(self, tmp_path):
-        """Hidden eval seeds overlapping [0..9] fails W3."""
-        case_dir = _make_case(tmp_path, hidden_eval_seeds=[0, 1, 2])
+        """Hidden eval seeds overlapping the reference band [200..229] fails W3 (§5.2)."""
+        case_dir = _make_case(tmp_path, hidden_eval_seeds=[200, 201, 202])
         report = validate_case(case_dir, project_root=tmp_path)
         failed_names = [c.name for c in report.failed]
         assert "W3_hidden_eval_seeds_disjoint" in failed_names
+
+    def test_w3b_case_on_reference_seed_fails(self, tmp_path):
+        """§5.2: a case built on a REFERENCE seed (e.g. 200) fails W3b — that is the
+        seed reuse that reintroduces the control-band circularity."""
+        case_dir = _make_case(tmp_path, seed=200)
+        report = validate_case(case_dir, project_root=tmp_path)
+        assert "W3b_seed_sets_disjoint" in [c.name for c in report.failed]
+
+    def test_w3b_confirmatory_seed_passes(self, tmp_path):
+        """A case on a confirmatory seed (42) passes W3b."""
+        case_dir = _make_case(tmp_path, seed=42)
+        report = validate_case(case_dir, project_root=tmp_path)
+        w3b = [c for c in report.checks if c.name == "W3b_seed_sets_disjoint"][0]
+        assert w3b.passed, w3b.detail
 
 
 # ---------------------------------------------------------------------------
@@ -1076,3 +1090,38 @@ class TestF3AllowedValues:
         f3 = [c for c in report.checks if c.name == "F3_verify_yaml_required_fields"]
         assert len(f3) == 1
         assert f3[0].passed
+
+
+class TestW4SelfDerivable:
+    """§5.2: W4 must distinguish a real hidden-value leak from a coincidental collision
+    with the case's OWN legitimate visible metric (case_0038 class)."""
+
+    def _prep(self, tmp_path, faulty_value, val_acc=0.851234):
+        case_dir = _make_case(tmp_path)
+        ro = case_dir / "workspace" / "run_output"
+        ro.mkdir(parents=True, exist_ok=True)
+        (ro / "metrics.jsonl").write_text(
+            '{"epoch": 0, "step": 1, "train_loss": 0.31, '
+            f'"metric_visible_val_acc": {val_acc}, "end_of_epoch": true}}\n')
+        vp = case_dir / "hidden" / "verify.yaml"
+        v = yaml.safe_load(vp.read_text())
+        v["faulty_value"] = faulty_value
+        vp.write_text(yaml.dump(v))
+        return case_dir, v
+
+    def test_coincidental_visible_metric_collision_passes(self, tmp_path):
+        # hidden test acc == a legitimate visible val_acc in this case's own metrics.jsonl
+        from harness.validate_case import _check_w4
+        case_dir, v = self._prep(tmp_path, faulty_value=0.851234, val_acc=0.851234)
+        res = _check_w4(case_dir, v)
+        assert res.passed, res.detail  # self-derivable → NOT a leak
+
+    def test_genuine_leak_still_caught(self, tmp_path):
+        # a hidden value that is NOT any visible metric, planted into a log → still a leak
+        from harness.validate_case import _check_w4
+        case_dir, v = self._prep(tmp_path, faulty_value=0.777779, val_acc=0.851234)
+        log = case_dir / "workspace" / "run_output" / "logs"
+        log.mkdir(parents=True, exist_ok=True)
+        (log / "stdout.log").write_text("DEBUG leaked=0.777779\n")
+        res = _check_w4(case_dir, v)
+        assert not res.passed and "faulty_value" in res.detail

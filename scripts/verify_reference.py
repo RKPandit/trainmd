@@ -16,7 +16,7 @@ FAIL conditions (a genuine regression, not microarch noise):
     exceeds the tightest case-guard margin (1.37e-3), so it needs a bound (2x
     observed = 6e-3).
   * DERIVATION invariant (exact, platform-independent): the generated
-    tolerance_lower must equal round(hidden_mean - 2*hidden_std, 6) within 1e-9.
+    tolerance_lower must equal round(hidden_mean - 2*hidden_std, 6) within 2e-6 (DERIVED_STAT_EPSILON).
     A mismatch there is a real bug in how the threshold is computed, not noise.
 
 INFORMATIONAL (printed every run, never fails): std, min/max, and every per-seed
@@ -42,7 +42,13 @@ _TOLERANCE_LOWER_TOL = 6e-3
 # full-precision values, so recomputing from the stored inputs carries ≤~1.5e-6.
 # 2e-6 still catches a wrong FORMULA (2σ vs 3σ differs by ~2e-3), which is the bug
 # this guards against — not a "within 1e-9" that would false-fail on rounding.
-_DERIVATION_TOL = 2e-6
+try:
+    from harness.reference_consts import DERIVED_STAT_EPSILON
+except ModuleNotFoundError:  # bare-script run: scripts/ is on sys.path, not the repo root
+    import sys as _sys, pathlib as _pl
+    _sys.path.insert(0, str(_pl.Path(__file__).resolve().parents[1]))
+    from harness.reference_consts import DERIVED_STAT_EPSILON
+_DERIVATION_TOL = DERIVED_STAT_EPSILON
 
 _MEAN_FIELDS = ("metric_visible_val_acc.mean", "metric_hidden_test_acc.mean")
 _TOLERANCE_FIELD = "metric_hidden_test_acc.tolerance_lower"

@@ -39,7 +39,7 @@ def test_main_passes_on_real_repo():
 
 def test_planted_stale_case_count_fails():
     declared = guard.load_declared()
-    declared["case_count"] = 27  # stale (design has 33)
+    declared["case_count"] = 27  # stale (design has 50)
     errors = guard.check_facts(declared, ROOT)
     assert any("case_count" in e for e in errors), errors
 
@@ -107,3 +107,41 @@ def test_historical_and_quoted_mentions_are_spared(tmp_path):
         "H1 confirmed was later refuted by the Stage-2 gate.\n"  # 'refut'/'was' -> spared
     )
     assert guard.check_language([f], tmp_path) == []
+
+
+# --------------------------------------------------------------------------- #
+# Derived-artifact drift guard: reference/config.resolved.yaml
+# --------------------------------------------------------------------------- #
+def test_resolved_config_matches_committed_on_real_repo():
+    assert guard.check_reference_resolved_config(ROOT) == []
+
+
+def _mk_wl(tmp_path, resolved: dict):
+    import shutil, yaml
+    wl = tmp_path / "workloads" / "tabular_adult" / "reference"
+    wl.mkdir(parents=True)
+    src = ROOT / "workloads" / "tabular_adult"
+    shutil.copy(src / "config.yaml", tmp_path / "workloads" / "tabular_adult" / "config.yaml")
+    shutil.copy(src / "reference" / "data_manifest.yaml", wl / "data_manifest.yaml")
+    (wl / "config.resolved.yaml").write_text(yaml.dump(resolved))
+    return tmp_path
+
+
+def test_planted_resolved_config_drift_fails(tmp_path):
+    import yaml
+    d = yaml.safe_load((ROOT / "workloads" / "tabular_adult" / "reference" / "config.resolved.yaml").read_text())
+    d["model"]["input_dim"] = 999            # derived-key drift
+    d["training"]["lr"] = 0.5                 # source drift
+    errors = guard.check_reference_resolved_config(_mk_wl(tmp_path, d))
+    assert len(errors) == 1
+    assert "config.resolved.yaml is STALE" in errors[0]
+    assert "input_dim" in errors[0] and "lr" in errors[0]
+
+
+def test_missing_resolved_config_fails(tmp_path):
+    import yaml
+    good = yaml.safe_load((ROOT / "workloads" / "tabular_adult" / "reference" / "config.resolved.yaml").read_text())
+    root = _mk_wl(tmp_path, good)
+    (root / "workloads" / "tabular_adult" / "reference" / "config.resolved.yaml").unlink()
+    errors = guard.check_reference_resolved_config(root)
+    assert errors and "missing derived artifact" in errors[0]

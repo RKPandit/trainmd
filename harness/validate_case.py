@@ -91,7 +91,12 @@ _PUBLIC_CARD_FORBIDDEN_TOKENS = [
 
 _BINARY_EXTENSIONS = frozenset({".pt", ".npy", ".npz"})
 
-_REFERENCE_SEEDS = set(range(30))  # [0..29] (30-seed reference band, STAGE3_PLAN §0.5)
+# §5.2: the reference band and the confirmatory (case) seeds come from the single
+# source of truth so they cannot drift or re-collide (STAGE3_PLAN §5.2 / L3).
+from harness import seed_sets
+from harness.reference_consts import DERIVED_STAT_EPSILON
+
+_REFERENCE_SEEDS = set(seed_sets.REFERENCE)  # [200..229] (moved off {0,1,2} in §5.2)
 
 _REQUIRED_FILES = [
     "card.public.yaml",
@@ -201,13 +206,40 @@ def _check_w2(case_dir: Path) -> CheckResult:
 
 
 def _check_w3(verify: dict) -> CheckResult:
-    """W3: hidden_eval_seeds_disjoint — no overlap with reference seeds [0..29]."""
+    """W3: hidden_eval_seeds_disjoint — no overlap with reference seeds [200..229] (§5.2)."""
     eval_seeds = set(verify.get("hidden_eval_seeds", []))
     overlap = eval_seeds & _REFERENCE_SEEDS
     if overlap:
         detail = f"Hidden eval seeds overlap reference seeds: {sorted(overlap)}"
         return CheckResult("W3_hidden_eval_seeds_disjoint", False, detail, "WALL")
     return CheckResult("W3_hidden_eval_seeds_disjoint", True, "", "WALL")
+
+
+def _check_w3b_seed_sets_disjoint(hidden_card: dict) -> CheckResult:
+    """W3b (§5.2): the case's build seed is a CONFIRMATORY seed, disjoint from the
+    reference/development/hidden-eval sets. This is the check that fails on any seed
+    reuse — it stops a case from being judged against a band its own run helped
+    estimate (the circularity §5.2 cures; LIMITATIONS L3). Global set disjointness
+    is guaranteed at import by seed_sets.assert_disjoint()."""
+    # Global invariant (a bad seed_sets edit fails here rather than silently).
+    global_violations = seed_sets.disjointness_violations()
+    if global_violations:
+        return CheckResult("W3b_seed_sets_disjoint", False,
+                           "seed sets overlap: " + "; ".join(global_violations), "WALL")
+    seed = hidden_card.get("seed")
+    if seed is None:
+        return CheckResult("W3b_seed_sets_disjoint", False,
+                           "hidden card missing seed", "WALL")
+    for name in ("reference", "development", "hidden_eval"):
+        if seed in seed_sets.NAMED_SETS[name]:
+            return CheckResult("W3b_seed_sets_disjoint", False,
+                               f"case seed {seed} is a {name} seed — cases must use "
+                               f"confirmatory seeds only (§5.2)", "WALL")
+    if seed not in seed_sets.CONFIRMATORY:
+        return CheckResult("W3b_seed_sets_disjoint", False,
+                           f"case seed {seed} is not in the confirmatory set "
+                           f"{sorted(seed_sets.CONFIRMATORY)} (§5.2)", "WALL")
+    return CheckResult("W3b_seed_sets_disjoint", True, "", "WALL")
 
 
 def _check_c1(case_dir: Path, public_card: dict, hidden_card: dict) -> CheckResult:
@@ -311,7 +343,7 @@ def _check_c4(verify: dict, project_root: Path, workload_name: str) -> CheckResu
         detail = "verify.yaml missing tolerance_lower"
         return CheckResult("C4_tolerance_matches_reference", False, detail, "CONSISTENCY")
 
-    if abs(actual - expected) > 1e-9:
+    if abs(actual - expected) > DERIVED_STAT_EPSILON:  # derived-from-6dp (shared constant; DECISIONS 2026-09-16)
         detail = (
             f"tolerance_lower={actual} != round(mean - 2*std, 6)={expected} "
             f"(mean={mean}, std={std}). "
@@ -563,7 +595,7 @@ def _check_c11_effect_size(
             return False
         if stored is None or exp is None:
             return True
-        return abs(stored - exp) > 1e-6
+        return abs(stored - exp) > DERIVED_STAT_EPSILON  # derived sigma-distance (shared)
 
     issues = []
     if _mismatch(hidden_card.get("visible_sigma_distance"), exp_vsig):
@@ -576,6 +608,59 @@ def _check_c11_effect_size(
     if issues:
         return CheckResult("C11_effect_size", False, "; ".join(issues), "CONSISTENCY")
     return CheckResult("C11_effect_size", True, "", "CONSISTENCY")
+
+
+# §5.2: W4 refinement — a hidden value that coincides with a value the agent
+# LEGITIMATELY derives from its own visible artifacts is not a leak (see DECISIONS
+# 2026-09-16). These are the float metric fields train.py writes to metrics.jsonl.
+_VISIBLE_METRIC_FIELDS = frozenset({
+    "train_loss", "val_loss", "metric_visible_val_acc", "lr",
+    "throughput_samples_per_sec", "epoch_time_sec", "peak_memory_mb",
+})
+
+
+def _numeric_leaves(obj):
+    if isinstance(obj, bool):
+        return
+    if isinstance(obj, (int, float)):
+        yield obj
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            yield from _numeric_leaves(v)
+    elif isinstance(obj, (list, tuple)):
+        for v in obj:
+            yield from _numeric_leaves(v)
+
+
+def _self_derivable_values(case_dir: Path) -> set[str]:
+    """6-decimal string forms of numbers the agent legitimately derives from its OWN
+    visible artifacts: metrics.jsonl metric-field values and config leaves. A hidden
+    value equal to one of these is a coincidence, not a leak — the agent already has
+    that number (W4 refinement, §5.2)."""
+    vals: set[str] = set()
+    ro = case_dir / "workspace" / "run_output"
+    mpath = ro / "metrics.jsonl"
+    if mpath.exists():
+        try:
+            for line in mpath.read_text().splitlines():
+                if not line.strip():
+                    continue
+                rec = json.loads(line)
+                for k, v in rec.items():
+                    if (k in _VISIBLE_METRIC_FIELDS and isinstance(v, (int, float))
+                            and not isinstance(v, bool)):
+                        vals.add(f"{float(v):.6f}")
+        except (OSError, ValueError):
+            pass
+    for cfg in (ro / "config.resolved.yaml", case_dir / "workspace" / "config.yaml"):
+        if cfg.exists():
+            try:
+                data = yaml.safe_load(cfg.read_text())
+            except (OSError, yaml.YAMLError):
+                data = None
+            for v in _numeric_leaves(data):
+                vals.add(f"{float(v):.6f}")
+    return vals
 
 
 def _check_w4(case_dir: Path, verify: dict) -> CheckResult:
@@ -607,6 +692,10 @@ def _check_w4(case_dir: Path, verify: dict) -> CheckResult:
     if workspace.exists():
         scan_paths += [p for p in workspace.rglob("*") if p.is_file()]
 
+    # §5.2: values the agent legitimately derives from its own visible artifacts;
+    # a hidden value that coincides with one of these is not a leak.
+    self_derivable = _self_derivable_values(case_dir)
+
     violations = []
     for p in scan_paths:
         if p.suffix in _BINARY_EXTENSIONS:
@@ -619,6 +708,9 @@ def _check_w4(case_dir: Path, verify: dict) -> CheckResult:
         for needle, label in targets.items():
             off = text.find(needle)
             if off != -1:
+                if needle in self_derivable:
+                    continue  # §5.2: coincidental self-derivable value (a legit visible
+                    # metric/config value that equals a hidden value) — not a leak.
                 violations.append(f"{rel} @byte {off}: leaks {label} ({needle!r})")
 
     if violations:
@@ -906,6 +998,7 @@ def validate_case(
     checks.append(_check_w1(case_dir, hidden_card))
     checks.append(_check_w2(case_dir))
     checks.append(_check_w3(verify))
+    checks.append(_check_w3b_seed_sets_disjoint(hidden_card))
     checks.append(_check_w4(case_dir, verify))
 
     # CONSISTENCY

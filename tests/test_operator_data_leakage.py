@@ -29,6 +29,7 @@ import pytest
 import yaml
 
 from operators.base import EvidenceRef, IncidentOperator, Manifest, RepairSpecSchema
+from operators.margins import positive_symptom_bar, degradation_bar
 from operators.silent.data_leakage import DataLeakageOperator, _STRENGTH_P
 
 WORKLOAD_DIR = Path(__file__).resolve().parent.parent / "workloads" / "tabular_adult"
@@ -49,21 +50,20 @@ def _load_tolerance() -> float:
     return _load_stats()["metric_hidden_test_acc"]["tolerance_lower"]
 
 
-def _load_margin_threshold() -> float:
-    """Calibration margin: tolerance_lower - 2*std (reference hidden metric).
+def _load_degradation_bar() -> float:
+    """Hidden metric must be <= this to fail tolerance with margin.
 
-    Calibration discipline: a silent strength is valid only if it fails
-    tolerance by at least 2x the reference std on EVERY calibration seed.
+    Structural rule (operators/margins.py): tolerance_lower - (2σ + 1e-3).
     """
-    h = _load_stats()["metric_hidden_test_acc"]
-    return round(h["tolerance_lower"] - 2 * h["std"], 6)
+    return degradation_bar(_load_stats())
 
 
-def _load_upper_band() -> float:
-    stats = _load_stats()
-    mean = stats["metric_visible_val_acc"]["mean"]
-    std = stats["metric_visible_val_acc"]["std"]
-    return mean + 2 * std
+def _load_symptom_bar() -> float:
+    """Visible metric must be >= this: margined misleading symptom.
+
+    Structural rule (operators/margins.py): mean + 4σ + 1e-3.
+    """
+    return positive_symptom_bar(_load_stats())
 
 
 def _make_workspace(tmp_path: Path) -> Path:
@@ -280,7 +280,9 @@ class TestAdmissibleRepairs:
 
     def test_allowed_keys(self):
         schema = DataLeakageOperator().admissible_repairs()
-        assert schema.allowed_keys == ["data.include_aux_feature"]
+        # Both mutated keys are admissible so unsetting BOTH restores clean exactly
+        # (STAGE3 2026-09-17); include_aux_feature=False alone also recovers.
+        assert schema.allowed_keys == ["data.include_aux_feature", "data.aux_feature_strength"]
 
     def test_allowed_values(self):
         schema = DataLeakageOperator().admissible_repairs()
@@ -644,7 +646,7 @@ def test_mutated_run_fails_tolerance(tmp_path, strength, seed):
     _skip_if_no_data()
 
     tolerance = _load_tolerance()
-    upper_band = _load_upper_band()
+    symptom_bar = _load_symptom_bar()
     workspace = _make_workspace(tmp_path)
 
     op = DataLeakageOperator()
@@ -672,21 +674,21 @@ def test_mutated_run_fails_tolerance(tmp_path, strength, seed):
         f"Checkpoint missing (strength={strength}, seed={seed})"
     )
 
-    # Must fail tolerance WITH MARGIN on every calibration seed.
+    # Degradation half: fail tolerance by >= 2σ + 1e-3 on every calibration seed.
     acc = _evaluate_acc(output_dir, config)
-    margin_thresh = _load_margin_threshold()
-    assert acc <= margin_thresh, (
+    deg_bar = _load_degradation_bar()
+    assert acc <= deg_bar, (
         f"Mutated run seed={seed} strength={strength} acc={acc:.6f} > "
-        f"margin_threshold={margin_thresh:.6f} (tolerance_lower {tolerance:.6f} "
-        f"- 2*std) — a strength must fail tolerance by >= 2x std on EVERY seed"
+        f"degradation_bar={deg_bar:.6f} (tolerance_lower {tolerance:.6f} "
+        f"- 2σ - 1e-3) — a strength must fail tolerance by >= 2σ + 1e-3 on EVERY seed"
     )
 
-    # Misleading symptom: val_acc must be ABOVE the healthy range
+    # Symptom half: visible val_acc must clear the band edge by >= 2σ + 1e-3.
     val_acc = _final_val_acc(output_dir)
-    assert val_acc > upper_band, (
+    assert val_acc >= symptom_bar, (
         f"Mutated run seed={seed} strength={strength} "
-        f"val_acc={val_acc:.6f} <= upper_band={upper_band:.6f} — "
-        f"misleading symptom not confirmed"
+        f"val_acc={val_acc:.6f} < symptom_bar={symptom_bar:.6f} "
+        f"(mean + 4σ + 1e-3) — misleading symptom lacks the >= 2σ + 1e-3 margin"
     )
 
 
@@ -705,15 +707,18 @@ def test_oracle_repair_recovers(tmp_path):
         config = yaml.safe_load(f)
     config["data"]["include_aux_feature"] = False
 
+    accs = []
     for seed in [100, 101, 102]:
         output_dir = tmp_path / f"output_repair_{seed}"
         exitcode = _run_training(workspace, config, seed, output_dir)
         assert exitcode == 0, f"Repaired run crashed (seed={seed})"
+        accs.append(_evaluate_acc(output_dir, config))
 
-        acc = _evaluate_acc(output_dir, config)
-        assert acc >= tolerance, (
-            f"Repaired run seed={seed} acc={acc:.6f} < tolerance={tolerance:.6f}"
-        )
+    # MEAN-of-hidden-seeds recovery rule (STAGE3 2026-09-17).
+    mean_acc = sum(accs) / len(accs)
+    assert mean_acc >= tolerance, (
+        f"Repaired run MEAN acc={mean_acc:.6f} < tolerance={tolerance:.6f} (per-seed {accs})"
+    )
 
 
 def test_flag_off_bitwise_identical(tmp_path):

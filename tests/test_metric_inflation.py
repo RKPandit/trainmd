@@ -27,6 +27,7 @@ import torch
 import yaml
 
 from operators.base import EvidenceRef, IncidentOperator, Manifest, RepairSpecSchema
+from operators.margins import positive_symptom_bar
 from operators.metric.metric_inflation import MetricInflationOperator, _STRENGTH_Q, _KNOB
 
 WORKLOAD_DIR = Path(__file__).resolve().parent.parent / "workloads" / "tabular_adult"
@@ -350,11 +351,13 @@ def test_mutated_run_inflates_visible_while_model_healthy(tmp_path, strength, se
         f"{strength}/{seed}: hidden={hidden:.6f} outside band [{h_lo:.6f},{h_hi:.6f}]"
     )
 
-    # Reported visible metric inflated above the band, with a >= 2σ margin.
+    # Symptom half: reported visible metric inflated above the band edge by
+    # >= 2σ + 1e-3 (structural rule, operators/margins.py, DECISIONS 2026-09-17).
     reported = _final_val_acc(out)
-    assert reported >= v_mean + 4 * v_std, (
-        f"{strength}/{seed}: reported visible={reported:.6f} not >= mean+4σ="
-        f"{v_mean + 4 * v_std:.6f} (needs a >=2σ margin beyond the band edge)"
+    symptom_bar = positive_symptom_bar(_load_stats())
+    assert reported >= symptom_bar, (
+        f"{strength}/{seed}: reported visible={reported:.6f} < symptom_bar="
+        f"{symptom_bar:.6f} (mean + 4σ + 1e-3) — lacks the >= 2σ + 1e-3 margin"
     )
 
 
@@ -439,9 +442,13 @@ def test_recovery_oracle_restores_visible_band(tmp_path):
     v_mean, v_std, v_upper = _visible_band()
     v_lo = v_mean - 2 * v_std
     tolerance = _load_tolerance()
-    for r in result["per_seed_hidden_metrics"]:
-        assert v_lo <= r["metric_visible_val_acc"] <= v_upper
-        assert r["metric_hidden_test_acc"] >= tolerance
+    per_seed = result["per_seed_hidden_metrics"]
+    # MEAN-of-hidden-seeds recovery rule (STAGE3 2026-09-17): the MEAN visible metric
+    # returns into the band and the MEAN hidden accuracy clears tolerance.
+    mean_vis = sum(r["metric_visible_val_acc"] for r in per_seed) / len(per_seed)
+    mean_hidden = sum(r["metric_hidden_test_acc"] for r in per_seed) / len(per_seed)
+    assert v_lo <= mean_vis <= v_upper
+    assert mean_hidden >= tolerance
 
 
 def test_recovery_wrong_key_is_rejected(tmp_path):
