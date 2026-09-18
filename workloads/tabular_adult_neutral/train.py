@@ -186,8 +186,8 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
 
     # ---- apply optional derived column if configured (default: disabled) ----
     dcfg = config.get("data", {})
-    if dcfg.get("include_aux_feature", False):
-        _p = dcfg.get("aux_feature_strength", 0.0)
+    if dcfg.get("opt_c", False):
+        _p = dcfg.get("opt_c_level", 0.0)
         from datautil import _derived_column
         col_train = _derived_column(y_train_np, "train", _p)
         X_train = torch.cat(

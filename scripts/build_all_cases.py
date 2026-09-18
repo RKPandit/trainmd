@@ -52,9 +52,13 @@ def main() -> int:
     print(f"Building {len(tuples)} cases "
           f"({len(faulty)} faulty x {len(STRENGTHS)} x {len(FAULTY_SEEDS)} "
           f"+ control x {len(CONTROL_SEEDS)}) against the current reference.")
+    from operators.registry import get_operator
     built = 0
     for op, st, sd in tuples:
-        case_dir = build_case(WORKLOAD, op, st, sd, project_root=root, force=True)
+        # Each operator declares the workload family whose train.py reads its keys
+        # (default tabular_adult); the neutral-key variant runs on tabular_adult_neutral.
+        wl = getattr(get_operator(op), "WORKLOAD_FAMILY", WORKLOAD)
+        case_dir = build_case(wl, op, st, sd, project_root=root, force=True)
         built += 1
         print(f"  [{built:2}/{len(tuples)}] {op} {st} seed={sd} -> {Path(case_dir).name}")
     print(f"Built {built} cases.")

@@ -34,22 +34,28 @@ from operators.metric.metric_inflation import MetricInflationOperator  # noqa: E
 from operators.margins import positive_symptom_bar, degradation_bar  # noqa: E402
 from harness.evaluator.evaluate_checkpoint import evaluate_checkpoint  # noqa: E402
 
+from operators.silent.data_leakage_neutral import DataLeakageNeutralOperator  # noqa: E402
+
+WL_NEUTRAL = ROOT / "workloads" / "tabular_adult_neutral"
+
 SEEDS = [0, 1, 2]
 STRENGTHS = ["mild", "moderate", "severe"]
-# (label, operator, tier) — tier decides the second half: silent=degradation, metric=healthy.
+# (label, operator, tier, workload_dir) — tier decides the second half:
+# silent=degradation, metric=healthy. The neutral variant runs on its own family.
 RUNGS = [
-    ("data_leakage", DataLeakageOperator, "silent"),
-    ("metric_inflation", MetricInflationOperator, "metric"),
+    ("data_leakage", DataLeakageOperator, "silent", WL),
+    ("data_leakage_neutral", DataLeakageNeutralOperator, "silent", WL_NEUTRAL),
+    ("metric_inflation", MetricInflationOperator, "metric", WL),
 ]
 
 
-def _train(ws: Path, cfg: dict, seed: int, out: Path) -> None:
+def _train(ws: Path, cfg: dict, seed: int, out: Path, data_dir: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     cp = out / "config.yaml"
     cp.write_text(yaml.dump(cfg))
     r = subprocess.run(
         [sys.executable, str(ws / "train.py"), "--config", str(cp),
-         "--data-dir", str(WL / ".data"), "--output-dir", str(out), "--seed", str(seed)],
+         "--data-dir", str(data_dir), "--output-dir", str(out), "--seed", str(seed)],
         capture_output=True, text=True,
     )
     if r.returncode != 0:
@@ -78,21 +84,21 @@ def main() -> int:
     print(hdr)
     print("-" * len(hdr))
     all_ok = True
-    for opname, opcls, tier in RUNGS:
+    for opname, opcls, tier, wl_dir in RUNGS:
         for strength in STRENGTHS:
             vis, sec = {}, {}
             for seed in SEEDS:
                 base = Path(tempfile.mkdtemp())
                 ws = base / "ws"; ws.mkdir(parents=True)
                 for f in ("train.py", "config.yaml", "datautil.py"):
-                    shutil.copy2(WL / f, ws / f)
+                    shutil.copy2(wl_dir / f, ws / f)
                 opcls().apply(ws, Random(seed), strength)
                 cfg = yaml.safe_load((ws / "config.yaml").read_text())
                 out = base / "out"
-                _train(ws, cfg, seed, out)
+                _train(ws, cfg, seed, out, wl_dir / ".data")
                 vis[seed] = _visible(out)
                 sec[seed] = evaluate_checkpoint(
-                    out / "checkpoints" / "ckpt_final.pt", WL / ".hidden_data", cfg
+                    out / "checkpoints" / "ckpt_final.pt", wl_dir / ".hidden_data", cfg
                 )["metric_hidden_test_acc"]
                 shutil.rmtree(base, ignore_errors=True)
             sym_ok = all(vis[s] >= sym_bar for s in SEEDS)

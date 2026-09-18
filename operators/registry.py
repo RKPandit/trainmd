@@ -18,6 +18,7 @@ from operators.control.healthy import HealthyControlOperator
 from operators.crash.shape_mismatch import ShapeMismatchOperator
 from operators.metric.metric_inflation import MetricInflationOperator
 from operators.silent.data_leakage import DataLeakageOperator
+from operators.silent.data_leakage_neutral import DataLeakageNeutralOperator
 from operators.silent.label_corruption import LabelCorruptionOperator
 from operators.silent.lr_warmup import LrWarmupOperator
 
@@ -25,6 +26,7 @@ OPERATOR_REGISTRY: dict[str, type] = {
     "silent.lr_warmup.v1": LrWarmupOperator,
     "silent.label_corruption.v1": LabelCorruptionOperator,
     "silent.data_leakage.v1": DataLeakageOperator,
+    "silent.data_leakage_neutral.v1": DataLeakageNeutralOperator,
     "silent.metric_inflation.v1": MetricInflationOperator,
     "crash.shape_mismatch.v1": ShapeMismatchOperator,
     "control.healthy.v1": HealthyControlOperator,

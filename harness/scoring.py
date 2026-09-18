@@ -512,12 +512,21 @@ def score_identification(submission: dict, hidden_card: dict) -> dict:
     normalized_accepted = {_normalize_class(c) for c in accepted}
     exact = normalized_predicted in normalized_accepted
 
-    # Path 2: principled root-token match with single-operator uniqueness.
+    # Path 2: principled root-token match with single-CONCEPT uniqueness.
+    # Uniqueness is over DISTINCT token specs (concepts), not operator ids: two
+    # operators that ARE the same concept — e.g. data_leakage + data_leakage_neutral,
+    # both core_tokens {leak} — must not defeat each other's identification, since a
+    # label naming "leakage" correctly names the concept for either. Every existing
+    # operator has a pairwise-distinct spec, so this is a NO-OP for them (frozen-sweep
+    # delta = 0); it only lets concept-synonym operators coexist. A genuinely
+    # ambiguous label (e.g. "lr_and_leakage") still matches two DIFFERENT specs and is
+    # rejected. See docs/DECISIONS.md 2026-09-18.
     specs = core_token_specs()
     matched = _matched_operators(normalized_predicted, specs)
     result["matched_operators"] = matched
+    matched_specs = {tuple(tuple(g) for g in specs[m]) for m in matched}
     token_correct = (
-        operator_id in matched and len(matched) == 1
+        operator_id in matched and len(matched_specs) == 1
     )
 
     if exact:
