@@ -132,6 +132,16 @@ amd64 (CI) before use; the canonical item-5 band table was computed from the nat
 Stage-2 tables byte-identically from records; v2.1 tests green; **native EPYC `[200–229]` reference adopted and validated end-to-end on main by `reference-change-guard`; Gate 0 CLOSED (2026-09-18) on the full-mode `verify_repair` gate**; §5.1/§5.2
 seed-disjointness landed.
 
+**CI lanes (2026-09-18):** split by cost. **FAST** (every push): fast tests
+(`-m "not slow_integration"`) + build-all + validate-all + `--fast` gate. **FULL**
+(pull_request to `main` + nightly): the FAST lane plus the slow/training tests, the FULL
+`verify_repair` gate, the margin/baseline/calibration reports, and the two-runner
+reference-repro. Training tests are auto-marked `slow_integration` at collection
+(`tests/conftest.py`). The merge guarantee is preserved by branch protection —
+`test-suite-slow` + `build-validate` (FULL gate on a PR) are REQUIRED checks (DECISIONS
+2026-09-18). `pytest -n auto` on the slow lane is deferred (needs `pytest-xdist` added to
+the pinned image).
+
 ## e. Document map (by role)
 
 **AUTHORITATIVE** (current; this page supersedes their *status* text only):

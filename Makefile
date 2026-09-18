@@ -153,6 +153,14 @@ docker-audit-index:
 docker-test:
 	$(DOCKER_RUN) python -m pytest tests/
 
+# Fast lane (every push): all tests NOT marked slow_integration (no training).
+docker-test-fast:
+	$(DOCKER_RUN) python -m pytest -m "not slow_integration" tests/
+
+# Slow lane (PR to main + nightly): the training tests (marked slow_integration).
+docker-test-slow:
+	$(DOCKER_RUN) python -m pytest -m "slow_integration" tests/
+
 # Sweep: pass args via SWEEP_ARGS, e.g. make docker-sweep SWEEP_ARGS="report --name sweep1".
 SWEEP_ARGS ?= report --name sweep1
 docker-sweep:

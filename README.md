@@ -22,8 +22,15 @@ make docker-gate-known-answer   # oracle/stub gate (no LLM calls)
 
 On an arm64 host (Apple Silicon) these run under qemu emulation — a **development
 convenience**. The canonical numbers are the ones **CI produces on native amd64**
-(`ubuntu-latest`); the workflow builds the same image and runs the suite +
-`validate-all` + `gate-known-answer` in it on push/PR and nightly.
+(`ubuntu-latest`), which builds the same image and runs in **two lanes, split by cost**:
+
+- **Fast lane — every push:** the fast tests (`-m "not slow_integration"`, no training)
+  + build-all + `validate-all` + the `--fast` known-answer gate. Quick per-push feedback.
+- **Full lane — pull request to `main` + nightly:** everything above **plus** the slow
+  (training) tests, the **FULL `verify_repair` gate**, the margin/baseline/calibration
+  reports, and the two-runner reference-repro. **Nothing merges without the full lane** —
+  `test-suite-slow` and `build-validate` (which runs the FULL gate on a PR) are required
+  status checks for merge (docs/DECISIONS.md 2026-09-18).
 
 Local (host) dev without Docker still works via `uv` (`make test`, `make validate-all`,
 …), but artifacts committed to the repo are the container's.
@@ -64,11 +71,11 @@ make audit-index                # impossible-combination audit over results/inde
   but not detected, a repair on a healthy control) as FAIL, and reporting-only
   conditions (superseded trials) as INFO. Exits nonzero on any FAIL.
 
-`--fast` (default) skips recovery reruns; `--full` / `FULL=1` includes them. The
-current CI workflow (`.github/workflows/ci.yml`) builds the canonical container and
-runs the reference-run protocol + full suite on **push and pull_request**; there is
-no nightly/full job. Gate/validate/audit are run locally and their dated tables land
-in `docs/audits/`.
+`--fast` (default) skips recovery reruns; `--full` / `FULL=1` includes them. CI
+(`.github/workflows/ci.yml`) runs the `--fast` gate on **every push** and the `--full`
+(`verify_repair`) gate on **pull request to `main` + nightly** — so the full recovery
+gate is exercised before every merge (a required check) and once a night, without paying
+its cost on every push. Dated gate/audit tables land in `docs/audits/`.
 
 ## Running a sweep
 
