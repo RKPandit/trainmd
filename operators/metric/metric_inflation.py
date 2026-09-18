@@ -61,6 +61,7 @@ from typing import Literal
 
 import yaml
 
+from operators.margins import positive_symptom_bar
 from operators.base import (
     EvidenceRef,
     IncidentOperator,
@@ -249,14 +250,14 @@ class MetricInflationOperator:
         if not epoch_lines:
             return ["No epoch-level metrics found"]
         final_val_acc = epoch_lines[-1].get("metric_visible_val_acc", 0.0)
-        ref_mean = stats["metric_visible_val_acc"]["mean"]
-        ref_std = stats["metric_visible_val_acc"]["std"]
-        upper_band = ref_mean + 2 * ref_std
-        if final_val_acc <= upper_band:
+        # Structural margin rule (operators/margins.py, DECISIONS 2026-09-17):
+        # the reported (inflated) symptom must clear the band edge by >= 2σ + 1e-3.
+        bar = positive_symptom_bar(stats)
+        if final_val_acc < bar:
             return [
-                f"reported val_acc={final_val_acc:.6f} not above upper band "
-                f"{upper_band:.6f} (mean + 2·std); "
-                f"misleading symptom not confirmed"
+                f"reported val_acc={final_val_acc:.6f} below margined symptom bar "
+                f"{bar:.6f} (mean + 4·std + 1e-3); misleading symptom lacks "
+                f"the required >= 2σ + 1e-3 margin"
             ]
         return []
 

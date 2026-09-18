@@ -28,6 +28,7 @@ from typing import Any, Literal
 
 import yaml
 
+from operators.margins import positive_symptom_bar
 from operators.base import (
     EvidenceRef,
     IncidentOperator,
@@ -38,7 +39,15 @@ from operators.base import (
 
 # Noise rate per strength tier.
 _STRENGTH_P: dict[str, float] = {
-    "mild": 0.35,
+    # p is the label-corruption fraction of the aux feature: correlation = 1 - 2p,
+    # so LOWER p = STRONGER leak = higher visible inflation. mild was 0.35 (corr
+    # 0.30), which sat AT the mean+2σ edge with zero margin and flaked when the
+    # reference moved to the 200-229 band. Recalibrated DOWN to clear the margined
+    # symptom bar (mean+4σ+1e-3).
+    # PROVISIONAL: 0.25 is the directional (emulated-amd64) pick; the NATIVE sweep
+    # in scripts/calibrate_data_leakage.py is authoritative. If native selects a
+    # different largest-p-that-clears, that value wins over 0.25.
+    "mild": 0.25,
     "moderate": 0.20,
     "severe": 0.05,
 }
@@ -216,14 +225,14 @@ class DataLeakageOperator:
         if not epoch_lines:
             return ["No epoch-level metrics found"]
         final_val_acc = epoch_lines[-1].get("metric_visible_val_acc", 0.0)
-        ref_mean = stats["metric_visible_val_acc"]["mean"]
-        ref_std = stats["metric_visible_val_acc"]["std"]
-        upper_band = ref_mean + 2 * ref_std
-        if final_val_acc <= upper_band:
+        # Structural margin rule (operators/margins.py, DECISIONS 2026-09-17):
+        # the misleading symptom must clear the band edge by >= 2σ + 1e-3.
+        bar = positive_symptom_bar(stats)
+        if final_val_acc < bar:
             return [
-                f"val_acc={final_val_acc:.6f} not above upper band "
-                f"{upper_band:.6f} (mean + 2·std); "
-                f"misleading symptom not confirmed"
+                f"val_acc={final_val_acc:.6f} below margined symptom bar "
+                f"{bar:.6f} (mean + 4·std + 1e-3); misleading symptom lacks "
+                f"the required >= 2σ + 1e-3 margin"
             ]
         return []
 

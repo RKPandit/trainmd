@@ -72,6 +72,8 @@ jobs:
           make docker-case-margins
           END=$(date +%s)
           echo "BUILD_ALL_CASES_WALL_SECONDS=$((END-START))"
+      - name: Positive-symptom rung margin table (all six rungs, both halves)
+        run: make docker-margin-report
       - name: Disk after (cases + data footprint)
         run: |
           df -h / | tail -1

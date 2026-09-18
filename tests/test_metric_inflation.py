@@ -27,6 +27,7 @@ import torch
 import yaml
 
 from operators.base import EvidenceRef, IncidentOperator, Manifest, RepairSpecSchema
+from operators.margins import positive_symptom_bar
 from operators.metric.metric_inflation import MetricInflationOperator, _STRENGTH_Q, _KNOB
 
 WORKLOAD_DIR = Path(__file__).resolve().parent.parent / "workloads" / "tabular_adult"
@@ -350,11 +351,13 @@ def test_mutated_run_inflates_visible_while_model_healthy(tmp_path, strength, se
         f"{strength}/{seed}: hidden={hidden:.6f} outside band [{h_lo:.6f},{h_hi:.6f}]"
     )
 
-    # Reported visible metric inflated above the band, with a >= 2σ margin.
+    # Symptom half: reported visible metric inflated above the band edge by
+    # >= 2σ + 1e-3 (structural rule, operators/margins.py, DECISIONS 2026-09-17).
     reported = _final_val_acc(out)
-    assert reported >= v_mean + 4 * v_std, (
-        f"{strength}/{seed}: reported visible={reported:.6f} not >= mean+4σ="
-        f"{v_mean + 4 * v_std:.6f} (needs a >=2σ margin beyond the band edge)"
+    symptom_bar = positive_symptom_bar(_load_stats())
+    assert reported >= symptom_bar, (
+        f"{strength}/{seed}: reported visible={reported:.6f} < symptom_bar="
+        f"{symptom_bar:.6f} (mean + 4σ + 1e-3) — lacks the >= 2σ + 1e-3 margin"
     )
 
 
