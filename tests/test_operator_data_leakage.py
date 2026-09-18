@@ -300,57 +300,57 @@ class TestAdmissibleRepairs:
 
 
 class TestAuxColumn:
-    """Unit tests for the _compute_aux_column helper."""
+    """Unit tests for the _derived_column helper."""
 
     def test_deterministic_output(self):
         """Same inputs → same output."""
-        from workloads.tabular_adult.train import _compute_aux_column
+        from workloads.tabular_adult.datautil import _derived_column
 
         labels = np.array([0, 1, 0, 1, 1, 0, 1, 0], dtype=np.float32)
-        r1 = _compute_aux_column(labels, "train", 0.2)
-        r2 = _compute_aux_column(labels, "train", 0.2)
+        r1 = _derived_column(labels, "train", 0.2)
+        r2 = _derived_column(labels, "train", 0.2)
         np.testing.assert_array_equal(r1, r2)
 
     def test_correct_shape(self):
-        from workloads.tabular_adult.train import _compute_aux_column
+        from workloads.tabular_adult.datautil import _derived_column
 
         labels = np.zeros(100, dtype=np.float32)
-        result = _compute_aux_column(labels, "train", 0.2)
+        result = _derived_column(labels, "train", 0.2)
         assert result.shape == (100,)
 
     def test_values_binary(self):
         """Output values are in {0.0, 1.0} only."""
-        from workloads.tabular_adult.train import _compute_aux_column
+        from workloads.tabular_adult.datautil import _derived_column
 
         labels = np.random.RandomState(0).binomial(1, 0.5, size=1000).astype(np.float32)
-        result = _compute_aux_column(labels, "train", 0.2)
+        result = _derived_column(labels, "train", 0.2)
         unique = set(np.unique(result))
         assert unique <= {0.0, 1.0}
 
     def test_perfect_correlation_at_p_zero(self):
         """At p=0: aux == labels (perfect leak)."""
-        from workloads.tabular_adult.train import _compute_aux_column
+        from workloads.tabular_adult.datautil import _derived_column
 
         labels = np.array([0, 1, 0, 1, 1, 0, 1, 0, 1, 1], dtype=np.float32)
-        result = _compute_aux_column(labels, "train", 0.0)
+        result = _derived_column(labels, "train", 0.0)
         np.testing.assert_array_equal(result, labels)
 
     def test_noise_at_p_half(self):
         """At p=0.5: ~50% correlation with labels (pure noise)."""
-        from workloads.tabular_adult.train import _compute_aux_column
+        from workloads.tabular_adult.datautil import _derived_column
 
         labels = np.random.RandomState(42).binomial(1, 0.5, size=10000).astype(np.float32)
-        result = _compute_aux_column(labels, "train", 0.5)
+        result = _derived_column(labels, "train", 0.5)
         corr = np.corrcoef(result, labels)[0, 1]
         assert abs(corr) < 0.1, f"Expected ~0 correlation at p=0.5, got {corr:.4f}"
 
     def test_different_split_different_result(self):
         """Different split_name → different aux column (seed independence)."""
-        from workloads.tabular_adult.train import _compute_aux_column
+        from workloads.tabular_adult.datautil import _derived_column
 
         labels = np.random.RandomState(0).binomial(1, 0.5, size=100).astype(np.float32)
-        r_train = _compute_aux_column(labels, "train", 0.2)
-        r_val = _compute_aux_column(labels, "val", 0.2)
+        r_train = _derived_column(labels, "train", 0.2)
+        r_val = _derived_column(labels, "val", 0.2)
         assert not np.array_equal(r_train, r_val)
 
 
@@ -367,14 +367,14 @@ def test_aux_independent_of_training_seed():
     """
     _skip_if_no_data()
 
-    from workloads.tabular_adult.train import _compute_aux_column
+    from workloads.tabular_adult.datautil import _derived_column
 
     y_train = np.load(WORKLOAD_DIR / ".data" / "y_train.npy")
     p = 0.2
 
     # Aux column should be identical regardless of training seed
-    r1 = _compute_aux_column(y_train, "train", p)
-    r2 = _compute_aux_column(y_train, "train", p)
+    r1 = _derived_column(y_train, "train", p)
+    r2 = _derived_column(y_train, "train", p)
 
     h1 = hashlib.sha256(r1.tobytes()).hexdigest()
     h2 = hashlib.sha256(r2.tobytes()).hexdigest()
@@ -388,14 +388,14 @@ def test_hidden_test_aux_is_noise():
     """
     _skip_if_no_data()
 
-    from workloads.tabular_adult.train import _compute_aux_column
+    from workloads.tabular_adult.datautil import _derived_column
 
     y_train = np.load(WORKLOAD_DIR / ".data" / "y_train.npy")
     y_test = np.load(WORKLOAD_DIR / ".hidden_data" / "y_test.npy")
 
     for strength, p in _STRENGTH_P.items():
         # Train aux: should have high correlation with labels
-        aux_train = _compute_aux_column(y_train, "train", p)
+        aux_train = _derived_column(y_train, "train", p)
         train_corr = np.corrcoef(aux_train, y_train)[0, 1]
         expected_corr = 1 - 2 * p
         assert abs(train_corr - expected_corr) < 0.1, (

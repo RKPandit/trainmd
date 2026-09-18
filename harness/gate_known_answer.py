@@ -27,7 +27,7 @@ from pathlib import Path
 
 import yaml
 
-from agents.always_broken_agent import _KNOB_DEFAULTS, _MISSING, _navigate
+from agents.always_broken_agent import _broken_patches
 from harness.build_case import _OPERATOR_REGISTRY
 from harness.scoring import (
     _score_no_unnecessary_repair,
@@ -83,11 +83,9 @@ def _degenerate_submission(verify: dict) -> dict:
 def _always_broken_submission(case_dir: Path) -> dict:
     resolved = case_dir / "workspace" / "run_output" / "config.resolved.yaml"
     config = yaml.safe_load(resolved.read_text()) if resolved.exists() else {}
-    patches = {}
-    for key, default in _KNOB_DEFAULTS.items():
-        val = _navigate(config if isinstance(config, dict) else {}, key)
-        if val is not _MISSING and val != default:
-            patches[key] = default
+    if not isinstance(config, dict):
+        config = {}
+    patches = _broken_patches(config)
     repair = {"repair_type": "config_patch", "patches": patches} if patches else {"repair_type": "none", "patches": {}}
     return {
         "diagnosis": {"detected": True, "operator_class": "misconfiguration"},

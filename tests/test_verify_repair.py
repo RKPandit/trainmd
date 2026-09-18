@@ -707,24 +707,44 @@ _ORACLE_REPAIRS = {
     "silent.lr_warmup.v1": ("moderate", {"training.lr": 0.01}),
     "silent.label_corruption.v1": ("moderate", {"data.label_noise_fraction": 0.0}),
     "silent.data_leakage.v1": ("moderate", {"data.include_aux_feature": False}),
+    "silent.data_leakage_neutral.v1": ("moderate", {"data.opt_c": False}),
     "silent.metric_inflation.v1": ("moderate", {"metrics.eval_subset_fraction": None}),
     "crash.shape_mismatch.v1": ("moderate", {"model.input_dim": 105}),
 }
 
 
-def _setup_tmp_workload(tmp: Path) -> Path:
-    """Mirror the tabular_adult workload into a temp project root."""
+def test_verify_repair_rejects_unknown_workload(tmp_path):
+    """The workload allowlist is a SECURITY check: workload identity comes from the
+    hidden card, and adding ``tabular_adult_neutral`` must NOT relax it — an unknown
+    workload name is still rejected (extend the set explicitly, never accept any name)."""
+    from harness.evaluator.verify_repair import _KNOWN_WORKLOADS
+    assert "tabular_adult_neutral" in _KNOWN_WORKLOADS  # extended explicitly
+    cd = tmp_path / "case_evil"
+    (cd / "hidden").mkdir(parents=True)
+    (cd / "hidden" / "verify.yaml").write_text(yaml.dump({}))
+    (cd / "hidden" / "card.hidden.yaml").write_text(yaml.dump({"workload_name": "evil_workload"}))
+    (cd / "card.public.yaml").write_text(yaml.dump({"case_id": "case_evil"}))
+    with pytest.raises(ValueError, match="Unknown workload"):
+        verify_repair(cd, {"repair_type": "config_patch", "patches": {}})
+
+
+def _setup_tmp_workload(tmp: Path, family: str = "tabular_adult") -> Path:
+    """Mirror a workload family into a temp project root. The neutral family shares
+    tabular_adult's data + reference, so those are always taken from tabular_adult;
+    train.py/config.yaml/datautil.py come from the requested family (symlinks are
+    followed by copy2, so the shared config/datautil resolve to identical content)."""
+    src = WORKLOAD_DIR.parent / family
     data_dir = WORKLOAD_DIR / ".data"
     hidden_dir = WORKLOAD_DIR / ".hidden_data"
     if not data_dir.exists() or not hidden_dir.exists():
         pytest.skip("Data not prepared; run `make data` first.")
 
-    wl = tmp / "workloads" / "tabular_adult"
+    wl = tmp / "workloads" / family
     wl.mkdir(parents=True)
     for fname in ["train.py", "config.yaml", "datautil.py"]:
-        shutil.copy2(WORKLOAD_DIR / fname, wl / fname)
+        shutil.copy2(src / fname, wl / fname)
     (wl / "reference").mkdir()
-    shutil.copy2(WORKLOAD_DIR / "reference" / "stats.yaml", wl / "reference" / "stats.yaml")
+    shutil.copy2(src / "reference" / "stats.yaml", wl / "reference" / "stats.yaml")
     (wl / ".data").symlink_to(data_dir.resolve())
     (wl / ".hidden_data").symlink_to(hidden_dir.resolve())
     return wl
@@ -747,7 +767,8 @@ def test_every_operator_oracle_round_trips(operator_id, tmp_path):
     """
     from harness.build_case import _OPERATOR_REGISTRY
 
-    if _OPERATOR_REGISTRY[operator_id]().layer == "control":
+    op = _OPERATOR_REGISTRY[operator_id]()
+    if op.layer == "control":
         pytest.skip("control tier has no verify_repair recovery path")
 
     assert operator_id in _ORACLE_REPAIRS, (
@@ -756,11 +777,15 @@ def test_every_operator_oracle_round_trips(operator_id, tmp_path):
     )
     strength, patch = _ORACLE_REPAIRS[operator_id]
 
-    _setup_tmp_workload(tmp_path)
+    # Build on the operator's own workload family — the neutral variant's train.py
+    # reads opt_c, so building it on tabular_adult (reads include_aux_feature) would
+    # inject no symptom and fail the build guard.
+    family = getattr(op, "WORKLOAD_FAMILY", "tabular_adult")
+    _setup_tmp_workload(tmp_path, family)
     from harness.build_case import build_case
 
     case_dir = build_case(
-        workload_name="tabular_adult",
+        workload_name=family,
         operator_id=operator_id,
         strength=strength,
         seed=42,

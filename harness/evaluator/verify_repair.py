@@ -46,7 +46,7 @@ _TRAINING_SUBPROCESS_FAILED = "TRAINING_SUBPROCESS_FAILED"
 # Constants
 # ---------------------------------------------------------------------------
 
-_KNOWN_WORKLOADS = {"tabular_adult"}
+_KNOWN_WORKLOADS = {"tabular_adult", "tabular_adult_neutral"}
 
 
 # ---------------------------------------------------------------------------
@@ -76,8 +76,8 @@ def _set_nested(d: dict, key_path: str, value: Any) -> None:
     >>> d["training"]["lr"]
     0.1
     >>> d = {}
-    >>> _set_nested(d, "data.include_aux_feature", False)
-    >>> d["data"]["include_aux_feature"]
+    >>> _set_nested(d, "data.some_flag", False)
+    >>> d["data"]["some_flag"]
     False
     """
     keys = key_path.split(".")

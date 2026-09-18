@@ -64,6 +64,7 @@ jobs:
         run: |
           START=$(date +%s)
           make docker-data
+          make link-neutral-workload               # neutral family shares tabular_adult data
           bash scripts/ci_fingerprint.sh           # CPU + data hashes (diagnostic)
           make docker-reference                    # canonical candidate (ephemeral)
           make docker-build-all-cases              # all cases from the registry design (currently 33), fresh
@@ -78,6 +79,8 @@ jobs:
         run: make docker-margin-report
       - name: Native calibration sweep — data_leakage mild p (largest-p-that-clears)
         run: make docker-calibrate-data-leakage
+      - name: Baselines on the neutral-key cases (B2 detect+recover, identify 0/6)
+        run: make docker-baseline-report
       - name: Disk after (cases + data footprint)
         run: |
           df -h / | tail -1
@@ -95,6 +98,7 @@ jobs:
           docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work \
             trainmd:canonical python scripts/check_current_state.py
       - run: make docker-data
+      - run: make link-neutral-workload
       - name: CI fingerprint (CPU + data hashes)
         run: bash scripts/ci_fingerprint.sh
       - name: Regenerate reference and assert it matches the committed canonical (BLOCKING)
@@ -150,6 +154,7 @@ jobs:
         run: |
           docker build --platform linux/amd64 -t trainmd:canonical .
           make docker-data                       # data pin verified here
+          make link-neutral-workload             # neutral family shares tabular_adult data
           bash scripts/ci_fingerprint.sh
           make docker-build-all-cases            # builds against the COMMITTED reference
           make docker-validate-all

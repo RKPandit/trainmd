@@ -57,9 +57,10 @@ def test_enumerate_cell_count():
     tmp = Path(tempfile.mkdtemp())
     _mk_root(tmp, faulty=faulty)
     cells, missing = sweep.enumerate_cells(tmp, ["moderate"], [42], [0], repeats=3)
-    # 5 faulty ops × 1 strength × 1 seed × 2 agents × 3 anchors × 3 = 90
-    # + control × 1 seed × 2 × 3 × 3 = 18 → 108
-    assert len(cells) == len(faulty) * 18 + 18 == 108
+    # Per faulty op: 1 strength × 1 seed × 2 agents × 3 anchors × 3 repeats = 18;
+    # control: 1 seed × 2 × 3 × 3 = 18. Derived from the registry (len(faulty)), so
+    # adding an operator does not break this test.
+    assert len(cells) == len(faulty) * 18 + 18
     assert missing == []
 
 

@@ -23,6 +23,22 @@ def _stable_seed(n_items: int) -> int:
     return int.from_bytes(hashlib.sha256(str(n_items).encode()).digest()[:4], "big")
 
 
+def _derived_column(y: np.ndarray, split_name: str, p: float) -> np.ndarray:
+    """A deterministic per-row binary column of length ``len(y)``.
+
+    The seed is derived from ``(split_name, len(y), p)`` via SHA-256, so the
+    column is identical across processes and runs and independent of the
+    training seed. ``p`` sets the per-row disagreement rate.
+    """
+    seed = int.from_bytes(
+        hashlib.sha256(f"{split_name}:{len(y)}:{p}".encode()).digest()[:4],
+        "big",
+    )
+    rng = np.random.RandomState(seed)
+    noise = rng.binomial(1, p, size=len(y)).astype(np.float32)
+    return np.abs(y - noise)
+
+
 def nested_prefix_indices(n_items: int, fraction: float) -> np.ndarray:
     """Return a deterministic prefix of a fixed data-derived permutation.
 

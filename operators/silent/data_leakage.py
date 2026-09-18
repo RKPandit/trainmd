@@ -65,8 +65,17 @@ class DataLeakageOperator:
     id: str = "silent.data_leakage.v1"
     layer: Literal["dynamics"] = "dynamics"
 
+    # The two config keys this operator mutates, under ``data``.  Subclasses
+    # (e.g. the neutral-key variant) override ONLY these two names + ``id`` +
+    # ``WORKLOAD_FAMILY``; every method below reads the names from here, so the
+    # mechanism and answer key stay identical and only the key NAME differs.
+    ENABLE_KEY: str = "include_aux_feature"
+    STRENGTH_KEY: str = "aux_feature_strength"
+    # Workload family whose train.py reads this operator's keys.
+    WORKLOAD_FAMILY: str = "tabular_adult"
+
     def apply(self, workspace: Path, rng: Random, strength: str) -> Manifest:
-        """Set ``data.include_aux_feature`` and ``data.aux_feature_strength``.
+        """Set ``data.{ENABLE_KEY}`` and ``data.{STRENGTH_KEY}``.
 
         Args:
             workspace: Root of the workspace copy.
@@ -91,8 +100,8 @@ class DataLeakageOperator:
 
         p = _STRENGTH_P[strength]
 
-        config.setdefault("data", {})["include_aux_feature"] = True
-        config["data"]["aux_feature_strength"] = p
+        config.setdefault("data", {})[self.ENABLE_KEY] = True
+        config["data"][self.STRENGTH_KEY] = p
 
         with open(config_path, "w") as f:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False)
@@ -105,18 +114,18 @@ class DataLeakageOperator:
             mutations=[
                 MutationRecord(
                     file="config.yaml",
-                    key_path="data.include_aux_feature",
+                    key_path=f"data.{self.ENABLE_KEY}",
                     original_value=None,
                     mutated_value=True,
-                    description="Enable auxiliary feature injection",
+                    description="Enable the derived-column injection",
                 ),
                 MutationRecord(
                     file="config.yaml",
-                    key_path="data.aux_feature_strength",
+                    key_path=f"data.{self.STRENGTH_KEY}",
                     original_value=None,
                     mutated_value=p,
                     description=(
-                        f"Set auxiliary feature noise rate to {p} "
+                        f"Set derived-column disagreement rate to {p} "
                         f"({strength} strength, correlation ≈ {1 - 2 * p:.2f})"
                     ),
                 ),
@@ -141,12 +150,12 @@ class DataLeakageOperator:
             EvidenceRef(
                 kind="config_key",
                 artifact_id="config.yaml",
-                detail={"key_path": "data.include_aux_feature"},
+                detail={"key_path": f"data.{self.ENABLE_KEY}"},
             ),
             EvidenceRef(
                 kind="config_key",
                 artifact_id="config.yaml",
-                detail={"key_path": "data.aux_feature_strength"},
+                detail={"key_path": f"data.{self.STRENGTH_KEY}"},
             ),
             EvidenceRef(
                 kind="metric_window",
@@ -179,13 +188,13 @@ class DataLeakageOperator:
             # Both keys the operator mutates are admissible so that unsetting
             # BOTH exactly restores clean (STAGE3 ruling 2026-09-17: every mutated
             # key must be unsettable). include_aux_feature=False alone also recovers.
-            allowed_keys=["data.include_aux_feature", "data.aux_feature_strength"],
-            allowed_values={"data.include_aux_feature": [False]},
+            allowed_keys=[f"data.{self.ENABLE_KEY}", f"data.{self.STRENGTH_KEY}"],
+            allowed_values={f"data.{self.ENABLE_KEY}": [False]},
             # Absent in clean config; unset ≡ the clean default (feature off).
-            absent_when_clean_keys=["data.include_aux_feature", "data.aux_feature_strength"],
+            absent_when_clean_keys=[f"data.{self.ENABLE_KEY}", f"data.{self.STRENGTH_KEY}"],
             description=(
-                "Set data.include_aux_feature to false to disable the "
-                "auxiliary feature, or null to unset it (delete the injected key)."
+                f"Set data.{self.ENABLE_KEY} to false to disable the injected "
+                f"column, or null to unset it (delete the injected key)."
             ),
         )
 
@@ -208,10 +217,10 @@ class DataLeakageOperator:
         return [frozenset({"leak"})]
 
     def oracle_repair(self) -> dict:
-        """Reference-restoring repair: disable the leaked auxiliary feature."""
+        """Reference-restoring repair: disable the injected column."""
         return {
             "repair_type": "config_patch",
-            "patches": {"data.include_aux_feature": False},
+            "patches": {f"data.{self.ENABLE_KEY}": False},
         }
 
     def build_guard_checks(self, run_output: Path, stats: dict) -> list[str]:

@@ -347,3 +347,19 @@ ground truth right?" from a hope into a command you can run for free before ever
 **The principle:** a green gate only certifies what it *executes* — before trusting a pass, check the gate ran the axis it claims to guard (here: FAST skipped recovery, so the pass was silent about the broken axis). And when a guard fires when you didn't expect it, assume it saw something before assuming it's noise. Reading the code beat re-running the measurement, twice.
 
 **Lives in:** CURRENT_STATE §d (Gate 0 CLOSED 2026-09-18); DECISIONS 2026-09-18 (closure) + 2026-09-17 (structural margin rule, recovery mean-rule, full-mode gate requirement); ci.yml (`--full` in `build-validate` + conditional in `reference-change-guard`); `operators/margins.py` (the structural bars); `harness/gate_known_answer.py` (`--full`/`--fast`).
+
+---
+
+### 34. The clean version of the ablation was the one that could refute the headline
+
+**What I believed (in planning):** the neutral-key variant just needs the two config keys renamed; keep the shared train.py, only the config differs. That reads as faithful to "the only difference is the key name."
+
+**What happened (in planning, before any code):** the shared train.py is copied verbatim into every case, so it must contain the descriptive key handler to serve the descriptive cases — which means it would sit, in full, on the page of the *neutral* case too. A code-reader in the neutral case could then read `aux_feature` right beside the neutral block and recover the hint the ablation was supposed to remove. The bias that introduces runs **toward** "the model understands" — i.e. it protects exactly the surviving headline H8 is meant to be able to refute. An ablation whose confound shields the thing under test is not an ablation. So the derivation moved into a neutral shared function (`datautil._derived_column`) and the neutral cases got their own train.py that names only the neutral key; the invariant "the only observable difference is the key name" is now enforced by a test that diffs the two train.py files and the two resolved configs and permits differences *only* at the key sites.
+
+**The cost, named not hidden:** making the neutral case clean forced the descriptive case's train.py to lose its function name, docstring and comment too (the byte-identity constraint makes every non-key line identical, hence neutral). So the descriptive arm is now *less* revealing than in Sweeps 1–2, and its Sweep-3 identification may fall for reasons unrelated to the neutral manipulation. The fix is not to hide that but to pre-register it: H8's contrast is neutral-vs-descriptive **within Sweep 3**, never against the frozen 0.83–0.96, with the descriptive train.py before/after diff as the evidence of what revelation was removed.
+
+**A second-order catch in the same plan:** adding a second `{leak}` operator would have silently broken identification for BOTH leakage operators (the token-uniqueness guard rejects a "leakage" label that matches two operators). The fix — uniqueness over distinct *concepts*, not operator ids — is a no-op for every existing operator (frozen-delta 0), so it *preserves* the current scoring rather than changing it.
+
+**The principle:** when you build the instrument that could kill your own headline, build the version whose confounds point the *hard* way. A confound that biases toward the null is a limitation; one that biases toward your claim is a self-fulfilling prophecy. And disclose the cost of cleanliness (here, de-revealing the control arm) in the pre-registration, not after the numbers land.
+
+**Lives in:** docs/HYPOTHESES.md (H8, pre-registered); DECISIONS 2026-09-18 (neutral variant + rejected shared-file option + token-uniqueness fix + descriptive de-revealing); `operators/silent/data_leakage_neutral.py`; `workloads/tabular_adult_neutral/`; `tests/test_neutral_variant.py`; `harness/scoring.py` (concept-uniqueness).

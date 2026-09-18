@@ -125,6 +125,12 @@ image-digest:
 docker-data:
 	$(DOCKER_RUN) python $(WORKLOAD_DIR)/data_prep.py --workload-dir $(WORKLOAD_DIR)
 
+# The neutral-key workload family (tabular_adult_neutral) shares tabular_adult's
+# generated data + committed reference; link the (gitignored) data dirs after data prep.
+link-neutral-workload:
+	ln -sfn ../tabular_adult/.data workloads/tabular_adult_neutral/.data
+	ln -sfn ../tabular_adult/.hidden_data workloads/tabular_adult_neutral/.hidden_data
+
 # REF_ARGS lets the 30-seed candidate workflow pass --num-seeds 30 (STAGE3_PLAN §0.5);
 # the default (empty) path uses config.reference.num_seeds (10), so canonical CI is unchanged.
 REF_ARGS ?=
@@ -188,3 +194,7 @@ docker-margin-report:
 # Native calibration sweep for data_leakage mild's p (authoritative on amd64).
 docker-calibrate-data-leakage:
 	$(DOCKER_RUN) python scripts/calibrate_data_leakage.py
+
+# B2 config-delta baseline on the neutral-key cases (detect+recover, identify 0/6).
+docker-baseline-report:
+	$(DOCKER_RUN) python scripts/baseline_report.py

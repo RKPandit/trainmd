@@ -280,7 +280,10 @@ class TestRootTokenIdentification:
     def test_two_fault_label_fails(self):
         r = self._score("lr_and_leakage", self._LEAK)
         assert r["correct"] is False
-        assert len(r["matched_operators"]) == 2  # matched two operators → rejected
+        # Spans two DISTINCT concepts (leak + lr) → rejected. Both leakage variants
+        # ({leak}) and lr_warmup ({lr}) match, so the matched SET is 3 operators but
+        # 2 distinct token specs (concept-uniqueness, DECISIONS 2026-09-18).
+        assert len(r["matched_operators"]) == 3
 
     def test_none_on_faulty_case_fails(self):
         assert self._score("none", self._LR)["correct"] is False
