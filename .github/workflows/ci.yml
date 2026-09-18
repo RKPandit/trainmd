@@ -76,6 +76,8 @@ jobs:
         run: make docker-gate-known-answer FULL=1
       - name: Positive-symptom rung margin table (all six rungs, both halves)
         run: make docker-margin-report
+      - name: Native calibration sweep — data_leakage mild p (largest-p-that-clears)
+        run: make docker-calibrate-data-leakage
       - name: Disk after (cases + data footprint)
         run: |
           df -h / | tail -1
