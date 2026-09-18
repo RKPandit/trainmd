@@ -13,12 +13,14 @@ from typing import Any
 
 from harness.tools.tool_context import ToolContext
 
-# Known knobs and their naive defaults.  Absent-when-clean means a healthy
-# control exposes none of these as non-default, so patches stay empty there.
-_KNOB_DEFAULTS: dict[str, Any] = {
+# Named structural knobs and their naive defaults (single-key knobs outside the
+# ``data`` block). The injected DATA knobs are reset key-AGNOSTICALLY (see
+# ``_broken_patches``): the clean config has no ``data`` section, so every present
+# ``data.*`` key is an injected knob. Keeping no operator-specific data key name
+# here is what lets this baseline treat the descriptive and neutral leakage
+# variants identically (they must not silently diverge).
+_NAMED_KNOBS: dict[str, Any] = {
     "training.lr": 0.01,
-    "data.label_noise_fraction": 0.0,
-    "data.include_aux_feature": False,
     "model.input_dim": 105,
 }
 
@@ -34,6 +36,26 @@ def _navigate(config: dict, key_path: str) -> Any:
     return cur
 
 
+def _broken_patches(config: dict) -> dict[str, Any]:
+    """The naive knob-reset a blind config-scanner would submit — key-agnostic.
+
+    Resets each named structural knob that is present and non-default, plus EVERY
+    present ``data.*`` knob to its naive default (bool→False, number→0). Clean
+    configs have no ``data`` section, so this only ever resets injected knobs, and
+    it covers any operator's data knob without naming it.
+    """
+    patches: dict[str, Any] = {}
+    for key, default in _NAMED_KNOBS.items():
+        val = _navigate(config, key)
+        if val is not _MISSING and val != default:
+            patches[key] = default
+    for k, v in (config.get("data") or {}).items():
+        default: Any = False if isinstance(v, bool) else 0.0
+        if v != default:
+            patches[f"data.{k}"] = default
+    return patches
+
+
 class AlwaysBrokenAgent:
     """Detects everywhere, no evidence, resets every non-default knob."""
 
@@ -45,11 +67,7 @@ class AlwaysBrokenAgent:
         if not isinstance(config, dict):
             config = {}
 
-        patches: dict[str, Any] = {}
-        for key, default in _KNOB_DEFAULTS.items():
-            val = _navigate(config, key)
-            if val is not _MISSING and val != default:
-                patches[key] = default
+        patches = _broken_patches(config)
 
         repair = (
             {"repair_type": "config_patch", "patches": patches}

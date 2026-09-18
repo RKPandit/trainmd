@@ -125,6 +125,27 @@ def test_leakage_label_scores_correct_on_both_variants():
     assert not r["correct"], "ambiguous 'lr_and_leakage' must be rejected"
 
 
+def test_no_variant_agnostic_module_names_descriptive_keys():
+    """Variant-agnostic code (harness/, agents/, scripts/) must NOT refer to either
+    descriptive data_leakage config key by name — that is exactly where the neutral
+    variant would silently diverge from the descriptive one (regression: the hidden-
+    eval column and the always-broken knob list both hardcoded include_aux_feature).
+    The key names live ONLY in the operator and the descriptive workload's train.py."""
+    forbidden = ("include_aux_feature", "aux_feature_strength")
+    offenders = []
+    for d in ("harness", "agents", "scripts"):
+        for py in (ROOT / d).rglob("*.py"):
+            if "__pycache__" in py.parts:
+                continue
+            text = py.read_text()
+            for tok in forbidden:
+                if tok in text:
+                    offenders.append(f"{py.relative_to(ROOT)}: {tok}")
+    assert not offenders, (
+        "descriptive key names leaked into variant-agnostic code:\n" + "\n".join(offenders)
+    )
+
+
 def test_evaluate_checkpoint_is_key_agnostic_for_injected_column():
     """evaluate_checkpoint must add the test-time substitute column whenever the
     model was trained wider than the raw hidden data, regardless of the config key
