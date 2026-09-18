@@ -79,6 +79,8 @@ jobs:
         run: make docker-margin-report
       - name: Native calibration sweep — data_leakage mild p (largest-p-that-clears)
         run: make docker-calibrate-data-leakage
+      - name: Baselines on the neutral-key cases (B2 detect+recover, identify 0/6)
+        run: make docker-baseline-report
       - name: Disk after (cases + data footprint)
         run: |
           df -h / | tail -1
