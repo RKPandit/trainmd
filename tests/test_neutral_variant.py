@@ -146,6 +146,31 @@ def test_no_variant_agnostic_module_names_descriptive_keys():
     )
 
 
+def test_admissible_repairs_identical_up_to_key_names():
+    """Part of the design invariant: the two operators' admissible repairs must be
+    identical EXCEPT for the two key names — same repair_type, same TWO allowed_keys,
+    same TWO absent-when-clean keys (both unsettable, per the Part-1 ruling), same
+    allowed_values shape. A difference here (e.g. neutral admitting only one key)
+    would be an observable divergence beyond the key name. The oracle repair is
+    single-key for BOTH variants (unset the enable key)."""
+    import dataclasses
+    from operators.silent.data_leakage import DataLeakageOperator
+    from operators.silent.data_leakage_neutral import DataLeakageNeutralOperator
+
+    d = dataclasses.asdict(DataLeakageOperator().admissible_repairs())
+    n = dataclasses.asdict(DataLeakageNeutralOperator().admissible_repairs())
+    renamed = json.loads(json.dumps(d)
+                         .replace("include_aux_feature", "opt_c")
+                         .replace("aux_feature_strength", "opt_c_level"))
+    assert renamed == n, "admissible repairs differ beyond the two key names"
+    # Explicit shape: neutral admits unsetting BOTH keys, as descriptive does.
+    assert set(n["allowed_keys"]) == {"data.opt_c", "data.opt_c_level"}
+    assert set(n["absent_when_clean_keys"]) == {"data.opt_c", "data.opt_c_level"}
+    # Oracle repair is single-key (the enable key) for both variants.
+    assert list(DataLeakageOperator().oracle_repair()["patches"]) == ["data.include_aux_feature"]
+    assert list(DataLeakageNeutralOperator().oracle_repair()["patches"]) == ["data.opt_c"]
+
+
 def test_evaluate_checkpoint_is_key_agnostic_for_injected_column():
     """evaluate_checkpoint must add the test-time substitute column whenever the
     model was trained wider than the raw hidden data, regardless of the config key
