@@ -125,6 +125,33 @@ def test_leakage_label_scores_correct_on_both_variants():
     assert not r["correct"], "ambiguous 'lr_and_leakage' must be rejected"
 
 
+def test_evaluate_checkpoint_is_key_agnostic_for_injected_column():
+    """evaluate_checkpoint must add the test-time substitute column whenever the
+    model was trained wider than the raw hidden data, regardless of the config key
+    name. Regression: it hardcoded `include_aux_feature`, so the neutral `opt_c`
+    case crashed at hidden eval (model input_dim=106 vs 105-wide test data)."""
+    import numpy as np
+    import torch
+    from workloads.tabular_adult.train import MLP
+    from harness.evaluator.evaluate_checkpoint import evaluate_checkpoint
+
+    n, base = 40, 105
+    model = MLP(base + 1, [64, 32], 0.0)  # trained WITH the injected column → input_dim 106
+    with tempfile.TemporaryDirectory() as td:
+        d = Path(td)
+        np.save(d / "X_test.npy", np.random.RandomState(0).randn(n, base).astype(np.float32))
+        np.save(d / "y_test.npy", np.random.RandomState(1).binomial(1, 0.5, n).astype(np.float32))
+        ckpt = {"model_config": {"hidden_dims": [64, 32], "dropout": 0.0},
+                "input_dim": base + 1, "model_state_dict": model.state_dict()}
+        cp = d / "ckpt_final.pt"
+        torch.save(ckpt, cp)
+        # Neutral-key config: evaluate_checkpoint must still add the column.
+        cfg = {"data": {"opt_c": True, "opt_c_level": 0.28},
+               "training": {"batch_size": 16}}
+        r = evaluate_checkpoint(cp, d, cfg)
+    assert 0.0 <= r["metric_hidden_test_acc"] <= 1.0
+
+
 # --------------------------------------------------------------------------
 # Resolved-config invariant (trains twice)
 # --------------------------------------------------------------------------

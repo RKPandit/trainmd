@@ -54,10 +54,14 @@ def evaluate_checkpoint(
     X = torch.from_numpy(np.load(hidden_data_dir / "X_test.npy"))
     y = torch.from_numpy(np.load(hidden_data_dir / "y_test.npy"))
 
-    # When aux feature is enabled, the model expects one extra column.
-    # At test time the upstream signal is unavailable — substitute noise.
-    dcfg = config.get("data", {})
-    if dcfg.get("include_aux_feature", False):
+    # If the model was trained with an injected derived column (data_leakage and
+    # its neutral-key variant: the checkpoint's input_dim exceeds the raw hidden
+    # feature count by one), the upstream signal is unavailable at test time —
+    # substitute noise so shapes match and the leak-reliant model degrades.
+    # Key-agnostic by design: it keys off the trained model's input_dim, not the
+    # config key name, so it handles include_aux_feature and opt_c identically
+    # (and is byte-identical to the previous behavior for every existing case).
+    if input_dim == X.shape[1] + 1:
         noise_seed = int.from_bytes(
             hashlib.sha256(f"test:{len(X)}".encode()).digest()[:4], "big",
         )
