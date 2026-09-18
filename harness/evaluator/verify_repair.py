@@ -46,7 +46,7 @@ _TRAINING_SUBPROCESS_FAILED = "TRAINING_SUBPROCESS_FAILED"
 # Constants
 # ---------------------------------------------------------------------------
 
-_KNOWN_WORKLOADS = {"tabular_adult"}
+_KNOWN_WORKLOADS = {"tabular_adult", "tabular_adult_neutral"}
 
 
 # ---------------------------------------------------------------------------

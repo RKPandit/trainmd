@@ -707,9 +707,25 @@ _ORACLE_REPAIRS = {
     "silent.lr_warmup.v1": ("moderate", {"training.lr": 0.01}),
     "silent.label_corruption.v1": ("moderate", {"data.label_noise_fraction": 0.0}),
     "silent.data_leakage.v1": ("moderate", {"data.include_aux_feature": False}),
+    "silent.data_leakage_neutral.v1": ("moderate", {"data.opt_c": False}),
     "silent.metric_inflation.v1": ("moderate", {"metrics.eval_subset_fraction": None}),
     "crash.shape_mismatch.v1": ("moderate", {"model.input_dim": 105}),
 }
+
+
+def test_verify_repair_rejects_unknown_workload(tmp_path):
+    """The workload allowlist is a SECURITY check: workload identity comes from the
+    hidden card, and adding ``tabular_adult_neutral`` must NOT relax it — an unknown
+    workload name is still rejected (extend the set explicitly, never accept any name)."""
+    from harness.evaluator.verify_repair import _KNOWN_WORKLOADS
+    assert "tabular_adult_neutral" in _KNOWN_WORKLOADS  # extended explicitly
+    cd = tmp_path / "case_evil"
+    (cd / "hidden").mkdir(parents=True)
+    (cd / "hidden" / "verify.yaml").write_text(yaml.dump({}))
+    (cd / "hidden" / "card.hidden.yaml").write_text(yaml.dump({"workload_name": "evil_workload"}))
+    (cd / "card.public.yaml").write_text(yaml.dump({"case_id": "case_evil"}))
+    with pytest.raises(ValueError, match="Unknown workload"):
+        verify_repair(cd, {"repair_type": "config_patch", "patches": {}})
 
 
 def _setup_tmp_workload(tmp: Path) -> Path:
