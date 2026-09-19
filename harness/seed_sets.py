@@ -22,7 +22,7 @@ from __future__ import annotations
 REFERENCE: frozenset[int] = frozenset(range(200, 230))      # 200–229
 DEVELOPMENT: frozenset[int] = frozenset(range(0, 30))        # 0–29
 HIDDEN_EVAL: frozenset[int] = frozenset({100, 101, 102})     # 100–102
-CONFIRMATORY_FAULTY: frozenset[int] = frozenset({42, 43})    # 42–43
+CONFIRMATORY_FAULTY: frozenset[int] = frozenset({42, 43, 44, 45, 46, 47})  # 42–47 (H8 power: 6 seeds → MDD ~0.25)
 CONFIRMATORY_CONTROL: frozenset[int] = frozenset(range(50, 70))  # 50–69 (20 controls)
 CONFIRMATORY: frozenset[int] = CONFIRMATORY_FAULTY | CONFIRMATORY_CONTROL
 

@@ -240,25 +240,26 @@ the `_compute_aux_column` name + docstring + comment were removed). Its Sweep-3 
 is therefore **NOT comparable to Sweep-1/2's 0.83–0.96**. **H8 compares neutral vs descriptive
 inside Sweep 3 only — never vs a frozen number.**
 
-**Cells.** 2 variants × 3 strengths × 2 confirmatory seeds × 3 anchor arms (off/stats/rule) ×
-2 agents × 2 repeats = **144 faulty cells**, plus controls in the static protocol × 3 arms ×
-1 repeat. **Cost estimate ≈ $8–12** (refine with `harness/sweep.estimate_cost`).
+**Cells.** 2 variants × 3 strengths × **6 confirmatory seeds** (42–47) × 3 anchor arms
+(off/stats/rule) × 2 agents × 2 repeats = **432 faulty cells**, plus controls in the static
+protocol × 3 arms × 1 repeat. **Cost estimate ≈ $25–35** (refine with
+`harness/sweep.estimate_cost`).
 
 **POWER NOTE (pre-registered, stated before the thresholds).** The case-clustered CI resamples
-the **case** as the unit, and there are only **6 cases per variant per arm** (3 strengths × 2
-seeds); the 2 repeats × 2 agents add trials within a case, not clusters. A simulation of this
-exact design (case-clustered bootstrap, 6 clusters) gives a **median 95% CI half-width on the
-neutral−descriptive difference of ≈0.25** (0.21–0.31 across plausible base rates and
-between-case spread) and a **minimum detectable difference (80% power, CI excludes 0) of
-≈0.45** (0.40–0.50). **Both exceed the thresholds below**, so, pre-registered:
-- The CI half-width (~0.25) is **wider than the 0.15 equivalence bound** → **equivalence
-  cannot be established** at this n; the confirming branch is worded *"no evidence of a
-  substantial gap,"* never *"equivalence established."*
-- The MDD (~0.45) is **larger than the 0.30 refuting threshold** → the design detects only a
-  **large** gap (≳0.45); a **moderate** gap (0.30–0.45) lands in INCONCLUSIVE **by power, not
-  by finding.** **The design can detect the REFUTING outcome but cannot establish the
-  CONFIRMING one.** Tightening this needs more cases per arm (a deferred design item, disclosed
-  here so a wide CI is never read as support after the fact).
+the **case** as the unit; the 2 repeats × 2 agents add trials within a case, not clusters, so
+the confirmatory **seed count sets the power.** The design was **raised from 2 to 6
+confirmatory seeds** (18 cases per variant per arm) precisely because a 2-seed design (6
+clusters) is underpowered: simulated at 2 seeds it gives a 95% CI half-width ≈0.25 and a
+minimum detectable difference (MDD) ≈0.45 — it could detect the REFUTING outcome but could not
+establish the CONFIRMING one, and a design that cannot return a positive answer is not worth
+running for the decisive test. At **6 seeds** the same simulation (case-clustered bootstrap, 18
+clusters) gives a **median 95% CI half-width ≈0.15** (0.14–0.16) and an **MDD (80% power) ≈0.25**:
+- half-width ≈0.15 **meets the 0.15 equivalence bound** (borderline) → **equivalence at
+  |Δ| ≤ 0.15 becomes establishable**, so the confirming branch is a genuine equivalence claim.
+- MDD ≈0.25 **at/below the 0.30 refuting threshold** → the design can now detect a moderate
+  refuting gap, and a gap in (0.15, ~0.25) may still land INCONCLUSIVE by power.
+Cases are free CPU (108 faulty cases build in CI); only the paid trial scales (~$10 → ~$25–35).
+Scaling further (8 seeds) barely improves it (half-width ≈0.14, MDD ≈0.25), so 6 is the pick.
 
 **H8.** The anchored LLM's identification on `data_leakage` is driven by fault mechanism, not
 key legibility.
@@ -267,16 +268,17 @@ key legibility.
 **case-clustered 95% CI** (case-level bootstrap, 10k resamples; `harness/sweep_stats.py`),
 reported **per anchor arm**.
 
-- **CONFIRMING (no evidence of a substantial gap).** Neutral identification point estimate
-  within **0.15** of descriptive in the same arm, AND the case-clustered 95% CI does not reveal
-  a large gap (does not exclude zero beyond −0.15). Reported as **"no evidence of a substantial
-  gap"** — NOT as established equivalence (the CI is too wide at n=6; see the power note). Read
-  as: consistent with the agent reading the mechanism; the surviving headline is not refuted.
+- **CONFIRMING (equivalence).** Neutral identification within **0.15** of descriptive in the
+  same arm AND the case-clustered 95% CI on the difference falls within **[−0.15, +0.15]**
+  (equivalence established — feasible at 6 seeds, half-width ≈0.15 per the power note). Read as:
+  the agent reads the mechanism; the surviving headline stands. If the point estimate is within
+  0.15 but the CI **narrowly** exceeds ±0.15 (the half-width is borderline), report the weaker
+  **"no evidence of a substantial gap"** rather than claim equivalence.
 - **REFUTING.** Neutral **> 0.30 below** descriptive with the CI excluding zero ⇒
   identification was substantially name-reading; the surviving headline shrinks to **"config
   legibility,"** and the agent's measured value over B2 collapses further.
 - **INCONCLUSIVE.** A gap in (0.15, 0.30], or a CI spanning both thresholds ⇒ reported as such;
-  no side is picked. (Per the power note, a true gap of 0.30–0.45 is expected to land here.)
+  no side is picked. (Per the power note, a true gap up to ≈0.25 may still land here.)
 - **Per anchor arm.** The **off arm may floor on both variants** (Sweep-1 leakage detection
   0.042 off-anchor); if it floors, H8 is answered by the **stats and rule arms**, and that is
   stated.
@@ -290,14 +292,16 @@ reported **per anchor arm**.
 - **B0–B4 baselines** reported as the floor on every case, both variants.
 
 **Isolation evidence (why the contrast is clean).**
-- **Identical hidden faulty values** at every strength/seed (CI run 35385887096, same run;
-  descriptive `case_0007–0012` == neutral `case_0013–0018` to 6 decimals):
+- **Identical hidden faulty values** at every strength/seed — descriptive == neutral to 6
+  decimals (mechanical equivalence). Seeds 42/43 measured on CI run 35385887096; seeds 44–47
+  filled from this PR's native build (`case_margins`), which asserts descriptive == neutral on
+  all 6 seeds:
 
-  | strength | seed 42 | seed 43 |
-  |----------|---------|---------|
-  | mild     | 0.821171 | 0.824856 |
-  | moderate | 0.801858 | 0.803627 |
-  | severe   | 0.718856 | 0.724311 |
+  | strength | seed 42 | seed 43 | seed 44 | seed 45 | seed 46 | seed 47 |
+  |----------|---------|---------|---------|---------|---------|---------|
+  | mild     | 0.821171 | 0.824856 | _(build)_ | _(build)_ | _(build)_ | _(build)_ |
+  | moderate | 0.801858 | 0.803627 | _(build)_ | _(build)_ | _(build)_ | _(build)_ |
+  | severe   | 0.718856 | 0.724311 | _(build)_ | _(build)_ | _(build)_ | _(build)_ |
 
 - **Zero hint tokens** in the neutral workspace vs `['aux','feature']` in the descriptive
   (`tests/test_neutral_variant.py::test_neutral_introduces_no_hint_token`).
