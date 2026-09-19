@@ -33,6 +33,14 @@ _PRICE_TABLE: dict[str, dict[str, float | None]] = {
         "output": 25.00,
         "cached_input": 0.50,    # confirmed: $0.50 in pricing table
     },
+    # --- Second provider (OpenAI). UNVERIFIED: confirm against
+    # platform.openai.com/pricing before publishing any cost figure. is_estimate
+    # is always True; these are for pre-sweep budgeting only.
+    "gpt-5-mini": {
+        "input": 0.25,          # UNVERIFIED — per-1M input, OpenAI pricing page
+        "output": 2.00,         # UNVERIFIED — per-1M output
+        "cached_input": 0.025,  # UNVERIFIED — cached-input (hit) price
+    },
 }
 
 
