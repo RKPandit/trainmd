@@ -5,25 +5,31 @@ name: CI (canonical container)
 # (nothing uses actions/cache; deps live in the image, data/cases are generated).
 # This is the stranger's-fresh-clone guarantee.
 #
-# TWO LANES, split by cost (docs/DECISIONS.md 2026-09-18):
-#   FAST lane — runs on EVERY push (any branch): the fast tests
-#     (`-m "not slow_integration"`, no training) + the cheap static guards
-#     (repro-guards frozen byte-match; reference-change-guard detect-only). Returns
-#     in ~2-3 min — no case build, no training.
-#   FULL lane — runs on pull_request to main + the nightly schedule: everything the
-#     fast lane runs PLUS `build-validate` (build-all + validate + the FULL
-#     verify_repair gate + margin/baseline/calibration), the slow (training) tests,
-#     and the two-runner reference repro. Case-build (train-heavy) is what made push
-#     slow, so it lives here — surfacing a case-build break at PR time, not on push.
-#   The merge guarantee is preserved AT PR TIME: `test-suite-slow` and
-#   `build-validate` (which runs the FULL gate on a PR) are REQUIRED status checks
-#   for merge — see docs/DECISIONS.md 2026-09-18 (branch protection).
+# THREE TRIGGERS, by cost (docs/DECISIONS.md 2026-09-19):
+#   PR / push (fast, ~2-3 min): the fast tests (`-m "not slow_integration"`, no
+#     training) + the cheap static guards (repro-guards frozen byte-match;
+#     reference-change-guard detect-only). NO case-building, NO training on the PR
+#     gate — ~500 sequential training runs cannot fit a per-PR budget and rebuilding
+#     when the inputs rarely change is waste.
+#   workflow_dispatch (manual, ~2h): `build-and-certify` — build all 128 cases +
+#     validate-all + the FULL verify_repair gate + margin/baseline reports. A
+#     maintainer triggers it after a reference or operator change; it certifies the
+#     ground truth. This is where the FULL gate lives now (off the PR gate).
+#   schedule (nightly): the fast set PLUS the slow (training) tests and the
+#     two-runner reference repro — an automated safety net without burdening PRs.
+#   Merge guarantee: PR-time required checks are the fast ones (test-suite-fast,
+#     repro-guards, reference-change-guard); the heavy ground-truth guarantee is the
+#     MANUAL build-and-certify run before merging a reference/operator change.
+#     Calibration (a one-off p-search) is no longer in CI; run
+#     `make docker-calibrate-data-leakage` when recalibrating.
 on:
   push:
   pull_request:
     branches: [main]
   schedule:
     - cron: "0 7 * * *"
+  workflow_dispatch:   # manual "build-and-certify" — triggered when the reference
+                       # or an operator changes (case-building is OFF the PR gate).
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -48,9 +54,9 @@ jobs:
       - name: Fast test suite (no training; -m "not slow_integration")
         run: make docker-test-fast
 
-  # ---- SLOW test lane — pull_request to main + nightly ---------------------
+  # ---- SLOW test lane — NIGHTLY only (off the PR gate) ---------------------
   test-suite-slow:
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -81,16 +87,19 @@ jobs:
       - name: Slow test suite (training; -m slow_integration)
         run: make docker-test-slow
 
-  # ---- Fresh-clone build + validate + gate + margins -----------------------
-  # --fast gate on every push; FULL (verify_repair) + reports on PR/nightly.
-  build-validate:
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+  # ---- Fresh-clone BUILD-AND-CERTIFY — MANUAL (workflow_dispatch) ----------
+  # Case-building is OFF the PR gate: ~500 sequential single-threaded training
+  # runs (128 case builds + the FULL verify_repair gate) cannot fit a per-PR
+  # budget, and rebuilding on every PR is wasteful when the inputs (reference,
+  # operators, train.py) rarely change. This heavy certification runs ONLY when
+  # a maintainer triggers it — after a reference or operator change — and asserts
+  # the ground truth: 128 cases build, validate-all green, FULL gate 0 FAIL,
+  # margins + baselines. PRs run fast tests + repro guards only (docs/DECISIONS.md
+  # 2026-09-19). 240-min budget = the honest wall for the serial build + FULL
+  # gate (~2h), NOT a per-PR timeout.
+  build-and-certify:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
-    # 128-case design (v3 Part 2, H8 6-seed power): the 90-min budget fit 56 cases but
-    # the FULL verify_repair gate over 128 cases overran it (build+validate+margins ~34 min,
-    # then the FULL gate's 128 recovery retrains exceed the remainder). Raised to 240 min
-    # (GH job cap is 6 h). Full lane only (PR to main + nightly), so push stays ~2-3 min.
-    # docs/DECISIONS.md 2026-09-19.
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
@@ -109,27 +118,20 @@ jobs:
           make docker-case-margins
           END=$(date +%s)
           echo "BUILD_ALL_CASES_WALL_SECONDS=$((END-START))"
-      # --- FULL lane only (training-heavy): PR to main + nightly ---
       - name: Known-answer gate (FULL — verify_repair recovery)
-        if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
         run: make docker-gate-known-answer FULL=1
       - name: Positive-symptom rung margin table (all rungs, both halves)
-        if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
         run: make docker-margin-report
-      - name: Native calibration sweep — data_leakage mild p (largest-p-that-clears)
-        if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
-        run: make docker-calibrate-data-leakage
       - name: Baselines on the neutral-key cases (B2 detect+recover, identify 0/6)
-        if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
         run: make docker-baseline-report
       - name: Disk after (cases + data footprint)
         run: |
           df -h / | tail -1
           du -sh cases workloads/tabular_adult/.data workloads/tabular_adult/.hidden_data 2>/dev/null || true
 
-  # ---- Reproducibility gate: TWO INDEPENDENT RUNNERS (amendment 3) — FULL lane
+  # ---- Reproducibility gate: TWO INDEPENDENT RUNNERS (amendment 3) — NIGHTLY
   reference-repro:
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
@@ -149,7 +151,7 @@ jobs:
 
   reference-repro-compare:
     needs: reference-repro
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
