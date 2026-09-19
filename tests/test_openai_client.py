@@ -12,8 +12,13 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
+import pytest
+
 from agents.llm_agent import SUBMIT_FORMAT_TEXT, TOOLS_SCHEMA
 from harness.llm.openai_client import (
+    _EFFORT_TIERS,
+    check_effort,
+    describe_model,
     parse_openai_response,
     to_openai_messages,
     to_openai_tools,
@@ -111,8 +116,29 @@ def test_parse_length_maps_to_max_tokens_and_cached_tokens():
 
 def test_parse_captures_api_model_string():
     r = parse_openai_response(_fake_response(
-        content="x", tool_calls=[], finish_reason="stop", model="gpt-5-mini-2026"))
-    assert r.raw["model"] == "gpt-5-mini-2026"  # API-reported model string
+        content="x", tool_calls=[], finish_reason="stop", model="gpt-5.6-luna"))
+    assert r.raw["model"] == "gpt-5.6-luna"  # API-reported model string
+
+
+# --------------------------------------------------------------------------- #
+# reasoning.effort pinning + provider metadata (Luna)
+# --------------------------------------------------------------------------- #
+
+def test_effort_tiers_and_validation():
+    assert _EFFORT_TIERS == ("none", "low", "medium", "high", "xhigh", "max")
+    assert check_effort("medium") == "medium"          # default, accepted
+    with pytest.raises(ValueError):
+        check_effort("reasonable")                     # bogus tier refused
+
+
+def test_describe_records_effort_and_luna_metadata():
+    d = describe_model("gpt-5.6-luna", 1.0, "medium")
+    assert d["provider"] == "openai"
+    assert d["model_id"] == "gpt-5.6-luna"
+    assert d["reasoning_effort"] == "medium"           # pinned, recorded
+    assert d["knowledge_cutoff"] == "2026-02-16"       # prior-confound metadata
+    assert d["context_window_tokens"] == 1_050_000
+    assert d["long_context_threshold_tokens"] == 272_000
 
 
 # --------------------------------------------------------------------------- #

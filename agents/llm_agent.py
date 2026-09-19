@@ -447,6 +447,11 @@ class LLMAgent:
                 "temperature": self._temperature,
                 "max_tokens": self._max_response_tokens,
             })
+            # Merge provider metadata the client reports (e.g. OpenAI's pinned
+            # reasoning_effort + knowledge_cutoff). Guarded: clients without a
+            # describe() (Anthropic, FakeLLMClient) leave the block unchanged.
+            if hasattr(self._client, "describe"):
+                self._record["model"].update(self._client.describe())
 
         # 2. Build the instruction prompt (record it + its hash + version).
         # NOTE: this is delivered as the INITIAL USER-ROLE message below — the

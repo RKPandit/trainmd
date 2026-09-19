@@ -142,7 +142,7 @@ def _run_react_trial(client, case_dir: Path, max_turns: int = 6):
     return submit_args, (in_tok, out_tok, cached), api_model
 
 
-def _make_client(provider: str, model: str, fake: bool):
+def _make_client(provider: str, model: str, fake: bool, effort: str = "medium"):
     if fake:
         from harness.llm.client import (FakeLLMClient, LLMResponse,
                                         ToolCallRequest, Usage)
@@ -168,7 +168,8 @@ def _make_client(provider: str, model: str, fake: bool):
         return FakeLLMClient(scripted)
     if provider == "openai":
         from harness.llm.openai_client import OpenAIClient
-        return OpenAIClient(model=model, temperature=1.0)
+        return OpenAIClient(model=model, temperature=1.0,
+                            reasoning_effort=effort)
     if provider == "anthropic":
         from harness.llm.anthropic_client import AnthropicClient
         return AnthropicClient(model=model, temperature=1.0)
@@ -178,7 +179,10 @@ def _make_client(provider: str, model: str, fake: bool):
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--provider", default="openai")
-    ap.add_argument("--model", default="gpt-5-mini", help="exact API model ID")
+    ap.add_argument("--model", default="gpt-5.6-luna", help="exact API model ID")
+    ap.add_argument("--reasoning-effort", default="medium",
+                    choices=["none", "low", "medium", "high", "xhigh", "max"],
+                    help="OpenAI reasoning.effort, pinned explicitly (default: medium)")
     ap.add_argument("--operator", default="silent.lr_warmup.v1",
                     help="a FAULTY operator so there is something to diagnose")
     ap.add_argument("--strength", default="mild")
@@ -213,7 +217,8 @@ def main() -> int:
         assert _REPO not in case_dir.parents, "throwaway must not be inside the repo"
         print(f"[build] throwaway case at {case_dir}")
 
-        client = _make_client(a.provider, a.model, a.fake)
+        client = _make_client(a.provider, a.model, a.fake, a.reasoning_effort)
+        descr = client.describe() if hasattr(client, "describe") else {}
 
         n_submit = n_folded = n_no_submit = 0
         in_tok = out_tok = cached_tok = 0
@@ -246,6 +251,8 @@ def main() -> int:
         print(f"mode:                {'FAKE self-test' if a.fake else 'LIVE'}")
         print(f"provider/model:      {a.provider} / {a.model}")
         print(f"API-reported model:  {api_model}")
+        print(f"reasoning_effort:    {descr.get('reasoning_effort', 'n/a (no effort knob)')}")
+        print(f"knowledge_cutoff:    {descr.get('knowledge_cutoff', 'n/a')}")
         print(f"throwaway tuple:     {a.operator} / {a.strength} / seed {a.seed} "
               f"(off-design, asserted)")
         print(f"trials:              {n_submit + n_no_submit}")

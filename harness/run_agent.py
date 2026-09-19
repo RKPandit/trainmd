@@ -260,6 +260,12 @@ def main() -> int:
         help="LLM provider: anthropic | openai (default: anthropic)",
     )
     parser.add_argument(
+        "--reasoning-effort", type=str, default="medium",
+        choices=["none", "low", "medium", "high", "xhigh", "max"],
+        help="OpenAI reasoning.effort, pinned explicitly (default: medium). "
+             "Ignored by providers without an effort knob (e.g. anthropic).",
+    )
+    parser.add_argument(
         "--temperature", type=float, default=1.0,
         help="Sampling temperature (default: 1.0)",
     )
@@ -307,6 +313,7 @@ def main() -> int:
             from harness.llm.openai_client import OpenAIClient
             client = OpenAIClient(
                 model=args.model, temperature=args.temperature,
+                reasoning_effort=args.reasoning_effort,
             )
         else:
             parser.error(

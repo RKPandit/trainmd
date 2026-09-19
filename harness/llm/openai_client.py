@@ -23,10 +23,31 @@ import time
 
 from harness.llm.client import LLMResponse, ToolCallRequest, Usage
 
-_MODELS_DOC_URL = "https://platform.openai.com/docs/models"
+_MODELS_DOC_URL = "https://developers.openai.com/api/docs/models"
 
 _MAX_RETRIES = 2
 _BASE_DELAY = 1.0  # seconds
+
+# reasoning.effort tiers Luna (and the GPT-5.6 family) expose; "medium" is the
+# provider default. We PIN it explicitly (never leave it implicit) so a
+# cross-provider comparison is not silently confounded — Haiku has no such knob,
+# so an unpinned effort would be an unstated difference (docs/DECISIONS.md).
+_EFFORT_TIERS = ("none", "low", "medium", "high", "xhigh", "max")
+
+# Per-model provider metadata (verified from OpenAI's model docs, 2026-09-19).
+# knowledge_cutoff is recorded because it bears on the "does the model already
+# know Adult's achievable accuracy" prior confound flagged for the frontier arm.
+_MODEL_METADATA: dict[str, dict] = {
+    "gpt-5.6-luna": {
+        "knowledge_cutoff": "2026-02-16",
+        "context_window_tokens": 1_050_000,
+        # Long-context meter: above this input-token threshold OpenAI bills input
+        # (and cached input / cache writes) at 2x and output at 1.5x. Our prompts
+        # are far below it; recorded so a future large-context workload is not
+        # silently double-billed. See harness/pricing.py.
+        "long_context_threshold_tokens": 272_000,
+    },
+}
 
 # OpenAI finish_reason -> our provider-agnostic stop_reason vocabulary.
 _STOP_REASON = {
@@ -40,6 +61,28 @@ _STOP_REASON = {
 # --------------------------------------------------------------------------- #
 # Pure translation (no SDK, no network) — unit-tested directly.
 # --------------------------------------------------------------------------- #
+
+def check_effort(effort: str) -> str:
+    """Validate a reasoning.effort tier (fail loud) and return it."""
+    if effort not in _EFFORT_TIERS:
+        raise ValueError(f"reasoning_effort {effort!r} not in {_EFFORT_TIERS}")
+    return effort
+
+
+def describe_model(model: str, temperature: float, reasoning_effort: str) -> dict:
+    """Provider metadata for the trial's model block (pure; no SDK/network).
+
+    Merges the pinned ``reasoning_effort`` and the per-model ``knowledge_cutoff`` /
+    context window / long-context threshold from :data:`_MODEL_METADATA`.
+    """
+    return {
+        "provider": "openai",
+        "model_id": model,
+        "temperature": temperature,
+        "reasoning_effort": reasoning_effort,
+        **dict(_MODEL_METADATA.get(model, {})),
+    }
+
 
 def to_openai_tools(tools_schema: list[dict]) -> list[dict]:
     """Anthropic tool schema -> OpenAI ``tools`` (function) schema.
@@ -167,17 +210,36 @@ class OpenAIClient:
     """LLMClient implementation backed by the OpenAI Chat Completions API.
 
     Args:
-        model: Exact API model ID string (e.g. ``"gpt-5-mini"``).  No default —
+        model: Exact API model ID string (e.g. ``"gpt-5.6-luna"``).  No default —
             the caller must provide a verified ID.
         temperature: Sampling temperature (0.0–1.0).  The study runs at 1.0.
+        reasoning_effort: One of ``none/low/medium/high/xhigh/max``.  Pinned
+            explicitly (default ``"medium"``, the provider default) and recorded
+            in the trial's model block via :meth:`describe`.
     """
 
-    def __init__(self, model: str, temperature: float = 1.0) -> None:
+    def __init__(
+        self,
+        model: str,
+        temperature: float = 1.0,
+        reasoning_effort: str = "medium",
+    ) -> None:
         import openai
 
+        self._reasoning_effort = check_effort(reasoning_effort)
         self._client = openai.OpenAI()  # OPENAI_API_KEY from env
         self._model = model
         self._temperature = temperature
+
+    def describe(self) -> dict:
+        """Provider metadata merged into the trial's model block.
+
+        Records the explicitly-pinned ``reasoning_effort`` (Haiku has no such
+        knob — recording it makes the cross-provider difference stated, not
+        hidden) and the model's ``knowledge_cutoff`` / context window.
+        """
+        return describe_model(self._model, self._temperature,
+                              self._reasoning_effort)
 
     def complete(
         self,
@@ -207,6 +269,8 @@ class OpenAIClient:
                     messages=oa_messages,
                     tools=oa_tools,
                     temperature=self._temperature,
+                    # Pinned explicitly (never left implicit) — see _EFFORT_TIERS.
+                    reasoning_effort=self._reasoning_effort,
                     # GPT-5-era models require max_completion_tokens (max_tokens
                     # is rejected); it caps the output budget as max_tokens did.
                     max_completion_tokens=max_tokens,
