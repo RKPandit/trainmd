@@ -196,6 +196,10 @@ class StaticContextAgent:
                 "temperature": self._temperature,
                 "max_tokens": self._max_response_tokens,
             })
+            # Merge provider metadata (OpenAI's pinned reasoning_effort +
+            # knowledge_cutoff); guarded for clients without describe().
+            if hasattr(self._client, "describe"):
+                self._record["model"].update(self._client.describe())
             self._record.setdefault("static_context", {})
 
         # 1. Assemble context via the sealed tool layer (tagged, budget hard-fail).

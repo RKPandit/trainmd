@@ -33,6 +33,19 @@ _PRICE_TABLE: dict[str, dict[str, float | None]] = {
         "output": 25.00,
         "cached_input": 0.50,    # confirmed: $0.50 in pricing table
     },
+    # --- Second provider (OpenAI GPT-5.6 Luna, cost-efficient tier). Rates
+    # verified from OpenAI's model docs 2026-09-19 (post-July-30 cut: Luna -80%);
+    # is_estimate stays True per this file's rule (only a billing statement is
+    # authoritative). LONG-CONTEXT METER: above 272K input tokens, input (and
+    # cached input / cache writes) is billed at 2x and output at 1.5x. Our prompts
+    # are far below 272K, so estimate_cost uses the STANDARD rates below; the
+    # threshold is recorded (harness/llm/openai_client.py _MODEL_METADATA) so a
+    # future large-context workload does not silently double-bill.
+    "gpt-5.6-luna": {
+        "input": 0.20,          # verified — per-1M input
+        "output": 1.20,         # verified — per-1M output
+        "cached_input": 0.02,   # verified — cached input at 10% of standard input
+    },
 }
 
 
