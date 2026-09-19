@@ -32,7 +32,12 @@ on:
                        # or an operator changes (case-building is OFF the PR gate).
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # push/PR runs SHARE a per-ref group (rapid pushes cancel the stale one).
+  # workflow_dispatch (build-and-certify) and schedule (nightly) get a UNIQUE
+  # per-run group so a later push to the same ref can NEVER cancel a long manual
+  # artifact build or the nightly safety net (a push-triggered cancellation of an
+  # in-flight cert run happened once — 2026-09-19 — and this prevents recurrence).
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.run_id || 'shared' }}
   cancel-in-progress: true
 
 jobs:
