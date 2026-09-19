@@ -257,7 +257,13 @@ def main() -> int:
     )
     parser.add_argument(
         "--provider", type=str, default="anthropic",
-        help="LLM provider (default: anthropic)",
+        help="LLM provider: anthropic | openai (default: anthropic)",
+    )
+    parser.add_argument(
+        "--reasoning-effort", type=str, default="medium",
+        choices=["none", "low", "medium", "high", "xhigh", "max"],
+        help="OpenAI reasoning.effort, pinned explicitly (default: medium). "
+             "Ignored by providers without an effort knob (e.g. anthropic).",
     )
     parser.add_argument(
         "--temperature", type=float, default=1.0,
@@ -303,8 +309,16 @@ def main() -> int:
             client = AnthropicClient(
                 model=args.model, temperature=args.temperature,
             )
+        elif args.provider == "openai":
+            from harness.llm.openai_client import OpenAIClient
+            client = OpenAIClient(
+                model=args.model, temperature=args.temperature,
+                reasoning_effort=args.reasoning_effort,
+            )
         else:
-            parser.error(f"Unknown provider {args.provider!r}; supported: anthropic")
+            parser.error(
+                f"Unknown provider {args.provider!r}; supported: anthropic, openai"
+            )
 
         if args.agent_type == "static":
             from agents.static_agent import StaticContextAgent
