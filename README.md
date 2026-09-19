@@ -24,9 +24,11 @@ On an arm64 host (Apple Silicon) these run under qemu emulation — a **developm
 convenience**. The canonical numbers are the ones **CI produces on native amd64**
 (`ubuntu-latest`), which builds the same image and runs in **two lanes, split by cost**:
 
-- **Fast lane — every push:** the fast tests (`-m "not slow_integration"`, no training)
-  + build-all + `validate-all` + the `--fast` known-answer gate. Quick per-push feedback.
-- **Full lane — pull request to `main` + nightly:** everything above **plus** the slow
+- **Fast lane — every push (~2–3 min):** the fast tests (`-m "not slow_integration"`, no
+  training) + the cheap static guards (frozen-report byte-match, reference-change detect).
+  No case build, no training.
+- **Full lane — pull request to `main` + nightly:** everything above **plus** `build-validate`
+  (build-all + `validate-all` + the **FULL** `verify_repair` gate) and the slow
   (training) tests, the **FULL `verify_repair` gate**, the margin/baseline/calibration
   reports, and the two-runner reference-repro. **Nothing merges without the full lane** —
   `test-suite-slow` and `build-validate` (which runs the FULL gate on a PR) are required

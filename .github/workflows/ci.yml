@@ -7,11 +7,14 @@ name: CI (canonical container)
 #
 # TWO LANES, split by cost (docs/DECISIONS.md 2026-09-18):
 #   FAST lane — runs on EVERY push (any branch): the fast tests
-#     (`-m "not slow_integration"`, no training) + build-all + validate + the
-#     --fast known-answer gate. Quick per-push feedback.
+#     (`-m "not slow_integration"`, no training) + the cheap static guards
+#     (repro-guards frozen byte-match; reference-change-guard detect-only). Returns
+#     in ~2-3 min — no case build, no training.
 #   FULL lane — runs on pull_request to main + the nightly schedule: everything the
-#     fast lane runs PLUS the slow (training) tests, the FULL verify_repair gate,
-#     the margin/baseline/calibration reports, and the two-runner reference repro.
+#     fast lane runs PLUS `build-validate` (build-all + validate + the FULL
+#     verify_repair gate + margin/baseline/calibration), the slow (training) tests,
+#     and the two-runner reference repro. Case-build (train-heavy) is what made push
+#     slow, so it lives here — surfacing a case-build break at PR time, not on push.
 #   The merge guarantee is preserved AT PR TIME: `test-suite-slow` and
 #   `build-validate` (which runs the FULL gate on a PR) are REQUIRED status checks
 #   for merge — see docs/DECISIONS.md 2026-09-18 (branch protection).
@@ -81,6 +84,7 @@ jobs:
   # ---- Fresh-clone build + validate + gate + margins -----------------------
   # --fast gate on every push; FULL (verify_repair) + reports on PR/nightly.
   build-validate:
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
