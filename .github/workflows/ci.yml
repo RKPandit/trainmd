@@ -100,7 +100,10 @@ jobs:
   build-and-certify:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    # 350 min (GitHub's per-job ceiling is 360). This is a deliberate MANUAL
+    # artifact build, not a push/PR gate, so a long budget is correct — it gives a
+    # retry headroom over the ~2h serial build + FULL gate rather than hitting a wall.
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
       - name: Disk before
