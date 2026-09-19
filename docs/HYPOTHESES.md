@@ -293,15 +293,22 @@ reported **per anchor arm**.
 
 **Isolation evidence (why the contrast is clean).**
 - **Identical hidden faulty values** at every strength/seed — descriptive == neutral to 6
-  decimals (mechanical equivalence). Seeds 42/43 measured on CI run 35385887096; seeds 44–47
-  filled from this PR's native build (`case_margins`), which asserts descriptive == neutral on
-  all 6 seeds:
+  decimals (mechanical equivalence). All six seeds measured on **CI run 35424537626** (native
+  amd64, the full 128-case build; `case_margins` step, which asserts descriptive == neutral
+  across the whole design). The descriptive `case_0019–0036` and neutral `case_0037–0054`
+  faulty values match to 6 decimals at every (strength, seed) — verified in that run's log:
 
   | strength | seed 42 | seed 43 | seed 44 | seed 45 | seed 46 | seed 47 |
   |----------|---------|---------|---------|---------|---------|---------|
-  | mild     | 0.821171 | 0.824856 | _(build)_ | _(build)_ | _(build)_ | _(build)_ |
-  | moderate | 0.801858 | 0.803627 | _(build)_ | _(build)_ | _(build)_ | _(build)_ |
-  | severe   | 0.718856 | 0.724311 | _(build)_ | _(build)_ | _(build)_ | _(build)_ |
+  | mild     | 0.822203 | 0.823087 | 0.827805 | 0.823235 | 0.822940 | 0.825151 |
+  | moderate | 0.803922 | 0.802742 | 0.799499 | 0.801563 | 0.800383 | 0.802595 |
+  | severe   | 0.719151 | 0.728291 | 0.725048 | 0.717971 | 0.705735 | 0.730060 |
+
+  (These differ ≤~1e-3 from the earlier illustrative 42/43 values measured on run 35385887096
+  — expected cross-microarchitecture drift, LIMITATIONS L18. The **descriptive == neutral**
+  identity is exact *within a run* because both variants train on the same runner from the same
+  derivation `datautil._derived_column`; that identity, not the absolute digits, is the isolation
+  evidence.)
 
 - **Zero hint tokens** in the neutral workspace vs `['aux','feature']` in the descriptive
   (`tests/test_neutral_variant.py::test_neutral_introduces_no_hint_token`).
