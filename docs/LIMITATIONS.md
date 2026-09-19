@@ -360,3 +360,39 @@ these operators (L19: any admissible repair reconstructs the clean run), so a co
 matching the oracle is expected, not evidence of repair intelligence. B2's control-FPR is 0/20
 (no config delta on a clean control), so on specificity B2 dominates the band detector B1 (1/20,
 the case_0039 two-sided-band false positive) — the 0-FPR floor is B2, not B1.
+
+**L26 — The second provider (GPT-5.6 Luna) has NO dated snapshot to pin; the alias IS the
+snapshot.** Anthropic model ids are dated (e.g. `claude-haiku-4-5-20251001`), so a trial's model
+is reproducible from the id alone. OpenAI publishes only the floating alias `gpt-5.6-luna` (no
+`gpt-5.6-luna-YYYY-MM-DD` exists, verified 2026-09-19), so the alias can be silently repointed to a
+newer build. Consequence: for the Luna arm, model provenance rests on the **API-reported model
+string captured per trial** (`LLMResponse.raw["model"]` → `llm_transcript[*].api_model` in every
+record; the adapter already records it) rather than on the requested id. This is an asymmetry with
+the Anthropic arm — a Luna result is reproducible only against whatever build the alias pointed to
+at run time. Mitigations: (i) the per-trial `api_model` is the ground-truth provenance and is
+audited; (ii) re-pin to a dated snapshot the moment OpenAI publishes one (docs/DECISIONS.md
+2026-09-19). Any drift in the aggregate `api_model` across a sweep is a provenance-split flag.
+
+**L27 — The two providers are reached by DIFFERENT endpoints with different tool-call
+encodings.** Anthropic uses the Messages API (`tool_use`/`tool_result` content blocks);
+OpenAI GPT-5.6 Luna uses the Responses API (`/v1/responses`, `function_call`/
+`function_call_output` items paired by `call_id`) — forced because Luna rejects function
+tools with a non-`none` `reasoning_effort` on chat/completions (keeping reasoning on required
+the Responses endpoint; DECISIONS 2026-09-19). What is held IDENTICAL across providers is the
+**contract the model sees**: the same tool JSON schemas, the same prompt TEXT byte-for-byte,
+and the same ROLE and POSITION (the instruction is the first user-role message; never the
+system/`instructions` field — L13). What is NOT identical is the **transport**: request/response
+shape, tool-call serialization, and stop/usage encodings differ, and Luna's reasoning tokens are
+hidden and billed as output (surfaced per call in `raw["reasoning_tokens"]`) while Haiku's are
+not a separate category. A residual endpoint effect (e.g. serialization nudging tool-call or
+folding behaviour) cannot be fully excluded; the pure translation functions are unit-tested to
+preserve schema/text/role/position (`tests/test_openai_client.py`), which bounds — but does not
+erase — the concern. Also: reasoning models do not accept `temperature`, so the Luna arm sends
+none (recorded `null`) while the Haiku arm runs at 1.0 — a small disclosed sampling asymmetry.
+**Reasoning-token cost asymmetry (measured):** on the 2026-09-19 smoke, **79% of Luna's billed
+output was reasoning tokens (2,368 / 3,015)** — hidden tokens the model never emits as text but
+that count as (billed) output and are surfaced per call in `raw["reasoning_tokens"]`. Anthropic
+does not report a separate reasoning-token category, so **per-trial cost comparisons between the
+providers are not like-for-like at the token level**: Luna's output-token count (and thus its
+output cost) is dominated by reasoning volume that has no counterpart in Haiku's accounting. Cost
+figures per provider are reported and compared with this caveat, not as a token-for-token ratio.
