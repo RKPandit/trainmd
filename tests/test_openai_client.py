@@ -43,12 +43,12 @@ def _call_item(call_id, name, arguments):
 
 def _fake_response(*, output, status="completed", incomplete_reason=None,
                    input_tokens=11, output_tokens=7, cached_tokens=0,
-                   model="gpt-5.6-luna", rid="resp_abc"):
+                   reasoning_tokens=0, model="gpt-5.6-luna", rid="resp_abc"):
     usage = SimpleNamespace(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         input_tokens_details=SimpleNamespace(cached_tokens=cached_tokens),
-        output_tokens_details=SimpleNamespace(reasoning_tokens=0),
+        output_tokens_details=SimpleNamespace(reasoning_tokens=reasoning_tokens),
     )
     incomplete = (SimpleNamespace(reason=incomplete_reason)
                   if incomplete_reason else None)
@@ -114,6 +114,15 @@ def test_parse_incomplete_maps_to_max_tokens_and_cached():
 def test_parse_captures_api_model_string():
     r = parse_responses(_fake_response(output=[_msg_item("x")], model="gpt-5.6-luna"))
     assert r.raw["model"] == "gpt-5.6-luna"   # API-reported model string (provenance)
+
+
+def test_parse_exposes_reasoning_tokens_in_raw():
+    # Reasoning tokens are billed as output (kept in usage.output_tokens) but the
+    # Responses API breaks them out; surface the breakout in raw for reporting.
+    r = parse_responses(_fake_response(
+        output=[_msg_item("answer")], output_tokens=50, reasoning_tokens=42))
+    assert r.usage.output_tokens == 50          # reasoning already counted here
+    assert r.raw["reasoning_tokens"] == 42      # ...and visible separately
 
 
 # --------------------------------------------------------------------------- #
@@ -197,8 +206,23 @@ def test_instruction_prompt_stays_user_role_no_system_remap():
     assert oa[0] == {"role": "user",
                      "content": "INSTRUCTION PROMPT (user role, position 0)"}
     roles = {m.get("role") for m in oa if "role" in m}
-    assert "system" not in roles and "developer" not in roles
+    # Never system/developer/instructions — the prompt is a user message.
+    assert not (roles & {"system", "developer", "instructions"})
     assert roles <= {"user", "assistant"}
+
+
+def test_adapter_never_uses_responses_instructions_field():
+    # The Responses API has a top-level `instructions` field; we must NOT use it
+    # (L13 — the prompt is delivered as a user input message, not as system-level
+    # instructions). Pin that complete() sends no `instructions=` argument.
+    import inspect
+
+    import harness.llm.openai_client as oc
+    src = inspect.getsource(oc.OpenAIClient.complete)
+    assert "instructions" not in src
+    # And no translated input item is an `instructions`-typed item.
+    items = to_responses_input([{"role": "user", "content": "P"}])
+    assert all(m.get("type") != "instructions" for m in items)
 
 
 # --------------------------------------------------------------------------- #

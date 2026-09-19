@@ -372,3 +372,20 @@ the Anthropic arm — a Luna result is reproducible only against whatever build 
 at run time. Mitigations: (i) the per-trial `api_model` is the ground-truth provenance and is
 audited; (ii) re-pin to a dated snapshot the moment OpenAI publishes one (docs/DECISIONS.md
 2026-09-19). Any drift in the aggregate `api_model` across a sweep is a provenance-split flag.
+
+**L27 — The two providers are reached by DIFFERENT endpoints with different tool-call
+encodings.** Anthropic uses the Messages API (`tool_use`/`tool_result` content blocks);
+OpenAI GPT-5.6 Luna uses the Responses API (`/v1/responses`, `function_call`/
+`function_call_output` items paired by `call_id`) — forced because Luna rejects function
+tools with a non-`none` `reasoning_effort` on chat/completions (keeping reasoning on required
+the Responses endpoint; DECISIONS 2026-09-19). What is held IDENTICAL across providers is the
+**contract the model sees**: the same tool JSON schemas, the same prompt TEXT byte-for-byte,
+and the same ROLE and POSITION (the instruction is the first user-role message; never the
+system/`instructions` field — L13). What is NOT identical is the **transport**: request/response
+shape, tool-call serialization, and stop/usage encodings differ, and Luna's reasoning tokens are
+hidden and billed as output (surfaced per call in `raw["reasoning_tokens"]`) while Haiku's are
+not a separate category. A residual endpoint effect (e.g. serialization nudging tool-call or
+folding behaviour) cannot be fully excluded; the pure translation functions are unit-tested to
+preserve schema/text/role/position (`tests/test_openai_client.py`), which bounds — but does not
+erase — the concern. Also: reasoning models do not accept `temperature`, so the Luna arm sends
+none (recorded `null`) while the Haiku arm runs at 1.0 — a small disclosed sampling asymmetry.

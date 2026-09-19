@@ -209,6 +209,12 @@ def parse_responses(response) -> LLMResponse:
     usage = response.usage
     in_details = getattr(usage, "input_tokens_details", None)
     cached = (getattr(in_details, "cached_tokens", 0) or 0) if in_details is not None else 0
+    # Reasoning tokens are billed as output and ALREADY included in output_tokens;
+    # the Responses API also breaks them out. Surface the breakout in `raw` (not a
+    # new Usage field) so cost accounting stays correct while reasoning volume is
+    # still visible per call.
+    out_details = getattr(usage, "output_tokens_details", None)
+    reasoning = (getattr(out_details, "reasoning_tokens", 0) or 0) if out_details is not None else 0
 
     return LLMResponse(
         text="\n".join(text_parts) if text_parts else None,
@@ -219,7 +225,8 @@ def parse_responses(response) -> LLMResponse:
             output_tokens=usage.output_tokens,
             cached_tokens=cached,
         ),
-        raw={"model": response.model, "id": response.id},
+        raw={"model": response.model, "id": response.id,
+             "reasoning_tokens": reasoning},
     )
 
 

@@ -98,7 +98,7 @@ def _run_react_trial(client, case_dir: Path, max_turns: int = 6):
     tools = ToolContext(case_dir)
     register_all_tools(tools)
     messages: list[dict] = [{"role": "user", "content": _GENERIC_PROMPT}]
-    in_tok = out_tok = cached = 0
+    in_tok = out_tok = cached = reasoning = 0
     api_model = None
     submit_args = None
 
@@ -107,6 +107,7 @@ def _run_react_trial(client, case_dir: Path, max_turns: int = 6):
         in_tok += resp.usage.input_tokens
         out_tok += resp.usage.output_tokens
         cached += resp.usage.cached_tokens
+        reasoning += (resp.raw or {}).get("reasoning_tokens", 0)
         api_model = (resp.raw or {}).get("model", api_model)
 
         assistant_content: list[dict] = []
@@ -139,7 +140,7 @@ def _run_react_trial(client, case_dir: Path, max_turns: int = 6):
         if submit_args is not None:
             break
 
-    return submit_args, (in_tok, out_tok, cached), api_model
+    return submit_args, (in_tok, out_tok, cached, reasoning), api_model
 
 
 def _make_client(provider: str, model: str, fake: bool, effort: str = "medium"):
@@ -221,7 +222,7 @@ def main() -> int:
         descr = client.describe() if hasattr(client, "describe") else {}
 
         n_submit = n_folded = n_no_submit = 0
-        in_tok = out_tok = cached_tok = 0
+        in_tok = out_tok = cached_tok = reasoning_tok = 0
         api_model = None
         reasons: dict[str, int] = {}
 
@@ -231,8 +232,8 @@ def main() -> int:
                 print(f"[stop] est ${est.cost_usd:.4f} >= cap ${a.max_cost_usd:.2f} "
                       f"after {i} trials", file=sys.stderr)
                 break
-            submit_args, (ti, to, tc), am = _run_react_trial(client, case_dir)
-            in_tok += ti; out_tok += to; cached_tok += tc
+            submit_args, (ti, to, tc, tr), am = _run_react_trial(client, case_dir)
+            in_tok += ti; out_tok += to; cached_tok += tc; reasoning_tok += tr
             api_model = am or api_model
             if submit_args is None:
                 n_no_submit += 1
@@ -261,6 +262,7 @@ def main() -> int:
         print(f"FOLDING RATE:        {fold_rate:.3f}  (folded / submits)")
         print(f"fold reasons:        {reasons}")
         print(f"tokens:              in={in_tok} out={out_tok} cached={cached_tok}")
+        print(f"  of which reasoning: {reasoning_tok} (billed as output, counted in out=)")
         if est is not None:
             print(f"cost estimate:       ${est.cost_usd:.4f} (is_estimate={est.is_estimate}; "
                   f"UNVERIFIED price — confirm vs provider billing)")
