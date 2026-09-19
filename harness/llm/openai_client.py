@@ -4,14 +4,20 @@ Uses the ``openai`` SDK (optional dependency, install with
 ``uv pip install -e '.[llm]'``).  Reads ``OPENAI_API_KEY`` from the environment
 — never logs or prints it.
 
+Uses the **Responses API** (``/v1/responses``), not chat/completions: GPT-5.6
+Luna rejects function tools together with a non-``none`` ``reasoning_effort`` on
+chat/completions, so keeping reasoning at the pinned effort WITH tools requires
+this endpoint (docs/DECISIONS.md 2026-09-19).
+
 The harness speaks ONE message dialect internally: the Anthropic content-block
 shape that :mod:`agents.llm_agent` builds (a first user-role string prompt, then
 assistant turns carrying ``text``/``tool_use`` blocks and user turns carrying
 ``tool_result`` blocks) plus the Anthropic tool schema
 (``{name, description, input_schema}``).  This adapter TRANSLATES that dialect to
-and from the OpenAI Chat Completions shape and NEVER alters any prompt text — the
-translation functions are pure and unit-tested so byte-identity across providers
-is provable (``tests/test_openai_client.py``).
+and from the OpenAI Responses shape (``function_call`` / ``function_call_output``
+items paired by ``call_id``) and NEVER alters any prompt text — the translation
+functions are pure and unit-tested so byte-identity across providers is provable
+(``tests/test_openai_client.py``).
 
 Includes bounded retry (max 2 retries) on transient errors only: rate-limit, 5xx,
 timeout, connection.  No retry on auth or 400 errors.
@@ -58,15 +64,6 @@ _MODEL_METADATA: dict[str, dict] = {
     },
 }
 
-# OpenAI finish_reason -> our provider-agnostic stop_reason vocabulary.
-_STOP_REASON = {
-    "stop": "end_turn",
-    "tool_calls": "tool_use",
-    "function_call": "tool_use",  # legacy
-    "length": "max_tokens",
-}
-
-
 # --------------------------------------------------------------------------- #
 # Pure translation (no SDK, no network) — unit-tested directly.
 # --------------------------------------------------------------------------- #
@@ -93,36 +90,37 @@ def describe_model(model: str, temperature: float, reasoning_effort: str) -> dic
     }
 
 
-def to_openai_tools(tools_schema: list[dict]) -> list[dict]:
-    """Anthropic tool schema -> OpenAI ``tools`` (function) schema.
+def to_responses_tools(tools_schema: list[dict]) -> list[dict]:
+    """Anthropic tool schema -> OpenAI Responses ``tools`` (function) schema.
 
-    ``input_schema`` (a JSON Schema) is carried through verbatim as
-    ``function.parameters`` — the tool contract the model sees is unchanged.
+    Responses function tools are FLAT (no nested ``function`` key). ``input_schema``
+    (a JSON Schema) is carried through verbatim as ``parameters`` — the tool
+    contract the model sees is unchanged.
     """
     return [
         {
             "type": "function",
-            "function": {
-                "name": t["name"],
-                "description": t.get("description", ""),
-                "parameters": t["input_schema"],
-            },
+            "name": t["name"],
+            "description": t.get("description", ""),
+            "parameters": t["input_schema"],
         }
         for t in tools_schema
     ]
 
 
-def to_openai_messages(messages: list[dict]) -> list[dict]:
-    """Anthropic content-block messages -> OpenAI Chat Completions messages.
+def to_responses_input(messages: list[dict]) -> list[dict]:
+    """Anthropic content-block messages -> OpenAI Responses ``input`` items.
 
     Prompt text is passed through byte-for-byte:
     - user with a string ``content`` (the instruction prompt) -> ``{"role":
       "user", "content": <same string>}``.
-    - user with ``tool_result`` blocks -> one ``{"role": "tool",
-      "tool_call_id", "content"}`` per block (content string unchanged).
-    - assistant blocks -> ``{"role": "assistant", "content": <joined text or
-      None>, "tool_calls": [...]}`` where each ``tool_use`` becomes a function
-      call whose ``arguments`` is ``json.dumps(input)``.
+    - user with ``tool_result`` blocks -> one ``{"type": "function_call_output",
+      "call_id", "output"}`` per block (content string unchanged).
+    - assistant blocks -> a ``{"role": "assistant", "content": <joined text>}``
+      item (when there is text) plus one ``{"type": "function_call", "call_id",
+      "name", "arguments"}`` per ``tool_use`` (arguments = ``json.dumps(input)``).
+      Pairing is by ``call_id`` (== our tool_use id), symmetric with the
+      ``function_call_output`` above.
     """
     out: list[dict] = []
     for m in messages:
@@ -131,84 +129,94 @@ def to_openai_messages(messages: list[dict]) -> list[dict]:
         if role == "user":
             if isinstance(content, str):
                 # L13 (docs/LIMITATIONS.md): the instruction prompt is delivered
-                # as the INITIAL USER-ROLE message, NOT the provider system role.
-                # Keep role + position exactly; NEVER remap to role="system" — that
-                # would be a cross-provider confound. (No system message is injected
-                # anywhere in this adapter.)
+                # as the INITIAL USER-ROLE message, NOT the provider system/
+                # developer role. Keep role + position exactly; NEVER remap to
+                # role="system"/"developer" — that would be a cross-provider
+                # confound. (No system message is injected anywhere here.)
                 out.append({"role": "user", "content": content})
             else:
                 for block in content:
                     if block.get("type") == "tool_result":
                         out.append({
-                            "role": "tool",
-                            "tool_call_id": block["tool_use_id"],
-                            "content": block["content"],
+                            "type": "function_call_output",
+                            "call_id": block["tool_use_id"],
+                            "output": block["content"],
                         })
                     elif block.get("type") == "text":
                         out.append({"role": "user", "content": block["text"]})
         elif role == "assistant":
             text_parts: list[str] = []
-            tool_calls: list[dict] = []
+            calls: list[dict] = []
             for block in content:
                 if block.get("type") == "text":
                     text_parts.append(block["text"])
                 elif block.get("type") == "tool_use":
-                    tool_calls.append({
-                        "id": block["id"],
-                        "type": "function",
-                        "function": {
-                            "name": block["name"],
-                            "arguments": json.dumps(block["input"]),
-                        },
+                    calls.append({
+                        "type": "function_call",
+                        "call_id": block["id"],
+                        "name": block["name"],
+                        "arguments": json.dumps(block["input"]),
                     })
-            msg: dict = {
-                "role": "assistant",
-                "content": "\n".join(text_parts) if text_parts else None,
-            }
-            if tool_calls:
-                msg["tool_calls"] = tool_calls
-            out.append(msg)
+            if text_parts:
+                out.append({"role": "assistant",
+                            "content": "\n".join(text_parts)})
+            out.extend(calls)
         else:  # pragma: no cover - the agent never emits other roles
             out.append({"role": role, "content": content})
     return out
 
 
-def parse_openai_response(response) -> LLMResponse:
-    """Parse an OpenAI Chat Completions response into :class:`LLMResponse`.
+def parse_responses(response) -> LLMResponse:
+    """Parse an OpenAI Responses API response into :class:`LLMResponse`.
 
-    A tool call's ``arguments`` string is ``json.loads``-ed into a dict.  If the
-    model emits a malformed arguments string, the RAW string is kept (not
-    silently coerced to ``{}``) so the agent's ``isinstance(dict)`` check surfaces
-    it as a faithful tool error rather than hiding a bad call.
+    Walks ``response.output``: ``message`` items contribute assistant text
+    (``output_text``), ``function_call`` items become tool calls (paired by
+    ``call_id``), ``reasoning`` items are ignored (never surfaced). A function
+    call's ``arguments`` string is ``json.loads``-ed; a malformed string is kept
+    RAW (not coerced to ``{}``) so the agent's ``isinstance(dict)`` check surfaces
+    it as a faithful tool error. Reasoning tokens are already counted in
+    ``usage.output_tokens`` (billed as output).
     """
-    choice = response.choices[0]
-    msg = choice.message
-
+    text_parts: list[str] = []
     tool_calls: list[ToolCallRequest] = []
-    for tc in (getattr(msg, "tool_calls", None) or []):
-        raw_args = tc.function.arguments
-        if isinstance(raw_args, str):
-            try:
-                args: object = json.loads(raw_args)
-            except json.JSONDecodeError:
-                args = raw_args  # keep raw; agent treats non-dict as a tool error
-        else:
-            args = raw_args
-        tool_calls.append(
-            ToolCallRequest(id=tc.id, name=tc.function.name, arguments=args)
-        )
+    for item in (getattr(response, "output", None) or []):
+        itype = getattr(item, "type", None)
+        if itype == "message":
+            for c in (getattr(item, "content", None) or []):
+                if getattr(c, "type", None) == "output_text":
+                    text_parts.append(c.text)
+        elif itype == "function_call":
+            raw_args = item.arguments
+            if isinstance(raw_args, str):
+                try:
+                    args: object = json.loads(raw_args)
+                except json.JSONDecodeError:
+                    args = raw_args  # keep raw; agent treats non-dict as error
+            else:
+                args = raw_args
+            tool_calls.append(
+                ToolCallRequest(id=item.call_id, name=item.name, arguments=args)
+            )
+
+    # stop_reason from the response status, not a per-choice finish_reason.
+    status = getattr(response, "status", None)
+    if status == "incomplete":
+        reason = getattr(getattr(response, "incomplete_details", None), "reason", None)
+        stop_reason = "max_tokens" if reason == "max_output_tokens" else (reason or "incomplete")
+    else:
+        stop_reason = "tool_use" if tool_calls else "end_turn"
 
     usage = response.usage
-    details = getattr(usage, "prompt_tokens_details", None)
-    cached = (getattr(details, "cached_tokens", 0) or 0) if details is not None else 0
+    in_details = getattr(usage, "input_tokens_details", None)
+    cached = (getattr(in_details, "cached_tokens", 0) or 0) if in_details is not None else 0
 
     return LLMResponse(
-        text=(msg.content or None),
+        text="\n".join(text_parts) if text_parts else None,
         tool_calls=tool_calls,
-        stop_reason=_STOP_REASON.get(choice.finish_reason, choice.finish_reason),
+        stop_reason=stop_reason,
         usage=Usage(
-            input_tokens=usage.prompt_tokens,
-            output_tokens=usage.completion_tokens,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
             cached_tokens=cached,
         ),
         raw={"model": response.model, "id": response.id},
@@ -216,15 +224,24 @@ def parse_openai_response(response) -> LLMResponse:
 
 
 class OpenAIClient:
-    """LLMClient implementation backed by the OpenAI Chat Completions API.
+    """LLMClient implementation backed by the OpenAI **Responses** API.
+
+    We use ``/v1/responses`` (not ``/v1/chat/completions``) because GPT-5.6 Luna
+    refuses function tools together with ``reasoning_effort`` on chat/completions
+    ("...use /v1/responses or set reasoning_effort to 'none'"); the Responses API
+    keeps reasoning at the pinned effort AND supports function tools. Reasoning
+    models do not accept ``temperature``, so it is NOT sent (recorded as null in
+    the model block); the study's temperature=1.0 default only applies to the
+    Anthropic arm. See docs/DECISIONS.md 2026-09-19.
 
     Args:
         model: Exact API model ID string (e.g. ``"gpt-5.6-luna"``).  No default —
             the caller must provide a verified ID.
-        temperature: Sampling temperature (0.0–1.0).  The study runs at 1.0.
         reasoning_effort: One of ``none/low/medium/high/xhigh/max``.  Pinned
             explicitly (default ``"medium"``, the provider default) and recorded
             in the trial's model block via :meth:`describe`.
+        temperature: Accepted for interface symmetry but NOT sent to a reasoning
+            model; recorded as ``None`` in :meth:`describe`.
     """
 
     def __init__(
@@ -238,7 +255,9 @@ class OpenAIClient:
         self._reasoning_effort = check_effort(reasoning_effort)
         self._client = openai.OpenAI()  # OPENAI_API_KEY from env
         self._model = model
-        self._temperature = temperature
+        # Reasoning models sample internally; temperature is not a supported
+        # Responses param for them, so we do not send it (recorded as None).
+        self._temperature = None
 
     def describe(self) -> dict:
         """Provider metadata merged into the trial's model block.
@@ -257,7 +276,7 @@ class OpenAIClient:
         *,
         max_tokens: int = 4096,
     ) -> LLMResponse:
-        """Call the OpenAI Chat Completions API with bounded retry."""
+        """Call the OpenAI Responses API with bounded retry."""
         import openai
 
         transient = (
@@ -267,24 +286,22 @@ class OpenAIClient:
             openai.APIConnectionError,
         )
 
-        oa_messages = to_openai_messages(messages)
-        oa_tools = to_openai_tools(tools_schema)
+        req_input = to_responses_input(messages)
+        req_tools = to_responses_tools(tools_schema)
 
         last_error: Exception | None = None
         for attempt in range(_MAX_RETRIES + 1):
             try:
-                response = self._client.chat.completions.create(
+                response = self._client.responses.create(
                     model=self._model,
-                    messages=oa_messages,
-                    tools=oa_tools,
-                    temperature=self._temperature,
-                    # Pinned explicitly (never left implicit) — see _EFFORT_TIERS.
-                    reasoning_effort=self._reasoning_effort,
-                    # GPT-5-era models require max_completion_tokens (max_tokens
-                    # is rejected); it caps the output budget as max_tokens did.
-                    max_completion_tokens=max_tokens,
+                    input=req_input,
+                    tools=req_tools,
+                    # Effort pinned explicitly (never left implicit) — the reason
+                    # we are on /v1/responses at all (see class docstring).
+                    reasoning={"effort": self._reasoning_effort},
+                    max_output_tokens=max_tokens,
                 )
-                return parse_openai_response(response)
+                return parse_responses(response)
 
             except transient as e:
                 last_error = e

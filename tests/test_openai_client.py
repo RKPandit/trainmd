@@ -1,11 +1,12 @@
 """OpenAI adapter tests — pure translation + parsing, zero API cost.
 
+The adapter targets the **Responses API** (``/v1/responses``) because GPT-5.6 Luna
+rejects function tools with a non-``none`` ``reasoning_effort`` on chat/completions.
 The ``openai`` SDK is NOT required: every test exercises the pure translation
-functions (``to_openai_messages``, ``to_openai_tools``, ``parse_openai_response``)
-with hand-built fakes.  The one thing these tests must pin down is that the
-adapter NEVER alters prompt text — so the text a second provider receives is
-byte-identical to the text Anthropic receives (the study's cross-provider
-comparison depends on it).
+functions (``to_responses_input``, ``to_responses_tools``, ``parse_responses``)
+with hand-built fakes.  The property these must pin: the adapter NEVER alters
+prompt text and never remaps the instruction prompt off the user role — so a
+second provider receives byte-identical text at the same role/position as Anthropic.
 """
 from __future__ import annotations
 
@@ -19,51 +20,55 @@ from harness.llm.openai_client import (
     _EFFORT_TIERS,
     check_effort,
     describe_model,
-    parse_openai_response,
-    to_openai_messages,
-    to_openai_tools,
+    parse_responses,
+    to_responses_input,
+    to_responses_tools,
 )
 from harness.submission_repair import recover_folded_repair_spec
 
 
 # --------------------------------------------------------------------------- #
-# Fake OpenAI response builder (mirrors the SDK's attribute shape)
+# Fake Responses object builder (mirrors the SDK's attribute shape)
 # --------------------------------------------------------------------------- #
 
-def _fake_response(*, content, tool_calls, finish_reason,
-                   prompt_tokens=11, completion_tokens=7, cached_tokens=0,
-                   model="gpt-5-mini-2026", rid="chatcmpl-abc"):
-    tcs = [
-        SimpleNamespace(
-            id=tc["id"],
-            type="function",
-            function=SimpleNamespace(name=tc["name"], arguments=tc["arguments"]),
-        )
-        for tc in tool_calls
-    ]
-    message = SimpleNamespace(content=content, tool_calls=tcs or None)
-    choice = SimpleNamespace(message=message, finish_reason=finish_reason)
+def _msg_item(text):
+    return SimpleNamespace(type="message", role="assistant",
+                           content=[SimpleNamespace(type="output_text", text=text)])
+
+
+def _call_item(call_id, name, arguments):
+    return SimpleNamespace(type="function_call", call_id=call_id, name=name,
+                           arguments=arguments)
+
+
+def _fake_response(*, output, status="completed", incomplete_reason=None,
+                   input_tokens=11, output_tokens=7, cached_tokens=0,
+                   model="gpt-5.6-luna", rid="resp_abc"):
     usage = SimpleNamespace(
-        prompt_tokens=prompt_tokens,
-        completion_tokens=completion_tokens,
-        prompt_tokens_details=SimpleNamespace(cached_tokens=cached_tokens),
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        input_tokens_details=SimpleNamespace(cached_tokens=cached_tokens),
+        output_tokens_details=SimpleNamespace(reasoning_tokens=0),
     )
-    return SimpleNamespace(choices=[choice], usage=usage, model=model, id=rid)
+    incomplete = (SimpleNamespace(reason=incomplete_reason)
+                  if incomplete_reason else None)
+    return SimpleNamespace(output=output, usage=usage, status=status,
+                           incomplete_details=incomplete, model=model, id=rid)
 
 
 # --------------------------------------------------------------------------- #
-# Tool-schema translation
+# Tool-schema translation (flat Responses shape)
 # --------------------------------------------------------------------------- #
 
-def test_tools_translation_preserves_contract():
-    oa = to_openai_tools(TOOLS_SCHEMA)
+def test_tools_translation_is_flat_and_preserves_contract():
+    oa = to_responses_tools(TOOLS_SCHEMA)
     assert len(oa) == len(TOOLS_SCHEMA)
     for src, dst in zip(TOOLS_SCHEMA, oa):
         assert dst["type"] == "function"
-        assert dst["function"]["name"] == src["name"]
-        assert dst["function"]["description"] == src["description"]
-        # input_schema is carried through verbatim (same object contract).
-        assert dst["function"]["parameters"] == src["input_schema"]
+        assert dst["name"] == src["name"]          # flat, not nested under "function"
+        assert dst["description"] == src["description"]
+        assert dst["parameters"] == src["input_schema"]  # JSON schema verbatim
+        assert "function" not in dst
 
 
 # --------------------------------------------------------------------------- #
@@ -71,8 +76,7 @@ def test_tools_translation_preserves_contract():
 # --------------------------------------------------------------------------- #
 
 def test_parse_text_only_end_turn():
-    r = parse_openai_response(_fake_response(
-        content="all done", tool_calls=[], finish_reason="stop"))
+    r = parse_responses(_fake_response(output=[_msg_item("all done")]))
     assert r.text == "all done"
     assert r.tool_calls == []
     assert r.stop_reason == "end_turn"
@@ -81,43 +85,35 @@ def test_parse_text_only_end_turn():
 
 
 def test_parse_tool_call_arguments_are_parsed_dict():
-    r = parse_openai_response(_fake_response(
-        content=None,
-        tool_calls=[{"id": "call_1", "name": "read_config",
-                     "arguments": json.dumps({"key_path": "training.lr"})}],
-        finish_reason="tool_calls"))
+    r = parse_responses(_fake_response(output=[
+        _call_item("call_1", "read_config", json.dumps({"key_path": "training.lr"}))]))
     assert r.text is None
     assert r.stop_reason == "tool_use"
     assert len(r.tool_calls) == 1
     tc = r.tool_calls[0]
-    assert tc.id == "call_1"
+    assert tc.id == "call_1"          # paired by call_id
     assert tc.name == "read_config"
-    assert tc.arguments == {"key_path": "training.lr"}  # parsed to a dict
+    assert tc.arguments == {"key_path": "training.lr"}
 
 
 def test_parse_malformed_arguments_kept_raw_not_coerced():
-    # A malformed arguments string must NOT be silently turned into {}; keeping
-    # it raw lets the agent's isinstance(dict) check surface a faithful error.
-    r = parse_openai_response(_fake_response(
-        content=None,
-        tool_calls=[{"id": "c", "name": "read_config", "arguments": "{not json"}],
-        finish_reason="tool_calls"))
+    r = parse_responses(_fake_response(output=[
+        _call_item("c", "read_config", "{not json")]))
     assert r.tool_calls[0].arguments == "{not json"
     assert not isinstance(r.tool_calls[0].arguments, dict)
 
 
-def test_parse_length_maps_to_max_tokens_and_cached_tokens():
-    r = parse_openai_response(_fake_response(
-        content="cut off", tool_calls=[], finish_reason="length",
-        cached_tokens=4))
+def test_parse_incomplete_maps_to_max_tokens_and_cached():
+    r = parse_responses(_fake_response(
+        output=[_msg_item("cut off")], status="incomplete",
+        incomplete_reason="max_output_tokens", cached_tokens=4))
     assert r.stop_reason == "max_tokens"
     assert r.usage.cached_tokens == 4
 
 
 def test_parse_captures_api_model_string():
-    r = parse_openai_response(_fake_response(
-        content="x", tool_calls=[], finish_reason="stop", model="gpt-5.6-luna"))
-    assert r.raw["model"] == "gpt-5.6-luna"  # API-reported model string
+    r = parse_responses(_fake_response(output=[_msg_item("x")], model="gpt-5.6-luna"))
+    assert r.raw["model"] == "gpt-5.6-luna"   # API-reported model string (provenance)
 
 
 # --------------------------------------------------------------------------- #
@@ -126,37 +122,36 @@ def test_parse_captures_api_model_string():
 
 def test_effort_tiers_and_validation():
     assert _EFFORT_TIERS == ("none", "low", "medium", "high", "xhigh", "max")
-    assert check_effort("medium") == "medium"          # default, accepted
+    assert check_effort("medium") == "medium"
     with pytest.raises(ValueError):
-        check_effort("reasonable")                     # bogus tier refused
+        check_effort("reasonable")
 
 
 def test_describe_records_effort_and_luna_metadata():
-    d = describe_model("gpt-5.6-luna", 1.0, "medium")
+    # The client sends no temperature to a reasoning model -> recorded as None.
+    d = describe_model("gpt-5.6-luna", None, "medium")
     assert d["provider"] == "openai"
     assert d["model_id"] == "gpt-5.6-luna"
-    assert d["reasoning_effort"] == "medium"           # pinned, recorded
-    assert d["knowledge_cutoff"] == "2026-02-16"       # prior-confound metadata
+    assert d["temperature"] is None
+    assert d["reasoning_effort"] == "medium"
+    assert d["knowledge_cutoff"] == "2026-02-16"
     assert d["context_window_tokens"] == 1_050_000
     assert d["max_output_tokens"] == 128_000
     assert d["long_context_threshold_tokens"] == 272_000
-    # Tier-1 rate limits recorded for a future parallelized runner.
     assert d["rate_limits_tier1"] == {
         "rpm": 500, "tpm": 500_000, "batch_queue_tokens": 5_000_000}
 
 
 def test_no_verbosity_param_is_pinned():
-    # Per the provider decision: pin ONLY reasoning_effort; verbosity is left at
-    # the server default (never set). describe() must not carry a verbosity knob.
     import inspect
 
     import harness.llm.openai_client as oc
     assert "verbosity" not in inspect.getsource(oc.OpenAIClient.complete)
-    assert "verbosity" not in describe_model("gpt-5.6-luna", 1.0, "medium")
+    assert "verbosity" not in describe_model("gpt-5.6-luna", None, "medium")
 
 
 # --------------------------------------------------------------------------- #
-# Message translation
+# Message translation (Responses input items)
 # --------------------------------------------------------------------------- #
 
 def test_message_translation_shapes():
@@ -172,18 +167,38 @@ def test_message_translation_shapes():
              "content": json.dumps({"status": "ok", "value": 0.01})},
         ]},
     ]
-    oa = to_openai_messages(messages)
+    oa = to_responses_input(messages)
     assert oa[0] == {"role": "user", "content": "INSTRUCTION PROMPT"}
-    assert oa[1]["role"] == "assistant"
-    assert oa[1]["content"] == "let me check"
-    assert oa[1]["tool_calls"][0]["id"] == "t1"
-    assert oa[1]["tool_calls"][0]["function"]["name"] == "read_config"
-    # arguments round-trips through JSON
-    assert json.loads(oa[1]["tool_calls"][0]["function"]["arguments"]) == {
-        "key_path": "training.lr"}
-    assert oa[2]["role"] == "tool"
-    assert oa[2]["tool_call_id"] == "t1"
-    assert json.loads(oa[2]["content"]) == {"status": "ok", "value": 0.01}
+    # assistant text -> message item, then a function_call item
+    assert oa[1] == {"role": "assistant", "content": "let me check"}
+    assert oa[2]["type"] == "function_call"
+    assert oa[2]["call_id"] == "t1"
+    assert oa[2]["name"] == "read_config"
+    assert json.loads(oa[2]["arguments"]) == {"key_path": "training.lr"}
+    # tool result -> function_call_output paired by call_id
+    assert oa[3]["type"] == "function_call_output"
+    assert oa[3]["call_id"] == "t1"
+    assert json.loads(oa[3]["output"]) == {"status": "ok", "value": 0.01}
+
+
+# --------------------------------------------------------------------------- #
+# L13: instruction stays user-role; no system/developer remap
+# --------------------------------------------------------------------------- #
+
+def test_instruction_prompt_stays_user_role_no_system_remap():
+    messages = [
+        {"role": "user", "content": "INSTRUCTION PROMPT (user role, position 0)"},
+        {"role": "assistant", "content": [
+            {"type": "tool_use", "id": "t1", "name": "read_config", "input": {}}]},
+        {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "t1", "content": "{}"}]},
+    ]
+    oa = to_responses_input(messages)
+    assert oa[0] == {"role": "user",
+                     "content": "INSTRUCTION PROMPT (user role, position 0)"}
+    roles = {m.get("role") for m in oa if "role" in m}
+    assert "system" not in roles and "developer" not in roles
+    assert roles <= {"user", "assistant"}
 
 
 # --------------------------------------------------------------------------- #
@@ -191,7 +206,6 @@ def test_message_translation_shapes():
 # --------------------------------------------------------------------------- #
 
 def _anthropic_texts(messages: list[dict]) -> list[str]:
-    """Ordered text strings Anthropic receives (messages are sent as-is)."""
     out: list[str] = []
     for m in messages:
         c = m["content"]
@@ -206,42 +220,17 @@ def _anthropic_texts(messages: list[dict]) -> list[str]:
     return out
 
 
-def _openai_texts(oa_messages: list[dict]) -> list[str]:
-    """Ordered text strings OpenAI receives after translation."""
+def _responses_texts(items: list[dict]) -> list[str]:
     out: list[str] = []
-    for m in oa_messages:
-        if m["role"] == "assistant":
-            if m.get("content"):
-                out.append(m["content"])
-        elif isinstance(m.get("content"), str):
+    for m in items:
+        if m.get("type") == "function_call_output":
+            out.append(m["output"])
+        elif "content" in m and isinstance(m["content"], str):
             out.append(m["content"])
     return out
 
 
-def test_instruction_prompt_stays_user_role_no_system_remap():
-    # L13 (docs/LIMITATIONS.md): instructions are the INITIAL USER-ROLE message,
-    # never the provider system role. The OpenAI path must preserve role AND
-    # position and emit no role="system" (remapping would be a cross-provider
-    # confound that invalidates the comparison).
-    messages = [
-        {"role": "user", "content": "INSTRUCTION PROMPT (user role, position 0)"},
-        {"role": "assistant", "content": [
-            {"type": "tool_use", "id": "t1", "name": "read_config", "input": {}}]},
-        {"role": "user", "content": [
-            {"type": "tool_result", "tool_use_id": "t1", "content": "{}"}]},
-    ]
-    oa = to_openai_messages(messages)
-    # Same role, same position: still first, still user.
-    assert oa[0] == {"role": "user",
-                     "content": "INSTRUCTION PROMPT (user role, position 0)"}
-    # No message anywhere is remapped to the system role.
-    assert all(m["role"] != "system" for m in oa)
-    assert {m["role"] for m in oa} <= {"user", "assistant", "tool"}
-
-
 def test_prompt_text_byte_identical_across_providers():
-    # Use the real SUBMIT_FORMAT_TEXT literal slice as prompt content: whatever
-    # the agent sends Anthropic must reach OpenAI byte-for-byte, unmodified.
     messages = [
         {"role": "user", "content": SUBMIT_FORMAT_TEXT},
         {"role": "assistant", "content": [
@@ -254,13 +243,8 @@ def test_prompt_text_byte_identical_across_providers():
              "content": json.dumps({"status": "ok", "series": [0.1, 0.2]})},
         ]},
     ]
-    anthropic_texts = _anthropic_texts(messages)
-    openai_texts = _openai_texts(to_openai_messages(messages))
-    # Same text payloads, same order, byte-for-byte — no provider drift.
-    assert openai_texts == anthropic_texts
-    # And specifically the instruction prompt is untouched.
-    assert to_openai_messages(messages)[0]["content"] == SUBMIT_FORMAT_TEXT
-    assert SUBMIT_FORMAT_TEXT in openai_texts
+    assert _responses_texts(to_responses_input(messages)) == _anthropic_texts(messages)
+    assert to_responses_input(messages)[0]["content"] == SUBMIT_FORMAT_TEXT
 
 
 # --------------------------------------------------------------------------- #
@@ -269,21 +253,14 @@ def test_prompt_text_byte_identical_across_providers():
 
 def test_folding_measurable_from_parsed_submit():
     good = {"repair_type": "config_patch", "patches": {"training.lr": 0.01}}
-    # Structured submit: repair_spec is a proper object -> NOT folded.
-    structured = parse_openai_response(_fake_response(
-        content=None,
-        tool_calls=[{"id": "s", "name": "submit", "arguments": json.dumps({
-            "diagnosis": "lr too high", "repair_spec": good, "rationale": "ok"})}],
-        finish_reason="tool_calls"))
+    structured = parse_responses(_fake_response(output=[_call_item("s", "submit",
+        json.dumps({"diagnosis": "lr too high", "repair_spec": good,
+                    "rationale": "ok"}))]))
     assert recover_folded_repair_spec(structured.tool_calls[0].arguments).reason == \
         "already_structured"
-    # Folded submit: the object is buried in the rationale string -> recovered+warned.
-    folded = parse_openai_response(_fake_response(
-        content=None,
-        tool_calls=[{"id": "s", "name": "submit", "arguments": json.dumps({
-            "diagnosis": "lr too high", "repair_spec": None,
-            "rationale": "repair: " + json.dumps(good)})}],
-        finish_reason="tool_calls"))
+    folded = parse_responses(_fake_response(output=[_call_item("s", "submit",
+        json.dumps({"diagnosis": "lr too high", "repair_spec": None,
+                    "rationale": "repair: " + json.dumps(good)}))]))
     fold = recover_folded_repair_spec(folded.tool_calls[0].arguments)
     assert fold.warning is True
     assert fold.reason == "recovered"
