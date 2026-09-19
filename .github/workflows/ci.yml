@@ -4,92 +4,36 @@ name: CI (canonical container)
 # FRESH checkout with NO cached cases/, NO cached .data/, and NO warm uv cache
 # (nothing uses actions/cache; deps live in the image, data/cases are generated).
 # This is the stranger's-fresh-clone guarantee.
+#
+# TWO LANES, split by cost (docs/DECISIONS.md 2026-09-18):
+#   FAST lane — runs on EVERY push (any branch): the fast tests
+#     (`-m "not slow_integration"`, no training) + the cheap static guards
+#     (repro-guards frozen byte-match; reference-change-guard detect-only). Returns
+#     in ~2-3 min — no case build, no training.
+#   FULL lane — runs on pull_request to main + the nightly schedule: everything the
+#     fast lane runs PLUS `build-validate` (build-all + validate + the FULL
+#     verify_repair gate + margin/baseline/calibration), the slow (training) tests,
+#     and the two-runner reference repro. Case-build (train-heavy) is what made push
+#     slow, so it lives here — surfacing a case-build break at PR time, not on push.
+#   The merge guarantee is preserved AT PR TIME: `test-suite-slow` and
+#   `build-validate` (which runs the FULL gate on a PR) are REQUIRED status checks
+#   for merge — see docs/DECISIONS.md 2026-09-18 (branch protection).
 on:
   push:
-    branches: [main]
   pull_request:
     branches: [main]
   schedule:
     - cron: "0 7 * * *"
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  # ---- Reproducibility gate: TWO INDEPENDENT RUNNERS (amendment 3) ----------
-  reference-repro:
+  # ---- FAST test lane — every push -----------------------------------------
+  test-suite-fast:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
-    strategy:
-      matrix:
-        run: [1, 2] # two fresh runners, not two invocations in one shell
-    steps:
-      - uses: actions/checkout@v4
-      - run: docker build --platform linux/amd64 -t trainmd:canonical .
-      - run: make docker-data
-      - name: CI fingerprint (CPU + data hashes)
-        run: bash scripts/ci_fingerprint.sh
-      - run: make docker-reference
-      - uses: actions/upload-artifact@v4
-        with:
-          name: reference-run-${{ matrix.run }}
-          path: workloads/tabular_adult/reference/stats.yaml
-
-  reference-repro-compare:
-    needs: reference-repro
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - name: CI fingerprint (CPU; no data prepared here)
-        run: bash scripts/ci_fingerprint.sh
-      - uses: actions/download-artifact@v4
-        with: { name: reference-run-1, path: r1 }
-      - uses: actions/download-artifact@v4
-        with: { name: reference-run-2, path: r2 }
-      - name: Assert the two independent runs are byte-identical
-        run: |
-          docker build --platform linux/amd64 -t trainmd:canonical .
-          docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
-            python scripts/verify_reference.py r1/stats.yaml r2/stats.yaml
-          echo "REPRODUCIBLE: reference-run-1 == reference-run-2 across independent runners"
-
-  # ---- Fresh-clone build + validate + gate + margins (amendments 1, item 4) --
-  build-validate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v4
-      - name: Disk before
-        run: df -h / | tail -1
-      - run: docker build --platform linux/amd64 -t trainmd:canonical .
-      - name: Build all cases + validate + gate + margins (timed)
-        run: |
-          START=$(date +%s)
-          make docker-data
-          make link-neutral-workload               # neutral family shares tabular_adult data
-          bash scripts/ci_fingerprint.sh           # CPU + data hashes (diagnostic)
-          make docker-reference                    # canonical candidate (ephemeral)
-          make docker-build-all-cases              # all cases from the registry design (currently 33), fresh
-          make docker-validate-all
-          make docker-gate-known-answer
-          make docker-case-margins
-          END=$(date +%s)
-          echo "BUILD_ALL_CASES_WALL_SECONDS=$((END-START))"
-      - name: Known-answer gate (FULL — verify_repair recovery)
-        run: make docker-gate-known-answer FULL=1
-      - name: Positive-symptom rung margin table (all six rungs, both halves)
-        run: make docker-margin-report
-      - name: Native calibration sweep — data_leakage mild p (largest-p-that-clears)
-        run: make docker-calibrate-data-leakage
-      - name: Baselines on the neutral-key cases (B2 detect+recover, identify 0/6)
-        run: make docker-baseline-report
-      - name: Disk after (cases + data footprint)
-        run: |
-          df -h / | tail -1
-          du -sh cases workloads/tabular_adult/.data workloads/tabular_adult/.hidden_data 2>/dev/null || true
-
-  # ---- Full test suite (fresh) ---------------------------------------------
-  test-suite:
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - run: docker build --platform linux/amd64 -t trainmd:canonical .
@@ -97,6 +41,21 @@ jobs:
         run: |
           docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work \
             trainmd:canonical python scripts/check_current_state.py
+      - run: make docker-data
+      - run: make link-neutral-workload
+      - name: CI fingerprint (CPU + data hashes)
+        run: bash scripts/ci_fingerprint.sh
+      - name: Fast test suite (no training; -m "not slow_integration")
+        run: make docker-test-fast
+
+  # ---- SLOW test lane — pull_request to main + nightly ---------------------
+  test-suite-slow:
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
       - run: make docker-data
       - run: make link-neutral-workload
       - name: CI fingerprint (CPU + data hashes)
@@ -119,17 +78,95 @@ jobs:
             python scripts/verify_reference.py /committed.yaml \
             workloads/tabular_adult/reference/stats.yaml
           git checkout -- workloads/tabular_adult/reference/stats.yaml
-      - name: Full test suite incl. slow (in container)
-        run: make docker-test
+      - name: Slow test suite (training; -m slow_integration)
+        run: make docker-test-slow
+
+  # ---- Fresh-clone build + validate + gate + margins -----------------------
+  # --fast gate on every push; FULL (verify_repair) + reports on PR/nightly.
+  build-validate:
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Disk before
+        run: df -h / | tail -1
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - name: Build all cases + validate + FAST gate + margins (timed)
+        run: |
+          START=$(date +%s)
+          make docker-data
+          make link-neutral-workload               # neutral family shares tabular_adult data
+          bash scripts/ci_fingerprint.sh           # CPU + data hashes (diagnostic)
+          make docker-build-all-cases              # all cases from the registry design, fresh
+          make docker-validate-all
+          make docker-gate-known-answer            # --fast (default): no verify_repair
+          make docker-case-margins
+          END=$(date +%s)
+          echo "BUILD_ALL_CASES_WALL_SECONDS=$((END-START))"
+      # --- FULL lane only (training-heavy): PR to main + nightly ---
+      - name: Known-answer gate (FULL — verify_repair recovery)
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+        run: make docker-gate-known-answer FULL=1
+      - name: Positive-symptom rung margin table (all rungs, both halves)
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+        run: make docker-margin-report
+      - name: Native calibration sweep — data_leakage mild p (largest-p-that-clears)
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+        run: make docker-calibrate-data-leakage
+      - name: Baselines on the neutral-key cases (B2 detect+recover, identify 0/6)
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+        run: make docker-baseline-report
+      - name: Disk after (cases + data footprint)
+        run: |
+          df -h / | tail -1
+          du -sh cases workloads/tabular_adult/.data workloads/tabular_adult/.hidden_data 2>/dev/null || true
+
+  # ---- Reproducibility gate: TWO INDEPENDENT RUNNERS (amendment 3) — FULL lane
+  reference-repro:
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      matrix:
+        run: [1, 2] # two fresh runners, not two invocations in one shell
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - run: make docker-data
+      - name: CI fingerprint (CPU + data hashes)
+        run: bash scripts/ci_fingerprint.sh
+      - run: make docker-reference
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reference-run-${{ matrix.run }}
+          path: workloads/tabular_adult/reference/stats.yaml
+
+  reference-repro-compare:
+    needs: reference-repro
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: CI fingerprint (CPU; no data prepared here)
+        run: bash scripts/ci_fingerprint.sh
+      - uses: actions/download-artifact@v4
+        with: { name: reference-run-1, path: r1 }
+      - uses: actions/download-artifact@v4
+        with: { name: reference-run-2, path: r2 }
+      - name: Assert the two independent runs are byte-identical
+        run: |
+          docker build --platform linux/amd64 -t trainmd:canonical .
+          docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
+            python scripts/verify_reference.py r1/stats.yaml r2/stats.yaml
+          echo "REPRODUCIBLE: reference-run-1 == reference-run-2 across independent runners"
 
   # ---- Standing guard: a committed-reference change must rebuild all cases ---
-  # The danger is NOT a noisy comparison; it is a SILENTLY-committed reference
-  # shift (e.g. tolerance_lower moved 2.99e-3 on a divergent runner — larger than
-  # the tightest case-guard margin 1.37e-3) that leaves cases built against the
-  # old threshold. When reference/stats.yaml or the data pin changes, this job
-  # rebuilds ALL cases against the COMMITTED reference (no regeneration) and
-  # requires validate-all + gate green — proving the new committed reference
-  # still produces valid cases. See docs/DECISIONS.md (2026-09-14).
+  # Runs on every event: on a normal push it detects "no reference change" and
+  # skips the heavy rebuild/FULL-gate steps (cheap); when reference/stats.yaml or
+  # the data pin changes it rebuilds ALL cases against the COMMITTED reference and
+  # requires validate-all + the FULL gate green. See docs/DECISIONS.md (2026-09-14).
   reference-change-guard:
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -165,9 +202,10 @@ jobs:
         run: make docker-gate-known-answer FULL=1
 
   # ---- Reproducible-analysis guards (STAGE3_PLAN §0.3): pure-Python, no container ----
-  # The committed records RELEASE lets these run with no results/ or cases/ (both gitignored):
-  # rebuild each sweep's report FROM THE RELEASE and byte-match the committed generated report;
-  # validate every manifest/plan schema; and check that no analysis narrative invents a number.
+  # Cheap (pip + fast checks); runs on every event. The committed records RELEASE lets
+  # these run with no results/ or cases/ (both gitignored): rebuild each sweep's report
+  # FROM THE RELEASE and byte-match the committed report; validate every manifest/plan
+  # schema; and check that no analysis narrative invents a number.
   repro-guards:
     runs-on: ubuntu-latest
     timeout-minutes: 15
