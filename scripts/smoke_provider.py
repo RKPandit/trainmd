@@ -259,7 +259,11 @@ def main() -> int:
         print(f"trials:              {n_submit + n_no_submit}")
         print(f"submitted correctly: {n_submit}  (no-submit: {n_no_submit})")
         print(f"folded submits:      {n_folded}")
-        print(f"FOLDING RATE:        {fold_rate:.3f}  (folded / submits)")
+        print(f"folding (observed):  {n_folded}/{n_submit}  (rate={fold_rate:.3f})")
+        print("  NOTE: this is a SMOKE on ONE easy case, n too small to estimate a "
+              "provider folding rate (e.g. 0/10 has a ~26% 95% upper bound). The "
+              "per-provider folding rate is a Sweep-3 secondary, measured over the "
+              "full cell count (docs/HYPOTHESES.md).")
         print(f"fold reasons:        {reasons}")
         print(f"tokens:              in={in_tok} out={out_tok} cached={cached_tok}")
         print(f"  of which reasoning: {reasoning_tok} (billed as output, counted in out=)")

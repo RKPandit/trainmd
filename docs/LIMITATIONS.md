@@ -389,3 +389,10 @@ folding behaviour) cannot be fully excluded; the pure translation functions are 
 preserve schema/text/role/position (`tests/test_openai_client.py`), which bounds — but does not
 erase — the concern. Also: reasoning models do not accept `temperature`, so the Luna arm sends
 none (recorded `null`) while the Haiku arm runs at 1.0 — a small disclosed sampling asymmetry.
+**Reasoning-token cost asymmetry (measured):** on the 2026-09-19 smoke, **79% of Luna's billed
+output was reasoning tokens (2,368 / 3,015)** — hidden tokens the model never emits as text but
+that count as (billed) output and are surfaced per call in `raw["reasoning_tokens"]`. Anthropic
+does not report a separate reasoning-token category, so **per-trial cost comparisons between the
+providers are not like-for-like at the token level**: Luna's output-token count (and thus its
+output cost) is dominated by reasoning volume that has no counterpart in Haiku's accounting. Cost
+figures per provider are reported and compared with this caveat, not as a token-for-token ratio.

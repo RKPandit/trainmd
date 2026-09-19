@@ -290,6 +290,14 @@ reported **per anchor arm**.
 - **Evidence F1 by variant.** The neutral evidence set cites the neutral keys; a drop would
   mean the agent cites config keys it cannot interpret.
 - **B0–B4 baselines** reported as the floor on every case, both variants.
+- **Per-provider structured-output folding rate (Sweep-3 secondary).** The fraction of submits
+  whose structured `repair_spec` was folded into a sibling string field
+  (`recover_folded_repair_spec`), reported **per provider** (Anthropic Haiku vs OpenAI GPT-5.6
+  Luna) over the **full Sweep-3 cell count**, each with a case-clustered CI. Prior: Haiku ≈ 9.6%.
+  This is a genuine measurement only at the full n — the adapter smoke's 0/10 on one easy case is
+  NOT an estimate (≈26% 95% upper bound, consistent with Luna at or above Haiku's rate). Reported
+  descriptively (folding is a transport/robustness property, not a diagnosis-quality axis); a large
+  per-provider gap is a caveat on cross-provider score comparisons, not a finding about either model.
 
 **Isolation evidence (why the contrast is clean).**
 - **Identical hidden faulty values** at every strength/seed — descriptive == neutral to 6
