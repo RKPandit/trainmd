@@ -178,6 +178,27 @@ def _openai_texts(oa_messages: list[dict]) -> list[str]:
     return out
 
 
+def test_instruction_prompt_stays_user_role_no_system_remap():
+    # L13 (docs/LIMITATIONS.md): instructions are the INITIAL USER-ROLE message,
+    # never the provider system role. The OpenAI path must preserve role AND
+    # position and emit no role="system" (remapping would be a cross-provider
+    # confound that invalidates the comparison).
+    messages = [
+        {"role": "user", "content": "INSTRUCTION PROMPT (user role, position 0)"},
+        {"role": "assistant", "content": [
+            {"type": "tool_use", "id": "t1", "name": "read_config", "input": {}}]},
+        {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "t1", "content": "{}"}]},
+    ]
+    oa = to_openai_messages(messages)
+    # Same role, same position: still first, still user.
+    assert oa[0] == {"role": "user",
+                     "content": "INSTRUCTION PROMPT (user role, position 0)"}
+    # No message anywhere is remapped to the system role.
+    assert all(m["role"] != "system" for m in oa)
+    assert {m["role"] for m in oa} <= {"user", "assistant", "tool"}
+
+
 def test_prompt_text_byte_identical_across_providers():
     # Use the real SUBMIT_FORMAT_TEXT literal slice as prompt content: whatever
     # the agent sends Anthropic must reach OpenAI byte-for-byte, unmodified.

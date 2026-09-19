@@ -78,6 +78,11 @@ def to_openai_messages(messages: list[dict]) -> list[dict]:
         content = m["content"]
         if role == "user":
             if isinstance(content, str):
+                # L13 (docs/LIMITATIONS.md): the instruction prompt is delivered
+                # as the INITIAL USER-ROLE message, NOT the provider system role.
+                # Keep role + position exactly; NEVER remap to role="system" — that
+                # would be a cross-provider confound. (No system message is injected
+                # anywhere in this adapter.)
                 out.append({"role": "user", "content": content})
             else:
                 for block in content:
