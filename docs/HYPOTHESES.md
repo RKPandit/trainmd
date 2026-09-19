@@ -215,6 +215,104 @@ benchmark already claims to make, which is why it is the only second agent in Sw
 
 ---
 
+## H8 — Neutral-key ablation: is leakage identification understanding or name-reading? (Sweep 3)
+
+**Pre-registered 2026-09-19, before any Sweep-3 trial. Locks the hypothesis, thresholds, and
+interpretation. The paid trial is a separate step.**
+
+**Context.** Part 1 measured that a trivial config-delta baseline (**B2**) matches the
+anchored LLM on **detection and recovery** — at *better* specificity — on this workload's
+config-knob operators. The **only surviving measured agent value** is **identifying** faults
+whose config-knob name does not name the concept (`data_leakage`, `metric_inflation`). H8 is
+the decisive test of that surviving headline: is the identification **fault-mechanism
+understanding**, or **key-name reading**?
+
+**Design — paired, within-sweep.** Two mechanically identical variants:
+`silent.data_leakage.v1` (descriptive keys `include_aux_feature`/`aux_feature_strength`) and
+`silent.data_leakage_neutral.v1` (neutral keys `opt_c`/`opt_c_level`). Same derivation
+function (`datautil._derived_column`), identical hidden faulty values at every strength/seed,
+admissible repairs identical up to key names. The only thing an agent can observe that differs
+is the config key name.
+
+**WITHIN-SWEEP constraint (design, not incidental).** The descriptive variant's train.py was
+**de-revealed** during the Part-2 refactor (the derivation moved to `datautil._derived_column`;
+the `_compute_aux_column` name + docstring + comment were removed). Its Sweep-3 identification
+is therefore **NOT comparable to Sweep-1/2's 0.83–0.96**. **H8 compares neutral vs descriptive
+inside Sweep 3 only — never vs a frozen number.**
+
+**Cells.** 2 variants × 3 strengths × 2 confirmatory seeds × 3 anchor arms (off/stats/rule) ×
+2 agents × 2 repeats = **144 faulty cells**, plus controls in the static protocol × 3 arms ×
+1 repeat. **Cost estimate ≈ $8–12** (refine with `harness/sweep.estimate_cost`).
+
+**POWER NOTE (pre-registered, stated before the thresholds).** The case-clustered CI resamples
+the **case** as the unit, and there are only **6 cases per variant per arm** (3 strengths × 2
+seeds); the 2 repeats × 2 agents add trials within a case, not clusters. A simulation of this
+exact design (case-clustered bootstrap, 6 clusters) gives a **median 95% CI half-width on the
+neutral−descriptive difference of ≈0.25** (0.21–0.31 across plausible base rates and
+between-case spread) and a **minimum detectable difference (80% power, CI excludes 0) of
+≈0.45** (0.40–0.50). **Both exceed the thresholds below**, so, pre-registered:
+- The CI half-width (~0.25) is **wider than the 0.15 equivalence bound** → **equivalence
+  cannot be established** at this n; the confirming branch is worded *"no evidence of a
+  substantial gap,"* never *"equivalence established."*
+- The MDD (~0.45) is **larger than the 0.30 refuting threshold** → the design detects only a
+  **large** gap (≳0.45); a **moderate** gap (0.30–0.45) lands in INCONCLUSIVE **by power, not
+  by finding.** **The design can detect the REFUTING outcome but cannot establish the
+  CONFIRMING one.** Tightening this needs more cases per arm (a deferred design item, disclosed
+  here so a wide CI is never read as support after the fact).
+
+**H8.** The anchored LLM's identification on `data_leakage` is driven by fault mechanism, not
+key legibility.
+
+**Confirming metric.** Per-operator identification rate (`scores.identification.correct`),
+**case-clustered 95% CI** (case-level bootstrap, 10k resamples; `harness/sweep_stats.py`),
+reported **per anchor arm**.
+
+- **CONFIRMING (no evidence of a substantial gap).** Neutral identification point estimate
+  within **0.15** of descriptive in the same arm, AND the case-clustered 95% CI does not reveal
+  a large gap (does not exclude zero beyond −0.15). Reported as **"no evidence of a substantial
+  gap"** — NOT as established equivalence (the CI is too wide at n=6; see the power note). Read
+  as: consistent with the agent reading the mechanism; the surviving headline is not refuted.
+- **REFUTING.** Neutral **> 0.30 below** descriptive with the CI excluding zero ⇒
+  identification was substantially name-reading; the surviving headline shrinks to **"config
+  legibility,"** and the agent's measured value over B2 collapses further.
+- **INCONCLUSIVE.** A gap in (0.15, 0.30], or a CI spanning both thresholds ⇒ reported as such;
+  no side is picked. (Per the power note, a true gap of 0.30–0.45 is expected to land here.)
+- **Per anchor arm.** The **off arm may floor on both variants** (Sweep-1 leakage detection
+  0.042 off-anchor); if it floors, H8 is answered by the **stats and rule arms**, and that is
+  stated.
+
+**Secondary (pre-registered).**
+- **Detection + recovery are expected UNCHANGED between variants** (B2 detects 6/6 on both; the
+  fault is identical). A difference there would indicate an **instrument problem, not a finding**
+  — stated in advance.
+- **Evidence F1 by variant.** The neutral evidence set cites the neutral keys; a drop would
+  mean the agent cites config keys it cannot interpret.
+- **B0–B4 baselines** reported as the floor on every case, both variants.
+
+**Isolation evidence (why the contrast is clean).**
+- **Identical hidden faulty values** at every strength/seed (CI run 35385887096, same run;
+  descriptive `case_0007–0012` == neutral `case_0013–0018` to 6 decimals):
+
+  | strength | seed 42 | seed 43 |
+  |----------|---------|---------|
+  | mild     | 0.821171 | 0.824856 |
+  | moderate | 0.801858 | 0.803627 |
+  | severe   | 0.718856 | 0.724311 |
+
+- **Zero hint tokens** in the neutral workspace vs `['aux','feature']` in the descriptive
+  (`tests/test_neutral_variant.py::test_neutral_introduces_no_hint_token`).
+- **No harness module** outside the operator branches on either key name
+  (`test_no_variant_agnostic_module_names_descriptive_keys`).
+- **Admissible repairs identical up to key names**
+  (`test_admissible_repairs_identical_up_to_key_names`).
+- **B2 detect 6/6, identify 0/6** on both variants (config-diff is name-blind; the config leaf
+  carries no `leak` token).
+
+**Sweep factor.** Config-key naming (descriptive vs neutral) × strength × seed × anchor × agent,
+mechanism held identical.
+
+---
+
 ## Secondary observations to record (not hypotheses, but report them)
 
 - **Cost ratio ReAct : static** per operator (tokens and $). "ReAct is 3× the cost for
