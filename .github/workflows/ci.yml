@@ -86,7 +86,12 @@ jobs:
   build-validate:
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # 128-case design (v3 Part 2, H8 6-seed power): the 90-min budget fit 56 cases but
+    # the FULL verify_repair gate over 128 cases overran it (build+validate+margins ~34 min,
+    # then the FULL gate's 128 recovery retrains exceed the remainder). Raised to 240 min
+    # (GH job cap is 6 h). Full lane only (PR to main + nightly), so push stays ~2-3 min.
+    # docs/DECISIONS.md 2026-09-19.
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
       - name: Disk before
