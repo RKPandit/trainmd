@@ -41,11 +41,20 @@ _MODEL_METADATA: dict[str, dict] = {
     "gpt-5.6-luna": {
         "knowledge_cutoff": "2026-02-16",
         "context_window_tokens": 1_050_000,
+        "max_output_tokens": 128_000,
         # Long-context meter: above this input-token threshold OpenAI bills input
         # (and cached input / cache writes) at 2x and output at 1.5x. Our prompts
         # are far below it; recorded so a future large-context workload is not
         # silently double-billed. See harness/pricing.py.
         "long_context_threshold_tokens": 272_000,
+        # Tier-1 account rate limits. NOT a constraint for sequential runs at
+        # ~30K tokens/trial, but recorded in the model block (-> the sweep
+        # manifest) so a future PARALLELIZED runner does not hit them blind.
+        "rate_limits_tier1": {
+            "rpm": 500,
+            "tpm": 500_000,
+            "batch_queue_tokens": 5_000_000,
+        },
     },
 }
 

@@ -360,3 +360,15 @@ these operators (L19: any admissible repair reconstructs the clean run), so a co
 matching the oracle is expected, not evidence of repair intelligence. B2's control-FPR is 0/20
 (no config delta on a clean control), so on specificity B2 dominates the band detector B1 (1/20,
 the case_0039 two-sided-band false positive) — the 0-FPR floor is B2, not B1.
+
+**L26 — The second provider (GPT-5.6 Luna) has NO dated snapshot to pin; the alias IS the
+snapshot.** Anthropic model ids are dated (e.g. `claude-haiku-4-5-20251001`), so a trial's model
+is reproducible from the id alone. OpenAI publishes only the floating alias `gpt-5.6-luna` (no
+`gpt-5.6-luna-YYYY-MM-DD` exists, verified 2026-09-19), so the alias can be silently repointed to a
+newer build. Consequence: for the Luna arm, model provenance rests on the **API-reported model
+string captured per trial** (`LLMResponse.raw["model"]` → `llm_transcript[*].api_model` in every
+record; the adapter already records it) rather than on the requested id. This is an asymmetry with
+the Anthropic arm — a Luna result is reproducible only against whatever build the alias pointed to
+at run time. Mitigations: (i) the per-trial `api_model` is the ground-truth provenance and is
+audited; (ii) re-pin to a dated snapshot the moment OpenAI publishes one (docs/DECISIONS.md
+2026-09-19). Any drift in the aggregate `api_model` across a sweep is a provenance-split flag.

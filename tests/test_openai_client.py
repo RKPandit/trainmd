@@ -138,7 +138,21 @@ def test_describe_records_effort_and_luna_metadata():
     assert d["reasoning_effort"] == "medium"           # pinned, recorded
     assert d["knowledge_cutoff"] == "2026-02-16"       # prior-confound metadata
     assert d["context_window_tokens"] == 1_050_000
+    assert d["max_output_tokens"] == 128_000
     assert d["long_context_threshold_tokens"] == 272_000
+    # Tier-1 rate limits recorded for a future parallelized runner.
+    assert d["rate_limits_tier1"] == {
+        "rpm": 500, "tpm": 500_000, "batch_queue_tokens": 5_000_000}
+
+
+def test_no_verbosity_param_is_pinned():
+    # Per the provider decision: pin ONLY reasoning_effort; verbosity is left at
+    # the server default (never set). describe() must not carry a verbosity knob.
+    import inspect
+
+    import harness.llm.openai_client as oc
+    assert "verbosity" not in inspect.getsource(oc.OpenAIClient.complete)
+    assert "verbosity" not in describe_model("gpt-5.6-luna", 1.0, "medium")
 
 
 # --------------------------------------------------------------------------- #
