@@ -84,6 +84,23 @@ def test_verify_phase_covers_only_new_cells_after_extension(tmp_path):
     assert set(verify_pending) == {"B1", "B2"}             # only the new cells
 
 
+def test_lookup_case_finds_non_default_workload_family():
+    # Regression (2026-09-20): _lookup_case matched a hardcoded workload, so the
+    # neutral variant (tabular_adult_neutral) was never found -> every neutral case
+    # marked MISSING. It must match the OPERATOR's own workload family.
+    from harness.sweep import _lookup_case
+    reg = {
+        "case_0001": {"workload": "tabular_adult", "operator": "silent.data_leakage.v1",
+                      "strength": "mild", "seed": 42},
+        "case_0019": {"workload": "tabular_adult_neutral",
+                      "operator": "silent.data_leakage_neutral.v1",
+                      "strength": "mild", "seed": 42},
+    }
+    assert _lookup_case(reg, "silent.data_leakage.v1", "mild", 42) == "case_0001"
+    assert _lookup_case(reg, "silent.data_leakage_neutral.v1", "mild", 42) == "case_0019"
+    assert _lookup_case(reg, "silent.data_leakage_neutral.v1", "mild", 99) is None
+
+
 def test_progress_is_append_only_old_entries_survive(tmp_path):
     # report + resume read the append-only progress/index; extending only APPENDS.
     p = _progress_path(tmp_path, "s", "agents")

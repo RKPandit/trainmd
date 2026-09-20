@@ -76,9 +76,15 @@ def _tier_of(operator: str) -> str:
 
 
 def _lookup_case(registry: dict, operator: str, strength: str, seed: int) -> str | None:
+    # Match the operator's OWN workload family, not the hardcoded default: the
+    # neutral-key variant lives on `tabular_adult_neutral`, so a `== WORKLOAD`
+    # filter would never find its cases and mark every one MISSING (bug fixed
+    # 2026-09-20). (operator, strength, seed) is unique within a family.
+    from operators.registry import get_operator
+    wl = getattr(get_operator(operator), "WORKLOAD_FAMILY", WORKLOAD)
     for cid, e in registry.items():
         if (e.get("operator") == operator and e.get("strength") == strength
-                and e.get("seed") == seed and e.get("workload") == WORKLOAD):
+                and e.get("seed") == seed and e.get("workload") == wl):
             return cid
     return None
 
