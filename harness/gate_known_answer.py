@@ -102,15 +102,69 @@ def _recovery_verdict(submission: dict, tier: str, case_dir: Path, project_root:
     return score_recovery(submission, case_dir, project_root)["verdict"]
 
 
-def run_gate(project_root: Path, fast: bool = True) -> list[Row]:
-    """Run the gate over every case; return the table rows."""
+def _case_meta(case_dir: Path) -> tuple[str, str, str]:
+    """(operator_id, strength, tier) for a built case."""
+    hc = yaml.safe_load((case_dir / "hidden" / "card.hidden.yaml").read_text())
+    return (hc.get("operator_id", "?"), str(hc.get("strength")), hc.get("layer", "dynamics"))
+
+
+def subset_by_operator_strength(cases: list[tuple[str, str, str]],
+                                expected_pairs: set | None = None):
+    """Pick ONE case per (operator, strength) + assert design coverage. Pure/testable.
+
+    cases: list of (case_name, operator, strength) for the BUILT cases. Returns
+    (selected_names: set, coverage_ok: bool, info: dict). The representative is the
+    smallest case_name in each (operator, strength) group. coverage_ok is True iff
+    the selected groups cover every (operator, strength) in *expected_pairs* (the
+    committed design); a group missing from the build → coverage FAILS. If
+    expected_pairs is None it defaults to the pairs present in *cases* (self-check).
+    """
+    chosen: dict[tuple[str, str], str] = {}
+    for name, op, st in sorted(cases):
+        chosen.setdefault((op, st), name)
+    sel_names = set(chosen.values())
+    present_pairs = set(chosen)
+    if expected_pairs is None:
+        expected_pairs = present_pairs
+    expected_pairs = set(expected_pairs)
+    missing = expected_pairs - present_pairs
+    ok = not missing
+    return sel_names, ok, {
+        "n_selected": len(sel_names),
+        "expected_groups": len(expected_pairs),
+        "covered_groups": len(present_pairs & expected_pairs),
+        "operators": sorted({op for (op, _st) in expected_pairs}),
+        "strengths": sorted({st for (_op, st) in expected_pairs}),
+        "missing": sorted(missing),
+    }
+
+
+def run_gate(project_root: Path, fast: bool = True, subset: bool = False) -> list[Row]:
+    """Run the gate over every case (or a representative subset); return rows.
+
+    subset=True gates ONE case per (operator, strength) — the smallest case id in
+    each group — and appends a coverage row that FAILS unless the selected cases
+    cover every operator AND every strength present in the built design. This is
+    the certification gate: it exercises each operator at each rung without the
+    full ~324-retrain cost, while a coverage guard forbids silently dropping one.
+    """
     project_root = Path(project_root).resolve()
     cases_dir = project_root / "cases"
     rows: list[Row] = []
 
-    for case_dir in sorted(cases_dir.iterdir()):
-        if not (case_dir.is_dir() and case_dir.name.startswith("case_")):
-            continue
+    all_dirs = [cd for cd in sorted(cases_dir.iterdir())
+                if cd.is_dir() and cd.name.startswith("case_")]
+    meta = {cd: _case_meta(cd) for cd in all_dirs}
+    if subset:
+        from scripts.build_all_cases import case_design_tuples
+        expected_pairs = {(op, st) for op, st, _sd in case_design_tuples()}
+        sel_names, cov_ok, cov_info = subset_by_operator_strength(
+            [(cd.name, meta[cd][0], meta[cd][1]) for cd in all_dirs], expected_pairs)
+        selected = [cd for cd in all_dirs if cd.name in sel_names]
+    else:
+        selected = all_dirs
+
+    for case_dir in selected:
         hidden = case_dir / "hidden"
         hc = yaml.safe_load((hidden / "card.hidden.yaml").read_text())
         verify = yaml.safe_load((hidden / "verify.yaml").read_text())
@@ -171,6 +225,17 @@ def run_gate(project_root: Path, fast: bool = True) -> list[Row]:
             row("always_broken", "evidence_zero", 0.0, abd["evidence"]["f1"], ev0,
                 "always-broken cites no evidence")
 
+    if subset:
+        rows.append(Row(
+            "SUBSET", "-", "-", "gate", "coverage",
+            f"{cov_info['expected_groups']} design groups "
+            f"(ops={len(cov_info['operators'])} strengths={cov_info['strengths']})",
+            f"{cov_info['n_selected']} cases; covered={cov_info['covered_groups']}"
+            + (f"; MISSING={cov_info['missing']}" if cov_info['missing'] else ""),
+            "PASS" if cov_ok else "FAIL",
+            "one case per (operator,strength) must cover every (operator,strength) in the design",
+        ))
+
     return rows
 
 
@@ -198,12 +263,15 @@ def main() -> int:
     parser.add_argument("--project-root", type=Path, default=None)
     parser.add_argument("--full", action="store_true", help="Include recovery reruns")
     parser.add_argument("--fast", action="store_true", help="Skip recovery reruns (default)")
+    parser.add_argument("--subset", action="store_true",
+                        help="Gate one case per (operator,strength) + assert coverage "
+                             "(certification subset; ~15 cases vs all 128)")
     args = parser.parse_args()
 
     project_root = args.project_root or Path(__file__).resolve().parent.parent
     fast = not args.full  # fast is the default
 
-    rows = run_gate(project_root, fast=fast)
+    rows = run_gate(project_root, fast=fast, subset=args.subset)
     out = project_root / "docs" / "audits" / f"known_answer_{date.today().strftime('%Y%m%d')}.md"
     write_table(rows, out, fast)
 
