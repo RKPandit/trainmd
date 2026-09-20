@@ -152,6 +152,28 @@ jobs:
         run: make docker-margin-report
       - name: Baselines on the neutral-key cases (B2 detect+recover, identify 0/6)
         run: make docker-baseline-report
+      - name: H8 + cross-provider sweep plan (canonical cases → committable artifact)
+        run: |
+          # Generated against the just-built CANONICAL cases (registry present, so
+          # priors map + build_ids match the eventual run) — the plan a maintainer
+          # commits. Faulty: 2 variants × 3 strengths × 6 seeds × 3 arms × 2 agents ×
+          # 2 providers × 2 repeats. Controls (50–69): static-only × 3 arms × 1 repeat
+          # × 2 providers. Expect 984 cells / 0 MISSING.
+          docker run --rm --platform linux/amd64 --user 1001:1001 -e HOME=/tmp \
+            -e TRAINMD_IN_CONTAINER=1 -v "$PWD":/work -w /work trainmd:canonical \
+            python -m harness.sweep plan --name h8_xprovider \
+              --operators silent.data_leakage.v1 silent.data_leakage_neutral.v1 \
+              --seeds 42 43 44 45 46 47 \
+              --control-seeds 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 \
+              --repeats 2 \
+              --providers anthropic:claude-haiku-4-5-20251001 openai:gpt-5.6-luna
+          docker run --rm --platform linux/amd64 --user 1001:1001 -e HOME=/tmp \
+            -v "$PWD":/work -w /work trainmd:canonical python -c \
+            "import yaml,json; h=yaml.safe_load(open('sweeps/h8_xprovider_plan.yaml'))['header']; print(json.dumps({k:h[k] for k in ['n_cells','n_missing','verify_estimate','cost_estimate']}, indent=1, default=str))"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: h8_xprovider_plan
+          path: sweeps/h8_xprovider_plan.yaml
       - name: Disk after (cases + data footprint)
         run: |
           df -h / | tail -1
