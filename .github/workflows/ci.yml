@@ -174,6 +174,37 @@ jobs:
         with:
           name: h8_xprovider_plan
           path: sweeps/h8_xprovider_plan.yaml
+      - name: Package cases + workload data (self-contained, portable symlinks)
+        run: |
+          # The sweep needs, on disk: (1) cases/ (built cases + registry.hidden.yaml)
+          # — read by the agent phase + preconditions (gate/validate/audit); and
+          # (2) the workload data that verify_repair reads DIRECTLY:
+          # workloads/<family>/.data + .hidden_data. Each case's workspace/.data is
+          # an ABSOLUTE symlink into the container path (/work/...), broken anywhere
+          # else — rewrite to a RELATIVE symlink so the tar is portable. This is
+          # build_id-neutral: _compute_build_id hashes source files only, never
+          # .data or its symlink (harness/build_case.py). Bundled with the SAME run's
+          # h8_xprovider_plan, so plan build_ids match these cases by construction.
+          for link in cases/*/workspace/.data; do
+            [ -L "$link" ] || continue
+            ln -sfn ../../../workloads/tabular_adult/.data "$link"
+          done
+          # tar preserves symlinks: the neutral family's .data/.hidden_data stay as
+          # relative symlinks (../tabular_adult/...) and resolve against the real
+          # tabular_adult data included below.
+          tar -czf sweep_bundle.tar.gz \
+            cases \
+            workloads/tabular_adult/.data workloads/tabular_adult/.hidden_data \
+            workloads/tabular_adult_neutral/.data workloads/tabular_adult_neutral/.hidden_data
+          echo "=== sweep_bundle.tar.gz size ==="; ls -lh sweep_bundle.tar.gz
+          echo "=== case count ==="; ls cases | grep -v registry | wc -l
+          echo "=== component footprint (uncompressed) ==="
+          du -sh cases workloads/tabular_adult/.data workloads/tabular_adult/.hidden_data 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sweep_bundle
+          path: sweep_bundle.tar.gz
+          retention-days: 7
       - name: Disk after (cases + data footprint)
         run: |
           df -h / | tail -1
