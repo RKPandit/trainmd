@@ -141,10 +141,16 @@ def enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeat
         tier = _tier_of(op)
         if case_id is None or not (project_root / "cases" / case_id).exists():
             missing.append({"operator": op, "strength": st, "seed": sd})
+        # REDUCED CONTROL PROTOCOL: controls exist to measure the false-positive
+        # rate (and, per anchor arm, the sensitivity-vs-specificity trade-off), not
+        # symptom diagnosis — so run them static-only × 1 repeat (still × all anchor
+        # arms × all providers). Faulty cases use the full agent×repeat grid.
+        cell_agents = ["static"] if tier == "control" else AGENTS
+        cell_repeats = 1 if tier == "control" else repeats
         for prov in providers:
-            for agent in AGENTS:
+            for agent in cell_agents:
                 for anchor in ANCHORS:
-                    for r in range(repeats):
+                    for r in range(cell_repeats):
                         cells.append({
                             "cell_id": _cell_id(op, st, sd, agent, anchor, r, prov["provider"]),
                             "case_id": case_id,

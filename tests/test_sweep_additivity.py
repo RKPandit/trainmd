@@ -84,6 +84,20 @@ def test_verify_phase_covers_only_new_cells_after_extension(tmp_path):
     assert set(verify_pending) == {"B1", "B2"}             # only the new cells
 
 
+def test_control_reduced_protocol(tmp_path):
+    # Controls: static-only × 1 repeat × all anchors × all providers (FPR + the
+    # anchor arms' sensitivity/specificity trade-off). Faulty: full agent×repeat grid.
+    cells, _ = enumerate_cells(tmp_path, ["mild"], [42], [50, 51], 2,
+                               operators=["silent.data_leakage.v1"], providers=_P)
+    ctrl = [c for c in cells if c["tier"] == "control"]
+    assert {c["agent"] for c in ctrl} == {"static"}
+    assert {c["repeat_index"] for c in ctrl} == {0}
+    assert len(ctrl) == 2 * 3 * 2                       # 2 seeds × 3 anchors × 2 providers
+    faulty = [c for c in cells if c["tier"] != "control"]
+    assert {c["agent"] for c in faulty} == {"react", "static"}
+    assert {c["repeat_index"] for c in faulty} == {0, 1}   # repeats=2 for faulty
+
+
 def test_lookup_case_finds_non_default_workload_family():
     # Regression (2026-09-20): _lookup_case matched a hardcoded workload, so the
     # neutral variant (tabular_adult_neutral) was never found -> every neutral case
