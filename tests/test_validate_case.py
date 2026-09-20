@@ -111,9 +111,11 @@ def _make_case(
     with open(hidden / "card.hidden.yaml", "w") as f:
         yaml.dump(hidden_card, f)
 
-    # hidden/evidence.yaml
-    evidence = [{"kind": "config_key", "artifact_id": "config.yaml",
-                 "detail": {"key_path": "training.lr"}}]
+    # hidden/evidence.yaml — the operator's REAL evidence() (must match op.evidence()
+    # so the new C13 build-artifact check passes for a valid fixture case).
+    import dataclasses as _dc
+    from operators.registry import get_operator as _get_op
+    evidence = [_dc.asdict(e) for e in _get_op(operator_id).evidence()]
     with open(hidden / "evidence.yaml", "w") as f:
         yaml.dump(evidence, f)
 
@@ -279,13 +281,10 @@ def _make_execution_case(
     with open(hidden / "card.hidden.yaml", "w") as f:
         yaml.dump(hidden_card, f)
 
-    # hidden/evidence.yaml
-    evidence = [
-        {"kind": "config_key", "artifact_id": "config.yaml",
-         "detail": {"key_path": "model.input_dim"}},
-        {"kind": "line_range", "artifact_id": "logs/stdout.log",
-         "detail": {"start_line": 2, "end_line": 24}},
-    ]
+    # hidden/evidence.yaml — the operator's REAL evidence() (C13 build-artifact check).
+    import dataclasses as _dc
+    from operators.registry import get_operator as _get_op
+    evidence = [_dc.asdict(e) for e in _get_op(operator_id).evidence()]
     with open(hidden / "evidence.yaml", "w") as f:
         yaml.dump(evidence, f)
 

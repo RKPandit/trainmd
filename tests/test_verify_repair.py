@@ -703,14 +703,25 @@ def test_tampered_public_card_no_effect(built_case):
 # than being skipped.
 
 # operator_id -> (strength, oracle repair patches)
-_ORACLE_REPAIRS = {
-    "silent.lr_warmup.v1": ("moderate", {"training.lr": 0.01}),
-    "silent.label_corruption.v1": ("moderate", {"data.label_noise_fraction": 0.0}),
-    "silent.data_leakage.v1": ("moderate", {"data.include_aux_feature": False}),
-    "silent.data_leakage_neutral.v1": ("moderate", {"data.opt_c": False}),
-    "silent.metric_inflation.v1": ("moderate", {"metrics.eval_subset_fraction": None}),
-    "crash.shape_mismatch.v1": ("moderate", {"model.input_dim": 105}),
-}
+def _oracle_repairs() -> dict:
+    """Per-operator oracle round-trip patch, DERIVED FROM THE REGISTRY (single
+    source of truth) — not a hand-maintained dict, which is the exact shape that
+    fails silently when a new operator is added (this invariant caught such gaps
+    ~4 times; DECISIONS 2026-09-20). Each faulty operator's patch is its own
+    ``oracle_repair()["patches"]``, built at ``moderate`` strength. A new operator
+    is covered automatically — nothing to remember to update.
+    """
+    from operators.registry import all_operator_ids, get_operator
+    out = {}
+    for op_id in all_operator_ids():
+        op = get_operator(op_id)
+        if op.layer == "control":
+            continue
+        out[op_id] = ("moderate", op.oracle_repair().get("patches", {}))
+    return out
+
+
+_ORACLE_REPAIRS = _oracle_repairs()
 
 
 def test_verify_repair_rejects_unknown_workload(tmp_path):
