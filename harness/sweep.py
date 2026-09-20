@@ -315,21 +315,29 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
     return {"plan": out, "missing": missing, "path": project_root / "sweeps" / f"{name}_plan.yaml"}
 
 
-# Per-case fields that map a case_id to its ground truth (operator identity, tier)
-# are the identification/detection ANSWER KEY. The plan is COMMITTED (the run
-# precondition requires a git-clean plan file) and this is a PUBLIC repo, so the
-# committed plan must not publish that mapping. The runner never needs it from the
-# plan — it resolves operator/tier from the local hidden card / registry by case_id
-# (scoring, gate, verify, cost estimate all do). cell_id already hashes the
-# operator, so stripping the readable field is additivity-neutral (ids unchanged).
-# Same wall class as the sweep-bundle fix (docs/DECISIONS.md 2026-09-20).
-_PLAN_ANSWER_KEY_FIELDS = ("operator", "tier")
+# THE RULE (docs/DECISIONS.md 2026-09-20): the public, COMMITTED plan carries only
+# what the RUNNER needs at run time; everything resolvable from the hidden card or
+# the registry by case_id is stripped. A per-case field that maps a case_id to its
+# ground truth is the identification/detection ANSWER KEY — by NAME (operator, tier)
+# or by INFERENCE:
+#   * seed — the header discloses faulty_seeds vs control_seeds, so case_id->seed
+#     implies control-vs-faulty (a detection key).
+#   * strength — controls are always "mild", so strength in {moderate, severe}
+#     implies faulty (a detection key).
+# None of these is read from the plan at run time (run_agents uses cell_id/case_id/
+# agent/anchor/repeat_index; the cost estimate and verify resolve operator/tier from
+# the registry by case_id), and cell_id already HASHES operator+strength+seed, so
+# stripping the readable fields is additivity-neutral (ids + build_ids unchanged).
+# KEPT (run-time-needed, not a leak): cell_id, case_id, provider, model, agent,
+# anchor, repeat_index in cells; build_id in case_set. Header keeps AGGREGATE design
+# disclosure (the operator LIST, seed ranges, strengths) — not a per-case mapping.
+_PLAN_ANSWER_KEY_FIELDS = ("operator", "tier", "seed", "strength")
 
 
 def _strip_answer_key(plan_doc: dict) -> dict:
-    """Return a deep-ish copy of the plan with per-case answer-key fields removed
-    from every cell and from case_set. Header factor_levels/scope keep the LIST of
-    operators under test (which cases they map to is what must not leak)."""
+    """Return a copy of the plan with per-case answer-key fields (_PLAN_ANSWER_KEY_
+    FIELDS) removed from every cell and from case_set. Header factor_levels/scope
+    keep the AGGREGATE design disclosure; only the per-case mapping is stripped."""
     doc = dict(plan_doc)
     doc["cells"] = [
         {k: v for k, v in c.items() if k not in _PLAN_ANSWER_KEY_FIELDS}

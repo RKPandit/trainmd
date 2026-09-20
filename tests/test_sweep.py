@@ -98,33 +98,40 @@ def test_cost_fallback_uses_max_observed(tmp_path):
 # committed plan carries NO per-case answer key (operator/tier) — public-repo leak
 # ---------------------------------------------------------------------------
 
-def test_written_plan_strips_operator_and_tier(tmp_path):
-    _mk_root(tmp_path, faulty=("silent.data_leakage.v1",), strengths=("mild",),
+_ANSWER_KEY = ("operator", "tier", "seed", "strength")
+_RUNTIME_CELL_FIELDS = ("cell_id", "case_id", "provider", "model", "agent",
+                        "anchor", "repeat_index")
+
+
+def test_written_plan_strips_all_answer_key_fields(tmp_path):
+    # Two strengths + a control so the leak-by-inference fields are present in-memory.
+    _mk_root(tmp_path, faulty=("silent.data_leakage.v1",), strengths=("mild", "severe"),
              seeds=(42,), control_seeds=(50,))
-    result = sweep.plan(tmp_path, "s", ["mild"], [42], [50], repeats=1,
+    result = sweep.plan(tmp_path, "s", ["mild", "severe"], [42], [50], repeats=1,
                         operators=["silent.data_leakage.v1"])
-    # In-memory cells DO carry operator/tier (used for cost_est, n_verify, case_set).
-    assert all("operator" in c and "tier" in c for c in result["plan"]["cells"])
+    # In-memory cells DO carry the answer-key fields (used for cost_est, n_verify, case_set).
+    assert all(all(k in c for k in _ANSWER_KEY) for c in result["plan"]["cells"])
 
     p = sweep.write_plan(result)
     written = yaml.safe_load(p.read_text())
 
-    # The COMMITTED artifact must not map any case_id -> operator/tier.
+    # The COMMITTED artifact must not map any case_id -> ground truth, by name OR
+    # by inference (operator, tier, seed, strength).
     for c in written["cells"]:
-        assert "operator" not in c and "tier" not in c
-        # ...but the schedule fields the runner needs are all retained.
-        for k in ("cell_id", "case_id", "strength", "seed", "agent", "anchor",
-                  "repeat_index", "provider"):
+        assert not any(k in c for k in _ANSWER_KEY), c
+        for k in _RUNTIME_CELL_FIELDS:      # ...but every run-time field is retained.
             assert k in c
     for cid, info in written["header"]["case_set"].items():
-        assert "operator" not in info and "tier" not in info
-        assert "build_id" in info  # precondition still checks this
+        assert set(info) == {"build_id"}    # only the precondition field remains
 
     # Leak closed, additivity intact: every cell_id is unchanged by stripping.
     assert ({c["cell_id"] for c in written["cells"]}
             == {c["cell_id"] for c in result["plan"]["cells"]})
-    # Header still names WHICH operators are under test (not a per-case mapping).
+    # Header still carries AGGREGATE design disclosure (operators + seed ranges),
+    # which is not a per-case mapping.
     assert written["header"]["scope"]["gate_operators"] == ["silent.data_leakage.v1"]
+    assert written["header"]["factor_levels"]["faulty_seeds"] == [42]
+    assert written["header"]["factor_levels"]["control_seeds"] == [50]
 
 
 def test_cost_estimate_resolves_operator_from_registry_not_plan(tmp_path):
