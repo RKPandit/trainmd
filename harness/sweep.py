@@ -24,6 +24,15 @@ from pathlib import Path
 import yaml
 
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+# Provider factor (cross-provider sweep). Each entry is {provider, model}. Default
+# is the single study model (Anthropic Haiku), so existing single-provider plans are
+# unchanged. `--providers anthropic:claude-haiku-4-5-20251001 openai:gpt-5.6-luna`
+# crosses both.
+DEFAULT_PROVIDERS = [{"provider": "anthropic", "model": DEFAULT_MODEL}]
+# Per-provider cost SCALE applied to Haiku-derived priors when a provider has no
+# priors of its own. openai(Luna) 0.16 = the measured smoke ratio ($0.0075/trial vs
+# Haiku ~$0.046, incl. reasoning tokens; 2026-09-19). UNVERIFIED — confirm vs billing.
+_PROVIDER_COST_SCALE = {"anthropic": 1.0, "openai": 0.16}
 DEFAULT_STRENGTHS = ["mild", "moderate", "severe"]
 DEFAULT_FAULTY_SEEDS = [42, 43]
 DEFAULT_CONTROL_SEEDS = [0, 1, 2]
@@ -67,15 +76,21 @@ def _tier_of(operator: str) -> str:
 
 
 def _lookup_case(registry: dict, operator: str, strength: str, seed: int) -> str | None:
+    # Match the operator's OWN workload family, not the hardcoded default: the
+    # neutral-key variant lives on `tabular_adult_neutral`, so a `== WORKLOAD`
+    # filter would never find its cases and mark every one MISSING (bug fixed
+    # 2026-09-20). (operator, strength, seed) is unique within a family.
+    from operators.registry import get_operator
+    wl = getattr(get_operator(operator), "WORKLOAD_FAMILY", WORKLOAD)
     for cid, e in registry.items():
         if (e.get("operator") == operator and e.get("strength") == strength
-                and e.get("seed") == seed and e.get("workload") == WORKLOAD):
+                and e.get("seed") == seed and e.get("workload") == wl):
             return cid
     return None
 
 
-def _cell_id(operator, strength, seed, agent, anchor, repeat) -> str:
-    key = f"{operator}:{strength}:{seed}:{agent}:{anchor}:{repeat}"
+def _cell_id(operator, strength, seed, agent, anchor, repeat, provider="anthropic") -> str:
+    key = f"{operator}:{strength}:{seed}:{agent}:{anchor}:{repeat}:{provider}"
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 
@@ -111,8 +126,14 @@ def _design_tuples(registry, strengths, faulty_seeds, control_seeds, operators=N
         yield CONTROL_OPERATOR, "mild", sd
 
 
-def enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeats, operators=None):
-    """Return (cells, missing) — cells cross the design with agent×anchor×repeat."""
+def enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeats,
+                    operators=None, providers=None):
+    """Return (cells, missing) — cells cross the design with provider×agent×anchor×repeat.
+
+    A case (operator, strength, seed) is provider-agnostic; the provider multiplies
+    the TRIALS, so MISSING is counted once per (operator, strength, seed), not per cell.
+    """
+    providers = providers or DEFAULT_PROVIDERS
     registry = _load_registry(project_root)
     cells, missing = [], []
     for op, st, sd in _design_tuples(registry, strengths, faulty_seeds, control_seeds, operators):
@@ -120,15 +141,23 @@ def enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeat
         tier = _tier_of(op)
         if case_id is None or not (project_root / "cases" / case_id).exists():
             missing.append({"operator": op, "strength": st, "seed": sd})
-        for agent in AGENTS:
-            for anchor in ANCHORS:
-                for r in range(repeats):
-                    cells.append({
-                        "cell_id": _cell_id(op, st, sd, agent, anchor, r),
-                        "case_id": case_id,
-                        "operator": op, "tier": tier, "strength": st, "seed": sd,
-                        "agent": agent, "anchor": anchor, "repeat_index": r,
-                    })
+        # REDUCED CONTROL PROTOCOL: controls exist to measure the false-positive
+        # rate (and, per anchor arm, the sensitivity-vs-specificity trade-off), not
+        # symptom diagnosis — so run them static-only × 1 repeat (still × all anchor
+        # arms × all providers). Faulty cases use the full agent×repeat grid.
+        cell_agents = ["static"] if tier == "control" else AGENTS
+        cell_repeats = 1 if tier == "control" else repeats
+        for prov in providers:
+            for agent in cell_agents:
+                for anchor in ANCHORS:
+                    for r in range(cell_repeats):
+                        cells.append({
+                            "cell_id": _cell_id(op, st, sd, agent, anchor, r, prov["provider"]),
+                            "case_id": case_id,
+                            "operator": op, "tier": tier, "strength": st, "seed": sd,
+                            "provider": prov["provider"], "model": prov["model"],
+                            "agent": agent, "anchor": anchor, "repeat_index": r,
+                        })
     return cells, missing
 
 
@@ -162,28 +191,40 @@ def _prior_costs(project_root: Path) -> dict:
 
 
 def estimate_cost(cells, priors) -> dict:
-    """Per-cell estimate (measured mean, else MAX-observed fallback). Conservative."""
+    """Per-cell estimate (measured mean, else MAX-observed fallback), SPLIT BY PROVIDER.
+
+    Priors are Anthropic (Haiku) trial costs. For a provider with no priors of its own
+    (e.g. openai/Luna), the Haiku prior is scaled by ``_PROVIDER_COST_SCALE`` (Luna's
+    measured smoke ratio). The split is a budgeting estimate; verify vs billing.
+    """
     by_pair, all_costs = priors["by_pair"], priors["all"]
     fallback = max(all_costs) if all_costs else 0.0
     total, low, high, measured, fb = 0.0, 0.0, 0.0, 0, 0
+    per_provider: dict[str, dict] = {}
     for c in cells:
-        key = (c["operator"], c["agent"])
-        costs = by_pair.get(key)
+        prov = c.get("provider", "anthropic")
+        scale = _PROVIDER_COST_SCALE.get(prov, 1.0)
+        costs = by_pair.get((c["operator"], c["agent"]))
         if costs:
-            total += sum(costs) / len(costs)
-            low += min(costs)
-            high += max(costs)
+            m, lo, hi = (sum(costs) / len(costs)) * scale, min(costs) * scale, max(costs) * scale
             measured += 1
         else:
-            total += fallback
-            low += fallback
-            high += fallback
+            m = lo = hi = fallback * scale
             fb += 1
+        total += m; low += lo; high += hi
+        pp = per_provider.setdefault(prov, {"cells": 0, "scale": scale,
+                                            "total_usd": 0.0, "low_usd": 0.0, "high_usd": 0.0})
+        pp["cells"] += 1
+        pp["total_usd"] += m; pp["low_usd"] += lo; pp["high_usd"] += hi
+    for pp in per_provider.values():
+        for k in ("total_usd", "low_usd", "high_usd"):
+            pp[k] = round(pp[k], 4)
     return {
         "per_cell_total_usd": round(total, 4),
         "low_usd": round(low, 4), "high_usd": round(high, 4),
         "fallback_cost_usd": round(fallback, 6),
         "estimate_source_counts": {"measured": measured, "fallback": fb},
+        "by_provider": per_provider,
     }
 
 
@@ -212,12 +253,14 @@ _EXCLUSION_REASONS = {
 
 def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=None,
          repeats=DEFAULT_REPEATS, order_seed=1234, model=DEFAULT_MODEL,
-         operators=None) -> dict:
+         operators=None, providers=None) -> dict:
     strengths = strengths or DEFAULT_STRENGTHS
     faulty_seeds = faulty_seeds or DEFAULT_FAULTY_SEEDS
-    control_seeds = control_seeds or DEFAULT_CONTROL_SEEDS
+    # `is None` (not `or`) so an explicit empty list means NO controls (faulty-only sweep).
+    control_seeds = DEFAULT_CONTROL_SEEDS if control_seeds is None else control_seeds
+    providers = providers or DEFAULT_PROVIDERS
     cells, missing = enumerate_cells(
-        project_root, strengths, faulty_seeds, control_seeds, repeats, operators)
+        project_root, strengths, faulty_seeds, control_seeds, repeats, operators, providers)
     random.Random(order_seed).shuffle(cells)
 
     from operators.registry import all_operator_ids
@@ -251,7 +294,11 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
     manifest = {
         "name": name, "created_utc": datetime.now(timezone.utc).isoformat(),
         "model": model, "order_seed": order_seed,
-        "factor_levels": {"agents": AGENTS, "anchors": ANCHORS, "repeats": repeats,
+        "providers": providers,
+        "factor_levels": {"providers": [p["provider"] for p in providers],
+                          "models": [p["model"] for p in providers],
+                          "variants": operators if operators else "all faulty operators",
+                          "agents": AGENTS, "anchors": ANCHORS, "repeats": repeats,
                           "strengths": strengths, "faulty_seeds": faulty_seeds,
                           "control_seeds": control_seeds},
         "scope": scope,
@@ -274,15 +321,20 @@ def write_plan(result) -> Path:
 def build_missing(project_root, missing) -> dict:
     """Build each missing (operator, strength, seed) tuple (idempotent)."""
     from harness.build_case import build_case, _load_registry as _lr, _find_existing_case
+    from operators.registry import get_operator
     built, skipped, failed = [], [], []
     reg_path = project_root / "cases" / "registry.hidden.yaml"
     for m in missing:
+        # Each operator declares the workload family whose train.py reads its keys
+        # (default tabular_adult; the neutral-key variant is tabular_adult_neutral).
+        # Mirrors scripts/build_all_cases.py — WORKLOAD is not one-size-fits-all.
+        wl = getattr(get_operator(m["operator"]), "WORKLOAD_FAMILY", WORKLOAD)
         reg = _lr(reg_path)
-        if _find_existing_case(reg, WORKLOAD, m["operator"], m["strength"], m["seed"]):
+        if _find_existing_case(reg, wl, m["operator"], m["strength"], m["seed"]):
             skipped.append(m)
             continue
         try:
-            build_case(WORKLOAD, m["operator"], m["strength"], m["seed"],
+            build_case(wl, m["operator"], m["strength"], m["seed"],
                        project_root=project_root)
             built.append(m)
         except Exception as e:  # noqa: BLE001
@@ -626,6 +678,10 @@ def main() -> int:
                     help="Restrict faulty operators to this explicit subset (default: "
                          "all registered faulty operators). Excluded ones are recorded "
                          "with a reason in the plan header's scope block.")
+    pp.add_argument("--providers", nargs="*", default=None,
+                    help="provider:model specs to cross, e.g. "
+                         "anthropic:claude-haiku-4-5-20251001 openai:gpt-5.6-luna "
+                         "(default: anthropic only)")
     pp.add_argument("--build-missing", action="store_true")
     pp.add_argument("--project-root", type=Path, default=None)
 
@@ -645,8 +701,15 @@ def main() -> int:
     root = args.project_root or _repo_root()
 
     if args.cmd == "plan":
+        providers = None
+        if args.providers:
+            providers = []
+            for spec in args.providers:
+                prov, _, mdl = spec.partition(":")
+                providers.append({"provider": prov, "model": mdl or DEFAULT_MODEL})
         result = plan(root, args.name, args.strengths, args.seeds, args.control_seeds,
-                      args.repeats, args.order_seed, operators=args.operators)
+                      args.repeats, args.order_seed, operators=args.operators,
+                      providers=providers)
         if args.build_missing and result["missing"]:
             summary = build_missing(root, result["missing"])
             print(f"[build-missing] built={len(summary['built'])} skipped={len(summary['skipped'])} "
@@ -656,7 +719,8 @@ def main() -> int:
                 print("validate-all FAILED after build-missing", file=sys.stderr)
                 return 1
             result = plan(root, args.name, args.strengths, args.seeds, args.control_seeds,
-                          args.repeats, args.order_seed, operators=args.operators)
+                          args.repeats, args.order_seed, operators=args.operators,
+                          providers=providers)
         path = write_plan(result)
         est = result["plan"]["header"]["cost_estimate"]
         print(f"Plan: {path}\n  cells={result['plan']['header']['n_cells']} "
