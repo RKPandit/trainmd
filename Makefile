@@ -145,7 +145,7 @@ docker-validate-all:
 	$(DOCKER_RUN) python -m harness.validate_case --all
 
 docker-gate-known-answer:
-	$(DOCKER_RUN) python -m harness.gate_known_answer $(if $(FULL),--full,--fast)
+	$(DOCKER_RUN) python -m harness.gate_known_answer $(if $(FULL),--full,--fast) $(if $(GATE_SUBSET),--subset)
 
 docker-audit-index:
 	$(DOCKER_RUN) python -m harness.audit_index

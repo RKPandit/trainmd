@@ -11,12 +11,14 @@ name: CI (canonical container)
 #     reference-change-guard detect-only). NO case-building, NO training on the PR
 #     gate — ~500 sequential training runs cannot fit a per-PR budget and rebuilding
 #     when the inputs rarely change is waste.
-#   workflow_dispatch (manual, ~2h): `build-and-certify` — build all 128 cases +
-#     validate-all + the FULL verify_repair gate + margin/baseline reports. A
-#     maintainer triggers it after a reference or operator change; it certifies the
-#     ground truth. This is where the FULL gate lives now (off the PR gate).
-#   schedule (nightly): the fast set PLUS the slow (training) tests and the
-#     two-runner reference repro — an automated safety net without burdening PRs.
+#   workflow_dispatch (manual, ~45 min): `build-and-certify` — build all 128 cases +
+#     validate-all + the FULL verify_repair gate on a REPRESENTATIVE SUBSET (one case
+#     per operator,strength = 19 cases, ~11 min, + a coverage assert) + margin/baseline
+#     reports. A maintainer triggers it after a reference/operator change to certify
+#     ground truth. `gate_scope=full` input forces the exhaustive all-128 gate.
+#   schedule (nightly): the fast set PLUS the slow (training) tests, the two-runner
+#     reference repro, AND build-and-certify with the exhaustive ALL-128 FULL gate
+#     (it has all night) — the automated safety net, without burdening PRs.
 #   Merge guarantee: PR-time required checks are the fast ones (test-suite-fast,
 #     repro-guards, reference-change-guard); the heavy ground-truth guarantee is the
 #     MANUAL build-and-certify run before merging a reference/operator change.
@@ -30,6 +32,12 @@ on:
     - cron: "0 7 * * *"
   workflow_dispatch:   # manual "build-and-certify" — triggered when the reference
                        # or an operator changes (case-building is OFF the PR gate).
+    inputs:
+      gate_scope:
+        description: "FULL verify_repair gate scope"
+        type: choice
+        default: subset      # one case per (operator,strength) + coverage assert (~15 cases)
+        options: [subset, full]   # 'full' = all 128 cases (slow; nightly runs this too)
 
 concurrency:
   # push/PR runs SHARE a per-ref group (rapid pushes cancel the stale one).
@@ -103,11 +111,14 @@ jobs:
   # 2026-09-19). 240-min budget = the honest wall for the serial build + FULL
   # gate (~2h), NOT a per-PR timeout.
   build-and-certify:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
-    # 350 min (GitHub's per-job ceiling is 360). This is a deliberate MANUAL
-    # artifact build, not a push/PR gate, so a long budget is correct — it gives a
-    # retry headroom over the ~2h serial build + FULL gate rather than hitting a wall.
+    # 350 min (GitHub's per-job ceiling is 360). Deliberate MANUAL/nightly artifact
+    # build, not a push/PR gate. On workflow_dispatch the FULL gate runs on a
+    # REPRESENTATIVE SUBSET (one case per operator,strength + coverage assert, ~15
+    # cases ~10 min) for fast certification; on the nightly schedule it runs the
+    # exhaustive all-128 FULL gate (which has all night). Override the dispatch
+    # scope with the `gate_scope=full` input.
     timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
@@ -126,8 +137,17 @@ jobs:
           make docker-case-margins
           END=$(date +%s)
           echo "BUILD_ALL_CASES_WALL_SECONDS=$((END-START))"
-      - name: Known-answer gate (FULL — verify_repair recovery)
-        run: make docker-gate-known-answer FULL=1
+      - name: Known-answer gate (FULL — subset on dispatch, all-128 on nightly)
+        run: |
+          # nightly (schedule) OR explicit gate_scope=full -> exhaustive all 128;
+          # otherwise (manual dispatch, default) -> representative subset + coverage.
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.gate_scope }}" = "full" ]; then
+            echo "FULL gate: ALL 128 cases"
+            make docker-gate-known-answer FULL=1
+          else
+            echo "FULL gate: representative subset (one per operator,strength) + coverage assert"
+            make docker-gate-known-answer FULL=1 GATE_SUBSET=1
+          fi
       - name: Positive-symptom rung margin table (all rungs, both halves)
         run: make docker-margin-report
       - name: Baselines on the neutral-key cases (B2 detect+recover, identify 0/6)
