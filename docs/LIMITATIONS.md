@@ -332,16 +332,22 @@ this entry), so they are INTERNALLY CONSISTENT and stand as run**; the hazard is
 band with a non-native case, which the guard now prevents. Evidence table: the full 30-seed
 native-vs-emulated per-seed deltas (both metrics) are in `docs/audits/` / this investigation's record.
 
-**L24 — The metric tier's "the model is healthy" guarantee is partly SELECTED, not observed.** The
-`build_case` metric-tier guard rejects a `silent.metric_inflation.v1` case unless the true hidden
-accuracy lands INSIDE the band (`tolerance_lower ≤ hidden ≤ mean+2σ`). A genuine metric-inflation run
-whose model drifts out-of-band through ordinary seed noise is therefore silently DISCARDED — the same
-class of selection bias §5.1 removed from the CONTROL guard, in the other direction (it flatters the
-"model untouched" claim rather than specificity). It affects an operator that is in the Stage-2 gate and
-slated for Sweep 3. *Not fixed here* (§5.1 scope was controls). *Fix, sequenced BEFORE Sweep 3 builds
-more metric cases (STAGE3_PLAN):* retain out-of-band metric cases and record their band position (as
-§5.1 did for controls), so the metric tier's model-health property is measured rather than selected.
-The 6 metric cases sit in_band on hidden — RE-DERIVED from the native §5.2 candidate build (case_0025–0030, run 35179221087, against the 200–229 band, tol 0.844655, hidden σ 0.001796): their true hidden accuracy is **0.85σ–1.26σ ABOVE the mean** (σ from mean −1.26…−0.85), well within ±2σ, while their VISIBLE metric is inflated **+12σ to +57σ** by the fault (as designed). (Band value finalised at adoption — cross-microarch ±2e-4.)
+**L24 — The metric tier's "model untouched" guarantee rests on CHECKPOINT IDENTITY, not band position
+(RESOLVED 2026-09-19).** The claim is "the model is untouched; only the REPORTED metric is wrong." The
+exact, platform-independent verification of that claim is **checkpoint bitwise-identical to a clean run
+at the same seed** — which `build_case` now trains-and-asserts (`torch.equal` on every model tensor) and
+records (`clean_model_sha256`, `checkpoint_bitwise_identical_to_clean`), and which the validator
+re-verifies (`C12_metric_model_untouched` re-hashes the shipped checkpoint's model). **Superseded proxy:**
+the old guard required the hidden accuracy INSIDE `[tolerance_lower, mean+2σ]`. That was a NOISY proxy for
+the same property and a selection bias in the "model untouched" direction: it rejected a *genuinely healthy*
+run whose clean model happens to sit near a band edge — a property of the **seed and the CI runner's
+microarch**, not of the mechanism. The clean model's hidden accuracy for a single seed was observed to span
+**−2.17σ (below tol) to +2.90σ (above upper) across CI runners** (metric_inflation/mild/seed 46: 0.844355 →
+0.853457, a 5.1σ cross-microarch spread — L23), so *no* seed set or tolerance can keep every metric case
+in-band on every runner; band position is therefore not a valid gate. The hidden accuracy and its band
+position are still RECORDED (`band_position_hidden`, `hidden_sigma_distance`) as provenance. Measurement that
+motivated the fix: hidden accuracy equals the clean value to 6 decimals at every seed and `q` does not move
+it — the fault is purely in the reported metric. (DECISIONS 2026-09-19.)
 
 
 **L25 — Recovery uses a MEAN-of-hidden-seeds rule (disclosed definition change, 2026-09-17); the

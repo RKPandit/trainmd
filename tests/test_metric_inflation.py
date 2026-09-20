@@ -330,11 +330,16 @@ def test_clean_run_passes_tolerance(tmp_path, seed):
     [(s, seed) for s in ["mild", "moderate", "severe"] for seed in _SEEDS],
 )
 def test_mutated_run_inflates_visible_while_model_healthy(tmp_path, strength, seed):
-    """Metric tier: completes, finite, model HEALTHY (hidden in band), and the
-    REPORTED visible metric is inflated above the band by >= 2σ margin."""
+    """Metric tier: completes, finite, model UNTOUCHED, and the REPORTED visible
+    metric is inflated above the band by >= 2σ margin.
+
+    "Model untouched" is proven EXACTLY (and platform-independently) by
+    ``test_checkpoint_bitwise_identical_to_clean`` — NOT by hidden-accuracy band
+    membership, which is a noisy proxy that varies by seed and runner microarch
+    (L24, DECISIONS 2026-09-19). So here we assert the hidden metric is finite
+    (sanity) but do NOT gate on its band position.
+    """
     _skip_if_no_data()
-    v_mean, v_std, v_upper = _visible_band()
-    h_lo, h_hi = _hidden_band()
     workspace = _make_workspace(tmp_path)
 
     MetricInflationOperator().apply(workspace, Random(seed), strength)
@@ -345,11 +350,10 @@ def test_mutated_run_inflates_visible_while_model_healthy(tmp_path, strength, se
     assert _metrics_are_finite(out)
     assert (out / "checkpoints" / "ckpt_final.pt").exists()
 
-    # Model is HEALTHY: hidden test (always computed correctly) within the band.
+    # Hidden metric is finite (sanity); band position is NOT asserted (see docstring;
+    # the untouched-model guarantee is the bitwise-identical checkpoint test).
     hidden = _evaluate_acc(out, config)
-    assert h_lo <= hidden <= h_hi, (
-        f"{strength}/{seed}: hidden={hidden:.6f} outside band [{h_lo:.6f},{h_hi:.6f}]"
-    )
+    assert math.isfinite(hidden), f"{strength}/{seed}: hidden={hidden!r} not finite"
 
     # Symptom half: reported visible metric inflated above the band edge by
     # >= 2σ + 1e-3 (structural rule, operators/margins.py, DECISIONS 2026-09-17).

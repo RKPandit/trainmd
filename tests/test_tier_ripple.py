@@ -61,9 +61,12 @@ def test_validate_c5_handles_all_layers():
     healthy = {"faulty_value": _TOL + 0.01, "tolerance_lower": _TOL}
     degraded = {"faulty_value": _TOL - 0.01, "tolerance_lower": _TOL}
 
-    # metric (unchanged): healthy clears tolerance; below tolerance fails.
+    # metric (2026-09-19): C5 NO LONGER band-gates the metric tier — the "model
+    # untouched" guarantee is checkpoint bitwise identity (C12), and the clean
+    # model's band position varies by seed/runner (L24), so a below-band healthy
+    # draw is legitimate. Both pass C5; identity is asserted by C12 elsewhere.
     assert _check_c5(healthy, {"layer": "metric"}).passed
-    assert not _check_c5(degraded, {"layer": "metric"}).passed
+    assert _check_c5(degraded, {"layer": "metric"}).passed
     # dynamics (unchanged): faulty below tolerance passes; above fails.
     for layer in _FAULTY_MODEL_LAYERS:
         assert _check_c5(degraded, {"layer": layer}).passed, layer

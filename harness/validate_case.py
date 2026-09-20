@@ -396,14 +396,15 @@ def _check_c5(verify: dict, hidden_card: dict) -> CheckResult:
         return CheckResult("C5_faulty_value_below_tolerance", True, "", "CONSISTENCY")
 
     if layer == "metric":
-        # Metric tier has a HEALTHY model, so the hidden accuracy must CLEAR
-        # tolerance (the fault lives only in the reported visible number). NOTE:
-        # the metric-tier BUILD guard has the same in-band selection bias the
-        # control guard just shed — see LIMITATIONS L21; not changed in §5.1.
-        if faulty < tolerance:
-            detail = f"{layer} faulty_value={faulty} < tolerance_lower={tolerance} (must clear)"
-            return CheckResult("C5_faulty_value_below_tolerance", False, detail, "CONSISTENCY")
-        return CheckResult("C5_faulty_value_below_tolerance", True, "", "CONSISTENCY")
+        # Metric tier: the "model untouched" guarantee is CHECKPOINT BITWISE
+        # IDENTITY to a clean run (verified in _check_c12), NOT the hidden
+        # accuracy's band position. The clean model's band position varies by
+        # seed and CI-runner microarch (L23/L24), so gating on it here false-
+        # rejects a genuinely-healthy edge draw (DECISIONS 2026-09-19). C5 no
+        # longer gates the metric tier; C12 asserts the exact guarantee.
+        return CheckResult("C5_faulty_value_below_tolerance", True,
+                           "metric tier: gated by checkpoint identity (C12), not band",
+                           "CONSISTENCY")
 
     if faulty >= tolerance:
         detail = f"faulty_value={faulty} >= tolerance_lower={tolerance}"
@@ -548,6 +549,41 @@ def _check_c8(case_id: str, project_root: Path) -> CheckResult:
         detail = "Orphaned recovery files:\n" + "\n".join(mismatches)
         return CheckResult("C8_recovery_files_linked", False, detail, "CONSISTENCY")
     return CheckResult("C8_recovery_files_linked", True, "", "CONSISTENCY")
+
+
+def _check_c12_metric_model_untouched(case_dir: Path, hidden_card: dict) -> CheckResult:
+    """C12: metric tier — the model is UNTOUCHED (checkpoint bitwise-identical to clean).
+
+    The metric tier's scientific guarantee is that the mechanism changes only the
+    REPORTED metric, not the model. The build verified this exactly (trained a clean
+    run at the same seed and asserted the checkpoint model tensors are bitwise
+    identical) and recorded the clean model's SHA-256. Here we re-verify the SHIPPED
+    checkpoint's model still hashes to that recorded value — so a checkpoint that
+    differs from the certified-clean one FAILS, while a case whose clean model sits
+    outside the ±2σ band but is bitwise-identical PASSES (band position does not gate;
+    DECISIONS 2026-09-19, LIMITATIONS L24). Non-metric tiers: not applicable → PASS.
+    """
+    name = "C12_metric_model_untouched"
+    if hidden_card.get("layer") != "metric":
+        return CheckResult(name, True, "n/a (non-metric tier)", "CONSISTENCY")
+    if hidden_card.get("checkpoint_bitwise_identical_to_clean") is not True:
+        return CheckResult(name, False,
+                           "metric card missing checkpoint_bitwise_identical_to_clean=true",
+                           "CONSISTENCY")
+    recorded = hidden_card.get("clean_model_sha256")
+    if not recorded:
+        return CheckResult(name, False, "metric card missing clean_model_sha256", "CONSISTENCY")
+    ckpt = case_dir / "workspace" / "run_output" / "checkpoints" / "ckpt_final.pt"
+    if not ckpt.exists():
+        return CheckResult(name, False, f"checkpoint missing: {ckpt}", "CONSISTENCY")
+    from harness.build_case import model_state_sha256
+    actual = model_state_sha256(ckpt)
+    if actual != recorded:
+        return CheckResult(name, False,
+                           f"checkpoint model sha {actual[:12]}… != certified-clean "
+                           f"{recorded[:12]}… — the shipped model differs from the clean run",
+                           "CONSISTENCY")
+    return CheckResult(name, True, "", "CONSISTENCY")
 
 
 def _check_c11_effect_size(
@@ -1016,6 +1052,7 @@ def validate_case(
     checks.append(_check_c9(public_card, project_root, workload_name))
     checks.append(_check_c10(case_id, public_card, project_root))
     checks.append(_check_c11_effect_size(hidden_card, verify, project_root, workload_name))
+    checks.append(_check_c12_metric_model_untouched(case_dir, hidden_card))
 
     return ValidationReport(case_id, checks)
 
