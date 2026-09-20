@@ -2,9 +2,12 @@
 
 For every built case: hidden faulty_value vs the current reference tolerance_lower
 and the margin, flagging anything within 2x the reference hidden std. Exits
-non-zero if ANY case fails its tier guard (a dynamics faulty run must be < tol;
-control AND metric — both have a HEALTHY model — must be >= tol; a crash trivially
-has no checkpoint metric).
+non-zero if ANY case fails its tier guard: a dynamics faulty run must be < tol.
+CONTROL and METRIC are REPORT-ONLY (never a guard failure) — their band position
+is recorded, not gated: a control is retained at any band position (§5.1), and the
+metric tier's "model untouched" guarantee is checkpoint bitwise identity (verified
+in build_case / validate_case C12), NOT hidden-band position, which varies by seed
+and runner microarch (L24, DECISIONS 2026-09-19). A crash has no checkpoint metric.
 
 Reads the CURRENT workload reference and each case's frozen hidden/verify.yaml —
 run it after building cases against the reference you intend to adopt.
@@ -50,11 +53,22 @@ def margin_flag(layer: str, fv: float, tol: float, two_std: float) -> tuple[floa
             flag = f"TIGHT (<2std, +{margin:.6f})"
         else:
             flag = ""
-    elif layer in _HEALTHY_MODEL_LAYERS:  # metric: healthy model must clear tolerance
-        margin = fv - tol  # must be >= 0 (healthy clears tolerance)
-        ok = margin >= 0
-        flag = "" if margin >= two_std else (
-            f"GUARD-FAIL: healthy<tol" if not ok else f"TIGHT (<2std, +{margin:.6f})")
+    elif layer == "metric":
+        # Metric tier's "model untouched" guarantee is checkpoint BITWISE IDENTITY
+        # to clean (build_case guard + validate_case C12), NOT hidden-band position
+        # — which varies by seed and runner microarch (drift up to ~2.8σ, L24;
+        # DECISIONS 2026-09-19). So RECORD where the healthy hidden sits but NEVER
+        # fail on it (report-only, exactly like control).
+        margin = fv - tol
+        ok = True
+        if margin < 0:
+            flag = f"OUT-OF-BAND below ({margin:+.6f}; model untouched — verified by checkpoint)"
+        elif margin > 2 * two_std:
+            flag = f"OUT-OF-BAND above ({margin:+.6f}; model untouched — verified by checkpoint)"
+        elif margin < two_std:
+            flag = f"TIGHT (<2std, +{margin:.6f})"
+        else:
+            flag = ""
     else:  # dynamics faulty: must be < tol
         margin = tol - fv
         ok = margin > 0

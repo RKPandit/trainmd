@@ -77,7 +77,8 @@ def main() -> int:
     print("=== POSITIVE-SYMPTOM RUNG MARGIN TABLE (current band) ===")
     print(f"symptom_bar (mean+4σ+1e-3) = {sym_bar:.6f}   [visible must be >=]")
     print(f"degradation_bar (tol-2σ-1e-3) = {deg_bar:.6f}   [silent hidden must be <=]")
-    print(f"healthy band [{h_lo:.6f}, {h_hi:.6f}]   [metric hidden must be within]")
+    print(f"healthy band [{h_lo:.6f}, {h_hi:.6f}]   [metric hidden position — INFORMATIONAL; "
+          f"model-untouched is verified by checkpoint identity, not band]")
     print()
     hdr = (f"{'rung':>28} | {'vis s0':>8} {'vis s1':>8} {'vis s2':>8} {'symMargin':>10} {'symOK':>6} "
            f"| {'2nd s0':>8} {'2nd s1':>8} {'2nd s2':>8} {'2ndOK':>6}")
@@ -105,9 +106,13 @@ def main() -> int:
             sym_margin = min(vis[s] for s in SEEDS) - sym_bar
             if tier == "silent":
                 second_ok = all(sec[s] <= deg_bar for s in SEEDS)
-            else:  # metric: model healthy => hidden within band
-                second_ok = all(h_lo <= sec[s] <= h_hi for s in SEEDS)
-            all_ok = all_ok and sym_ok and second_ok
+                all_ok = all_ok and sym_ok and second_ok
+            else:  # metric: healthy half is checkpoint bitwise identity (build_case /
+                   # validate_case C12), NOT hidden-band position (varies by seed &
+                   # runner microarch, L24). Record where hidden sits but do NOT gate
+                   # on it — only the symptom half gates the metric tier here.
+                second_ok = all(h_lo <= sec[s] <= h_hi for s in SEEDS)  # informational
+                all_ok = all_ok and sym_ok
             print(f"{opname+'/'+strength:>28} | {vis[0]:>8.5f} {vis[1]:>8.5f} {vis[2]:>8.5f} "
                   f"{sym_margin:>+10.5f} {str(sym_ok):>6} | {sec[0]:>8.5f} {sec[1]:>8.5f} "
                   f"{sec[2]:>8.5f} {str(second_ok):>6}")
