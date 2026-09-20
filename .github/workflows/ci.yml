@@ -174,36 +174,45 @@ jobs:
         with:
           name: h8_xprovider_plan
           path: sweeps/h8_xprovider_plan.yaml
-      - name: Package cases + workload data (self-contained, portable symlinks)
+      - name: Package cases (ENCRYPTED; NO hidden data — regenerated locally)
+        env:
+          SWEEP_BUNDLE_KEY: ${{ secrets.SWEEP_BUNDLE_KEY }}
         run: |
-          # The sweep needs, on disk: (1) cases/ (built cases + registry.hidden.yaml)
-          # — read by the agent phase + preconditions (gate/validate/audit); and
-          # (2) the workload data that verify_repair reads DIRECTLY:
-          # workloads/<family>/.data + .hidden_data. Each case's workspace/.data is
-          # an ABSOLUTE symlink into the container path (/work/...), broken anywhere
-          # else — rewrite to a RELATIVE symlink so the tar is portable. This is
-          # build_id-neutral: _compute_build_id hashes source files only, never
-          # .data or its symlink (harness/build_case.py). Bundled with the SAME run's
-          # h8_xprovider_plan, so plan build_ids match these cases by construction.
+          # INTEGRITY: this is a PUBLIC repo — Actions artifacts are downloadable by
+          # anyone. The bundle must carry NO plaintext hidden material.
+          #
+          #  * .data / .hidden_data are EXCLUDED. data_prep.py regenerates BOTH
+          #    deterministically, hash-pinned to reference/data_manifest.yaml (LOUD on
+          #    drift), so the maintainer runs `make docker-data` post-extract and verify
+          #    retrains on byte-identical canonical data. The hidden TEST SET never ships.
+          #
+          #  * cases/*/hidden/ (the grading keys: operator, accepted_classes, oracle
+          #    repairs, verify tolerances) are NOT regenerable, so the cases tar is
+          #    ENCRYPTED (AES256) with the SWEEP_BUNDLE_KEY repo secret. Publishing the
+          #    ciphertext is safe; the maintainer decrypts locally. FAIL-CLOSED: if the
+          #    secret is unset we refuse to upload rather than leak plaintext hidden/.
+          if [ -z "$SWEEP_BUNDLE_KEY" ]; then
+            echo "::error::SWEEP_BUNDLE_KEY secret is unset — refusing to upload cases (contains cases/*/hidden/ grading keys) in plaintext on a PUBLIC repo. Add the repo secret, then re-dispatch."
+            exit 1
+          fi
+          # workspace/.data absolute container symlink (/work/...) -> relative, so it
+          # resolves after `make docker-data` regenerates workloads/tabular_adult/.data.
+          # build_id-neutral: _compute_build_id hashes source files only, never .data.
           for link in cases/*/workspace/.data; do
             [ -L "$link" ] || continue
             ln -sfn ../../../workloads/tabular_adult/.data "$link"
           done
-          # tar preserves symlinks: the neutral family's .data/.hidden_data stay as
-          # relative symlinks (../tabular_adult/...) and resolve against the real
-          # tabular_adult data included below.
-          tar -czf sweep_bundle.tar.gz \
-            cases \
-            workloads/tabular_adult/.data workloads/tabular_adult/.hidden_data \
-            workloads/tabular_adult_neutral/.data workloads/tabular_adult_neutral/.hidden_data
-          echo "=== sweep_bundle.tar.gz size ==="; ls -lh sweep_bundle.tar.gz
+          tar -czf cases.tar.gz cases   # cases/ ONLY — no workloads data
+          gpg --batch --yes --symmetric --cipher-algo AES256 \
+            --passphrase "$SWEEP_BUNDLE_KEY" -o sweep_bundle.tar.gz.gpg cases.tar.gz
+          rm -f cases.tar.gz
+          echo "=== encrypted bundle size ==="; ls -lh sweep_bundle.tar.gz.gpg
           echo "=== case count ==="; ls cases | grep -v registry | wc -l
-          echo "=== component footprint (uncompressed) ==="
-          du -sh cases workloads/tabular_adult/.data workloads/tabular_adult/.hidden_data 2>/dev/null || true
+          echo "=== cases footprint (uncompressed, incl hidden/) ==="; du -sh cases
       - uses: actions/upload-artifact@v4
         with:
           name: sweep_bundle
-          path: sweep_bundle.tar.gz
+          path: sweep_bundle.tar.gz.gpg
           retention-days: 7
       - name: Disk after (cases + data footprint)
         run: |
