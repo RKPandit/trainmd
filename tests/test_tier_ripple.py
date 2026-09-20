@@ -25,11 +25,15 @@ _FAULTY_MODEL_LAYERS = ("dynamics",)      # model degraded → hidden below tol
 def test_case_margins_handles_all_layers():
     from scripts.case_margins import margin_flag
 
-    # metric (healthy model): must clear tolerance; below it is a GUARD-FAIL.
+    # metric (2026-09-19): REPORT-ONLY on band position — never a GUARD-FAIL. The
+    # "model untouched" guarantee is checkpoint bitwise identity (build_case /
+    # validate_case C12), not band position (varies by seed/runner, L24). Below tol
+    # is recorded, not failed.
     _, ok, flag = margin_flag("metric", _TOL + 0.01, _TOL, _TWO_STD)
     assert ok and "GUARD-FAIL" not in flag, flag
-    _, ok_bad, flag_bad = margin_flag("metric", _TOL - 0.01, _TOL, _TWO_STD)
-    assert not ok_bad and "GUARD-FAIL" in flag_bad, flag_bad
+    _, ok_below, flag_below = margin_flag("metric", _TOL - 0.01, _TOL, _TWO_STD)
+    assert ok_below and "GUARD-FAIL" not in flag_below, flag_below
+    assert "OUT-OF-BAND below" in flag_below, flag_below
 
     # control (§5.1): retained at ANY band position — never a GUARD-FAIL.
     for fv in (_TOL + 0.01, _TOL - 0.01, _TOL + 3 * _TWO_STD):
