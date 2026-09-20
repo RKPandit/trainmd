@@ -190,6 +190,25 @@ def _save_registry(registry_path: Path, registry: dict) -> None:
 # Build pipeline
 # ---------------------------------------------------------------------------
 
+def model_state_sha256(ckpt_path: Path) -> str:
+    """Canonical SHA-256 of a checkpoint's ``model_state_dict`` tensors.
+
+    Order-stable (sorted keys) and byte-exact; shared by the metric-tier build
+    guard and the validator so both hash a checkpoint identically. Hashes the
+    MODEL tensors only (not optimizer/metadata), matching the tier's guarantee
+    that the *model* is untouched.
+    """
+    import hashlib
+
+    import torch
+    sd = torch.load(ckpt_path, map_location="cpu", weights_only=False)["model_state_dict"]
+    h = hashlib.sha256()
+    for k in sorted(sd):
+        h.update(k.encode("utf-8"))
+        h.update(sd[k].detach().cpu().contiguous().numpy().tobytes())
+    return h.hexdigest()
+
+
 def build_case(
     workload_name: str,
     operator_id: str,
@@ -357,6 +376,7 @@ def build_case(
 
     # ---- evaluate checkpoint (hidden metric) ------------------------------
     tolerance_lower = stats["metric_hidden_test_acc"]["tolerance_lower"]
+    metric_clean_model_sha256 = None  # set for the metric tier by the bitwise guard
 
     if op.layer in ("dynamics", "control", "metric"):
         from harness.evaluator.evaluate_checkpoint import evaluate_checkpoint
@@ -387,21 +407,49 @@ def build_case(
                 f"Control run hidden acc={hidden_acc!r} is not finite; "
                 f"a genuine failure (non-finite metric) is still rejected."
             )
-        # Metric guard: the MODEL must be healthy (hidden WITHIN the band); the
-        # fault is metric-only. A degraded (or anomalously high) hidden accuracy
-        # would mean the mechanism touched the model — reject.
+        # Metric guard: the MODEL must be UNTOUCHED — only the REPORTED metric is
+        # wrong. Verify this EXACTLY by checkpoint bitwise identity to a clean run
+        # at the same seed (platform-independent), NOT by hidden-accuracy band
+        # position. The clean model's band position is a property of the seed and
+        # the CI runner's microarch (per-case cross-microarch drift up to ~2.8σ,
+        # L23) — not of the mechanism — so a band gate false-rejects a genuinely
+        # healthy edge draw (DECISIONS 2026-09-19). Band position is still RECORDED
+        # below as provenance; it just does not gate.
         if op.layer == "metric":
-            hid_upper = (
-                stats["metric_hidden_test_acc"]["mean"]
-                + 2 * stats["metric_hidden_test_acc"]["std"]
+            clean_probe = case_dir / "_clean_probe"
+            clean_res = subprocess.run(
+                [
+                    sys.executable, str(workspace / "train.py"),
+                    "--config", str(workload_dir / "config.yaml"),  # UNMUTATED clean config
+                    "--data-dir", str(data_link),
+                    "--output-dir", str(clean_probe),
+                    "--seed", str(seed),
+                ],
+                capture_output=True, text=True, env=pinned_thread_env(),
             )
-            if not (tolerance_lower <= hidden_acc <= hid_upper):
+            clean_ckpt = clean_probe / "checkpoints" / "ckpt_final.pt"
+            if clean_res.returncode != 0 or not clean_ckpt.exists():
                 shutil.rmtree(case_dir)
                 raise RuntimeError(
-                    f"Metric-tier run hidden acc={hidden_acc:.6f} outside band "
-                    f"[{tolerance_lower:.6f}, {hid_upper:.6f}]; the model must "
-                    f"stay healthy (the fault lives only in the reported metric)."
+                    "Metric-tier clean probe failed to train (cannot verify the "
+                    f"model is untouched).\nstderr: {clean_res.stderr[-500:]}"
                 )
+            import torch
+            sd_clean = torch.load(clean_ckpt, map_location="cpu",
+                                  weights_only=False)["model_state_dict"]
+            sd_faulty = torch.load(ckpt_path, map_location="cpu",
+                                   weights_only=False)["model_state_dict"]
+            diff = [k for k in sd_clean
+                    if k not in sd_faulty or not torch.equal(sd_clean[k], sd_faulty[k])]
+            if sd_clean.keys() != sd_faulty.keys() or diff:
+                shutil.rmtree(case_dir)
+                raise RuntimeError(
+                    f"Metric-tier checkpoint is NOT bitwise-identical to a clean run "
+                    f"at seed {seed} (differing tensors: {diff[:3]}); the mechanism "
+                    f"touched the model — the metric tier requires the model untouched."
+                )
+            metric_clean_model_sha256 = model_state_sha256(clean_ckpt)
+            shutil.rmtree(clean_probe)
     else:
         # Execution tier: no checkpoint → no accuracy to evaluate.
         # Crash trivially "fails" tolerance.
@@ -502,6 +550,13 @@ def build_case(
         # see validate_case._PUBLIC_CARD_FORBIDDEN_TOKENS, a wall requirement).
         "band_position_visible": band_position_visible,
         "band_position_hidden": band_position_hidden,
+        # Metric tier's EXACT "model untouched" guarantee: the checkpoint is
+        # bitwise-identical to a clean run at the same seed (verified at build,
+        # above). The recorded model SHA lets the validator re-verify the shipped
+        # checkpoint without retraining. None for non-metric tiers. Band position
+        # (above) is provenance only — it does NOT gate (DECISIONS 2026-09-19, L24).
+        "checkpoint_bitwise_identical_to_clean": True if op.layer == "metric" else None,
+        "clean_model_sha256": metric_clean_model_sha256,
         # Provenance: the CPU this case was built on. Native amd64 is canonical;
         # emulation is refused above, so this records WHICH native CPU (microarch)
         # produced the numbers — removing the platform inference (DECISIONS 2026-09-16).
