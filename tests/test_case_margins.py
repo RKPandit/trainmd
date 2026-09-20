@@ -35,11 +35,14 @@ def test_dynamics_tight_when_barely_below_tolerance():
     assert flag.startswith("TIGHT")
 
 
-def test_metric_layer_uses_healthy_rule():
-    # metric tier has a HEALTHY model → must clear tolerance; below it is a GUARD-FAIL, not TIGHT.
+def test_metric_layer_is_report_only_on_band():
+    # metric tier's "model untouched" is checkpoint identity (build_case / C12), NOT
+    # band position (varies by seed/runner, L24; DECISIONS 2026-09-19). Below tol is
+    # RECORDED, never a GUARD-FAIL (report-only, like control).
     _, ok, flag = margin_flag("metric", _TOL - 0.001, _TOL, _TWO_STD)
-    assert ok is False
-    assert "GUARD-FAIL" in flag
+    assert ok is True
+    assert "GUARD-FAIL" not in flag
+    assert "OUT-OF-BAND below" in flag
 
 
 def test_control_below_band_is_retained_not_guard_fail():

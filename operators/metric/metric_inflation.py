@@ -238,9 +238,10 @@ class MetricInflationOperator:
     def build_guard_checks(self, run_output: Path, stats: dict) -> list[str]:
         """Verify the misleading symptom: reported val_acc above mean + 2σ.
 
-        The hidden-within-band half of the metric-tier guard is enforced in
-        build_case (it has the hidden accuracy); here we confirm the visible
-        half from the produced metrics. Returns a list of error messages
+        This confirms the VISIBLE (symptom) half from the produced metrics. The
+        "model untouched" half is verified in build_case by CHECKPOINT BITWISE
+        IDENTITY to a clean run (not hidden-band position, which varies by seed and
+        runner microarch — L24, DECISIONS 2026-09-19). Returns error messages
         (empty = pass).
         """
         metrics_path = run_output / "metrics.jsonl"
