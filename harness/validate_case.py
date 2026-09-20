@@ -551,6 +551,40 @@ def _check_c8(case_id: str, project_root: Path) -> CheckResult:
     return CheckResult("C8_recovery_files_linked", True, "", "CONSISTENCY")
 
 
+def _check_c13_evidence_matches_operator(case_dir: Path, hidden_card: dict) -> CheckResult:
+    """C13: the sealed evidence.yaml matches the OPERATOR's evidence() (build-artifact
+    integrity).
+
+    The gate's oracle evidence check is tautological — oracle refs AND the primary
+    scorer's ground truth both derive from the operator, so a corrupted/stale
+    evidence.yaml is invisible to it (DECISIONS 2026-09-20). This closes that gap:
+    the validator re-derives the operator's evidence refs and asserts the built
+    evidence.yaml equals them (order-insensitive). A dropped/edited ref FAILs here.
+    """
+    name = "C13_evidence_matches_operator"
+    import dataclasses
+    operator_id = hidden_card.get("operator_id", "")
+    try:
+        from operators.registry import get_operator
+        expected = [dataclasses.asdict(e) for e in get_operator(operator_id).evidence()]
+    except Exception as e:  # noqa: BLE001
+        return CheckResult(name, False, f"cannot resolve operator {operator_id!r}: {e}",
+                           "CONSISTENCY")
+    ev_path = case_dir / "hidden" / "evidence.yaml"
+    if not ev_path.exists():
+        return CheckResult(name, False, f"missing {ev_path}", "CONSISTENCY")
+    actual = _load_yaml(ev_path) or []
+
+    def _canon(refs):
+        return sorted(json.dumps(r, sort_keys=True, default=str) for r in refs)
+    if _canon(actual) != _canon(expected):
+        return CheckResult(name, False,
+                           f"evidence.yaml ({len(actual)} refs) != operator.evidence() "
+                           f"({len(expected)} refs) — the sealed answer key drifted from "
+                           f"the operator", "CONSISTENCY")
+    return CheckResult(name, True, "", "CONSISTENCY")
+
+
 def _check_c12_metric_model_untouched(case_dir: Path, hidden_card: dict) -> CheckResult:
     """C12: metric tier — the model is UNTOUCHED (checkpoint bitwise-identical to clean).
 
@@ -1053,6 +1087,7 @@ def validate_case(
     checks.append(_check_c10(case_id, public_card, project_root))
     checks.append(_check_c11_effect_size(hidden_card, verify, project_root, workload_name))
     checks.append(_check_c12_metric_model_untouched(case_dir, hidden_card))
+    checks.append(_check_c13_evidence_matches_operator(case_dir, hidden_card))
 
     return ValidationReport(case_id, checks)
 

@@ -50,27 +50,52 @@ def test_clean_case_yields_no_fail(tmp_path):
     assert [r for r in rows if r.status == "FAIL"] == []
 
 
-def test_dropped_evidence_ref_is_caught(tmp_path):
-    """Planted: drop a hidden evidence ref → oracle evidence_f1 goes FAIL."""
-    case_dir = _setup(tmp_path, "case_0004")
-    ev_path = case_dir / "hidden" / "evidence.yaml"
-    ev = yaml.safe_load(ev_path.read_text())
-    ev_path.write_text(yaml.dump(ev[:-1]))  # drop the last ref
+# NOTE (DECISIONS 2026-09-20): the two planted-violation tests below were rewritten.
+# The originals copied a HARDCODED case number (case_0004/case_0005) and skipped when
+# cases/ was empty — so they SILENTLY SKIPPED in the fast lane (never ran) and, when
+# they did run, mis-targeted (case_0005 was not a control). They now select the case
+# type BY OPERATOR and use the exact functions the gate relies on — fast, no training,
+# never skip. Triage also found the gate's oracle EVIDENCE check is tautological (oracle
+# refs + primary scorer both operator-derived; evidence.yaml only a fallback), so
+# evidence.yaml drift is invisible to it — closed by the validator's C13.
+import dataclasses  # noqa: E402
 
-    rows = run_gate(tmp_path, fast=True)
-    assert _fails(rows, "case_0004", "evidence_f1"), "gate did not flag the dropped ref"
+from harness.validate_case import _check_c13_evidence_matches_operator  # noqa: E402
+from harness.scoring import score_identification  # noqa: E402
 
 
-def test_control_missing_accepted_classes_is_caught(tmp_path):
-    """Planted: a control with empty accepted_classes → oracle identification FAILs."""
-    case_dir = _setup(tmp_path, "case_0005")
-    hc_path = case_dir / "hidden" / "card.hidden.yaml"
-    hc = yaml.safe_load(hc_path.read_text())
-    hc["accepted_classes"] = []
-    hc_path.write_text(yaml.dump(hc))
+def test_evidence_yaml_drift_caught_by_validator(tmp_path):
+    """The gate's evidence check can't see evidence.yaml drift (tautological), so the
+    VALIDATOR's C13 must: evidence.yaml MUST equal the operator's evidence()."""
+    from operators.registry import get_operator
+    op = get_operator("silent.data_leakage.v1")
+    hidden = tmp_path / "case_x" / "hidden"
+    hidden.mkdir(parents=True)
+    refs = [dataclasses.asdict(e) for e in op.evidence()]
+    hc = {"operator_id": "silent.data_leakage.v1"}
+    (hidden / "evidence.yaml").write_text(yaml.dump(refs))
+    assert _check_c13_evidence_matches_operator(tmp_path / "case_x", hc).passed  # clean
+    (hidden / "evidence.yaml").write_text(yaml.dump(refs[:-1]))                  # drop a ref
+    r = _check_c13_evidence_matches_operator(tmp_path / "case_x", hc)
+    assert not r.passed and "drifted" in r.detail                               # caught
 
-    rows = run_gate(tmp_path, fast=True)
-    assert _fails(rows, "case_0005", "identification"), "gate did not flag broken accepted_classes"
+
+def test_gate_identification_detects_corrupted_accepted_classes():
+    """The gate's oracle identification: a corrupted accepted_classes answer key must
+    make the oracle's correct class no longer accepted. By operator; the corruption is
+    a GENUINELY cross-fault label (data_leakage's tokens are {'leak'} only, so
+    'learning_rate' is truly wrong — not a synonym)."""
+    from operators.registry import get_operator
+    op = get_operator("silent.data_leakage.v1")
+    oracle_class = sorted(op.accepted_classes())[0]     # what the gate's oracle submits
+    clean_hc = {"operator_id": "silent.data_leakage.v1",
+                "accepted_classes": sorted(op.accepted_classes()),
+                "core_tokens": [sorted(s) for s in op.core_tokens()], "layer": "dynamics"}
+    assert score_identification(
+        {"diagnosis": {"detected": True, "operator_class": oracle_class}}, clean_hc)["correct"]
+    bad_hc = {**clean_hc, "accepted_classes": ["learning_rate"]}  # corrupted answer key
+    assert not score_identification(
+        {"diagnosis": {"detected": True, "operator_class": oracle_class}}, bad_hc)["correct"]
 
 
 def test_corrupt_oracle_repair_is_caught(tmp_path):
