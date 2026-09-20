@@ -21,12 +21,16 @@ CASES = Path(__file__).resolve().parent.parent / "cases"
 
 def _mk_root(tmp, faulty=("silent.lr_warmup.v1",), strengths=("moderate",),
             seeds=(42,), control_seeds=(0,), make_dirs=True):
+    from operators.registry import get_operator
     reg = {}
     n = 1
     for op in faulty:
+        # Register under the operator's OWN workload family (the neutral variant is
+        # tabular_adult_neutral) so _lookup_case (workload-family aware) finds it.
+        wl = getattr(get_operator(op), "WORKLOAD_FAMILY", "tabular_adult")
         for st in strengths:
             for sd in seeds:
-                reg[f"case_{n:04d}"] = {"workload": "tabular_adult", "operator": op,
+                reg[f"case_{n:04d}"] = {"workload": wl, "operator": op,
                                         "strength": st, "seed": sd}
                 n += 1
     for sd in control_seeds:
@@ -57,10 +61,11 @@ def test_enumerate_cell_count():
     tmp = Path(tempfile.mkdtemp())
     _mk_root(tmp, faulty=faulty)
     cells, missing = sweep.enumerate_cells(tmp, ["moderate"], [42], [0], repeats=3)
-    # Per faulty op: 1 strength × 1 seed × 2 agents × 3 anchors × 3 repeats = 18;
-    # control: 1 seed × 2 × 3 × 3 = 18. Derived from the registry (len(faulty)), so
-    # adding an operator does not break this test.
-    assert len(cells) == len(faulty) * 18 + 18
+    # Per faulty op: 1 strength × 1 seed × 2 agents × 3 anchors × 3 repeats = 18.
+    # control (REDUCED protocol, DECISIONS 2026-09-20): 1 seed × static-only × 3 anchors
+    # × 1 repeat = 3. Derived from the registry (len(faulty)), so adding an operator
+    # does not break this test.
+    assert len(cells) == len(faulty) * 18 + 3
     assert missing == []
 
 
