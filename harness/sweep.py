@@ -228,9 +228,13 @@ def estimate_cost(cells, priors) -> dict:
     }
 
 
-def _cell_est(c, priors) -> float:
+def _cell_est(c, priors, operator=None) -> float:
     by_pair, all_costs = priors["by_pair"], priors["all"]
-    costs = by_pair.get((c["operator"], c["agent"]))
+    # ``operator`` is stripped from the committed plan (it is a per-case answer-key
+    # leak — see write_plan); the caller resolves it from the registry by case_id.
+    # Fall back to c["operator"] for an in-memory (unstripped) cell.
+    op = operator if operator is not None else c.get("operator")
+    costs = by_pair.get((op, c["agent"]))
     if costs:
         return sum(costs) / len(costs)
     return max(all_costs) if all_costs else 0.0
@@ -311,10 +315,40 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
     return {"plan": out, "missing": missing, "path": project_root / "sweeps" / f"{name}_plan.yaml"}
 
 
+# Per-case fields that map a case_id to its ground truth (operator identity, tier)
+# are the identification/detection ANSWER KEY. The plan is COMMITTED (the run
+# precondition requires a git-clean plan file) and this is a PUBLIC repo, so the
+# committed plan must not publish that mapping. The runner never needs it from the
+# plan — it resolves operator/tier from the local hidden card / registry by case_id
+# (scoring, gate, verify, cost estimate all do). cell_id already hashes the
+# operator, so stripping the readable field is additivity-neutral (ids unchanged).
+# Same wall class as the sweep-bundle fix (docs/DECISIONS.md 2026-09-20).
+_PLAN_ANSWER_KEY_FIELDS = ("operator", "tier")
+
+
+def _strip_answer_key(plan_doc: dict) -> dict:
+    """Return a deep-ish copy of the plan with per-case answer-key fields removed
+    from every cell and from case_set. Header factor_levels/scope keep the LIST of
+    operators under test (which cases they map to is what must not leak)."""
+    doc = dict(plan_doc)
+    doc["cells"] = [
+        {k: v for k, v in c.items() if k not in _PLAN_ANSWER_KEY_FIELDS}
+        for c in plan_doc.get("cells", [])
+    ]
+    header = dict(plan_doc.get("header", {}))
+    header["case_set"] = {
+        cid: {k: v for k, v in info.items() if k not in _PLAN_ANSWER_KEY_FIELDS}
+        for cid, info in (plan_doc.get("header", {}).get("case_set", {}) or {}).items()
+    }
+    doc["header"] = header
+    return doc
+
+
 def write_plan(result) -> Path:
     p = result["path"]
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(yaml.dump(result["plan"], default_flow_style=False, sort_keys=False))
+    p.write_text(yaml.dump(_strip_answer_key(result["plan"]),
+                           default_flow_style=False, sort_keys=False))
     return p
 
 
@@ -440,7 +474,11 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
     cost_fn = cost_fn or _cost_from_record
     trial_fn = trial_fn or run_trial
     priors = _prior_costs(project_root)
-    est_fn = est_fn or (lambda c: _cell_est(c, priors))
+    # The committed plan carries no per-cell operator (answer-key leak); resolve it
+    # from the registry by case_id for the cost estimate.
+    _reg = _load_registry(project_root)
+    est_fn = est_fn or (lambda c: _cell_est(
+        c, priors, (_reg.get(c["case_id"], {}) or {}).get("operator")))
 
     if require_preconditions:
         fails = check_preconditions(project_root, plan_doc)
