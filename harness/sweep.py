@@ -415,7 +415,6 @@ def check_preconditions(project_root, plan_doc) -> list[str]:
     from harness.gate_known_answer import run_gate
     from harness.audit_index import run_audit
     from harness.validate_case import validate_all
-    import os
 
     fails = []
     gate_rows = run_gate(project_root, fast=True)
@@ -444,16 +443,75 @@ def check_preconditions(project_root, plan_doc) -> list[str]:
             fails.append("plan file is not committed (git-clean check failed)")
     except FileNotFoundError:
         pass
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        fails.append("ANTHROPIC_API_KEY not set")
+    # Per-provider preflight: key present + client dispatch + real SDK signature
+    # (no spend). Stops a dispatch/SDK break at cell 0, not after 3 burned trials.
+    fails += _provider_smoke(plan_doc["header"].get("providers") or DEFAULT_PROVIDERS)
     return fails
 
 
+_PROVIDER_ENV_KEY = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}
+
+
+def _provider_smoke(providers) -> list[str]:
+    """Fail-fast provider preflight (no spend). For each provider in the plan:
+    require its API key, construct its client via the SAME dispatch path the run
+    uses (``_make_client``), and signature-bind the REAL SDK create() with our
+    exact kwargs — so a dispatch break OR an SDK signature change (e.g. anthropic
+    1.x dropping ``temperature``) stops the run at cell 0."""
+    import inspect
+    import os
+    fails = []
+    for spec in providers:
+        prov, model = spec.get("provider"), spec.get("model")
+        env = _PROVIDER_ENV_KEY.get(prov)
+        if env is None:
+            fails.append(f"provider {prov!r}: unknown (expected anthropic|openai)")
+            continue
+        if not os.environ.get(env):
+            fails.append(f"provider {prov}: {env} not set")
+            continue  # cannot construct the real client without its key
+        try:
+            client = _make_client(prov, model)
+        except Exception as e:  # noqa: BLE001
+            fails.append(f"provider {prov}: client dispatch/construction failed ({e})")
+            continue
+        try:
+            if prov == "anthropic":
+                inspect.signature(client._client.messages.create).bind_partial(
+                    model=model, max_tokens=16, messages=[], tools=[], temperature=1.0)
+            else:  # openai
+                inspect.signature(client._client.responses.create).bind_partial(
+                    model=model, input=[], tools=[],
+                    reasoning={"effort": "medium"}, max_output_tokens=16)
+        except TypeError as e:
+            fails.append(f"provider {prov}: SDK call signature rejects our kwargs ({e})")
+    return fails
+
+
+def _make_client(provider: str, model: str):
+    """Construct the LLM client for a provider. The SINGLE dispatch point — the
+    factory and the precondition smoke both go through it, so a provider can never
+    be silently routed to the wrong client (the bug that produced an all-Haiku
+    'cross-provider' run). Study params are pinned here: Anthropic temperature=1.0;
+    OpenAI reasoning_effort=medium (Haiku has no effort knob), no temperature."""
+    if provider == "anthropic":
+        from harness.llm.anthropic_client import AnthropicClient
+        return AnthropicClient(model=model, temperature=1.0)
+    if provider == "openai":
+        from harness.llm.openai_client import OpenAIClient
+        return OpenAIClient(model=model, reasoning_effort="medium")
+    raise ValueError(f"unknown provider {provider!r} (expected 'anthropic' or 'openai')")
+
+
 def _default_agent_factory(cell, model):
-    from harness.llm.anthropic_client import AnthropicClient
     from agents.llm_agent import LLMAgent
     from agents.static_agent import StaticContextAgent
-    client = AnthropicClient(model=model, temperature=1.0)
+    # Dispatch by the CELL's provider + model, NOT the header default — otherwise
+    # every provider's cells run on one client (was: always AnthropicClient/header
+    # model, so the OpenAI arm never ran and its cells were mislabeled Haiku).
+    provider = cell.get("provider", "anthropic")
+    model = cell.get("model") or model
+    client = _make_client(provider, model)
     if cell["agent"] == "static":
         return StaticContextAgent(client, model_id=model, anchor=cell["anchor"])
     return LLMAgent(client, model_id=model, anchor=cell["anchor"])
@@ -523,7 +581,8 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
             break
 
         conditions = {"sweep_name": name, "agent_type": cell["agent"],
-                      "anchor": cell["anchor"], "repeat_index": cell["repeat_index"]}
+                      "anchor": cell["anchor"], "repeat_index": cell["repeat_index"],
+                      "provider": cell.get("provider", "anthropic")}
         case_dir = project_root / "cases" / cell["case_id"]
         rec = None
         error = None

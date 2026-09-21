@@ -134,6 +134,60 @@ def test_written_plan_strips_all_answer_key_fields(tmp_path):
     assert written["header"]["factor_levels"]["control_seeds"] == [50]
 
 
+def test_default_agent_factory_dispatches_client_by_provider(monkeypatch):
+    # The bug: the factory always built AnthropicClient, so openai cells ran on
+    # Haiku. Assert the constructed client class matches cell["provider"]. The real
+    # SDK clients construct offline from a (bogus) env key; no network.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
+
+    from agents.llm_agent import LLMAgent
+
+    a_cell = {"agent": "react", "anchor": "on", "provider": "anthropic",
+              "model": "claude-haiku-4-5-20251001"}
+    o_cell = {"agent": "react", "anchor": "on", "provider": "openai",
+              "model": "gpt-5.6-luna"}
+    a_agent = sweep._default_agent_factory(a_cell, "header-model")
+    o_agent = sweep._default_agent_factory(o_cell, "header-model")
+    assert isinstance(a_agent, LLMAgent) and isinstance(o_agent, LLMAgent)
+    # The underlying client class is provider-specific and uses the CELL model.
+    assert type(a_agent._client).__name__ == "AnthropicClient"
+    assert a_agent._client._model == "claude-haiku-4-5-20251001"
+    assert type(o_agent._client).__name__ == "OpenAIClient"
+    assert o_agent._client._model == "gpt-5.6-luna"
+    assert o_agent._client._reasoning_effort == "medium"  # pinned, Haiku has none
+
+
+def test_make_client_rejects_unknown_provider():
+    import pytest
+    with pytest.raises(ValueError, match="unknown provider"):
+        sweep._make_client("gemini", "some-model")
+
+
+def test_provider_smoke_passes_with_keys_and_real_sdk(monkeypatch):
+    # Constructs the REAL anthropic/openai clients (offline, bogus key) and binds
+    # the real create() signature — the exact preflight check_preconditions runs.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
+    fails = sweep._provider_smoke([
+        {"provider": "anthropic", "model": "claude-haiku-4-5-20251001"},
+        {"provider": "openai", "model": "gpt-5.6-luna"},
+    ])
+    assert fails == []
+
+
+def test_provider_smoke_flags_missing_key(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    fails = sweep._provider_smoke([{"provider": "openai", "model": "gpt-5.6-luna"}])
+    assert any("OPENAI_API_KEY not set" in f for f in fails)
+
+
+def test_provider_smoke_flags_unknown_provider():
+    fails = sweep._provider_smoke([{"provider": "gemini", "model": "x"}])
+    assert any("unknown" in f for f in fails)
+
+
 def test_cost_estimate_resolves_operator_from_registry_not_plan(tmp_path):
     # The stripped plan has no per-cell operator; the run-time estimate must resolve
     # it from the registry by case_id and still find the (operator, agent) prior.
