@@ -14,7 +14,15 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest==8.3.4"]
-llm = ["anthropic>=0.40.0", "openai>=1.40.0"]
+# Upper bounds cap the breaking MAJORS the code is not written for: the
+# AnthropicClient uses the 0.x Messages API (temperature is a top-level
+# messages.create kwarg — anthropic 1.x removed it), and OpenAIClient uses the
+# openai 2.x Responses API. Without the caps, uv resolved anthropic 1.4.0 /
+# openai 3.16.2 for python>=3.10 (both py3.11 CI + the canonical container),
+# which raised "Messages.create() got an unexpected keyword argument
+# 'temperature'" client-side. NOT a loosened pin — a tightened one. See
+# docs/DECISIONS.md 2026-09-20.
+llm = ["anthropic>=0.40.0,<1", "openai>=1.40.0,<3"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

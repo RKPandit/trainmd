@@ -507,7 +507,12 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
     tok_in = tok_out = 0
 
     for cell in cells:
-        if cell["cell_id"] in done or not cell["case_id"]:
+        # RESUME only skips a cell that COMPLETED successfully. A "failed" progress
+        # entry (e.g. the temperature-TypeError cells) must be RETRIED, not skipped
+        # — _load_progress is last-wins, so a later "ok" overwrites the "failed"
+        # entry for the same cell_id. (A blanket `cell_id in done` silently strands
+        # every failed cell on rerun.)
+        if done.get(cell["cell_id"], {}).get("status") == "ok" or not cell["case_id"]:
             continue
         est = est_fn(cell)
         if cumulative + est > max_cost_usd:

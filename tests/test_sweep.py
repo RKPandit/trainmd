@@ -208,6 +208,34 @@ def test_circuit_breaker(tmp_path):
     assert len(prog) == 3
 
 
+def test_failed_cells_are_retried_not_skipped(tmp_path):
+    # Regression (2026-09-20): the 3 temperature-TypeError cells were written to the
+    # progress file as status="failed"; the skip predicate was `cell_id in done`,
+    # which would SILENTLY SKIP them on rerun. Resume must retry a failed cell.
+    _mk_root(tmp_path)
+    _plan_with_cells(tmp_path, "s", 3)
+
+    def _fail(agent, case_dir, project_root, conditions=None):
+        raise RuntimeError("Messages.create() got an unexpected keyword argument 'temperature'")
+
+    r1 = sweep.run_agents(tmp_path, "s", max_cost_usd=1000, require_preconditions=False,
+                          agent_factory=lambda c: object(), trial_fn=_fail,
+                          cost_fn=lambda rec: 0.0, est_fn=lambda c: 0.0,
+                          max_consecutive_failures=3)
+    assert "circuit_breaker" in r1["stopped"] and r1["ran"] == 0
+    prog1 = sweep._load_progress(tmp_path / "sweeps" / "s_progress.jsonl")
+    assert len(prog1) == 3 and all(e["status"] == "failed" for e in prog1.values())
+
+    # Rerun after the fix: every FAILED cell is retried (not skipped) and succeeds.
+    r2 = sweep.run_agents(tmp_path, "s", max_cost_usd=1000, require_preconditions=False,
+                          agent_factory=lambda c: object(), trial_fn=_ok_trial(1.0),
+                          cost_fn=lambda rec: 1.0, est_fn=lambda c: 1.0)
+    assert r2["ran"] == 3
+    prog2 = sweep._load_progress(tmp_path / "sweeps" / "s_progress.jsonl")
+    # last-wins: the ok entries overwrite the failed ones for the same cell_ids.
+    assert len(prog2) == 3 and all(e["status"] == "ok" for e in prog2.values())
+
+
 # ---------------------------------------------------------------------------
 # three-arm anchor: off (no band) | numbers (bare fact) | rule (numbers + rule)
 # ---------------------------------------------------------------------------
