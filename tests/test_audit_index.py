@@ -137,3 +137,33 @@ def test_assert_clean_refuses_on_fail(tmp_path):
         assert_clean_for_aggregation(tmp_path, force=False)
     # force=True does not raise.
     assert_clean_for_aggregation(tmp_path, force=True)
+
+
+def test_r13_provider_model_mismatch_fires(tmp_path):
+    # An openai cell whose recorded api_model is a claude-* model = the dispatch
+    # bug that produced all-Haiku "cross-provider" data. Must FAIL the audit.
+    rec = _base(conditions={"provider": "openai"},
+                llm_transcript=[{"api_model": "claude-haiku-4-5-20251001"}])
+    by_name, _ = _write_and_audit(tmp_path, rec)
+    assert _fail_rules_fired(by_name) == {"R13_provider_model_mismatch"}
+
+
+def test_r13_consistent_provider_model_passes(tmp_path):
+    for prov, model in [("openai", "gpt-5.6-luna"),
+                        ("anthropic", "claude-haiku-4-5-20251001")]:
+        rec = _base(conditions={"provider": prov},
+                    llm_transcript=[{"api_model": model}])
+        by_name, fail_count = _write_and_audit(tmp_path / prov, rec)
+        assert "R13_provider_model_mismatch" not in _fail_rules_fired(by_name)
+        assert fail_count == 0
+
+
+def test_r13_silent_when_no_provider_or_no_api_model(tmp_path):
+    # Ad-hoc/pre-provider trials (no conditions.provider) and crashes with no live
+    # api call must not false-fire.
+    rec = _base(llm_transcript=[{"api_model": "claude-haiku-4-5-20251001"}])  # no provider
+    by_name, fail_count = _write_and_audit(tmp_path / "a", rec)
+    assert fail_count == 0
+    rec2 = _base(conditions={"provider": "openai"}, llm_transcript=[])  # no api_model
+    by_name2, fail_count2 = _write_and_audit(tmp_path / "b", rec2)
+    assert fail_count2 == 0

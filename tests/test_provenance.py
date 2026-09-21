@@ -89,7 +89,8 @@ class TestSchemaConformance:
         """Schema 1.1 pre-sweep capture blocks are present."""
         record, _ = trial_record
         assert set(record["prompt"]) == {"system_prompt_text", "prompt_hash", "prompt_version"}
-        assert set(record["conditions"]) == {"sweep_name", "agent_type", "anchor", "repeat_index"}
+        assert set(record["conditions"]) == {"sweep_name", "agent_type", "anchor",
+                                              "repeat_index", "provider"}
         assert "termination_reason" in record
         assert "symptom_direction" in record
 
@@ -252,7 +253,7 @@ class TestIndex:
                              "harness_git_commit", "status", "timestamp_utc",
                              # Schema 1.1 required condition columns.
                              "termination_reason", "agent_type", "anchor",
-                             "repeat_index", "symptom_direction"):
+                             "repeat_index", "provider", "symptom_direction"):
                     assert key in entry, f"Missing index field: {key}"
                 break
         else:

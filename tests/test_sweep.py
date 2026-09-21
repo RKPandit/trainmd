@@ -95,6 +95,112 @@ def test_cost_fallback_uses_max_observed(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# committed plan carries NO per-case answer key (operator/tier) — public-repo leak
+# ---------------------------------------------------------------------------
+
+_ANSWER_KEY = ("operator", "tier", "seed", "strength")
+_RUNTIME_CELL_FIELDS = ("cell_id", "case_id", "provider", "model", "agent",
+                        "anchor", "repeat_index")
+
+
+def test_written_plan_strips_all_answer_key_fields(tmp_path):
+    # Two strengths + a control so the leak-by-inference fields are present in-memory.
+    _mk_root(tmp_path, faulty=("silent.data_leakage.v1",), strengths=("mild", "severe"),
+             seeds=(42,), control_seeds=(50,))
+    result = sweep.plan(tmp_path, "s", ["mild", "severe"], [42], [50], repeats=1,
+                        operators=["silent.data_leakage.v1"])
+    # In-memory cells DO carry the answer-key fields (used for cost_est, n_verify, case_set).
+    assert all(all(k in c for k in _ANSWER_KEY) for c in result["plan"]["cells"])
+
+    p = sweep.write_plan(result)
+    written = yaml.safe_load(p.read_text())
+
+    # The COMMITTED artifact must not map any case_id -> ground truth, by name OR
+    # by inference (operator, tier, seed, strength).
+    for c in written["cells"]:
+        assert not any(k in c for k in _ANSWER_KEY), c
+        for k in _RUNTIME_CELL_FIELDS:      # ...but every run-time field is retained.
+            assert k in c
+    for cid, info in written["header"]["case_set"].items():
+        assert set(info) == {"build_id"}    # only the precondition field remains
+
+    # Leak closed, additivity intact: every cell_id is unchanged by stripping.
+    assert ({c["cell_id"] for c in written["cells"]}
+            == {c["cell_id"] for c in result["plan"]["cells"]})
+    # Header still carries AGGREGATE design disclosure (operators + seed ranges),
+    # which is not a per-case mapping.
+    assert written["header"]["scope"]["gate_operators"] == ["silent.data_leakage.v1"]
+    assert written["header"]["factor_levels"]["faulty_seeds"] == [42]
+    assert written["header"]["factor_levels"]["control_seeds"] == [50]
+
+
+def test_default_agent_factory_dispatches_client_by_provider(monkeypatch):
+    # The bug: the factory always built AnthropicClient, so openai cells ran on
+    # Haiku. Assert the constructed client class matches cell["provider"]. The real
+    # SDK clients construct offline from a (bogus) env key; no network.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
+
+    from agents.llm_agent import LLMAgent
+
+    a_cell = {"agent": "react", "anchor": "on", "provider": "anthropic",
+              "model": "claude-haiku-4-5-20251001"}
+    o_cell = {"agent": "react", "anchor": "on", "provider": "openai",
+              "model": "gpt-5.6-luna"}
+    a_agent = sweep._default_agent_factory(a_cell, "header-model")
+    o_agent = sweep._default_agent_factory(o_cell, "header-model")
+    assert isinstance(a_agent, LLMAgent) and isinstance(o_agent, LLMAgent)
+    # The underlying client class is provider-specific and uses the CELL model.
+    assert type(a_agent._client).__name__ == "AnthropicClient"
+    assert a_agent._client._model == "claude-haiku-4-5-20251001"
+    assert type(o_agent._client).__name__ == "OpenAIClient"
+    assert o_agent._client._model == "gpt-5.6-luna"
+    assert o_agent._client._reasoning_effort == "medium"  # pinned, Haiku has none
+
+
+def test_make_client_rejects_unknown_provider():
+    import pytest
+    with pytest.raises(ValueError, match="unknown provider"):
+        sweep._make_client("gemini", "some-model")
+
+
+def test_provider_smoke_passes_with_keys_and_real_sdk(monkeypatch):
+    # Constructs the REAL anthropic/openai clients (offline, bogus key) and binds
+    # the real create() signature — the exact preflight check_preconditions runs.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
+    fails = sweep._provider_smoke([
+        {"provider": "anthropic", "model": "claude-haiku-4-5-20251001"},
+        {"provider": "openai", "model": "gpt-5.6-luna"},
+    ])
+    assert fails == []
+
+
+def test_provider_smoke_flags_missing_key(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    fails = sweep._provider_smoke([{"provider": "openai", "model": "gpt-5.6-luna"}])
+    assert any("OPENAI_API_KEY not set" in f for f in fails)
+
+
+def test_provider_smoke_flags_unknown_provider():
+    fails = sweep._provider_smoke([{"provider": "gemini", "model": "x"}])
+    assert any("unknown" in f for f in fails)
+
+
+def test_cost_estimate_resolves_operator_from_registry_not_plan(tmp_path):
+    # The stripped plan has no per-cell operator; the run-time estimate must resolve
+    # it from the registry by case_id and still find the (operator, agent) prior.
+    _mk_root(tmp_path, faulty=("silent.data_leakage.v1",), strengths=("mild",),
+             seeds=(42,), control_seeds=())
+    priors = {"by_pair": {("silent.data_leakage.v1", "react"): [1.5]}, "all": [1.5]}
+    op = "silent.data_leakage.v1"
+    stripped_cell = {"cell_id": "c0", "case_id": "case_0001", "agent": "react"}
+    # No operator on the cell -> must be supplied (as run_agents does, from registry).
+    assert sweep._cell_est(stripped_cell, priors, op) == 1.5
+
+
+# ---------------------------------------------------------------------------
 # run_agents orchestration (injected stubs)
 # ---------------------------------------------------------------------------
 
@@ -154,6 +260,34 @@ def test_circuit_breaker(tmp_path):
     # only ~3 cells were attempted, not all 20
     prog = (tmp_path / "sweeps" / "s_progress.jsonl").read_text().strip().splitlines()
     assert len(prog) == 3
+
+
+def test_failed_cells_are_retried_not_skipped(tmp_path):
+    # Regression (2026-09-20): the 3 temperature-TypeError cells were written to the
+    # progress file as status="failed"; the skip predicate was `cell_id in done`,
+    # which would SILENTLY SKIP them on rerun. Resume must retry a failed cell.
+    _mk_root(tmp_path)
+    _plan_with_cells(tmp_path, "s", 3)
+
+    def _fail(agent, case_dir, project_root, conditions=None):
+        raise RuntimeError("Messages.create() got an unexpected keyword argument 'temperature'")
+
+    r1 = sweep.run_agents(tmp_path, "s", max_cost_usd=1000, require_preconditions=False,
+                          agent_factory=lambda c: object(), trial_fn=_fail,
+                          cost_fn=lambda rec: 0.0, est_fn=lambda c: 0.0,
+                          max_consecutive_failures=3)
+    assert "circuit_breaker" in r1["stopped"] and r1["ran"] == 0
+    prog1 = sweep._load_progress(tmp_path / "sweeps" / "s_progress.jsonl")
+    assert len(prog1) == 3 and all(e["status"] == "failed" for e in prog1.values())
+
+    # Rerun after the fix: every FAILED cell is retried (not skipped) and succeeds.
+    r2 = sweep.run_agents(tmp_path, "s", max_cost_usd=1000, require_preconditions=False,
+                          agent_factory=lambda c: object(), trial_fn=_ok_trial(1.0),
+                          cost_fn=lambda rec: 1.0, est_fn=lambda c: 1.0)
+    assert r2["ran"] == 3
+    prog2 = sweep._load_progress(tmp_path / "sweeps" / "s_progress.jsonl")
+    # last-wins: the ok entries overwrite the failed ones for the same cell_ids.
+    assert len(prog2) == 3 and all(e["status"] == "ok" for e in prog2.values())
 
 
 # ---------------------------------------------------------------------------

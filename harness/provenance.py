@@ -143,6 +143,7 @@ def build_empty_record(
             "agent_type": None,
             "anchor": None,
             "repeat_index": None,
+            "provider": None,   # set by the runner; audited vs recorded api_model
         },
 
         # Precise exit reason — distinguishes the model's choice from the harness
@@ -308,6 +309,7 @@ def _index_line(record: dict) -> dict:
         "agent_type": (record.get("conditions") or {}).get("agent_type"),
         "anchor": (record.get("conditions") or {}).get("anchor"),
         "repeat_index": (record.get("conditions") or {}).get("repeat_index"),
+        "provider": (record.get("conditions") or {}).get("provider"),
         "symptom_direction": record.get("symptom_direction"),
     }
 

@@ -228,9 +228,13 @@ def estimate_cost(cells, priors) -> dict:
     }
 
 
-def _cell_est(c, priors) -> float:
+def _cell_est(c, priors, operator=None) -> float:
     by_pair, all_costs = priors["by_pair"], priors["all"]
-    costs = by_pair.get((c["operator"], c["agent"]))
+    # ``operator`` is stripped from the committed plan (it is a per-case answer-key
+    # leak — see write_plan); the caller resolves it from the registry by case_id.
+    # Fall back to c["operator"] for an in-memory (unstripped) cell.
+    op = operator if operator is not None else c.get("operator")
+    costs = by_pair.get((op, c["agent"]))
     if costs:
         return sum(costs) / len(costs)
     return max(all_costs) if all_costs else 0.0
@@ -311,10 +315,48 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
     return {"plan": out, "missing": missing, "path": project_root / "sweeps" / f"{name}_plan.yaml"}
 
 
+# THE RULE (docs/DECISIONS.md 2026-09-20): the public, COMMITTED plan carries only
+# what the RUNNER needs at run time; everything resolvable from the hidden card or
+# the registry by case_id is stripped. A per-case field that maps a case_id to its
+# ground truth is the identification/detection ANSWER KEY — by NAME (operator, tier)
+# or by INFERENCE:
+#   * seed — the header discloses faulty_seeds vs control_seeds, so case_id->seed
+#     implies control-vs-faulty (a detection key).
+#   * strength — controls are always "mild", so strength in {moderate, severe}
+#     implies faulty (a detection key).
+# None of these is read from the plan at run time (run_agents uses cell_id/case_id/
+# agent/anchor/repeat_index; the cost estimate and verify resolve operator/tier from
+# the registry by case_id), and cell_id already HASHES operator+strength+seed, so
+# stripping the readable fields is additivity-neutral (ids + build_ids unchanged).
+# KEPT (run-time-needed, not a leak): cell_id, case_id, provider, model, agent,
+# anchor, repeat_index in cells; build_id in case_set. Header keeps AGGREGATE design
+# disclosure (the operator LIST, seed ranges, strengths) — not a per-case mapping.
+_PLAN_ANSWER_KEY_FIELDS = ("operator", "tier", "seed", "strength")
+
+
+def _strip_answer_key(plan_doc: dict) -> dict:
+    """Return a copy of the plan with per-case answer-key fields (_PLAN_ANSWER_KEY_
+    FIELDS) removed from every cell and from case_set. Header factor_levels/scope
+    keep the AGGREGATE design disclosure; only the per-case mapping is stripped."""
+    doc = dict(plan_doc)
+    doc["cells"] = [
+        {k: v for k, v in c.items() if k not in _PLAN_ANSWER_KEY_FIELDS}
+        for c in plan_doc.get("cells", [])
+    ]
+    header = dict(plan_doc.get("header", {}))
+    header["case_set"] = {
+        cid: {k: v for k, v in info.items() if k not in _PLAN_ANSWER_KEY_FIELDS}
+        for cid, info in (plan_doc.get("header", {}).get("case_set", {}) or {}).items()
+    }
+    doc["header"] = header
+    return doc
+
+
 def write_plan(result) -> Path:
     p = result["path"]
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(yaml.dump(result["plan"], default_flow_style=False, sort_keys=False))
+    p.write_text(yaml.dump(_strip_answer_key(result["plan"]),
+                           default_flow_style=False, sort_keys=False))
     return p
 
 
@@ -373,7 +415,6 @@ def check_preconditions(project_root, plan_doc) -> list[str]:
     from harness.gate_known_answer import run_gate
     from harness.audit_index import run_audit
     from harness.validate_case import validate_all
-    import os
 
     fails = []
     gate_rows = run_gate(project_root, fast=True)
@@ -402,16 +443,75 @@ def check_preconditions(project_root, plan_doc) -> list[str]:
             fails.append("plan file is not committed (git-clean check failed)")
     except FileNotFoundError:
         pass
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        fails.append("ANTHROPIC_API_KEY not set")
+    # Per-provider preflight: key present + client dispatch + real SDK signature
+    # (no spend). Stops a dispatch/SDK break at cell 0, not after 3 burned trials.
+    fails += _provider_smoke(plan_doc["header"].get("providers") or DEFAULT_PROVIDERS)
     return fails
 
 
+_PROVIDER_ENV_KEY = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}
+
+
+def _provider_smoke(providers) -> list[str]:
+    """Fail-fast provider preflight (no spend). For each provider in the plan:
+    require its API key, construct its client via the SAME dispatch path the run
+    uses (``_make_client``), and signature-bind the REAL SDK create() with our
+    exact kwargs — so a dispatch break OR an SDK signature change (e.g. anthropic
+    1.x dropping ``temperature``) stops the run at cell 0."""
+    import inspect
+    import os
+    fails = []
+    for spec in providers:
+        prov, model = spec.get("provider"), spec.get("model")
+        env = _PROVIDER_ENV_KEY.get(prov)
+        if env is None:
+            fails.append(f"provider {prov!r}: unknown (expected anthropic|openai)")
+            continue
+        if not os.environ.get(env):
+            fails.append(f"provider {prov}: {env} not set")
+            continue  # cannot construct the real client without its key
+        try:
+            client = _make_client(prov, model)
+        except Exception as e:  # noqa: BLE001
+            fails.append(f"provider {prov}: client dispatch/construction failed ({e})")
+            continue
+        try:
+            if prov == "anthropic":
+                inspect.signature(client._client.messages.create).bind_partial(
+                    model=model, max_tokens=16, messages=[], tools=[], temperature=1.0)
+            else:  # openai
+                inspect.signature(client._client.responses.create).bind_partial(
+                    model=model, input=[], tools=[],
+                    reasoning={"effort": "medium"}, max_output_tokens=16)
+        except TypeError as e:
+            fails.append(f"provider {prov}: SDK call signature rejects our kwargs ({e})")
+    return fails
+
+
+def _make_client(provider: str, model: str):
+    """Construct the LLM client for a provider. The SINGLE dispatch point — the
+    factory and the precondition smoke both go through it, so a provider can never
+    be silently routed to the wrong client (the bug that produced an all-Haiku
+    'cross-provider' run). Study params are pinned here: Anthropic temperature=1.0;
+    OpenAI reasoning_effort=medium (Haiku has no effort knob), no temperature."""
+    if provider == "anthropic":
+        from harness.llm.anthropic_client import AnthropicClient
+        return AnthropicClient(model=model, temperature=1.0)
+    if provider == "openai":
+        from harness.llm.openai_client import OpenAIClient
+        return OpenAIClient(model=model, reasoning_effort="medium")
+    raise ValueError(f"unknown provider {provider!r} (expected 'anthropic' or 'openai')")
+
+
 def _default_agent_factory(cell, model):
-    from harness.llm.anthropic_client import AnthropicClient
     from agents.llm_agent import LLMAgent
     from agents.static_agent import StaticContextAgent
-    client = AnthropicClient(model=model, temperature=1.0)
+    # Dispatch by the CELL's provider + model, NOT the header default — otherwise
+    # every provider's cells run on one client (was: always AnthropicClient/header
+    # model, so the OpenAI arm never ran and its cells were mislabeled Haiku).
+    provider = cell.get("provider", "anthropic")
+    model = cell.get("model") or model
+    client = _make_client(provider, model)
     if cell["agent"] == "static":
         return StaticContextAgent(client, model_id=model, anchor=cell["anchor"])
     return LLMAgent(client, model_id=model, anchor=cell["anchor"])
@@ -440,7 +540,11 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
     cost_fn = cost_fn or _cost_from_record
     trial_fn = trial_fn or run_trial
     priors = _prior_costs(project_root)
-    est_fn = est_fn or (lambda c: _cell_est(c, priors))
+    # The committed plan carries no per-cell operator (answer-key leak); resolve it
+    # from the registry by case_id for the cost estimate.
+    _reg = _load_registry(project_root)
+    est_fn = est_fn or (lambda c: _cell_est(
+        c, priors, (_reg.get(c["case_id"], {}) or {}).get("operator")))
 
     if require_preconditions:
         fails = check_preconditions(project_root, plan_doc)
@@ -461,7 +565,12 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
     tok_in = tok_out = 0
 
     for cell in cells:
-        if cell["cell_id"] in done or not cell["case_id"]:
+        # RESUME only skips a cell that COMPLETED successfully. A "failed" progress
+        # entry (e.g. the temperature-TypeError cells) must be RETRIED, not skipped
+        # — _load_progress is last-wins, so a later "ok" overwrites the "failed"
+        # entry for the same cell_id. (A blanket `cell_id in done` silently strands
+        # every failed cell on rerun.)
+        if done.get(cell["cell_id"], {}).get("status") == "ok" or not cell["case_id"]:
             continue
         est = est_fn(cell)
         if cumulative + est > max_cost_usd:
@@ -472,7 +581,8 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
             break
 
         conditions = {"sweep_name": name, "agent_type": cell["agent"],
-                      "anchor": cell["anchor"], "repeat_index": cell["repeat_index"]}
+                      "anchor": cell["anchor"], "repeat_index": cell["repeat_index"],
+                      "provider": cell.get("provider", "anthropic")}
         case_dir = project_root / "cases" / cell["case_id"]
         rec = None
         error = None

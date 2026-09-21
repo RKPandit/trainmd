@@ -142,6 +142,27 @@ def _r12(rec):  # produced outside the canonical container (INFO)
     return (rec.get("environment") or {}).get("in_container") is not True
 
 
+# Expected api_model prefix per provider (the trial's recorded api_model must be
+# consistent with the provider its cell was scheduled under).
+_PROVIDER_MODEL_PREFIX = {"anthropic": "claude", "openai": "gpt"}
+
+
+def _r13(rec):  # cell provider inconsistent with recorded api_model (FAIL)
+    # Guards against a dispatch/mislabel bug producing clean-looking cross-provider
+    # data that is actually one provider (e.g. openai cells answered by Haiku).
+    prov = (rec.get("conditions") or {}).get("provider")
+    if not prov:
+        return False  # ad-hoc/pre-provider trial — nothing to check
+    models = [m.get("api_model") for m in (rec.get("llm_transcript") or [])
+              if m.get("api_model")]
+    if not models:
+        return False  # no live API call recorded (e.g. no-submission crash)
+    expected = _PROVIDER_MODEL_PREFIX.get(prov)
+    if expected is None:
+        return True  # unknown provider label is itself a violation
+    return any(not str(m).lower().startswith(expected) for m in models)
+
+
 @dataclass
 class Rule:
     name: str
@@ -163,6 +184,7 @@ RULES = [
     Rule("R10_recall_full_id_wrong_easy", "INFO", _r10, "full recall but wrong class on an easy operator"),
     Rule("R11_confidence_out_of_range", "INFO", _r11, "submission confidence stored raw and outside [0, 1]"),
     Rule("R12_out_of_container", "INFO", _r12, "trial produced outside the canonical container (in_container != true)"),
+    Rule("R13_provider_model_mismatch", "FAIL", _r13, "cell provider inconsistent with recorded api_model (e.g. an openai cell that reported a claude-* model)"),
 ]
 
 
