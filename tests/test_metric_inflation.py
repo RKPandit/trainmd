@@ -239,10 +239,17 @@ class TestIdentificationUniqueness:
         "selective_evaluation", "misleading_metric",
     ])
     def test_label_matches_only_this_operator(self, label):
-        from harness.scoring import _matched_operators, _normalize_class
-        from operators.registry import core_token_specs
-        matched = _matched_operators(_normalize_class(label), core_token_specs())
-        assert matched == ["silent.metric_inflation.v1"], matched
+        # Test through the PUBLIC scoring surface (score_identification), whose
+        # result exposes the full match set as `matched_operators`. Calling the
+        # private `_matched_operators` directly let this test lag the scorer's
+        # signature (the vetoes hardening broke it, delta 0); the public entry
+        # point pulls specs AND vetoes from the same registry the scorer uses.
+        from harness.scoring import score_identification
+        submission = {"diagnosis": {"operator_class": label}}
+        hidden_card = {"operator_id": "silent.metric_inflation.v1",
+                       "accepted_classes": []}
+        result = score_identification(submission, hidden_card)
+        assert result["matched_operators"] == ["silent.metric_inflation.v1"], result
 
 
 class TestRepairValidation:
