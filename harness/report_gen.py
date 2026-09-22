@@ -62,20 +62,72 @@ def generate(records: list[dict], meta: dict) -> str:
           f"superseded={meta.get('excluded',{}).get('superseded',0)}",
           f"- method: {s['method']}", ""]
 
+    providers = ss.providers_present(records)
+    if len(providers) > 1:
+        # H7: split every table by provider with pooled alongside; list both models.
+        L += [f"- providers: {', '.join(providers)}",
+              f"- models: {', '.join(meta.get('models') or [])}", ""]
+        L += ["## Pooled — all providers", ""] + _metric_body(s, records, meta)
+        for p in providers:
+            sub = [r for r in records if r.get("_provider") == p]
+            L += [f"## Provider: {p}", ""] + _metric_body(ss.compute_all(sub), sub, meta)
+    else:
+        L += _metric_body(s, records, meta)
+    # H8 renders only when the neutral+descriptive pair is present (self-guarded),
+    # so frozen single-variant sweeps are byte-identical.
+    L += _h8_tables(s)
+    return "\n".join(L) + "\n"
+
+
+def _h8_tables(s: dict) -> list:
+    """H8 primary (neutral − descriptive identification Δ, per arm × provider, judged
+    vs pre-registered thresholds) + secondary (detection/recovery per variant)."""
+    h = s.get("h8_identification_contrast", {})
+    if not h.get("available"):
+        return []
+    B = ["## H8 — neutral − descriptive identification (Δ), per arm × provider", "",
+         f"Δ = neutral − descriptive identification. Pre-registered: |Δ| ≤ {h['confirming_bound']} "
+         f"→ confirming (no substantial gap); Δ < −{h['refuting_bound']} with the 95% CI excluding 0 "
+         f"→ refuting (name-reading); otherwise inconclusive. Case-clustered 95% CI.", "",
+         "| provider | arm | neutral id | descriptive id | Δ (95% CI) | n cases neut/desc | verdict |",
+         "|---|---|---|---|---|---|---|"]
+    for row in h["rows"]:
+        B.append(f"| {row['provider']} | {row['arm']} | {_f(row.get('neutral_id'))} | "
+                 f"{_f(row.get('descriptive_id'))} | {_ci(row)} | "
+                 f"{row['n_cases_neutral']}/{row['n_cases_descriptive']} | {row['verdict']} |")
+    B += [""]
+    sec = s.get("h8_secondary_detection_recovery", {})
+    if sec.get("available"):
+        B += ["### H8 secondary — detection + semantic recovery per variant × arm × provider "
+              "(pre-registered: expected UNCHANGED between variants)", "",
+              "| provider | variant | arm | detection | recovery | n_trials | n_cases |",
+              "|---|---|---|---|---|---|---|"]
+        for row in sec["rows"]:
+            B.append(f"| {row['provider']} | {row['variant']} | {row['arm']} | "
+                     f"{_f(row.get('detection'))} | {_f(row.get('recovery'))} | "
+                     f"{row['n_trials']} | {row['n_cases']} |")
+        B += [""]
+    return B
+
+
+def _metric_body(s: dict, records: list, meta: dict) -> list:
+    """The standard metric tables for one facet of records (all records, or one
+    provider's). Extracted verbatim so the single-provider path stays byte-identical."""
+    B: list = []
     # Detection by operator × arm
     arms = s["arms"]
-    L += ["## Detection by operator × arm (point [95% case-clustered CI])", "",
+    B += ["## Detection by operator × arm (point [95% case-clustered CI])", "",
           "| operator | " + " | ".join(arms) + " |",
           "|" + "---|" * (len(arms) + 1)]
     dba = s["detection_by_operator_arm"]
     for op in s["operators_faulty"]:
         row = [op] + [_ci(dba.get(op, {}).get(arm)) for arm in arms]
-        L.append("| " + " | ".join(row) + " |")
-    L += [""]
+        B.append("| " + " | ".join(row) + " |")
+    B += [""]
 
     # H1 anchor-off pooled gap
     g = s["h1_anchor_gap_pooled"]
-    L += ["## H1 — anchor-off detection gap (negative − positive symptom), pooled", "",
+    B += ["## H1 — anchor-off detection gap (negative − positive symptom), pooled", "",
           f"- gap: {_ci(g)}  (negative {_f(g.get('neg_rate'))} on {g.get('n_cases_neg')} cases − "
           f"positive {_f(g.get('pos_rate'))} on {g.get('n_cases_pos')} cases)",
           f"- positive-symptom operators: {', '.join(g.get('positive_ops') or []) or '(none)'}",
@@ -87,11 +139,11 @@ def generate(records: list[dict], meta: dict) -> str:
 
     # Ratio of the off→rule gap closed by the mid arm (the pre-registered, previously-uncomputed stat)
     r = s["ratio_gap_closed"]
-    L += ["## Fraction of the off→rule detection gap closed by the numbers/stats arm", ""]
+    B += ["## Fraction of the off→rule detection gap closed by the numbers/stats arm", ""]
     if not r.get("available"):
-        L += [f"_not available: {r.get('reason')}_", ""]
+        B += [f"_not available: {r.get('reason')}_", ""]
     else:
-        L += [f"Method: {r['method']}. Arms: {r['low_arm']}→{r['mid_arm']}→{r['high_arm']}.", "",
+        B += [f"Method: {r['method']}. Arms: {r['low_arm']}→{r['mid_arm']}→{r['high_arm']}.", "",
               "| operator | detect off | detect numbers | detect rule | gap | fraction closed by numbers (95% CI) |",
               "|---|---|---|---|---|---|"]
         for op in s["operators_faulty"]:
@@ -99,21 +151,21 @@ def generate(records: list[dict], meta: dict) -> str:
             if not d:
                 continue
             fc = "degenerate (no gap)" if d["degenerate_gap"] else _ci(d["fraction_closed_by_mid"])
-            L.append(f"| {op} | {_f(d.get('detect_'+r['low_arm']))} | {_f(d.get('detect_'+r['mid_arm']))} | "
+            B.append(f"| {op} | {_f(d.get('detect_'+r['low_arm']))} | {_f(d.get('detect_'+r['mid_arm']))} | "
                      f"{_f(d.get('detect_'+r['high_arm']))} | {_f(d.get('gap_low_high'))} | {fc} |")
-        L += [""]
+        B += [""]
 
     # Control FPR — per arm + numbers−rule difference
     c = s["control_fpr"]
-    L += ["## Control detection false-positive rate (per arm, case-clustered)", ""]
+    B += ["## Control detection false-positive rate (per arm, case-clustered)", ""]
     if not c.get("available"):
-        L += [f"_not available: {c.get('reason')}_", ""]
+        B += [f"_not available: {c.get('reason')}_", ""]
     else:
-        L += ["| arm | FP rate (95% CI) | n_fp / n_trials | unique FP cases / control cases |",
+        B += ["| arm | FP rate (95% CI) | n_fp / n_trials | unique FP cases / control cases |",
               "|---|---|---|---|"]
         for arm in sorted(c["per_arm"]):
             a = c["per_arm"][arm]
-            L.append(f"| {arm} | {_ci(a)} | {a['n_fp']}/{a['n_trials']} | {len(a['fp_cases'])}/{a['n_cases']} |")
+            B.append(f"| {arm} | {_ci(a)} | {a['n_fp']}/{a['n_trials']} | {len(a['fp_cases'])}/{a['n_cases']} |")
         # §5.1: stratified breakdown (in-band vs out-of-band) when controls carry
         # band labels. Never present the pooled rate alone once we have this.
         def _band_table(title, breakdown):
@@ -133,35 +185,35 @@ def generate(records: list[dict], meta: dict) -> str:
             # PRIMARY: visible band position — the key by mechanism (a control false
             # positive is a visible-metric event: the agent reads the visible metric,
             # compares to its band, and flags).
-            L += _band_table("### Stratified by VISIBLE band position (§5.1 — the key, by mechanism)",
+            B += _band_table("### Stratified by VISIBLE band position (§5.1 — the key, by mechanism)",
                              c["by_band"])
             # ALONGSIDE: hidden band position as a case-quality label (the agent never
             # sees it; no causal path to the false positive being measured).
             if c.get("by_band_hidden"):
-                L += _band_table(
+                B += _band_table(
                     "### Stratified by HIDDEN band position "
                     "(case-quality label, reported alongside — not the key; the agent never sees it)",
                     c["by_band_hidden"])
         if "numbers_minus_rule" in c:
-            L += ["", f"- numbers − rule FP difference: {_ci(c['numbers_minus_rule'])}"]
-        L += [""]
+            B += ["", f"- numbers − rule FP difference: {_ci(c['numbers_minus_rule'])}"]
+        B += [""]
 
     # ReAct − static
     h6 = s["h6_react_minus_static"]
-    L += ["## ReAct − static evidence F1 (faulty operators, pooled)", ""]
-    L += ([f"- {_ci(h6)} (n_cases={h6.get('n_cases')})", ""] if h6.get("available")
+    B += ["## ReAct − static evidence F1 (faulty operators, pooled)", ""]
+    B += ([f"- {_ci(h6)} (n_cases={h6.get('n_cases')})", ""] if h6.get("available")
           else [f"_not available: {h6.get('reason')}_", ""])
 
     # Recovery endpoints
-    L += ["## Recovery — strict vs semantic, with id-gap CIs", "",
+    B += ["## Recovery — strict vs semantic, with id-gap CIs", "",
           "| operator | n_trials | n_cases | identification | strict recovery | semantic recovery | id − strict (95% CI) | id − semantic (95% CI) |",
           "|---|---|---|---|---|---|---|---|"]
     for op, e in s["recovery_endpoints"].items():
-        L.append(f"| {op} | {e['n_trials']} | {e['n_cases']} | {_f(e['identification'],4)} | "
+        B.append(f"| {op} | {e['n_trials']} | {e['n_cases']} | {_f(e['identification'],4)} | "
                  f"{_f(e['strict_recovery'],4)} | {_f(e['semantic_recovery'],4)} | "
                  f"{_ci(e['id_minus_strict'])} | {_ci(e['id_minus_semantic'])} |")
-    L += [""]
-    return "\n".join(L) + "\n"
+    B += [""]
+    return B
 
 
 def _meta_from_dir(d: Path, name: str) -> dict:
@@ -176,8 +228,9 @@ def _meta_from_dir(d: Path, name: str) -> dict:
     date = (man.get("timestamp_utc") or "").split("T")[0] or header.get("created_utc", "").split("T")[0]
     arms = (header.get("factor_levels", {}) or {}).get("anchors")
     plan_arms = sorted({normalize_anchor(a) for a in arms}) if arms else None
+    models = (header.get("factor_levels", {}) or {}).get("models")
     return {"name": name, "date": date, "model": header.get("model"),
-            "plan_arms": plan_arms, "n_cells": header.get("n_cells")}
+            "models": models, "plan_arms": plan_arms, "n_cells": header.get("n_cells")}
 
 
 def generate_from_cases(root: Path, name: str, excluded: dict | None = None) -> str:

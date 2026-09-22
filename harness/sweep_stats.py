@@ -65,7 +65,81 @@ def attach_meta(rec: dict, meta: dict) -> dict:
     rec["_band_hid"] = meta.get("band_position_hidden")
     rec["_anchor"] = normalize_anchor((rec.get("conditions") or {}).get("anchor"))
     rec["_agent"] = (rec.get("conditions") or {}).get("agent_type")
+    rec["_provider"] = (rec.get("conditions") or {}).get("provider")
     return rec
+
+
+# --------------------------------------------------------------------------- #
+# ONE trial per cell (dedup)
+# --------------------------------------------------------------------------- #
+
+# A cell = one scheduled trial slot. Its identity is the case + the condition
+# labels the runner varies. Retries/aborted attempts write extra records for the
+# SAME cell; the report must count each cell once.
+_DEDUP_EXCLUDE_STATUS = {"crashed", "partial", "failed"}
+
+
+def _cell_key(r: dict) -> tuple:
+    c = r.get("conditions") or {}
+    return (r.get("case_id"), c.get("agent_type"), c.get("anchor"),
+            c.get("repeat_index"), c.get("provider"))
+
+
+def _rec_ts(r: dict) -> tuple:
+    return (((r.get("environment") or {}).get("timestamp_utc") or ""), r.get("run_id") or "")
+
+
+def dedup_one_per_cell(recs: list[dict]) -> list[dict]:
+    """Keep the LATEST SUCCESSFUL record per cell; drop failed/crashed/partial.
+
+    Rule: exclude any record whose status is crashed/partial/failed; among the
+    rest for a cell key, keep the one with the greatest (timestamp, run_id).
+    First-appearance order of each kept key is preserved, so a clean sweep (one
+    record per cell, already) is returned unchanged — the frozen release reports
+    stay byte-identical, and the results-path and release-path reports match."""
+    chosen: dict[tuple, dict] = {}
+    order: list[tuple] = []
+    for r in recs:
+        if r.get("status") in _DEDUP_EXCLUDE_STATUS:
+            continue
+        k = _cell_key(r)
+        if k not in chosen:
+            chosen[k] = r
+            order.append(k)
+        elif _rec_ts(r) >= _rec_ts(chosen[k]):
+            chosen[k] = r
+    return [chosen[k] for k in order]
+
+
+def dedup_audit(recs: list[dict]) -> dict:
+    """Provenance for the dedup: per cell with >1 record, the statuses seen and
+    which record was kept. Reported alongside the numbers (not in the machine
+    report, so from_cases/from_release stay byte-identical)."""
+    from collections import Counter
+    groups: dict[tuple, list] = defaultdict(list)
+    for r in recs:
+        groups[_cell_key(r)].append(r)
+    kept = {_cell_key(r): r for r in dedup_one_per_cell(recs)}
+    multi = []
+    for k, group in groups.items():
+        if len(group) > 1:
+            kr = kept.get(k)
+            multi.append({
+                "cell": k,
+                "n_records": len(group),
+                "statuses": dict(Counter(g.get("status") for g in group)),
+                "kept_run_id": kr.get("run_id") if kr else None,
+                "kept_status": kr.get("status") if kr else "(none — all excluded)",
+            })
+    excluded = [r for r in recs if r.get("status") in _DEDUP_EXCLUDE_STATUS]
+    return {
+        "n_records_in": len(recs),
+        "n_cells_out": len(kept),
+        "n_cells_multi_record": len(multi),
+        "n_excluded_records": len(excluded),
+        "excluded_status_counts": dict(Counter(r.get("status") for r in excluded)),
+        "multi": sorted(multi, key=lambda m: m["cell"]),
+    }
 
 
 def sweep_is_frozen(root: Path, sweep_name: str) -> bool:
@@ -101,7 +175,7 @@ def load_from_cases(root: Path, sweep_name: str, include_trusted: bool = False) 
         if d.get("card_superseded") and not frozen:
             continue
         recs.append(attach_meta(d, meta(d["case_id"])))
-    return recs
+    return dedup_one_per_cell(recs)
 
 
 def case_meta_from_release(release_dir: Path):
@@ -131,7 +205,7 @@ def load_from_release(release_dir: Path) -> list[dict]:
     for f in sorted((release_dir / "trials").glob("*.json")):
         d = json.loads(f.read_text())
         recs.append(attach_meta(d, meta(d["case_id"])))
-    return recs
+    return dedup_one_per_cell(recs)
 
 
 # --------------------------------------------------------------------------- #
@@ -447,6 +521,98 @@ def recovery_endpoints(recs):
     return out
 
 
+# --------------------------------------------------------------------------- #
+# Provider dimension (H7) + H8 neutral-vs-descriptive identification
+# --------------------------------------------------------------------------- #
+
+def providers_present(recs) -> list[str]:
+    return sorted({r["_provider"] for r in recs if r.get("_provider")})
+
+
+# The H8 pair. Named here (not a config literal elsewhere) because this metric IS
+# the neutral-key ablation; it self-reports unavailable when the pair is absent.
+_H8_DESCRIPTIVE = "silent.data_leakage.v1"
+_H8_NEUTRAL = "silent.data_leakage_neutral.v1"
+_H8_CONFIRM = 0.15
+_H8_REFUTE = 0.30
+
+
+def _h8_verdict(point, lo, hi):
+    """Pre-registered thresholds on Δ = neutral − descriptive identification.
+    |Δ| ≤ 0.15 -> confirming (no substantial gap); neutral > 0.30 BELOW descriptive
+    (Δ < −0.30) with the CI excluding 0 -> refuting (name-reading); else inconclusive."""
+    if point is None:
+        return "n/a"
+    if abs(point) <= _H8_CONFIRM:
+        return "confirming (no substantial gap)"
+    if point < -_H8_REFUTE and hi is not None and hi < 0:
+        return "refuting (name-reading)"
+    return "inconclusive"
+
+
+def h8_identification_contrast(recs):
+    """Δ = neutral − descriptive IDENTIFICATION, per anchor arm, per provider (and
+    pooled), case-clustered 95% CI, judged against the pre-registered thresholds."""
+    ops = set(faulty_ops(recs))
+    if not {_H8_DESCRIPTIVE, _H8_NEUTRAL} <= ops:
+        return {"available": False,
+                "reason": f"needs both {_H8_DESCRIPTIVE} + {_H8_NEUTRAL}; present {sorted(ops)}"}
+    pair = [r for r in recs if r["_op"] in (_H8_DESCRIPTIVE, _H8_NEUTRAL)]
+    arms = arms_present(pair)
+    provs = providers_present(pair)
+    facets = ([("pooled", pair)] + [(p, [r for r in pair if r["_provider"] == p]) for p in provs]
+              if len(provs) > 1 else [("pooled", pair)])
+
+    def gap(trials):
+        neut = [_id_correct(t) for t in trials if t["_op"] == _H8_NEUTRAL]
+        desc = [_id_correct(t) for t in trials if t["_op"] == _H8_DESCRIPTIVE]
+        if not neut or not desc:
+            return None
+        return sum(neut) / len(neut) - sum(desc) / len(desc)
+
+    out = {"available": True, "confirming_bound": _H8_CONFIRM, "refuting_bound": _H8_REFUTE,
+           "descriptive_op": _H8_DESCRIPTIVE, "neutral_op": _H8_NEUTRAL,
+           "arms": arms, "providers": provs, "rows": []}
+    for fname, fsub in facets:
+        for arm in arms:
+            rs = [r for r in fsub if r["_anchor"] == arm]
+            ci = bootstrap_ci(rs, gap)
+            neut = [r for r in rs if r["_op"] == _H8_NEUTRAL]
+            desc = [r for r in rs if r["_op"] == _H8_DESCRIPTIVE]
+            ci["neutral_id"] = _rate(_id_correct)(neut)
+            ci["descriptive_id"] = _rate(_id_correct)(desc)
+            ci["n_cases_neutral"] = len({r["case_id"] for r in neut})
+            ci["n_cases_descriptive"] = len({r["case_id"] for r in desc})
+            ci["verdict"] = _h8_verdict(ci["point"], ci.get("lo"), ci.get("hi"))
+            out["rows"].append({"provider": fname, "arm": arm, **ci})
+    return out
+
+
+def h8_secondary_detection_recovery(recs):
+    """Pre-registered H8 secondary: detection + semantic recovery per VARIANT, per
+    anchor arm, per provider (pooled when single). Expected UNCHANGED between the
+    two variants (same fault) — a difference flags an instrument problem."""
+    ops = set(faulty_ops(recs))
+    if not {_H8_DESCRIPTIVE, _H8_NEUTRAL} <= ops:
+        return {"available": False, "reason": "needs both variants"}
+    pair = [r for r in recs if r["_op"] in (_H8_DESCRIPTIVE, _H8_NEUTRAL)]
+    arms = arms_present(pair)
+    provs = providers_present(pair)
+    facets = ([("pooled", pair)] + [(p, [r for r in pair if r["_provider"] == p]) for p in provs]
+              if len(provs) > 1 else [("pooled", pair)])
+    rows = []
+    for fname, fsub in facets:
+        for variant, op in (("descriptive", _H8_DESCRIPTIVE), ("neutral", _H8_NEUTRAL)):
+            for arm in arms:
+                rs = [r for r in fsub if r["_op"] == op and r["_anchor"] == arm]
+                rows.append({
+                    "provider": fname, "variant": variant, "arm": arm,
+                    "detection": _detect_rate(rs), "recovery": _rate(_recovered)(rs),
+                    "n_trials": len(rs), "n_cases": len({r["case_id"] for r in rs}),
+                })
+    return {"available": True, "arms": arms, "providers": provs, "rows": rows}
+
+
 # Metric registry (STAGE3_PLAN §0.3.3): a plan may declare `metrics: [names]` in its header to
 # select which of these run; absent -> all applicable (each metric self-reports "not available"
 # when the design lacks the arms/agents it needs). Output key == registry name.
@@ -457,6 +623,8 @@ METRICS = {
     "h6_react_minus_static": h6_react_minus_static,
     "control_fpr": control_fpr,
     "recovery_endpoints": recovery_endpoints,
+    "h8_identification_contrast": h8_identification_contrast,
+    "h8_secondary_detection_recovery": h8_secondary_detection_recovery,
 }
 
 
