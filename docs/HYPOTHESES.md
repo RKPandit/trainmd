@@ -789,3 +789,56 @@ pre-registered as two-sided equivalence, and changing the test after seeing whic
 rescues is precisely the post-hoc move pre-registration exists to prevent. The symmetric rule is
 kept and the tally recorded as-is; the one-sided design is logged as the improvement for the next
 sweep.
+
+---
+
+## H8 sweep — H7 replication, secondaries, controls (appended 2026-09-22)
+
+All numbers from `docs/audits/sweep_h8_xprovider_generated.md` (n_trials 978 deduped, both
+providers) unless a crash/compliance count is cited to the sweep progress file
+(`sweeps/h8_xprovider_progress.jsonl`), which the report does not carry.
+
+**H7 (reference-context dependence, now measured PER MODEL): FAILED TO REPLICATE as a general
+effect.** Anchor-off descriptive-leakage detection is **Haiku 0.083, Luna 0.819** (detection by
+operator × arm, `silent.data_leakage.v1` off column, anthropic vs openai facets). The reference
+band (anchored arms) therefore adds **~90 points for Haiku** (0.083 → rule 0.986 / numbers 0.972)
+but only **~17 points for Luna** (0.819 → rule 0.986 / numbers 0.986). Sweep-1/gate H7 — "agents
+need a numeric reference to detect the silent fault" — holds for Haiku and largely does **not** for
+Luna, which detects leakage off-anchor at 0.82. Stated as **"failed to replicate," never
+"refuted"** — n = 2 models, one workload, one mechanism family; model dependence is established, its
+cause is not.
+
+**Pre-registered secondary (detection UNCHANGED between variants): NOT met under anchoring.** On the
+anchored arms neutral detection runs **6–9 points below descriptive** on both providers — anthropic
+numbers 0.972 → 0.917 (−0.055), openai numbers 0.986 → 0.914 (−0.072), openai rule 0.986 → 0.900
+(−0.086); anthropic rule is unchanged (0.986 = 0.986). Two of these anchored-arm detection gaps have
+95% CIs excluding zero (independent computation on the same records; the report's H8-secondary table
+carries point detection per variant, not the neutral−descriptive detection-contrast CI). Per the
+pre-registration a between-variant difference triggers the **instrument check** — and the isolation
+evidence (identical hidden faulty values to 6 decimals, name-blind harness, zero hint tokens in the
+neutral workspace, admissible repairs identical up to key names) **rules OUT an instrument cause**.
+So this is reported as an **exploratory observation, not a finding and not an instrument fault:** the
+config key name affects detection *confidence under anchoring* even where it does not affect
+*identification* (H8). (This refines the one-line "detection tracks closely" instrument-check note in
+the H8 primary results above, which held for the off arm and Haiku-rule but not the other anchored
+arms.)
+
+**Controls — first adequately-powered FPR measurement.** Detection false-positive rate on **20
+unique control cases** (× 2 providers = 40 static control trials per arm): **numbers 0.025 [0.000,
+0.075], off 0.025 [0.000, 0.075], rule 0.100 [0.000, 0.225]** (control FPR table, pooled). The
+anchored false positives are driven by the **single out-of-band control**: in the §5.1 visible-band
+stratification the lone out-of-band control fires at 0.500–1.000 while in-band controls sit at
+0.000–0.105. This supersedes the under-powered Sweep-1 (2 clusters) and Stage-2 (3 clusters, L20)
+FPRs — no control claim was established before; this is the first ≥20-control rate.
+
+**Luna secondaries.**
+- **The rule arm does not help Luna.** Luna neutral identification is **0.843 on rule vs 0.900 on
+  numbers** (H8 table, openai rows) — the higher-anchor arm is not the better one for Luna, unlike
+  Haiku. (ReAct−static evidence F1 is also **−0.051 [−0.085, −0.015] for Luna** vs **+0.057 [0.023,
+  0.094] for Haiku** — tool-mediated investigation helps Haiku and slightly hurts Luna here.)
+- **Structured-output compliance (Luna static).** ~**6% of first-attempt Luna static trials crashed**
+  the harness by calling `submit()` without the required `evidence_refs` (≈31 of ~492 Luna trials;
+  progress file); **~80% recovered on the built-in retry** (25 of 31 completed on the second
+  attempt) and **6 cells were lost** — all **neutral × Luna × static** (n = 6; the loss cannot be
+  separated from that structural corner at this count). Reported alongside the pre-registered
+  per-provider folding rate as a Luna transport/robustness property, not a diagnosis-quality axis.

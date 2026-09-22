@@ -402,3 +402,24 @@ does not report a separate reasoning-token category, so **per-trial cost compari
 providers are not like-for-like at the token level**: Luna's output-token count (and thus its
 output cost) is dominated by reasoning volume that has no counterpart in Haiku's accounting. Cost
 figures per provider are reported and compared with this caveat, not as a token-for-token ratio.
+**L28 — The cross-provider comparison is n = 2 models and cannot identify what drives the
+difference.** Sweep 3 establishes that reference-context dependence is model-specific (Haiku ~90 pts
+from the band, Luna ~17 — F14/S16), but with **two models** the CAUSE is unidentifiable: capability,
+**hidden reasoning tokens** (Luna reasons by default and 79% of its billed output was reasoning on
+the smoke — L27; Haiku has no such budget — an UNCONTROLLED difference sitting under every
+cross-provider number), training data/recency, and endpoint/transport (L27) are all confounded with
+"provider." No causal attribution is made. Relatedly, **Luna's two anchored H8 arms are INCONCLUSIVE
+at this n** (Δ −0.07 / −0.12, CIs crossing −0.15; power note: 6 cases/arm, half-width ≈0.15–0.25):
+the modest real gap on Luna-rule is measured but neither confirmed-equivalent nor refuted. A
+controlled cross-model design (matched reasoning budget, more models) is required before any
+"models differ because X" claim.
+
+**L29 — Six cells are missing and they are concentrated in ONE condition; the crash class is fixed
+only going forward.** The agent phase completed 978/984 cells; the **6 unrun cells are all neutral ×
+Luna × static**, lost to a `submit()`-without-`evidence_refs` harness crash (≈6% first-attempt rate
+on Luna static, ~80% recovered by retry — F15). Because the loss is entirely inside the
+neutral/Luna/static corner, it is **not missing-at-random**: it coincides with the exact cell type
+whose H8 rows are already inconclusive, so it cannot be separated from that structural pattern and
+mildly under-powers that corner further. The fix (the submit tool returning a tool error the agent
+can recover from, instead of raising) landed after this sweep and therefore **applies only from the
+next sweep** — these 6 cells stay lost in the frozen h8_xprovider record.

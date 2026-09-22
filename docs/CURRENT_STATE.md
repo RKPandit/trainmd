@@ -5,7 +5,8 @@
 > **Rule.** If this page and any other document disagree, this page is wrong OR the other document
 > is stale — **fix whichever is stale in the same commit.** Machine-checkable facts in §a are
 > verified against the repo by `scripts/check_current_state.py` in CI; that guard fails loudly on
-> drift. Last updated: 2026-09-15 (Stage-3 v2, Part 0 / §0.5 — 30-seed reference adopted).
+> drift. Last updated: 2026-09-22 (Sweep 3 `h8_xprovider` complete — H8 confirmed where powered,
+> H7 model-specific; next gate = Stage-4 plan).
 
 ---
 
@@ -65,11 +66,13 @@ mentioned,"** never "not used"; every rate states its cluster count.
 
 | Claim | Status |
 |---|---|
-| **A numerical reference baseline restores detection** (numbers arm closes ~94–95% of the off→rule gap on all 3 gate operators). | **Supported** across 3 operators within one model-workload setting (Stage-2 G2 / FINDINGS S13, F10). Strongest-supported claim. Control-specificity cost only *suggestive* (3 control clusters — L20). |
+| **A numerical reference baseline restores detection** (numbers arm closes ~94–95% of the off→rule gap on all 3 gate operators). | **Model-specific — supported for Haiku, FAILED TO REPLICATE as a general effect on the 2nd model.** Off-anchor leakage detection Haiku **0.083** vs Luna **0.819**; band adds ~90 pts (Haiku) / ~17 pts (Luna) — Sweep 3 / FINDINGS F14, S16. The Stage-2 "strongest-supported claim" framing is retired; the effect is Haiku-specific, its driver unidentified at n=2 (L28). |
+| **Leakage identification is fault-mechanism, not config-key-name reading (H8).** | **Supported where powered** (Sweep 3, neutral-key ablation): neutral−descriptive identification equivalent within ±0.15 in 4 arm×provider cells (Haiku all arms except numbers, Luna off, pooled), **0 refuting**; 3 inconclusive (Haiku numbers non-threatening upper-side; Luna numbers/rule modest sub-0.30 gap). FINDINGS F13; HYPOTHESES H8. |
+| **Reference-context dependence is model-specific (H7).** | **Model dependence ESTABLISHED, driver NOT identified** (n=2 models; capability / hidden reasoning tokens / training all confounded — L28). Use "failed to replicate," not "refuted." FINDINGS S16/F14. |
 | **Positive-symptom under-detection generalizes to a second mechanism.** | **Failed to replicate** (Stage-2 G1): `metric_inflation` anchor-off detection 0.250 [0.083,0.417] = `label_corruption` 0.250; diff +0.001 [−0.281,+0.250]. Symptom-direction≡blindness not supported (FINDINGS S1). |
 | **The data-leakage condition is anchor-off-blind.** | **Observed** (data_leakage off-detection 0.042 [0.000,0.125]) but **cause not isolated** — leakage-specific vs representation/legibility unresolved; the representation ablation is a Stage-3 test (STAGE3_PLAN §3.4). |
 | **Recovery discriminates diagnosis quality.** | **Does not, on current operators — degenerate** (L19): `not_recovered` 0/138; DegenerateAgent scores 18/18 strict recovery. Recovery reported for completeness only. |
-| **Control false-positive rate.** | **Under-powered** (L20): 3 unique control cases; arm CIs span up to [0.000,0.750]. No control claim is established. |
+| **Control false-positive rate.** | **First adequately-powered measurement (Sweep 3): 20 unique controls** × 2 providers — numbers **0.025 [0.000,0.075]**, off **0.025**, rule **0.100 [0.000,0.225]**; the single out-of-band control drives the anchored FPs (§5.1 visible-band stratification). Supersedes the under-powered Sweep-1 (2 clusters) / Stage-2 (3 clusters, L20) rates. |
 | **Tool use (ReAct) helps.** | **Supported but confounded** (FINDINGS S4): ReAct − static evidence F1 +0.135 [0.075,0.204] overall, but arms also differ in calls/deliberation/tokens/prompt; needs a token-matched baseline. |
 
 ## c. Known limitations (pointers to LIMITATIONS.md)
@@ -100,6 +103,29 @@ mentioned,"** never "not used"; every rate states its cluster count.
 - **L24** The metric tier's "the model is healthy" guarantee is partly SELECTED, not observed (the metric build guard discards out-of-band metric cases) — resolve before Sweep 3.
 
 ## d. What is next
+
+**SWEEP 3 (`h8_xprovider`) COMPLETE (2026-09-22).** The H8 neutral-key ablation + cross-provider sweep
+ran (agent phase 978/984 cells, $24.03, 6 unrun — all neutral×Luna×static; verify 834 reruns). Report:
+`docs/audits/sweep_h8_xprovider_generated.md`. Results (all cited there):
+- **H8 — identification is fault-mechanism, not name-reading.** Neutral−descriptive identification
+  equivalent within ±0.15 wherever powered (4 arm×provider cells), **0 refuting**, 3 inconclusive
+  (Haiku numbers upper-side non-threatening; Luna numbers/rule modest sub-0.30 gap). FINDINGS F13.
+- **H7 — reference-context dependence is MODEL-SPECIFIC (failed to replicate as a general effect).**
+  Off-anchor leakage detection Haiku 0.083 vs Luna 0.819; band adds ~90 pts (Haiku) / ~17 (Luna). The
+  Stage-2 "strongest supported claim" is narrowed to Haiku; driver unidentified at n=2. F14/S16, L28.
+- **Secondary (detection unchanged between variants): NOT met under anchoring** (neutral 6–9 pts
+  lower; isolation evidence rules out an instrument cause → exploratory: key name affects detection
+  *confidence* under anchoring, not identification). **Controls:** first ≥20-control FPR (0.025 /
+  0.025 / 0.100). **Luna:** rule arm doesn't help; ~6% static evidence_refs crashes (80% retried, 6
+  lost — L29). Verdict logic corrected mid-analysis to a CI equivalence test (was point-based;
+  DECISIONS 2026-09-22, RESEARCH_LOG 35).
+
+**NEXT GATE: write the Stage-4 plan** (cross-model / cross-workload design that can identify the
+driver of the model difference — matched reasoning budget, ≥3 models, and/or a second workload;
+close the L28/L29 gaps and a one-sided H8 equivalence pre-registration for replication). Not yet
+written. Per the standing rule, no new instrument work starts until the Stage-4 plan lands.
+
+---
 
 **Stage 3 v2 (`STAGE3_PLAN.md`) — Part 0: Hygiene before science (BLOCKING).** Nothing else starts
 until Part 0 lands. Done so far: citation audit (§0.1 — `CITATIONS.md`), canonical CURRENT_STATE

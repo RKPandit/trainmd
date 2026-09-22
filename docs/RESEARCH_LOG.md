@@ -371,3 +371,41 @@ ground truth right?" from a hope into a command you can run for free before ever
 **The principle:** when you build the instrument that could kill your own headline, build the version whose confounds point the *hard* way. A confound that biases toward the null is a limitation; one that biases toward your claim is a self-fulfilling prophecy. And disclose the cost of cleanliness (here, de-revealing the control arm) in the pre-registration, not after the numbers land.
 
 **Lives in:** docs/HYPOTHESES.md (H8, pre-registered); DECISIONS 2026-09-18 (neutral variant + rejected shared-file option + token-uniqueness fix + descriptive de-revealing); `operators/silent/data_leakage_neutral.py`; `workloads/tabular_adult_neutral/`; `tests/test_neutral_variant.py`; `harness/scoring.py` (concept-uniqueness).
+
+---
+
+### 35. The Sweep-3 pair — the headline narrowed twice, in opposite directions
+
+**Where it stood going in.** After Part 1, the surviving headline was two-legged: (a) on config-knob
+faults the agent's measured value concentrates on *identifying* faults whose knob name ≠ the concept
+(`data_leakage`), and (b) agents need a numeric *reference* to detect the silent fault at all
+("strongest supported claim," S13/F10). Sweep 3 added the neutral-key ablation (tests leg a) and a
+second provider (tests leg b). It narrowed **both** — and the two narrowings pull opposite ways.
+
+**Narrowing one — the identification headline SURVIVED a rename (H8).** With the fault held
+byte-identical and only the config keys renamed to neutral tokens, neutral−descriptive
+identification is equivalent within ±0.15 wherever the design has power, **0 refuting** (F13). The
+agent is reading the mechanism, not the key name. Leg (a) is *strengthened*: the value is
+understanding, not legibility.
+
+**Narrowing two — the reference headline was Haiku-specific (H7 failed to replicate).** The second
+provider detects the silent leakage off-anchor at **0.82** (Haiku: **0.08**). The reference band adds
+~90 points for Haiku and ~17 for Luna (F14/S16). Leg (b) — the "strongest supported claim" — is
+*narrowed* to one model. Model dependence is established; its cause is not, at n = 2 (L28). The
+lesson that keeps recurring: **a single-model result is a hypothesis about the model, not the task**
+— the moment a second model ran, the project's most confident claim became a two-model contrast with
+an unidentified driver.
+
+**The standing lesson, again (see entry 32).** The H8 verdict column first applied the ±0.15
+equivalence bound to the POINT estimate, not the CI — the lenient reading. A mechanical check encodes
+whichever reading its threshold expresses; it cannot be trusted to be strict unless a **test pins the
+strict case**. The fix added a test whose fixtures are the exact borderline rows (a CI that straddles
+0 but crosses −0.15) so the point-vs-CI distinction can never silently regress. Measure-don't-assert
+has a sibling: **pin-the-strict-reading**, or the tool will quietly grade on the lenient one. (And in
+the same exchange the rule's author misread their own spec against the table — entry-32 recurrence
+2026-09-22 — which the strict, literally-applied check surfaced.)
+
+**Lives in:** docs/HYPOTHESES.md (H8 Results + the H7/secondaries/controls appendix, 2026-09-22);
+docs/FINDINGS.md (F13, F14, F15; S13/S16 revised); docs/LIMITATIONS.md (L28, L29);
+`harness/sweep_stats.py::_h8_verdict` + `tests/test_h8_and_dedup.py`;
+`docs/audits/sweep_h8_xprovider_generated.md`.
