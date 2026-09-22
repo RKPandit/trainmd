@@ -538,14 +538,17 @@ _H8_REFUTE = 0.30
 
 
 def _h8_verdict(point, lo, hi):
-    """Pre-registered thresholds on Δ = neutral − descriptive identification.
-    |Δ| ≤ 0.15 -> confirming (no substantial gap); neutral > 0.30 BELOW descriptive
-    (Δ < −0.30) with the CI excluding 0 -> refuting (name-reading); else inconclusive."""
-    if point is None:
+    """Pre-registered EQUIVALENCE test on Δ = neutral − descriptive identification.
+
+    Confirming requires the ENTIRE 95% CI to sit inside the equivalence interval
+    (lo > −0.15 AND hi < +0.15) — a CI that merely straddles 0 but crosses ±0.15
+    is INCONCLUSIVE, not confirming. Refuting requires a large gap AND the CI to
+    exclude 0 (point < −0.30 and hi < 0). Everything else is inconclusive."""
+    if point is None or lo is None or hi is None:
         return "n/a"
-    if abs(point) <= _H8_CONFIRM:
+    if lo > -_H8_CONFIRM and hi < _H8_CONFIRM:
         return "confirming (no substantial gap)"
-    if point < -_H8_REFUTE and hi is not None and hi < 0:
+    if point < -_H8_REFUTE and hi < 0:
         return "refuting (name-reading)"
     return "inconclusive"
 

@@ -88,12 +88,11 @@ def _pair_recs(neutral_id_rate, descriptive_id_rate, n_cases=6, arm="off", provi
     return recs
 
 
-def test_h8_confirming_when_gap_small():
-    recs = _pair_recs(neutral_id_rate=0.83, descriptive_id_rate=0.83)
-    out = ss.h8_identification_contrast(recs)
-    assert out["available"]
-    row = out["rows"][0]
-    assert abs(row["point"]) <= 0.15
+def test_h8_confirming_needs_ci_inside_band_not_just_point():
+    # Identical variants at 100% -> Δ=0 with a tight CI [0,0] -> confirming.
+    recs = _pair_recs(neutral_id_rate=1.0, descriptive_id_rate=1.0)
+    row = ss.h8_identification_contrast(recs)["rows"][0]
+    assert row["lo"] > -0.15 and row["hi"] < 0.15
     assert row["verdict"] == "confirming (no substantial gap)"
 
 
@@ -113,8 +112,16 @@ def test_h8_unavailable_without_both_variants():
     assert ss.h8_identification_contrast(recs)["available"] is False
 
 
-def test_h8_verdict_thresholds():
-    assert ss._h8_verdict(0.10, -0.05, 0.25) == "confirming (no substantial gap)"
+def test_h8_verdict_is_a_ci_equivalence_test():
+    # Confirming iff the ENTIRE CI is inside ±0.15.
+    assert ss._h8_verdict(-0.01, -0.09, 0.06) == "confirming (no substantial gap)"
+    # Point inside ±0.15 but the CI crosses the band -> INCONCLUSIVE (the correction).
+    # These are the two real openai rows from the h8 sweep.
+    assert ss._h8_verdict(-0.072, -0.165, 0.013) == "inconclusive"   # openai numbers
+    assert ss._h8_verdict(-0.115, -0.207, -0.026) == "inconclusive"  # openai rule (real sub-0.30 gap)
+    # Refuting: large gap AND CI excludes 0 on the low side.
     assert ss._h8_verdict(-0.40, -0.55, -0.20) == "refuting (name-reading)"
-    assert ss._h8_verdict(-0.40, -0.55, 0.10) == "inconclusive"   # CI includes 0
-    assert ss._h8_verdict(-0.20, -0.30, -0.05) == "inconclusive"  # between bounds
+    # Large point but CI includes 0 -> inconclusive.
+    assert ss._h8_verdict(-0.40, -0.55, 0.10) == "inconclusive"
+    # A CI that straddles 0 but reaches past +0.15 is NOT confirming.
+    assert ss._h8_verdict(0.10, -0.05, 0.25) == "inconclusive"

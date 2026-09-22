@@ -222,19 +222,19 @@ Method: case-level bootstrap of the ratio, 10000 resamples, seed 20260913. Arms:
 
 ## H8 — neutral − descriptive identification (Δ), per arm × provider
 
-Δ = neutral − descriptive identification. Pre-registered: |Δ| ≤ 0.15 → confirming (no substantial gap); Δ < −0.3 with the 95% CI excluding 0 → refuting (name-reading); otherwise inconclusive. Case-clustered 95% CI.
+Δ = neutral − descriptive identification. Pre-registered equivalence test on the case-clustered 95% CI: confirming iff the WHOLE CI is inside ±0.15 (lo > −0.15 and hi < +0.15); refuting iff Δ < −0.3 and the CI excludes 0 (hi < 0); otherwise inconclusive.
 
 | provider | arm | neutral id | descriptive id | Δ (95% CI) | n cases neut/desc | verdict |
 |---|---|---|---|---|---|---|
 | pooled | numbers | 0.894 | 0.910 | -0.015 [-0.090, 0.061] | 18/18 | confirming (no substantial gap) |
 | pooled | off | 0.423 | 0.438 | -0.015 [-0.084, 0.053] | 18/18 | confirming (no substantial gap) |
 | pooled | rule | 0.852 | 0.910 | -0.058 [-0.135, 0.022] | 18/18 | confirming (no substantial gap) |
-| anthropic | numbers | 0.889 | 0.847 | 0.042 [-0.083, 0.167] | 18/18 | confirming (no substantial gap) |
+| anthropic | numbers | 0.889 | 0.847 | 0.042 [-0.083, 0.167] | 18/18 | inconclusive |
 | anthropic | off | 0.056 | 0.069 | -0.014 [-0.084, 0.059] | 18/18 | confirming (no substantial gap) |
 | anthropic | rule | 0.861 | 0.861 | 0.000 [-0.125, 0.128] | 18/18 | confirming (no substantial gap) |
-| openai | numbers | 0.900 | 0.972 | -0.072 [-0.165, 0.013] | 18/18 | confirming (no substantial gap) |
+| openai | numbers | 0.900 | 0.972 | -0.072 [-0.165, 0.013] | 18/18 | inconclusive |
 | openai | off | 0.800 | 0.806 | -0.006 [-0.121, 0.106] | 18/18 | confirming (no substantial gap) |
-| openai | rule | 0.843 | 0.958 | -0.115 [-0.207, -0.026] | 18/18 | confirming (no substantial gap) |
+| openai | rule | 0.843 | 0.958 | -0.115 [-0.207, -0.026] | 18/18 | inconclusive |
 
 ### H8 secondary — detection + semantic recovery per variant × arm × provider (pre-registered: expected UNCHANGED between variants)
 

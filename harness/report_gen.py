@@ -86,9 +86,10 @@ def _h8_tables(s: dict) -> list:
     if not h.get("available"):
         return []
     B = ["## H8 — neutral − descriptive identification (Δ), per arm × provider", "",
-         f"Δ = neutral − descriptive identification. Pre-registered: |Δ| ≤ {h['confirming_bound']} "
-         f"→ confirming (no substantial gap); Δ < −{h['refuting_bound']} with the 95% CI excluding 0 "
-         f"→ refuting (name-reading); otherwise inconclusive. Case-clustered 95% CI.", "",
+         f"Δ = neutral − descriptive identification. Pre-registered equivalence test on the "
+         f"case-clustered 95% CI: confirming iff the WHOLE CI is inside ±{h['confirming_bound']} "
+         f"(lo > −{h['confirming_bound']} and hi < +{h['confirming_bound']}); refuting iff Δ < "
+         f"−{h['refuting_bound']} and the CI excludes 0 (hi < 0); otherwise inconclusive.", "",
          "| provider | arm | neutral id | descriptive id | Δ (95% CI) | n cases neut/desc | verdict |",
          "|---|---|---|---|---|---|---|"]
     for row in h["rows"]:
