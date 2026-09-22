@@ -79,7 +79,7 @@ mentioned,"** never "not used"; every rate states its cluster count.
 | Claim | Status |
 |---|---|
 | **A numerical reference baseline restores detection** (numbers arm closes ~94–95% of the off→rule gap on all 3 gate operators). | **Model-specific — supported for Haiku, FAILED TO REPLICATE as a general effect on the 2nd model.** Off-anchor leakage detection Haiku **0.083** vs Luna **0.819**; band adds ~90 pts (Haiku) / ~17 pts (Luna) — Sweep 3 / FINDINGS F14, S16. The Stage-2 "strongest-supported claim" framing is retired; the effect is Haiku-specific, its driver unidentified at n=2 (L28). |
-| **Leakage identification is fault-mechanism, not config-key-name reading (H8).** | **Supported where powered** (Sweep 3, neutral-key ablation; PRIMARY = PAIRED strength×seed bootstrap): neutral−descriptive identification equivalent within ±0.15 in **7 of 9** arm×provider cells (Haiku all arms, Luna off, pooled ×3), **0 refuting**; **2 inconclusive** (Luna numbers/rule, modest sub-0.30 gap). Paired promoted to primary after seeing results, justified by the matched-pair design (point estimate unchanged; moves Haiku numbers inconclusive→confirming vs the unpaired 6/3) — disclosed in the report + DECISIONS 2026-09-22. FINDINGS F13; HYPOTHESES H8. |
+| **Leakage identification is fault-mechanism, not config-key-name reading (H8).** | **Supported where powered** (Sweep 3, neutral-key ablation; PRIMARY = PAIRED strength×seed bootstrap): neutral−descriptive identification equivalent within ±0.15 in **4 of 6 provider-specific cells** (Haiku off/numbers/rule, Luna off), **0 refuting**; **2 inconclusive** (Luna numbers/rule, modest sub-0.30 gap). Count is over provider-specific cells only — the pooled ×3 rows (all confirming) reuse the same trials and are a summary, never independent confirmations. Paired promoted to primary after seeing results, justified by the matched-pair design (point estimate unchanged; moves Haiku numbers inconclusive→confirming vs the unpaired 3/6). Disclosed in the report + DECISIONS 2026-09-22. FINDINGS F13; HYPOTHESES H8. |
 | **Reference-context dependence is model-specific (H7).** | **Model dependence ESTABLISHED, driver NOT identified** (n=2 models; capability / hidden reasoning tokens / training all confounded — L28). Use "failed to replicate," not "refuted." FINDINGS S16/F14. |
 | **Positive-symptom under-detection generalizes to a second mechanism.** | **Failed to replicate** (Stage-2 G1): `metric_inflation` anchor-off detection 0.250 [0.083,0.417] = `label_corruption` 0.250; diff +0.001 [−0.281,+0.250]. Symptom-direction≡blindness not supported (FINDINGS S1). |
 | **The data-leakage condition is anchor-off-blind.** | **Observed** (data_leakage off-detection 0.042 [0.000,0.125]) but **cause not isolated** — leakage-specific vs representation/legibility unresolved; the representation ablation is a Stage-3 test (STAGE3_PLAN §3.4). |
@@ -122,8 +122,9 @@ ran (agent phase 978/984 cells, $24.03, 6 unrun — all neutral×Luna×static; v
 - **H8 — identification is fault-mechanism, not name-reading.** PRIMARY analysis = PAIRED (strength×seed)
   bootstrap (point estimate identical to unpaired; promoted after seeing results, justified by the
   matched-pair design, unpaired retained alongside — disclosed). Neutral−descriptive identification
-  equivalent within ±0.15 in **7 of 9** arm×provider cells, **0 refuting**, **2 inconclusive** (Luna
-  numbers/rule, modest sub-0.30 gap). Vs unpaired 6/3 — pairing moves Haiku numbers to confirming. FINDINGS F13.
+  equivalent within ±0.15 in **4 of 6 provider-specific cells** (Haiku off/numbers/rule, Luna off),
+  **0 refuting**, **2 inconclusive** (Luna numbers/rule, modest sub-0.30 gap); pooled ×3 confirming is a
+  summary of the same trials, not counted. Vs unpaired 3/6 — pairing moves Haiku numbers to confirming. FINDINGS F13.
 - **H7 — reference-context dependence is MODEL-SPECIFIC (failed to replicate as a general effect).**
   Off-anchor leakage detection Haiku 0.083 vs Luna 0.819; band adds ~90 pts (Haiku) / ~17 (Luna). The
   Stage-2 "strongest supported claim" is narrowed to Haiku; driver unidentified at n=2. F14/S16, L28.

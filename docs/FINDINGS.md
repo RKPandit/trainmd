@@ -643,10 +643,13 @@ pairs them; the primary CI resamples matched (strength, seed) PAIRS together (18
 **point estimate is identical** to the unpaired contrast — only the CI differs. *Disclosure: promoting
 the paired bootstrap to primary is an analysis change made after seeing results (it moves the Haiku
 numbers arm from inconclusive to confirming); it is justified by the matched-pair design, not the
-outcome, and the unpaired contrast is retained alongside it in the report.* Under the paired primary:
-**confirming in 7 of 9** arm×provider cells (Haiku off/numbers/rule, Luna off, pooled ×3),
-**inconclusive in 2** (Luna numbers, Luna rule), **refuting in 0**. (Unpaired: 6 confirming / 3
-inconclusive — the only difference is Haiku numbers.) The identification headline **holds** wherever the
+outcome, and the unpaired contrast is retained alongside it in the report.* **Counting rule:** the tally
+is over the **6 provider-specific cells only** (2 providers × 3 arms); the `pooled` rows reuse the same
+trials, so they are a cross-provider **summary**, NOT independent confirmations, and are never added to
+the count. Under the paired primary: **4 of 6 provider-specific cells confirming** (Haiku off/numbers/rule,
+Luna off), **2 inconclusive** (Luna numbers, Luna rule), **0 refuting** — pooled ×3 all confirming
+(summary). (Unpaired: **3 of 6** provider-specific confirming — Haiku off/rule, Luna off — and 3
+inconclusive; the only difference is Haiku numbers.) The identification headline **holds** wherever the
 design has power; the neutral rename does not collapse identification toward the config-name-blind B2 floor.
 
 **Direction of the (paired) inconclusives matters (recorded, not smoothed over):**

@@ -736,7 +736,15 @@ Source: `docs/audits/sweep_h8_xprovider_generated.md` (regenerated 2026-09-22), 
 confirming iff the whole CI ⊂ ±0.15 (`lo > −0.15 AND hi < +0.15`); refuting iff Δ < −0.30 and the
 CI excludes 0 (`hi < 0`); else inconclusive. Δ = neutral − descriptive identification.
 
-| provider | arm | Δ (95% CI) | verdict |
+**PRIMARY analysis = PAIRED (strength×seed) bootstrap** (report + DECISIONS 2026-09-22): the two
+variants are the same fault at matched (strength, seed), so the design pairs them; the paired CI
+resamples matched pairs together. The **point estimate is identical** to the table below (which shows the
+UNPAIRED contrast); only the CI differs, and the sole verdict change is **Haiku numbers**, which the
+paired CI [−0.056, +0.139] resolves from inconclusive to **confirming**. **Counting rule:** the tally is
+over the **6 provider-specific cells only**; the `pooled` rows reuse the same trials and are a summary,
+never counted as independent confirmations.
+
+| provider | arm | Δ (95% CI, UNPAIRED) | verdict (unpaired) |
 |---|---|---|---|
 | pooled | numbers | −0.015 [−0.090, +0.061] | confirming |
 | pooled | off | −0.015 [−0.084, +0.053] | confirming |
@@ -748,11 +756,17 @@ CI excludes 0 (`hi < 0`); else inconclusive. Δ = neutral − descriptive identi
 | openai (Luna) | off | −0.006 [−0.121, +0.106] | confirming |
 | openai (Luna) | rule | −0.115 [**−0.207**, −0.026] | inconclusive |
 
-**Honest tally (recorded as-is):** confirming in **4** cells (Haiku off, Haiku rule, Luna off,
-pooled ×3), inconclusive in **3** (Haiku numbers, Luna numbers, Luna rule), **refuting in 0**.
-H8 is **not refuted anywhere**.
+**Honest tally (provider-specific cells only — pooled reuses the same trials and is a summary,
+never counted as an independent confirmation):**
+- **PAIRED primary:** **4 of 6** provider-specific cells confirming (Haiku off/numbers/rule, Luna off),
+  **2 inconclusive** (Luna numbers, Luna rule), **0 refuting**.
+- **Unpaired (table above):** **3 of 6** confirming (Haiku off/rule, Luna off), **3 inconclusive**
+  (Haiku numbers, Luna numbers, Luna rule), 0 refuting.
+- The only cell that differs between the two is **Haiku numbers**. Pooled ×3 all confirming (summary).
+  H8 is **not refuted anywhere**.
 
-**The three inconclusives are NOT the same, and the direction matters:**
+**The unpaired inconclusives are NOT the same, and the direction matters** (Haiku numbers becomes
+confirming under the paired primary; the two that persist are the Luna arms):
 - **Haiku numbers — inconclusive in the NON-THREATENING direction.** Δ = **+0.042**; the CI
   excursion is on the **upper** side (+0.167 > +0.15), i.e. it cannot rule out neutral being
   *more than 0.15 BETTER* than descriptive. That does not challenge the mechanism claim — if
