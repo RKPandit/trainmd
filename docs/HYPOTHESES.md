@@ -724,3 +724,68 @@ is ANCHOR-DEPENDENT.
 - **What would refute H7′.** Neutral keys collapse the LLM's identification to the B2 floor
   (edge was legibility, not understanding); or the matched-set LLM_ref − B2 identification CI
   includes 0 (no measurable edge once the sets match).
+---
+
+## H8 — Results (Sweep 3, appended 2026-09-22 — do not edit the pre-registration above)
+
+Source: `docs/audits/sweep_h8_xprovider_generated.md` (regenerated 2026-09-22), n_trials **978**
+(one trial per cell after dedup; 6 cells unrun — all Luna × static × neutral), both providers
+(Anthropic Haiku, OpenAI GPT-5.6 Luna), 18 cases per variant per arm.
+
+**Verdict rule applied (as pre-registered — TWO-SIDED equivalence on the case-clustered 95% CI):**
+confirming iff the whole CI ⊂ ±0.15 (`lo > −0.15 AND hi < +0.15`); refuting iff Δ < −0.30 and the
+CI excludes 0 (`hi < 0`); else inconclusive. Δ = neutral − descriptive identification.
+
+| provider | arm | Δ (95% CI) | verdict |
+|---|---|---|---|
+| pooled | numbers | −0.015 [−0.090, +0.061] | confirming |
+| pooled | off | −0.015 [−0.084, +0.053] | confirming |
+| pooled | rule | −0.058 [−0.135, +0.022] | confirming |
+| anthropic (Haiku) | numbers | +0.042 [−0.083, **+0.167**] | inconclusive |
+| anthropic (Haiku) | off | −0.014 [−0.084, +0.059] | confirming |
+| anthropic (Haiku) | rule | 0.000 [−0.125, +0.128] | confirming |
+| openai (Luna) | numbers | −0.072 [**−0.165**, +0.013] | inconclusive |
+| openai (Luna) | off | −0.006 [−0.121, +0.106] | confirming |
+| openai (Luna) | rule | −0.115 [**−0.207**, −0.026] | inconclusive |
+
+**Honest tally (recorded as-is):** confirming in **4** cells (Haiku off, Haiku rule, Luna off,
+pooled ×3), inconclusive in **3** (Haiku numbers, Luna numbers, Luna rule), **refuting in 0**.
+H8 is **not refuted anywhere**.
+
+**The three inconclusives are NOT the same, and the direction matters:**
+- **Haiku numbers — inconclusive in the NON-THREATENING direction.** Δ = **+0.042**; the CI
+  excursion is on the **upper** side (+0.167 > +0.15), i.e. it cannot rule out neutral being
+  *more than 0.15 BETTER* than descriptive. That does not challenge the mechanism claim — if
+  anything it points the wrong way for name-reading. Under the symmetric ±0.15 test it is
+  inconclusive, but it is not evidence against H8.
+- **Luna numbers — inconclusive, low side but CI includes 0.** Δ = −0.072; the CI reaches
+  −0.165 (past the threatening −0.15 edge) yet still includes 0. A possible small gap, unresolved
+  at this n.
+- **Luna rule — inconclusive in the THREATENING direction.** Δ = −0.115 with CI **[−0.207,
+  −0.026] excluding 0**: a **real but modest** neutral-below-descriptive gap on Luna's rule arm —
+  statistically non-zero, yet **well short of the −0.30 refutation bound**. Consistent with a
+  small config-legibility contribution to Luna's *anchored* identification, not a collapse toward
+  the B2 floor.
+
+**Reading.** Where the design has power (Haiku off/rule, Luna off, and every pooled arm), neutral
+and descriptive identification are equivalent within ±0.15 → the surviving headline (identification
+is fault-mechanism, not key-name reading) **stands**. The two Luna anchored arms carry a modest real
+gap that is nowhere near refutation. Per the pre-registered **power note** (6 cases/arm, CI
+half-width ≈0.15–0.25), "confirming" here is the weaker *"no evidence of a substantial gap"*, and
+inconclusive-by-power on the anchored arms was anticipated.
+
+**Secondary (as pre-registered, expected UNCHANGED between variants — instrument check).**
+Detection and semantic recovery per variant × arm × provider track closely between descriptive and
+neutral (report's H8-secondary table), e.g. Luna-off detection 0.819 vs 0.814, recovery 0.792 vs
+0.771; Haiku-rule detection 0.986 vs 0.986. No variant-driven detection/recovery divergence → the
+neutral instrument is behaving as designed (same fault, same detectability); the identification
+contrast is not an instrument artifact.
+
+**Lesson for a future replication (NOT a rule change now).** H8's mechanism claim is only threatened
+by neutral ≪ descriptive, so a **one-sided** equivalence test (gate confirming on `lo > −0.15`
+alone, let the upper bound float) is the correct pre-registration — it would not penalize the
+non-threatening Haiku-numbers upper-side excursion. **We do NOT switch to it now:** H8 was
+pre-registered as two-sided equivalence, and changing the test after seeing which cells the switch
+rescues is precisely the post-hoc move pre-registration exists to prevent. The symmetric rule is
+kept and the tally recorded as-is; the one-sided design is logged as the improvement for the next
+sweep.

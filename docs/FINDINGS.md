@@ -38,7 +38,7 @@ with a more precise mechanism than predicted) · `refuted` (pre-registered crite
 | S12 | **`lr_warmup`'s failure on Adult/MLP is BIMODAL, not graded** — a per-seed collapse to the majority-class baseline whose probability rises with the learning rate (and is microarch-sensitive), with no stable partial-degradation regime. The operator yields *detection* data, not σ-magnitude; the H2 σ-axis rests on `label_corruption`. Corrects the earlier "ladder saturation" (L1). | Calibration sweep (5 seeds, emulated amd64; `scripts/calibrate_lr_warmup.py`): collapse-to-0.756008 rate 0.10→0/5, 0.12/0.15→2/5, 0.20→4/5, **0.50 & 1.00→5/5**; at lr 0.30 one seed fell to 0.684 (below the majority baseline — anti-learned). | unplanned · workload-specific |
 | S13 | **A numerical baseline restores detection** — supplying the healthy metric band flips agents from "looks fine → healthy" to detecting the fault, on **every** operator tried, and the bare band (not the decision rule) does ~all of it. **The strongest-supported claim in the project.** | Stage-2 G2 (F10): the **numbers** arm closes **94–95%** of the off→rule detection gap on all three gate operators (rule adds 4–5 pp); replicates Sweep-1 S8/F8. Control-FP cost is only *suggestive* (3 clusters, L20). | **confirmed on 3 operators (Stage-2 G2)** · replicates S8 · control-specificity cost pending ≥20 controls |
 | S14 | **Detection tracks symptom *obviousness*, not symptom sign** (candidate replacement for the refuted S1 sign-claim). Detection falls monotonically with how visible the fault's symptom is: catastrophic crash → collapse → subtle silent → inverted (leakage). | Sweep-1 + gate anchor-off detection: shape crash **1.000**, lr collapse **0.944**, subtle silent (label 0.333 / metric 0.250) **0.25–0.33**, leakage **0.042–0.083**. | **EXPLORATORY · post-hoc · must be pre-registered before it is tested** |
-| S15 | **On config-knob faults, a config-delta baseline (WITH clean-resolved-config + derived-key knowledge) matches the ref-anchored LLM on detection and recovery at better specificity; the agent's measured surviving value is identifying faults whose knob name ≠ the concept, and it is anchor-dependent.** NOT "the LLM adds nothing on detection/recovery" — that generalization is Sweep-3 / code-origin territory. | B2 (native 50-case): det **30/30**, FPR **0/20**, id **18/30**, ev 0.63, rec **30/30**. LLM ref-anchored (frozen, superseded set): det 1.00, id 0.96, rec 0.94, FPR 0.22. B2 id misses exactly `data_leakage` + `metric_inflation`; LLM off-anchor leakage id **0/30**. | unplanned · per-operator DIRECTIONAL only (baselines native, LLM frozen-superseded — no cross-set gap CI) · generalization pending Sweep 3 + neutral-key test |
+| S15 | **On config-knob faults, a config-delta baseline (WITH clean-resolved-config + derived-key knowledge) matches the ref-anchored LLM on detection and recovery at better specificity; the agent's measured surviving value is identifying faults whose knob name ≠ the concept, and it is anchor-dependent.** NOT "the LLM adds nothing on detection/recovery" — that generalization is Sweep-3 / code-origin territory. | B2 (native 50-case): det **30/30**, FPR **0/20**, id **18/30**, ev 0.63, rec **30/30**. LLM ref-anchored (frozen, superseded set): det 1.00, id 0.96, rec 0.94, FPR 0.22. B2 id misses exactly `data_leakage` + `metric_inflation`; LLM off-anchor leakage id **0/30**. **Sweep 3 (F13): the leakage identification is mechanism, not name-reading — neutral-vs-descriptive equivalent within ±0.15 wherever powered, 0 refuting.** | unplanned · per-operator DIRECTIONAL only (baselines native, LLM frozen-superseded — no cross-set gap CI) · **neutral-key test now DONE (H8/F13, confirmed where powered)**; cross-set LLM−B2 gap CI still pending a matched-set run |
 
 ---
 
@@ -607,6 +607,50 @@ structurally blind but the LLM is not → the agent's value extends beyond confi
 
 **Status:** unplanned · baselines native 50-case vs LLM frozen superseded set (per-operator
 directional only, no cross-set gap CI) · generalization pending Sweep 3.
+
+---
+
+## Sweep 3 (2026-09-22) — neutral-key ablation, cross-provider
+
+### F13 — Leakage identification survives a neutral rename: mechanism, not name-reading (H8) · confirmed where powered; not refuted anywhere
+
+The decisive test of S15/F12's surviving headline. `silent.data_leakage_neutral.v1` renames the two
+config keys (`include_aux_feature`/`aux_feature_strength` → `opt_c`/`opt_c_level`) with the fault
+mechanism held byte-identical (same derivation `datautil._derived_column`, identical hidden faulty
+values at every strength/seed). H8 asks whether the anchored LLM's leakage identification is
+fault-understanding or key-name reading. Pre-registered **two-sided equivalence** on Δ = neutral −
+descriptive identification, case-clustered 95% CI: confirming iff the whole CI ⊂ ±0.15; refuting iff
+Δ < −0.30 with the CI excluding 0; else inconclusive.
+
+**Result (n_trials 978 deduped, both providers, per-arm × provider — source
+`docs/audits/sweep_h8_xprovider_generated.md`):** **confirming in 4** arm×provider cells (Haiku off,
+Haiku rule, Luna off, pooled ×3), **inconclusive in 3** (Haiku numbers, Luna numbers, Luna rule),
+**refuting in 0**. The identification headline **holds** wherever the design has power; the neutral
+rename does not collapse identification toward the config-name-blind B2 floor.
+
+**Direction of the inconclusives matters (recorded, not smoothed over):**
+- **Haiku numbers** Δ **+0.042** [−0.083, **+0.167**]: inconclusive only because the **upper** bound
+  crosses +0.15 — the NON-THREATENING direction (cannot rule out neutral being *better*). Does not
+  challenge the mechanism claim.
+- **Luna numbers** Δ −0.072 [−0.165, +0.013]: CI reaches the threatening side but includes 0.
+- **Luna rule** Δ −0.115 [**−0.207, −0.026**], CI **excluding 0**: a **real but modest**
+  neutral-below-descriptive gap on Luna's rule arm — statistically non-zero yet **far short of the
+  −0.30 refutation bound**. Consistent with a small config-legibility contribution to Luna's
+  *anchored* identification, not a collapse.
+
+**Instrument check (pre-registered secondary):** detection + semantic recovery track closely between
+variants (e.g. Luna-off detection 0.819 vs 0.814; Haiku-rule detection 0.986 vs 0.986) — no
+variant-driven divergence, so the identification contrast is not an instrument artifact.
+
+**Method note (lesson, not a retrofit):** the ±0.15 test was applied symmetrically as pre-registered.
+Because only neutral ≪ descriptive threatens the mechanism claim, a **one-sided** confirming bound
+(`lo > −0.15`, upper side free) is the correct pre-registration for the next sweep — it would not
+flag the non-threatening Haiku-numbers excursion. We did **not** switch it post-hoc (that is the move
+pre-registration exists to prevent); logged for replication.
+
+**Status:** pre-registered (HYPOTHESES H8) · confirmed where powered, 0 refuting · two Luna anchored
+arms carry a modest sub-refutation gap · updates S15 (the surviving-value headline is understanding,
+not legibility, on `data_leakage`).
 
 ---
 
