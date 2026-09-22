@@ -56,8 +56,15 @@ def rescore_identification(project_root: Path | None = None) -> dict:
     """Re-score identification in place for every submitting trial.
 
     Preserves the original result as ``scores.identification_original`` (once),
-    writes the new ``root_token_v1`` result, and refreshes the index line.
+    writes the new ``root_token_v2`` result, and refreshes the index line.
     Returns a summary {scanned, rescored, flipped_to_correct, flipped_to_wrong}.
+
+    CAUTION — this reads the CURRENT ``cases/<cid>/hidden`` card, so it is valid
+    ONLY while a case_id still maps to the operator it was scored under. For a
+    FROZEN sweep whose case_ids may have been rebuilt to other operators, do NOT
+    use this; attribute by the record's sealed ``accepted_classes`` instead (see
+    ``scripts/audit_stage4_identification.py`` and
+    ``harness.sweep_stats.operator_from_record``; DECISIONS 2026-09-22).
     """
     from harness.provenance import update_index
 

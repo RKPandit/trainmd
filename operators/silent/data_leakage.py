@@ -216,6 +216,20 @@ class DataLeakageOperator:
         """
         return [frozenset({"leak"})]
 
+    def off_concept_vetoes(self) -> frozenset[str]:
+        """Off-concept uses of the token ``leak`` that are NOT data leakage.
+
+        A memory/resource/gradient leak is an execution or numerical fault, not
+        train/eval contamination.  Vetoed on the token path (root_token_v2) even
+        though the token ``leak`` is present.  See docs/DECISIONS.md 2026-09-22.
+        """
+        return frozenset({
+            "memory_leak", "memory_leakage", "ram_leak", "vram_leak",
+            "gpu_memory_leak", "gpu_leak", "resource_leak", "gradient_leak",
+            "buffer_leak", "socket_leak", "connection_leak", "file_handle_leak",
+            "handle_leak", "fd_leak",
+        })
+
     def oracle_repair(self) -> dict:
         """Reference-restoring repair: disable the injected column."""
         return {

@@ -48,10 +48,56 @@ def case_meta_from_cases(root: Path):
                 # back to the pooled table (byte-identical for frozen sweeps).
                 "band_position_visible": card.get("band_position_visible"),
                 "band_position_hidden": card.get("band_position_hidden"),
+                # strength × seed — the H8 paired-bootstrap matching key.
+                "strength": card.get("strength"),
+                "seed": card.get("seed"),
             }
         return cache[cid]
 
     return meta
+
+
+# --------------------------------------------------------------------------- #
+# Frozen-sweep operator identity (STAGE 4.0.1 methodology, DECISIONS 2026-09-22)
+# --------------------------------------------------------------------------- #
+#
+# LESSON: `case_id` is NOT a stable operator key across rebuilds. A frozen sweep's
+# case_ids can be (and were) rebuilt to DIFFERENT operators later, so attributing a
+# frozen sweep by today's `cases/*/hidden/` mis-attributes the operator — it did so
+# for ~all of Sweeps 1–2 and 67 records of Sweep 3. A record's OWN sealed
+# `scores.identification.accepted_classes` (the answer key frozen into the record at
+# score time) is the correct, rebuild-proof key. Validated against the released
+# operator maps for sweep1+stage2gate: 574 agree, 0 disagree, 2 empty.
+
+def _accepted_class_signatures() -> dict:
+    """{frozenset(accepted_classes): operator_id} from the current operator code.
+
+    The two leakage variants share one answer key, so the signature resolves to a
+    single canonical CONCEPT operator (fine for identification, which scores the
+    concept); split the leakage variants with the frozen per-case map when the arm
+    matters. Memoized on first use.
+    """
+    from operators.registry import all_operator_ids, get_operator
+    sig: dict = {}
+    for op_id in all_operator_ids():
+        sig[frozenset(get_operator(op_id).accepted_classes())] = op_id
+    return sig
+
+
+_ACC_SIG_CACHE: dict = {}
+
+
+def operator_from_record(rec: dict) -> str | None:
+    """The record's TRUE operator from its sealed accepted_classes (rebuild-proof).
+
+    Use this — never today's `cases/` card — to attribute a FROZEN sweep. Returns
+    None when the record sealed no answer key (e.g. a null-submission no-op).
+    """
+    if not _ACC_SIG_CACHE:
+        _ACC_SIG_CACHE.update(_accepted_class_signatures())
+    acc = frozenset(((rec.get("scores") or {}).get("identification") or {}).get(
+        "accepted_classes") or [])
+    return _ACC_SIG_CACHE.get(acc) if acc else None
 
 
 def attach_meta(rec: dict, meta: dict) -> dict:
@@ -63,6 +109,8 @@ def attach_meta(rec: dict, meta: dict) -> dict:
     rec["_sig_hid"] = meta.get("hidden_sigma_distance")
     rec["_band_vis"] = meta.get("band_position_visible")  # §5.1 (None pre-§5.1)
     rec["_band_hid"] = meta.get("band_position_hidden")
+    rec["_strength"] = meta.get("strength")   # H8 paired-bootstrap key
+    rec["_seed"] = meta.get("seed")
     rec["_anchor"] = normalize_anchor((rec.get("conditions") or {}).get("anchor"))
     rec["_agent"] = (rec.get("conditions") or {}).get("agent_type")
     rec["_provider"] = (rec.get("conditions") or {}).get("provider")
@@ -191,7 +239,8 @@ def case_meta_from_release(release_dir: Path):
             cache[cid] = {k: d.get(k) for k in (
                 "operator_id", "tier", "symptom_direction",
                 "visible_sigma_distance", "hidden_sigma_distance",
-                "band_position_visible", "band_position_hidden")}
+                "band_position_visible", "band_position_hidden",
+                "strength", "seed")}
         return cache[cid]
 
     return meta
@@ -591,6 +640,88 @@ def h8_identification_contrast(recs):
     return out
 
 
+def _h8_paired_gap_ci(pair_recs, n=N_RESAMPLES, seed=SEED):
+    """PAIRED bootstrap of Δ = neutral − descriptive identification (STAGE 4.0.2).
+
+    The neutral and descriptive variants are the SAME injected fault under two
+    config-key namings, built at matched (strength, seed). Resampling the two arms
+    independently (the unpaired ``bootstrap_ci``) ignores that pairing and inflates
+    the CI. Here the resampling UNIT is a matched (strength, seed) PAIR — the
+    descriptive case and the neutral case are resampled TOGETHER — so shared
+    case-difficulty cancels and the CI reflects the within-pair contrast the
+    ablation is about. Only (strength, seed) cells present for BOTH variants
+    contribute. The point estimate is unchanged from the unpaired contrast; only
+    the interval differs.
+    """
+    units = defaultdict(lambda: {"neut": [], "desc": []})
+    for r in pair_recs:
+        key = (r.get("_strength"), r.get("_seed"))
+        if r["_op"] == _H8_NEUTRAL:
+            units[key]["neut"].append(r)
+        elif r["_op"] == _H8_DESCRIPTIVE:
+            units[key]["desc"].append(r)
+    keys = sorted(k for k, u in units.items() if u["neut"] and u["desc"])
+
+    def gap_over(sel_keys):
+        neut = [x for k in sel_keys for x in map(_id_correct, units[k]["neut"]) if x is not None]
+        desc = [x for k in sel_keys for x in map(_id_correct, units[k]["desc"]) if x is not None]
+        if not neut or not desc:
+            return None
+        return sum(neut) / len(neut) - sum(desc) / len(desc)
+
+    point = gap_over(keys) if keys else None
+    rng = random.Random(seed)
+    vals = []
+    for _ in range(n):
+        pick = [rng.choice(keys) for _ in keys] if keys else []
+        v = gap_over(pick)
+        if v is not None:
+            vals.append(v)
+    vals.sort()
+    lo = vals[int(0.025 * len(vals))] if vals else None
+    hi = vals[int(0.975 * len(vals)) - 1] if vals else None
+    return {"point": point, "lo": lo, "hi": hi, "n_pairs": len(keys),
+            "n_trials": len(pair_recs)}
+
+
+def h8_identification_contrast_paired(recs):
+    """H8 identification contrast with the PAIRED bootstrap (STAGE 4.0.2).
+
+    Same point estimate and pre-registered equivalence verdict as
+    :func:`h8_identification_contrast`, but the CI resamples matched (strength,
+    seed) PAIRS together (see :func:`_h8_paired_gap_ci`). Self-reports unavailable
+    when the pair, or the strength×seed matching key, is absent.
+    """
+    ops = set(faulty_ops(recs))
+    if not {_H8_DESCRIPTIVE, _H8_NEUTRAL} <= ops:
+        return {"available": False,
+                "reason": f"needs both {_H8_DESCRIPTIVE} + {_H8_NEUTRAL}; present {sorted(ops)}"}
+    pair = [r for r in recs if r["_op"] in (_H8_DESCRIPTIVE, _H8_NEUTRAL)]
+    if all(r.get("_strength") is None or r.get("_seed") is None for r in pair):
+        return {"available": False, "reason": "no strength×seed on cases → cannot pair"}
+    arms = arms_present(pair)
+    provs = providers_present(pair)
+    facets = ([("pooled", pair)] + [(p, [r for r in pair if r["_provider"] == p]) for p in provs]
+              if len(provs) > 1 else [("pooled", pair)])
+
+    out = {"available": True, "method": f"PAIRED (strength×seed) case-level bootstrap, "
+           f"{N_RESAMPLES} resamples, 95% percentile, seed {SEED}",
+           "confirming_bound": _H8_CONFIRM, "refuting_bound": _H8_REFUTE,
+           "descriptive_op": _H8_DESCRIPTIVE, "neutral_op": _H8_NEUTRAL,
+           "arms": arms, "providers": provs, "rows": []}
+    for fname, fsub in facets:
+        for arm in arms:
+            rs = [r for r in fsub if r["_anchor"] == arm]
+            ci = _h8_paired_gap_ci(rs)
+            neut = [r for r in rs if r["_op"] == _H8_NEUTRAL]
+            desc = [r for r in rs if r["_op"] == _H8_DESCRIPTIVE]
+            ci["neutral_id"] = _rate(_id_correct)(neut)
+            ci["descriptive_id"] = _rate(_id_correct)(desc)
+            ci["verdict"] = _h8_verdict(ci["point"], ci.get("lo"), ci.get("hi"))
+            out["rows"].append({"provider": fname, "arm": arm, **ci})
+    return out
+
+
 def h8_secondary_detection_recovery(recs):
     """Pre-registered H8 secondary: detection + semantic recovery per VARIANT, per
     anchor arm, per provider (pooled when single). Expected UNCHANGED between the
@@ -627,6 +758,7 @@ METRICS = {
     "control_fpr": control_fpr,
     "recovery_endpoints": recovery_endpoints,
     "h8_identification_contrast": h8_identification_contrast,
+    "h8_identification_contrast_paired": h8_identification_contrast_paired,
     "h8_secondary_detection_recovery": h8_secondary_detection_recovery,
 }
 

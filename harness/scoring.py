@@ -45,38 +45,126 @@ def _normalize_class(name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Root-token identification (method "root_token_v1")
+# Root-token identification (method "root_token_v2")
 # ---------------------------------------------------------------------------
+#
+# v2 hardening (STAGE 4.0.1 — identification matcher audit, DECISIONS 2026-09-22).
+# v1 matched long concept stems as FREE SUBSTRINGS, which credited both fault
+# NEGATIONS ("no_leakage", "not_inflated" — "leak"/"inflat" appear as substrings)
+# and OFF-CONCEPT COLLISIONS ("memory_leak" — the token "leak" is present but the
+# fault is not data leakage). The audit found ZERO exploitation across Sweeps 1–3
+# (re-score delta 0), but the rule was exploitable, so v2 closes it by PRINCIPLE:
+#   1. NEGATION: a cue that scopes the operator's concept makes the label wrong,
+#      regardless of which concept tokens are present.
+#   2. TOKEN GRANULARITY: a stem matches a WHOLE token or a declared inflection of
+#      it (leak→leakage/leaking), or — for multi-word stems — a bounded token run;
+#      never a free substring. ("unbiased" no longer matches "bias".)
+#   3. PER-OPERATOR EXCLUSION: known off-concept collisions (memory_leak,
+#      bias_variance, …) are vetoed even though a concept token is present.
 
-IDENTIFICATION_METHOD = "root_token_v1"
+IDENTIFICATION_METHOD = "root_token_v2"
 
-# Stems this length or shorter match a WHOLE token only (guards against
-# substring bleed, e.g. "lr"/"dim"); longer stems match as a substring so
-# "leak"⊂"leakage" and "nois"⊂"noisy".
+# Stems this length or shorter match a WHOLE token only (guards against short-token
+# bleed, e.g. "lr"/"dim"). Longer stems match a whole token OR a declared
+# inflection of it — NEVER a free substring.
 _SHORT_STEM_MAX_LEN = 3
 
+# Inflectional suffixes a concept stem may carry and remain the SAME concept token:
+# leak→leak/leaks/leaky/leaked/leaking/leakage, nois→noise/noisy,
+# inflat→inflate/inflated/inflation, corrupt→corrupt/corrupted/corruption,
+# bias→bias/biased. Matching stays at TOKEN granularity, so "memory_leak" is not
+# reached (a separate whole token) and "unbiased" (no separator) does not match.
+_INFLECTIONS = frozenset({
+    "", "s", "e", "es", "ed", "ing", "y", "ies", "age", "ion", "ions",
+    "er", "ers", "or", "al", "ic",
+})
 
-def _stem_matches(stem: str, tokens: set[str], normalized_full: str) -> bool:
+# Fault-NEGATION cues. A PRE cue negates the concept UNIT to its right; a POST cue
+# negates the concept unit to its left. "missing"/"lacking"/"insufficient" are
+# deliberately NOT negations — a missing safeguard (e.g. missing_lr_schedule) is
+# itself the fault, and those labels are legitimately credited.
+_PRE_NEG = frozenset({"no", "not", "non", "without", "zero",
+                      "sans", "neither", "nor", "never"})
+_POST_NEG = frozenset({"absent", "free"})
+
+
+def _token_is_stem(token: str, stem: str) -> bool:
+    """A single normalized token IS this single-word stem (whole token for short
+    stems; whole token or a declared inflection for longer stems)."""
     if len(stem) <= _SHORT_STEM_MAX_LEN:
-        return stem in tokens
-    return stem in normalized_full
+        return token == stem
+    if not token.startswith(stem):
+        return False
+    return token[len(stem):] in _INFLECTIONS
 
 
-def _operator_matches(normalized_pred: str, groups: list) -> bool:
-    """A normalized label satisfies an operator iff EVERY group matches
-    (AND across groups); a group matches if ANY stem matches (OR within)."""
-    tokens = set(normalized_pred.split("_"))
+def _stem_spans(tokens: list[str], stem: str) -> list[tuple[int, int]]:
+    """Inclusive (start, end) token spans where `stem` occurs as a WHOLE token or,
+    for a multi-word stem ("learning_rate", "input_dim"), a bounded token run."""
+    parts = stem.split("_")
+    if len(parts) == 1:
+        return [(i, i) for i, t in enumerate(tokens) if _token_is_stem(t, stem)]
+    n = len(parts)
+    return [(i, i + n - 1) for i in range(len(tokens) - n + 1)
+            if tokens[i:i + n] == parts]
+
+
+def _phrase_present(tokens: list[str], phrase: str) -> bool:
+    """`phrase` (normalized, possibly multi-word) occurs as a bounded token run."""
+    parts = phrase.split("_")
+    n = len(parts)
+    return any(tokens[i:i + n] == parts for i in range(len(tokens) - n + 1))
+
+
+def _operator_matches(tokens: list[str], groups: list, vetoes=()) -> bool:
+    """A label satisfies an operator iff no off-concept veto phrase is present AND
+    EVERY group matches (AND across groups); a group matches if ANY stem matches
+    (OR within). Stems match at whole-token/inflection granularity only."""
+    if any(_phrase_present(tokens, v) for v in vetoes):
+        return False
     return all(
-        any(_stem_matches(stem, tokens, normalized_pred) for stem in group)
+        any(_stem_spans(tokens, stem) for stem in group)
         for group in groups
     )
 
 
-def _matched_operators(normalized_pred: str, specs: dict) -> list[str]:
-    """Every operator whose core-token spec the label satisfies."""
+def _concept_indices(tokens: list[str], groups: list, accepted_norm=()) -> set:
+    """Token indices carrying the operator's concept — stem-span tokens plus tokens
+    inside an accepted-class phrase run — so negation can scope the concept UNIT
+    (e.g. 'no' negates the 'data_leakage' run in 'no_data_leakage')."""
+    idx: set = set()
+    for group in groups:
+        for stem in group:
+            for s, e in _stem_spans(tokens, stem):
+                idx.update(range(s, e + 1))
+    for phrase in accepted_norm:
+        parts = phrase.split("_")
+        n = len(parts)
+        for i in range(len(tokens) - n + 1):
+            if tokens[i:i + n] == parts:
+                idx.update(range(i, i + n))
+    return idx
+
+
+def _negates_concept(tokens: list[str], concept_idx: set) -> bool:
+    """True iff a negation cue scopes the operator's concept: a PRE cue with a
+    concept token anywhere to its right, or a POST cue with one to its left."""
+    if not concept_idx:
+        return False
+    for j, t in enumerate(tokens):
+        if t in _PRE_NEG and any(k > j for k in concept_idx):
+            return True
+        if t in _POST_NEG and any(k < j for k in concept_idx):
+            return True
+    return False
+
+
+def _matched_operators(normalized_pred: str, specs: dict, vetoes: dict) -> list[str]:
+    """Every operator whose core-token spec the label satisfies (veto-aware)."""
+    tokens = normalized_pred.split("_")
     return sorted(
         op_id for op_id, groups in specs.items()
-        if groups and _operator_matches(normalized_pred, groups)
+        if groups and _operator_matches(tokens, groups, vetoes.get(op_id, ()))
     )
 
 
@@ -480,12 +568,15 @@ def _score_no_unnecessary_repair(submission: dict | None) -> dict:
 def score_identification(submission: dict, hidden_card: dict) -> dict:
     """Axis 2: Did the agent identify the correct operator class?
 
-    Two-path match (method ``root_token_v1``), both normalised (lowercase,
+    Two-path match (method ``root_token_v2``), both normalised (lowercase,
     separators→``_``):
 
-    1. EXACT path — normalized predicted ∈ the operator's ``accepted_classes``.
+    1. EXACT path — normalized predicted ∈ the operator's ``accepted_classes``
+       (authoritative; not subject to the v2 negation gate).
     2. TOKEN path — the label satisfies the target operator's principled
-       ``core_tokens`` AND the target is the UNIQUE operator it satisfies (a
+       ``core_tokens`` at whole-token/inflection granularity (never a free
+       substring), is NOT an off-concept veto, does NOT negate the concept, AND
+       the target is the UNIQUE operator it satisfies (a
        label naming two faults, e.g. ``lr_and_leakage``, matches two operators
        and is rejected; ``none`` on a faulty case matches only control and is
        rejected).
@@ -494,12 +585,17 @@ def score_identification(submission: dict, hidden_card: dict) -> dict:
     CODE at score time (single source of truth), so the result records
     ``method`` and ``token_spec_sha256`` for reproducibility.
     """
-    from operators.registry import core_token_specs, token_spec_sha256
+    from operators.registry import (
+        core_token_specs,
+        core_token_vetoes,
+        token_spec_sha256,
+    )
 
     predicted_class = submission["diagnosis"]["operator_class"]
     accepted = hidden_card.get("accepted_classes", [])
     operator_id = hidden_card.get("operator_id")
     normalized_predicted = _normalize_class(predicted_class)
+    tokens = normalized_predicted.split("_")
 
     result: dict = {
         "predicted_class": predicted_class,
@@ -522,11 +618,27 @@ def score_identification(submission: dict, hidden_card: dict) -> dict:
     # ambiguous label (e.g. "lr_and_leakage") still matches two DIFFERENT specs and is
     # rejected. See docs/DECISIONS.md 2026-09-18.
     specs = core_token_specs()
-    matched = _matched_operators(normalized_predicted, specs)
+    vetoes = core_token_vetoes()
+    matched = _matched_operators(normalized_predicted, specs, vetoes)
     result["matched_operators"] = matched
     matched_specs = {tuple(tuple(g) for g in specs[m]) for m in matched}
+
+    # v2 negation gate — applies to the TOKEN (generalization) path ONLY. A cue
+    # that scopes THIS operator's concept makes a GENERALIZED label a
+    # non-identification regardless of the concept tokens present (no_leakage,
+    # not_inflated, leakage_absent). It never overrides the EXACT path: an
+    # accepted_classes entry is an authoritative hand-declared answer, and some
+    # faults are legitimately NAMED with a negation ("no_fault"/"no_incident" for
+    # the control, "non_representative_evaluation" for metric inflation). Scoped to
+    # the target operator so "missing_lr_schedule" (a missing safeguard = the
+    # fault) is still credited. See docs/DECISIONS.md 2026-09-22.
+    target_groups = specs.get(operator_id) or []
+    concept_idx = _concept_indices(tokens, target_groups, normalized_accepted)
+    negated = _negates_concept(tokens, concept_idx)
+    result["negated"] = negated
+
     token_correct = (
-        operator_id in matched and len(matched_specs) == 1
+        operator_id in matched and len(matched_specs) == 1 and not negated
     )
 
     if exact:

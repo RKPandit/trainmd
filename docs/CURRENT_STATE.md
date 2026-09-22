@@ -44,6 +44,18 @@ corrections_count: 5
   under **v1** until 2026-09-15 (the earlier "v2 primary" docs were a mislabel — the v1→v2 rescore was
   disclosed 2026-09-13 but never persisted); all records migrated to v2.1 primary in **correction #5**.
   A `check_scorer_versions.py` guard now asserts each report's declared scorer matches its records.
+- **Identification matcher:** `root_token_v2` (2026-09-22). A **shipped-but-unexploited vulnerability**
+  (§f taxonomy, first instance) — an external reviewer showed v1 matched concept stems as free substrings,
+  so it *would* score fault negations (`no_leakage`) and off-concept collisions (`memory_leak`) as correct;
+  the audit of every scored-correct label in Sweeps 1–3 found **zero** such cases (0 of 1156), and a full
+  re-score under v2 moves **0** labels (delta 0). So the rule was exploitable, was never exploited, and
+  **no published identification number — nor the H8 verdict — moves**; `corrections_count` **stays 5**
+  (no published number was ever wrong). v2 fixes it by principle: negation detection (token path only),
+  whole-token/declared-inflection matching (never a free substring), and a per-operator
+  `off_concept_vetoes()` list. See DECISIONS 2026-09-22; tests `test_identification_v2_hardening.py`;
+  audit `scripts/audit_stage4_identification.py`.
+  *Attribution note:* frozen sweeps are attributed by each record's sealed `accepted_classes`, never by
+  today's `cases/` (case_id is not a stable operator key across rebuilds) — `operator_from_record`.
 - **Canonical environment:** Linux/amd64 container **on NATIVE amd64** (`harness.platform_guard`:
   case/reference builds refuse under emulation — the agent-facing visible metric is per-case
   platform-sensitive up to ~2.8σ native-vs-emulated, L23; CPU stamped in each hidden card + manifest),
@@ -67,7 +79,7 @@ mentioned,"** never "not used"; every rate states its cluster count.
 | Claim | Status |
 |---|---|
 | **A numerical reference baseline restores detection** (numbers arm closes ~94–95% of the off→rule gap on all 3 gate operators). | **Model-specific — supported for Haiku, FAILED TO REPLICATE as a general effect on the 2nd model.** Off-anchor leakage detection Haiku **0.083** vs Luna **0.819**; band adds ~90 pts (Haiku) / ~17 pts (Luna) — Sweep 3 / FINDINGS F14, S16. The Stage-2 "strongest-supported claim" framing is retired; the effect is Haiku-specific, its driver unidentified at n=2 (L28). |
-| **Leakage identification is fault-mechanism, not config-key-name reading (H8).** | **Supported where powered** (Sweep 3, neutral-key ablation): neutral−descriptive identification equivalent within ±0.15 in 4 arm×provider cells (Haiku all arms except numbers, Luna off, pooled), **0 refuting**; 3 inconclusive (Haiku numbers non-threatening upper-side; Luna numbers/rule modest sub-0.30 gap). FINDINGS F13; HYPOTHESES H8. |
+| **Leakage identification is fault-mechanism, not config-key-name reading (H8).** | **Supported where powered** (Sweep 3, neutral-key ablation; PRIMARY = PAIRED strength×seed bootstrap): neutral−descriptive identification equivalent within ±0.15 in **7 of 9** arm×provider cells (Haiku all arms, Luna off, pooled ×3), **0 refuting**; **2 inconclusive** (Luna numbers/rule, modest sub-0.30 gap). Paired promoted to primary after seeing results, justified by the matched-pair design (point estimate unchanged; moves Haiku numbers inconclusive→confirming vs the unpaired 6/3) — disclosed in the report + DECISIONS 2026-09-22. FINDINGS F13; HYPOTHESES H8. |
 | **Reference-context dependence is model-specific (H7).** | **Model dependence ESTABLISHED, driver NOT identified** (n=2 models; capability / hidden reasoning tokens / training all confounded — L28). Use "failed to replicate," not "refuted." FINDINGS S16/F14. |
 | **Positive-symptom under-detection generalizes to a second mechanism.** | **Failed to replicate** (Stage-2 G1): `metric_inflation` anchor-off detection 0.250 [0.083,0.417] = `label_corruption` 0.250; diff +0.001 [−0.281,+0.250]. Symptom-direction≡blindness not supported (FINDINGS S1). |
 | **The data-leakage condition is anchor-off-blind.** | **Observed** (data_leakage off-detection 0.042 [0.000,0.125]) but **cause not isolated** — leakage-specific vs representation/legibility unresolved; the representation ablation is a Stage-3 test (STAGE3_PLAN §3.4). |
@@ -107,9 +119,11 @@ mentioned,"** never "not used"; every rate states its cluster count.
 **SWEEP 3 (`h8_xprovider`) COMPLETE (2026-09-22).** The H8 neutral-key ablation + cross-provider sweep
 ran (agent phase 978/984 cells, $24.03, 6 unrun — all neutral×Luna×static; verify 834 reruns). Report:
 `docs/audits/sweep_h8_xprovider_generated.md`. Results (all cited there):
-- **H8 — identification is fault-mechanism, not name-reading.** Neutral−descriptive identification
-  equivalent within ±0.15 wherever powered (4 arm×provider cells), **0 refuting**, 3 inconclusive
-  (Haiku numbers upper-side non-threatening; Luna numbers/rule modest sub-0.30 gap). FINDINGS F13.
+- **H8 — identification is fault-mechanism, not name-reading.** PRIMARY analysis = PAIRED (strength×seed)
+  bootstrap (point estimate identical to unpaired; promoted after seeing results, justified by the
+  matched-pair design, unpaired retained alongside — disclosed). Neutral−descriptive identification
+  equivalent within ±0.15 in **7 of 9** arm×provider cells, **0 refuting**, **2 inconclusive** (Luna
+  numbers/rule, modest sub-0.30 gap). Vs unpaired 6/3 — pairing moves Haiku numbers to confirming. FINDINGS F13.
 - **H7 — reference-context dependence is MODEL-SPECIFIC (failed to replicate as a general effect).**
   Off-anchor leakage detection Haiku 0.083 vs Luna 0.819; band adds ~90 pts (Haiku) / ~17 (Luna). The
   Stage-2 "strongest supported claim" is narrowed to Haiku; driver unidentified at n=2. F14/S16, L28.
@@ -202,7 +216,7 @@ was never committed.)*
 
 ## f. Change-classification taxonomy (look it up; do not reconstruct)
 
-Four categories for a change to a committed fact, so the next classification is a lookup:
+Five categories for a change to a committed fact, so the next classification is a lookup:
 
 - **Correction** — a PUBLISHED number was measurably wrong. Bumps `corrections_count`; the
   corrected value becomes primary, the prior retained for audit. *e.g.* correction #5 (evidence
@@ -215,3 +229,12 @@ Four categories for a change to a committed fact, so the next classification is 
 - **Stale snapshot** — prose that was TRUE when written but the world moved under it. Not an
   error; update in place. *e.g.* `case_count` 33 (correct pre-§5.2, now 50); the retrospective's
   test count (grew every PR).
+- **Shipped-but-unexploited vulnerability** — an exploitable RULE (not a wrong number) that
+  reached published results, was then AUDITED across every stored label it could have mis-scored,
+  found to have fired **zero** times, and hardened. No `corrections_count` change — no published
+  number was ever wrong — but distinct from a latent-bug fix because the defect *did* ship; the
+  disclosure carries the audit that proves zero impact. *First instance (2026-09-22):* the
+  identification matcher `root_token_v1`→`root_token_v2` — v1 matched concept stems as free
+  substrings and would have scored fault negations (`no_leakage`) and off-concept collisions
+  (`memory_leak`) as correct; audit of all 1156 scored-correct identifications in Sweeps 1–3 found
+  0 such labels, re-score delta 0. DECISIONS 2026-09-22; `scripts/audit_stage4_identification.py`.

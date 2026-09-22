@@ -144,6 +144,21 @@ class IncidentOperator(Protocol):
         output.  Identification is credited only when the target operator is
         the UNIQUE operator matched (a label naming two faults matches two
         operators and is rejected).  See docs/DECISIONS.md.
+
+        Matching is at TOKEN granularity (method ``root_token_v2``): a stem
+        matches a whole token or a declared inflection of it (``leak`` →
+        ``leakage``/``leaking``), or — for a multi-word stem — a bounded token
+        run.  It is NEVER a free substring, and a cue that negates the concept
+        (``no_leakage``) is a miss.  See docs/DECISIONS.md 2026-09-22.
+
+        OPTIONAL extension — ``off_concept_vetoes(self) -> frozenset[str]``:
+        normalized phrases that carry one of this operator's concept tokens as a
+        whole token yet name a DIFFERENT fault (``memory_leak`` for ``leak``,
+        ``bias_variance`` for ``bias``).  A veto phrase present as a bounded token
+        run makes the label NOT satisfy this operator on the token path.  It is
+        NOT part of this Protocol (so an operator need not implement it); the
+        registry resolves it via ``getattr`` and defaults to none.  See
+        docs/DECISIONS.md 2026-09-22.
         """
         ...
 

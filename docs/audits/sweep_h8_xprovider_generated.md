@@ -222,7 +222,23 @@ Method: case-level bootstrap of the ratio, 10000 resamples, seed 20260913. Arms:
 
 ## H8 — neutral − descriptive identification (Δ), per arm × provider
 
-Δ = neutral − descriptive identification. Pre-registered equivalence test on the case-clustered 95% CI: confirming iff the WHOLE CI is inside ±0.15 (lo > −0.15 and hi < +0.15); refuting iff Δ < −0.3 and the CI excludes 0 (hi < 0); otherwise inconclusive.
+Δ = neutral − descriptive identification. Pre-registered equivalence test on the 95% CI: confirming iff the WHOLE CI is inside ±0.15 (lo > −0.15 and hi < +0.15); refuting iff Δ < −0.3 and the CI excludes 0 (hi < 0); otherwise inconclusive.
+
+**PRIMARY analysis: PAIRED bootstrap.** The neutral and descriptive variants are the SAME injected fault built at matched (strength, seed) under two config-key namings, so the pre-registered design pairs them; the primary CI therefore resamples matched (strength, seed) PAIRS together, cancelling shared case difficulty. The **point estimate is identical** to the unpaired contrast (shown below) — only the interval differs. *Disclosure:* promoting the paired bootstrap to PRIMARY is an analysis change made AFTER seeing results (it moves the anthropic/numbers arm from inconclusive to confirming); it is justified by the matched-pair design, not by the outcome, and the unpaired contrast is retained in full immediately below so the effect of the switch is visible. Method: PAIRED (strength×seed) case-level bootstrap, 10000 resamples, 95% percentile, seed 20260913.
+
+| provider | arm | neutral id | descriptive id | Δ (95% CI, PAIRED) | n pairs | verdict |
+|---|---|---|---|---|---|---|
+| pooled | numbers | 0.894 | 0.910 | -0.015 [-0.090, 0.061] | 18 | confirming (no substantial gap) |
+| pooled | off | 0.423 | 0.438 | -0.015 [-0.091, 0.065] | 18 | confirming (no substantial gap) |
+| pooled | rule | 0.852 | 0.910 | -0.058 [-0.139, 0.032] | 18 | confirming (no substantial gap) |
+| anthropic | numbers | 0.889 | 0.847 | 0.042 [-0.056, 0.139] | 18 | confirming (no substantial gap) |
+| anthropic | off | 0.056 | 0.069 | -0.014 [-0.083, 0.056] | 18 | confirming (no substantial gap) |
+| anthropic | rule | 0.861 | 0.861 | 0.000 [-0.111, 0.139] | 18 | confirming (no substantial gap) |
+| openai | numbers | 0.900 | 0.972 | -0.072 [-0.172, 0.013] | 18 | inconclusive |
+| openai | off | 0.800 | 0.806 | -0.006 [-0.143, 0.134] | 18 | confirming (no substantial gap) |
+| openai | rule | 0.843 | 0.958 | -0.115 [-0.197, -0.032] | 18 | inconclusive |
+
+### H8 — UNPAIRED contrast (shown alongside; case-clustered, not matched-pair)
 
 | provider | arm | neutral id | descriptive id | Δ (95% CI) | n cases neut/desc | verdict |
 |---|---|---|---|---|---|---|

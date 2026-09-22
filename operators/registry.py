@@ -62,11 +62,32 @@ def core_token_specs() -> dict[str, list[list[str]]]:
     return spec
 
 
+def core_token_vetoes() -> dict[str, list[str]]:
+    """Every operator's OFF-CONCEPT veto phrases, canonicalized (sorted).
+
+    Shape: ``{operator_id: [phrase, ...]}``.  A label that contains a veto phrase
+    as a bounded token run does NOT satisfy that operator via the token path
+    (root_token_v2), even if a concept token is present (e.g. ``memory_leak`` for
+    the ``leak`` concept).  Resolved from the operator code and hashed into the
+    per-record audit trail alongside the token spec.
+    """
+    out: dict[str, list[str]] = {}
+    for op_id in all_operator_ids():
+        op = get_operator(op_id)
+        vetoes = getattr(op, "off_concept_vetoes", lambda: frozenset())()
+        out[op_id] = sorted(vetoes)
+    return out
+
+
 def token_spec_sha256() -> str:
-    """Stable sha256 over the full multi-operator token spec.
+    """Stable sha256 over the full multi-operator identification spec.
 
     Recorded on each re-scored identification result so a score is reproducible:
-    the digest changes iff any operator's core tokens change.
+    the digest changes iff any operator's core tokens OR off-concept vetoes change
+    (the two inputs to the root_token_v2 token path).
     """
-    blob = json.dumps(core_token_specs(), sort_keys=True).encode()
+    blob = json.dumps(
+        {"tokens": core_token_specs(), "vetoes": core_token_vetoes()},
+        sort_keys=True,
+    ).encode()
     return hashlib.sha256(blob).hexdigest()
