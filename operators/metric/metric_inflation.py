@@ -228,6 +228,20 @@ class MetricInflationOperator:
             "misreport", "misleading", "unrepresentative", "skew",
         })]
 
+    def off_concept_vetoes(self) -> frozenset[str]:
+        """Off-concept uses of the token ``bias`` that are NOT metric inflation.
+
+        Model/statistical bias terms (the bias parameter, bias–variance
+        tradeoff, inductive bias) are unrelated to a biased/inflated reported
+        metric.  Vetoed on the token path (root_token_v2).  See DECISIONS
+        2026-09-22.
+        """
+        return frozenset({
+            "inductive_bias", "bias_variance", "bias_variance_tradeoff",
+            "weight_bias", "bias_term", "bias_unit", "bias_node",
+            "bias_initialization", "bias_init", "bias_gradient",
+        })
+
     def oracle_repair(self) -> dict:
         """Reference-restoring repair: unset the knob (report the full split)."""
         return {

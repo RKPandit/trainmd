@@ -325,7 +325,7 @@ class TestRootTokenIdentification:
 
     def test_audit_fields_recorded(self):
         r = self._score("learning_rate", self._LR)
-        assert r["method"] == "root_token_v1"
+        assert r["method"] == "root_token_v2"
         assert isinstance(r["token_spec_sha256"], str) and len(r["token_spec_sha256"]) == 64
         assert r["match_path"] == "exact"
 

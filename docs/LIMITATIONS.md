@@ -226,6 +226,18 @@ primary: v1→v2 span-strictness lands (shape_mismatch 0.807→0.607, as above) 
 A `scripts/check_scorer_versions.py` guard now asserts each report's scorer matches its records so a
 which-instrument mislabel cannot recur.*
 
+*Addendum (2026-09-22, a SHIPPED-BUT-UNEXPLOITED VULNERABILITY — a fifth change-taxonomy category
+(CURRENT_STATE §f), NOT a numbered correction: no published number was ever wrong): the identification
+matcher (`root_token_v1`→`root_token_v2`) was exploitable — it matched concept stems as free substrings,
+so it would have scored fault negations (`no_leakage`) and off-concept collisions (`memory_leak`) as
+correct. The audit of every scored-correct identification in Sweeps 1–3 found **zero** such labels
+(0 of 1156), attributing each frozen record by its OWN sealed `accepted_classes` (case_id is not a
+stable operator key across rebuilds — validated 574/0/2 against the released operator maps); re-scoring
+under the hardened rule moved **zero** labels. So no published identification number, and no H8 verdict,
+changed — the corrections count stays five. The rule is nonetheless closed by principle (negation
+detection, whole-token/inflection matching, per-operator off-concept vetoes) as defense-in-depth for
+future sweeps. DECISIONS 2026-09-22; `scripts/audit_stage4_identification.py`.*
+
 **L18 — The native-amd64 reference is byte-exact only WITHIN a microarchitecture.** With the data
 pinned to committed hashes (identical bytes on every runner — verified by CI fingerprints), native
 training still differs across amd64 microarchitectures because float REDUCTION ORDER differs (AVX-512

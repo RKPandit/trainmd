@@ -80,19 +80,46 @@ def generate(records: list[dict], meta: dict) -> str:
 
 
 def _h8_tables(s: dict) -> list:
-    """H8 primary (neutral − descriptive identification Δ, per arm × provider, judged
-    vs pre-registered thresholds) + secondary (detection/recovery per variant)."""
-    h = s.get("h8_identification_contrast", {})
-    if not h.get("available"):
+    """H8 primary — PAIRED (strength×seed) neutral − descriptive identification Δ, per
+    arm × provider — with the UNPAIRED contrast alongside, plus secondary detection/recovery."""
+    hp = s.get("h8_identification_contrast_paired", {})
+    hu = s.get("h8_identification_contrast", {})
+    if not hu.get("available"):
         return []
+    thr = hp if hp.get("available") else hu
     B = ["## H8 — neutral − descriptive identification (Δ), per arm × provider", "",
          f"Δ = neutral − descriptive identification. Pre-registered equivalence test on the "
-         f"case-clustered 95% CI: confirming iff the WHOLE CI is inside ±{h['confirming_bound']} "
-         f"(lo > −{h['confirming_bound']} and hi < +{h['confirming_bound']}); refuting iff Δ < "
-         f"−{h['refuting_bound']} and the CI excludes 0 (hi < 0); otherwise inconclusive.", "",
-         "| provider | arm | neutral id | descriptive id | Δ (95% CI) | n cases neut/desc | verdict |",
-         "|---|---|---|---|---|---|---|"]
-    for row in h["rows"]:
+         f"95% CI: confirming iff the WHOLE CI is inside ±{thr['confirming_bound']} "
+         f"(lo > −{thr['confirming_bound']} and hi < +{thr['confirming_bound']}); refuting iff Δ < "
+         f"−{thr['refuting_bound']} and the CI excludes 0 (hi < 0); otherwise inconclusive.", ""]
+
+    if hp.get("available"):
+        B += [
+            "**PRIMARY analysis: PAIRED bootstrap.** The neutral and descriptive variants are the "
+            "SAME injected fault built at matched (strength, seed) under two config-key namings, so "
+            "the pre-registered design pairs them; the primary CI therefore resamples matched "
+            "(strength, seed) PAIRS together, cancelling shared case difficulty. The **point estimate "
+            "is identical** to the unpaired contrast (shown below) — only the interval differs. "
+            "*Disclosure:* promoting the paired bootstrap to PRIMARY is an analysis change made AFTER "
+            "seeing results (it moves the anthropic/numbers arm from inconclusive to confirming); it is "
+            "justified by the matched-pair design, not by the outcome, and the unpaired contrast is "
+            "retained in full immediately below so the effect of the switch is visible. "
+            f"Method: {hp.get('method','')}.", "",
+            "| provider | arm | neutral id | descriptive id | Δ (95% CI, PAIRED) | n pairs | verdict |",
+            "|---|---|---|---|---|---|---|"]
+        for row in hp["rows"]:
+            B.append(f"| {row['provider']} | {row['arm']} | {_f(row.get('neutral_id'))} | "
+                     f"{_f(row.get('descriptive_id'))} | {_ci(row)} | "
+                     f"{row.get('n_pairs')} | {row['verdict']} |")
+        B += [""]
+        B += ["### H8 — UNPAIRED contrast (shown alongside; case-clustered, not matched-pair)", ""]
+    else:
+        B += ["_(paired contrast unavailable — no strength×seed key; showing the unpaired contrast "
+              "as primary.)_", ""]
+
+    B += ["| provider | arm | neutral id | descriptive id | Δ (95% CI) | n cases neut/desc | verdict |",
+          "|---|---|---|---|---|---|---|"]
+    for row in hu["rows"]:
         B.append(f"| {row['provider']} | {row['arm']} | {_f(row.get('neutral_id'))} | "
                  f"{_f(row.get('descriptive_id'))} | {_ci(row)} | "
                  f"{row['n_cases_neutral']}/{row['n_cases_descriptive']} | {row['verdict']} |")

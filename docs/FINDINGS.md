@@ -139,6 +139,19 @@ stand as pre-registered. Recovery moves (Corrections 2–3), sharpening H3. **H1
 by the analysis-aggregation correction #4 + Stage-2 G1 (below). **Correction #5 moves evidence and
 H6** (evidence scorer v1→v2.1; H6 0.135→0.134, verdict held) — see above.
 
+**Shipped-but-unexploited vulnerability (2026-09-22) — identification matcher hardened `root_token_v1`→
+`root_token_v2`** (a fifth change-taxonomy category, CURRENT_STATE §f; NOT a numbered correction — no
+published number was ever wrong). An external reviewer showed the v1 rule matched concept stems as free
+substrings, so it *would* credit fault negations (`no_leakage`) and off-concept collisions (`memory_leak`)
+as correct identifications. The audit — attributing each frozen-sweep record's operator from its OWN sealed
+`accepted_classes`, never today's `cases/` — found **zero** such labels among every scored-correct
+identification in Sweeps 1–3 (0 of 1156), and a full re-score under the hardened rule flips **0** labels in
+either direction. So the rule was exploitable but was never exploited: **no published identification number,
+and no H8 verdict, moves**, and the corrections count therefore stays **five** (a moved-number counter must
+not tick when nothing moved). The exploitable rule is still closed by principle (negation detection,
+whole-token/inflection matching, per-operator off-concept vetoes). DECISIONS 2026-09-22;
+`tests/test_identification_v2_hardening.py`; `scripts/audit_stage4_identification.py`.
+
 **Latent-bug fixes (2026-09-15; NOT corrections — no published number was wrong).** Two defects in
 the analysis code were repaired while making the report pipeline plan-driven (STAGE3_PLAN §0.3), each
 caught *before* it reached a committed number, so the corrections count stays **four**: (i) the H2
@@ -623,18 +636,25 @@ fault-understanding or key-name reading. Pre-registered **two-sided equivalence*
 descriptive identification, case-clustered 95% CI: confirming iff the whole CI ⊂ ±0.15; refuting iff
 Δ < −0.30 with the CI excluding 0; else inconclusive.
 
-**Result (n_trials 978 deduped, both providers, per-arm × provider — source
-`docs/audits/sweep_h8_xprovider_generated.md`):** **confirming in 4** arm×provider cells (Haiku off,
-Haiku rule, Luna off, pooled ×3), **inconclusive in 3** (Haiku numbers, Luna numbers, Luna rule),
-**refuting in 0**. The identification headline **holds** wherever the design has power; the neutral
-rename does not collapse identification toward the config-name-blind B2 floor.
+**Result — PRIMARY analysis is the PAIRED (strength×seed) bootstrap** (n_trials 978 deduped, both
+providers, per-arm × provider — source `docs/audits/sweep_h8_xprovider_generated.md`). The neutral and
+descriptive variants are the SAME fault built at matched (strength, seed), so the pre-registered design
+pairs them; the primary CI resamples matched (strength, seed) PAIRS together (18 pairs/facet). The
+**point estimate is identical** to the unpaired contrast — only the CI differs. *Disclosure: promoting
+the paired bootstrap to primary is an analysis change made after seeing results (it moves the Haiku
+numbers arm from inconclusive to confirming); it is justified by the matched-pair design, not the
+outcome, and the unpaired contrast is retained alongside it in the report.* Under the paired primary:
+**confirming in 7 of 9** arm×provider cells (Haiku off/numbers/rule, Luna off, pooled ×3),
+**inconclusive in 2** (Luna numbers, Luna rule), **refuting in 0**. (Unpaired: 6 confirming / 3
+inconclusive — the only difference is Haiku numbers.) The identification headline **holds** wherever the
+design has power; the neutral rename does not collapse identification toward the config-name-blind B2 floor.
 
-**Direction of the inconclusives matters (recorded, not smoothed over):**
-- **Haiku numbers** Δ **+0.042** [−0.083, **+0.167**]: inconclusive only because the **upper** bound
-  crosses +0.15 — the NON-THREATENING direction (cannot rule out neutral being *better*). Does not
-  challenge the mechanism claim.
-- **Luna numbers** Δ −0.072 [−0.165, +0.013]: CI reaches the threatening side but includes 0.
-- **Luna rule** Δ −0.115 [**−0.207, −0.026**], CI **excluding 0**: a **real but modest**
+**Direction of the (paired) inconclusives matters (recorded, not smoothed over):**
+- **Haiku numbers** Δ **+0.042** [−0.056, +0.139] (paired): now **confirming** — the paired CI no longer
+  crosses +0.15; the sign is the NON-THREATENING direction (cannot rule out neutral being *better*).
+  (Unpaired [−0.083, +0.167] was inconclusive on the upper side only.)
+- **Luna numbers** Δ −0.072 [−0.172, +0.013] (paired): CI reaches the threatening side but includes 0.
+- **Luna rule** Δ −0.115 [**−0.197, −0.032**] (paired), CI **excluding 0**: a **real but modest**
   neutral-below-descriptive gap on Luna's rule arm — statistically non-zero yet **far short of the
   −0.30 refutation bound**. Consistent with a small config-legibility contribution to Luna's
   *anchored* identification, not a collapse.
