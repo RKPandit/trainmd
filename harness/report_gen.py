@@ -105,6 +105,12 @@ def _h8_tables(s: dict) -> list:
             "justified by the matched-pair design, not by the outcome, and the unpaired contrast is "
             "retained in full immediately below so the effect of the switch is visible. "
             f"Method: {hp.get('method','')}.", "",
+            "**Counting rule:** the headline tally is over the **6 provider-specific cells only** "
+            "(2 providers × 3 arms). The `pooled` rows REUSE the same trials as the provider-specific "
+            "rows, so they are a cross-provider **summary**, NOT independent confirmations, and are "
+            "never added to the count. Provider-specific tally (paired): **4 of 6 confirming** "
+            "(Haiku off/numbers/rule, Luna off), **2 inconclusive** (Luna numbers, Luna rule), "
+            "**0 refuting**.", "",
             "| provider | arm | neutral id | descriptive id | Δ (95% CI, PAIRED) | n pairs | verdict |",
             "|---|---|---|---|---|---|---|"]
         for row in hp["rows"]:

@@ -226,6 +226,8 @@ Method: case-level bootstrap of the ratio, 10000 resamples, seed 20260913. Arms:
 
 **PRIMARY analysis: PAIRED bootstrap.** The neutral and descriptive variants are the SAME injected fault built at matched (strength, seed) under two config-key namings, so the pre-registered design pairs them; the primary CI therefore resamples matched (strength, seed) PAIRS together, cancelling shared case difficulty. The **point estimate is identical** to the unpaired contrast (shown below) — only the interval differs. *Disclosure:* promoting the paired bootstrap to PRIMARY is an analysis change made AFTER seeing results (it moves the anthropic/numbers arm from inconclusive to confirming); it is justified by the matched-pair design, not by the outcome, and the unpaired contrast is retained in full immediately below so the effect of the switch is visible. Method: PAIRED (strength×seed) case-level bootstrap, 10000 resamples, 95% percentile, seed 20260913.
 
+**Counting rule:** the headline tally is over the **6 provider-specific cells only** (2 providers × 3 arms). The `pooled` rows REUSE the same trials as the provider-specific rows, so they are a cross-provider **summary**, NOT independent confirmations, and are never added to the count. Provider-specific tally (paired): **4 of 6 confirming** (Haiku off/numbers/rule, Luna off), **2 inconclusive** (Luna numbers, Luna rule), **0 refuting**.
+
 | provider | arm | neutral id | descriptive id | Δ (95% CI, PAIRED) | n pairs | verdict |
 |---|---|---|---|---|---|---|
 | pooled | numbers | 0.894 | 0.910 | -0.015 [-0.090, 0.061] | 18 | confirming (no substantial gap) |
