@@ -21,9 +21,13 @@ from agents.static_agent import STATIC_PROMPT_VERSION
 
 # Expected version-stable template hashes. BUMP the version constant AND the hash
 # together when the prompt text legitimately changes.
+# v2 changed only the anchor-arm band text (dynamic case_info, pinned below), not the fixed
+# template, so the template hashes carry over unchanged; v1 entries are kept as history.
 _EXPECTED_TEMPLATE_HASH = {
     "react-1": "2d4e8b477ce26e1d4726038230922c28681da82c8cfeae1ce17750a3cc5d1595",
     "static-1": "2a5d9e4af4fe6cdc6054da1891a1af328dffb270beb826e2108c642a1e216a93",
+    "react-2": "2d4e8b477ce26e1d4726038230922c28681da82c8cfeae1ce17750a3cc5d1595",
+    "static-2": "2a5d9e4af4fe6cdc6054da1891a1af328dffb270beb826e2108c642a1e216a93",
 }
 
 
@@ -46,41 +50,88 @@ def test_static_template_hash_matches_version():
     )
 
 
-# Three-arm anchor band text lives in the dynamic case_info, not the template, so
-# it is pinned here against a FIXED synthetic card (one hash per arm). Bump the
-# per-arm prompt_version suffix (react-1-<arm> / static-1-<arm>) AND these hashes
-# together if an arm's wording legitimately changes.
+# Anchor band text lives in the dynamic case_info, not the template, so it is pinned here
+# against a FIXED synthetic card (one hash per arm, per prompt version). Bump the prompt
+# major version (react-N / static-N) AND these hashes together if an arm's wording changes.
 _FIXED_CARD = {
-    "reference_visible_metric": {"series": "metric_visible_val_acc", "mean": 0.85, "std": 0.001},
+    "reference_visible_metric": {"series": "metric_visible_val_acc", "mean": 0.85, "std": 0.001,
+                                 "n": 30},
 }
-_EXPECTED_BAND_HASH = {
+_EXPECTED_BAND_HASH = {                 # prompt v2 (react-2 / static-2) — the runnable arms
+    "stats": "d6415849c957b43f154bfc2c21bc8de17e49b2bded5a52c2bff9eb82d462d7f9",
+    "rule": "4effe0940dd396d496a8db9867c037dfb4cbf7112dc558377624c7e1b6e8a762",
+}
+_EXPECTED_BAND_HASH_V1 = {              # prompt v1 (HISTORICAL: Sweep 1, Stage 2 gate, H8)
     "numbers": "def93784c4d35bb46d78911ceb6d5f4669834bb88ff2a8cd908c57c89fa2c2ca",
     "rule": "f4febaa362193ad9fb5002969d0a059a1d49f1869b6f90c536eb666cf3ab178f",
 }
+# Evaluative / threshold words the BARE stats arm must never carry (STAGE4 4.0.6): the arm is
+# statistics only — no judgement, no interval, no bound.
+_BANNED_IN_STATS = ("healthy", "achieve", "range", "normal", "expected", "typical", "anomal",
+                    "should", "bound", "interval", "within", "outside", "±", "–")
 
 
-def test_anchor_arm_band_text_pinned_and_subset():
+def test_stats_arm_is_bare_statistics():
+    from agents.llm_agent import reference_band_line
+    stats = reference_band_line(_FIXED_CARD, "stats")
+    low = stats.lower()
+    for word in _BANNED_IN_STATS:
+        assert word not in low, f"stats arm contains banned word {word!r}: {stats!r}"
+    # mean, SD and n are all present; the ±2SD bounds (0.8480 / 0.8520) are NOT.
+    assert "0.8500" in stats and "0.0010" in stats and "n=30" in stats
+    assert "0.8480" not in stats and "0.8520" not in stats
+
+
+def test_rule_is_stats_plus_one_sentence():
     from agents.llm_agent import _RULE_SENTENCE, reference_band_line
-
     off = reference_band_line(_FIXED_CARD, "off")
-    numbers = reference_band_line(_FIXED_CARD, "numbers")
+    stats = reference_band_line(_FIXED_CARD, "stats")
     rule = reference_band_line(_FIXED_CARD, "rule")
-
-    # off arm: no band at all.
     assert off is None
-    # rule = numbers + exactly one appended sentence → strict superset (prefix).
-    assert rule == numbers + _RULE_SENTENCE
-    assert rule.startswith(numbers) and numbers in rule
-    # numbers arm carries the numerals but NONE of the rule wording.
-    assert "0.8500" in numbers and "0.8480" in numbers and "0.8520" in numbers
-    assert "anomalous" not in numbers and "above OR below" not in numbers
-    # rule arm carries both.
-    assert "anomalous" in rule and "above OR below" in rule
-    # legacy "on" normalizes to "rule".
-    assert reference_band_line(_FIXED_CARD, "on") == rule
-    # pinned per-arm hashes (drift guard).
-    assert _sha(numbers) == _EXPECTED_BAND_HASH["numbers"]
-    assert _sha(rule) == _EXPECTED_BAND_HASH["rule"]
+    assert rule == stats + _RULE_SENTENCE and rule.startswith(stats)     # prefix, by construction
+    # exactly ONE appended sentence, carrying the same ±2σ boundary as v1's band
+    assert _RULE_SENTENCE.strip().count(".") == 1 and "2 SD" in _RULE_SENTENCE
+    assert "above OR below" in rule and "anomalous" in rule and "anomalous" not in stats
+
+
+def test_band_text_pinned_per_arm():
+    from agents.llm_agent import reference_band_line
+    for arm, h in _EXPECTED_BAND_HASH.items():
+        assert _sha(reference_band_line(_FIXED_CARD, arm)) == h, f"v2 {arm} text drifted"
+
+
+def test_v1_arms_cannot_be_run():
+    import pytest
+
+    from agents.llm_agent import LLMAgent, reference_band_line
+    for legacy in ("on", "numbers"):
+        with pytest.raises(ValueError):
+            reference_band_line(_FIXED_CARD, legacy)
+        with pytest.raises(ValueError):
+            LLMAgent(object(), model_id="m", anchor=legacy)
+        with pytest.raises(ValueError):
+            sa.StaticContextAgent(object(), model_id="m", anchor=legacy)
+
+
+def test_v1_band_text_still_reproduces_exactly():
+    """What H8's agents saw stays reproducible byte-for-byte (historical, audit use only)."""
+    from agents.llm_agent import reference_band_line_v1
+    assert reference_band_line_v1(_FIXED_CARD, "off") is None
+    for arm, h in _EXPECTED_BAND_HASH_V1.items():
+        assert _sha(reference_band_line_v1(_FIXED_CARD, arm)) == h
+    assert reference_band_line_v1(_FIXED_CARD, "on") == reference_band_line_v1(_FIXED_CARD, "rule")
+
+
+def test_stats_arm_refuses_a_card_without_n():
+    import pytest
+
+    from agents.llm_agent import reference_band_line
+    card = {"reference_visible_metric": {k: v for k, v in _FIXED_CARD["reference_visible_metric"].items()
+                                         if k != "n"}}
+    for arm in ("stats", "rule"):
+        with pytest.raises(ValueError, match="'n'"):
+            reference_band_line(card, arm)
+    assert reference_band_line(card, "off") is None
 
 
 def test_submit_schema_identical_across_agents():

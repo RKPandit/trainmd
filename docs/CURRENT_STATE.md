@@ -36,10 +36,14 @@ corrections_count: 6
 ```
 
 - **Workloads:** 1 — `tabular_adult` (Adult / MLP). (Second workload deferred to the full study.)
-- **Agents:** 2 — ReAct (tool-using; `react-1`) and static full-context (`static-1`); prompt version
-  gets an anchor-arm suffix.
-- **Anchor arms:** 3 — `off` / `numbers` / `rule` (legacy `on` → `rule`). *In flight:* STAGE3_PLAN
-  Part 6 renames to `off` / `stats` / `rule` with de-evaluative wording.
+- **Agents:** 2 — ReAct (tool-using) and static full-context; prompt version gets an anchor-arm
+  suffix. **Prompt v2** (`react-2` / `static-2`, STAGE4 4.0.6) is what new runs use; every frozen
+  sweep (Sweep 1, Stage 2 gate, H8) ran prompt v1 (`react-1` / `static-1`).
+- **Anchor arms:** 3 per prompt version, and arm identity INCLUDES the version (`harness/anchors.py`):
+  v2 `off` / `stats` / `rule` (analysis keys `off.v2` / `stats.v2` / `rule.v2`) — `stats` is bare
+  mean, SD and n reference runs; `rule` = `stats` + one decision sentence. v1 `off` / `numbers` /
+  `rule` (legacy `on` → `rule`) are historical and cannot be run. v1 and v2 arms are never pooled;
+  only `off` is comparable across versions.
 - **Scorer:** `evidence_v2.1` (bipartite one-to-one matching) is primary; `evidence_v2` + `evidence_v1`
   retained beside it for audit (STAGE3_PLAN §0.4). **Provenance note:** Sweep-1 records were scored
   under **v1** until 2026-09-15 (the earlier "v2 primary" docs were a mislabel — the v1→v2 rescore was

@@ -143,9 +143,9 @@ def test_default_agent_factory_dispatches_client_by_provider(monkeypatch):
 
     from agents.llm_agent import LLMAgent
 
-    a_cell = {"agent": "react", "anchor": "on", "provider": "anthropic",
+    a_cell = {"agent": "react", "anchor": "rule", "provider": "anthropic",
               "model": "claude-haiku-4-5-20251001"}
-    o_cell = {"agent": "react", "anchor": "on", "provider": "openai",
+    o_cell = {"agent": "react", "anchor": "rule", "provider": "openai",
               "model": "gpt-5.6-luna"}
     a_agent = sweep._default_agent_factory(a_cell, "header-model")
     o_agent = sweep._default_agent_factory(o_cell, "header-model")
@@ -291,20 +291,22 @@ def test_failed_cells_are_retried_not_skipped(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# three-arm anchor: off (no band) | numbers (bare fact) | rule (numbers + rule)
+# three-arm anchor, prompt v2: off (no line) | stats (mean, SD, n) | rule (stats + rule)
 # ---------------------------------------------------------------------------
 
 def test_three_arm_anchor_prompt_content():
+    import pytest
     from agents.llm_agent import (
-        _build_instruction_prompt, reference_band_line, reference_band_numbers,
+        _build_instruction_prompt, reference_band_line, reference_band_stats,
     )
     from agents.static_agent import StaticContextAgent
     case_dir = CASES / "case_0005"
     if not case_dir.exists():
-        import pytest
         pytest.skip("case_0005 not built")
     card = yaml.safe_load((case_dir / "card.public.yaml").read_text())
-    numbers = reference_band_numbers(card)
+    if "n" not in (card.get("reference_visible_metric") or {}):
+        pytest.skip("case_0005 built before reference_visible_metric.n (rebuild to run)")
+    stats = reference_band_stats(card)
     rule = reference_band_line(card, "rule")
     number_str = f"{card['reference_visible_metric']['mean']:.4f}"
     # Discriminate the rule arm on a BAND-ONLY phrase — "anomalous" alone also
@@ -312,25 +314,32 @@ def test_three_arm_anchor_prompt_content():
     RULE_PHRASE = "above OR below"
 
     off = _build_instruction_prompt(case_dir, arm="off")
-    num = _build_instruction_prompt(case_dir, arm="numbers")
+    sta = _build_instruction_prompt(case_dir, arm="stats")
     rul = _build_instruction_prompt(case_dir, arm="rule")
 
-    # off: no band numerals, no rule phrase.
     assert number_str not in off and RULE_PHRASE not in off
-    # numbers: numerals present, rule phrase absent.
-    assert numbers in num and number_str in num and RULE_PHRASE not in num
-    # rule: the full band + the rule phrase; numbers text is a prefix/subset.
-    assert rule in rul and RULE_PHRASE in rul and numbers in rule
-    # legacy "on" == "rule".
-    assert _build_instruction_prompt(case_dir, arm="on") == rul
+    assert stats in sta and number_str in sta and RULE_PHRASE not in sta
+    assert rule in rul and RULE_PHRASE in rul and rule.startswith(stats)
+    # v1-only arms cannot be rendered for a new run.
+    for legacy in ("on", "numbers"):
+        with pytest.raises(ValueError):
+            _build_instruction_prompt(case_dir, arm=legacy)
 
     # Both agents share the same three texts verbatim.
     def st(anchor):
         return StaticContextAgent(object(), model_id="m", anchor=anchor)._instruction_prompt(case_dir)
     assert number_str not in st("off") and RULE_PHRASE not in st("off")
-    assert numbers in st("numbers") and RULE_PHRASE not in st("numbers")
+    assert stats in st("stats") and RULE_PHRASE not in st("stats")
     assert RULE_PHRASE in st("rule")
-    assert st("on") == st("rule")
+
+
+def test_sweep_schedules_only_v2_arms_and_records_prompt_major():
+    from agents.llm_agent import REACT_PROMPT_VERSION, _ANCHOR_ARMS
+    from agents.static_agent import STATIC_PROMPT_VERSION
+    from harness.anchors import ARMS_BY_PROMPT_MAJOR, CURRENT_PROMPT_MAJOR, prompt_major
+    assert sweep.PROMPT_MAJOR == CURRENT_PROMPT_MAJOR
+    assert prompt_major(REACT_PROMPT_VERSION) == prompt_major(STATIC_PROMPT_VERSION) == sweep.PROMPT_MAJOR
+    assert tuple(sweep.ANCHORS) == _ANCHOR_ARMS == ARMS_BY_PROMPT_MAJOR[sweep.PROMPT_MAJOR]
 
 
 # ---------------------------------------------------------------------------

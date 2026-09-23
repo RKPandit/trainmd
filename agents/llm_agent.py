@@ -19,7 +19,7 @@ from harness.tools.tool_context import ToolContext
 
 # Prompt version — bump whenever the ReAct prompt template text changes (the
 # drift guard in test_prompt_versioning asserts the template hash matches).
-REACT_PROMPT_VERSION = "react-1"
+REACT_PROMPT_VERSION = "react-2"   # 2: anchor arms off|stats|rule (STAGE4 4.0.6)
 
 
 # ---------------------------------------------------------------------------
@@ -307,68 +307,93 @@ SUBMIT_FORMAT_TEXT: str = _SYSTEM_PROMPT_TEMPLATE[
 
 
 # ---------------------------------------------------------------------------
-# Anchor: the reference band as three progressively-framed arms (see L10).
-# Sweep 1's single "on" arm confounded a NUMERICAL REFERENCE with an EXPLICIT
-# DECISION RULE; the three arms separate them so Sweep 2 can tell which restores
-# detection. "rule" is "numbers" + exactly one appended sentence — a strict
-# superset by construction.
+# Anchor arms — prompt v2 (STAGE4 4.0.6; harness/anchors.py holds the analysis mapping).
+#
+#   off   → no reference line.
+#   stats → BARE STATISTICS: mean, SD, and the number of reference runs. No interval, no
+#           bounds, no evaluative words — a pre-computed mean±2SD interval IS a decision
+#           threshold, so it belongs to the rule arm, not here.
+#   rule  → stats + exactly ONE appended decision sentence (same ±2σ boundary as v1's band),
+#           a strict prefix-superset by construction.
+#
+# Prompt v1's "numbers" arm ("Healthy runs achieve … healthy range roughly lo–hi") was NOT
+# bare — it carried evaluative words and the interval — so it is not the treatment the
+# stats arm tests. It is HISTORICAL: reproducible below for audit (reference_band_line_v1),
+# never selectable for a new run.
 # ---------------------------------------------------------------------------
-_ANCHOR_ARMS = ("off", "numbers", "rule")
-_RULE_SENTENCE = " Values clearly outside this range, above OR below, are anomalous."
+_ANCHOR_ARMS = ("off", "stats", "rule")
+_RULE_SENTENCE = " Values more than 2 SD from this mean, above OR below, are anomalous."
 
 
 def _normalize_anchor(anchor: str) -> str:
-    """Map the legacy two-valued flag onto the three-arm design.
+    """Validate a prompt-v2 anchor arm for a NEW run: off | stats | rule.
 
-    Sweep 1 used ``anchor="on"`` (numbers + the decision rule) / ``"off"``. "on"
-    is the same framing as the new "rule" arm, so it normalizes to "rule"; "off"
-    is unchanged. New canonical values are off | numbers | rule. Legacy records
-    are mapped in analysis, never rewritten (see docs/DECISIONS.md).
+    The v1-only values — legacy ``on`` and ``numbers`` — are rejected, never mapped onto a v2
+    arm (v1 ``rule`` and v2 ``rule`` are different treatments; see harness/anchors.py).
     """
-    if anchor == "on":
-        return "rule"
     if anchor in _ANCHOR_ARMS:
         return anchor
     raise ValueError(
-        f"Unknown anchor {anchor!r}; expected one of {_ANCHOR_ARMS} (or legacy 'on')"
+        f"Unknown anchor {anchor!r}; expected one of {_ANCHOR_ARMS} "
+        "(v1 arms 'numbers' / legacy 'on' are historical and cannot be run)"
     )
 
 
-def reference_band_numbers(card: dict) -> str | None:
-    """The band as a BARE FACT — no interpretive framing — or None if no band."""
+def reference_band_stats(card: dict) -> str | None:
+    """The reference statistics as bare numbers (mean, SD, n) — or None if the card has no band.
+
+    ``n`` (reference runs) comes from the public card; a card without it cannot render the
+    stats arm (rebuild the case) — the count is never guessed.
+    """
     ref = card.get("reference_visible_metric")
     if not ref:
         return None
-    mean, std = ref["mean"], ref["std"]
-    low, high = mean - 2 * std, mean + 2 * std
-    return (
-        f"Healthy runs achieve {ref['series']} ≈ {mean:.4f} "
-        f"(healthy range roughly {low:.4f}–{high:.4f})."
-    )
+    if ref.get("n") is None:
+        raise ValueError("card.public.yaml reference_visible_metric has no 'n' (reference runs); "
+                         "rebuild the case to render the stats/rule arms")
+    return (f"Reference runs (n={ref['n']}): {ref['series']} mean {ref['mean']:.4f}, "
+            f"SD {ref['std']:.4f}.")
 
 
 def reference_band_line(card: dict, arm: str = "rule") -> str | None:
-    """The healthy-band line for the given anchor arm (or None if no band).
-
-    off     → no band line.
-    numbers → the band as a bare fact.
-    rule    → the numbers text + the explicit decision rule. This is a STRICT
-              superset of the numbers text (numbers + one appended sentence), so
-              the two arms differ by exactly one sentence and nothing else.
-    """
+    """The reference line for a prompt-v2 anchor arm (or None: off arm, or no band on the card)."""
     arm = _normalize_anchor(arm)
     if arm == "off":
         return None
-    numbers = reference_band_numbers(card)
-    if numbers is None:
+    stats = reference_band_stats(card)
+    if stats is None:
         return None
-    return numbers if arm == "numbers" else numbers + _RULE_SENTENCE
+    return stats if arm == "stats" else stats + _RULE_SENTENCE
+
+
+# ---- prompt v1 (HISTORICAL — Sweep 1, Stage 2 gate, H8); audit/reproduction only -----------
+_V1_RULE_SENTENCE = " Values clearly outside this range, above OR below, are anomalous."
+
+
+def reference_band_line_v1(card: dict, arm: str) -> str | None:
+    """EXACTLY the band line prompt v1 rendered for ``arm`` (off | numbers | rule | legacy on).
+
+    Kept so the text H8's agents saw stays reproducible (pinned by hash in
+    test_prompt_versioning) — e.g. to strip it from transcripts for a blinded audit. Agents
+    never call this.
+    """
+    arm = "rule" if arm == "on" else arm
+    if arm not in ("off", "numbers", "rule"):
+        raise ValueError(f"{arm!r} is not a prompt-v1 arm")
+    ref = card.get("reference_visible_metric")
+    if arm == "off" or not ref:
+        return None
+    mean, std = ref["mean"], ref["std"]
+    low, high = mean - 2 * std, mean + 2 * std
+    numbers = (f"Healthy runs achieve {ref['series']} ≈ {mean:.4f} "
+               f"(healthy range roughly {low:.4f}–{high:.4f}).")
+    return numbers if arm == "numbers" else numbers + _V1_RULE_SENTENCE
 
 
 def build_case_info(card: dict, arm: str = "rule", include_band: bool | None = None) -> str:
     """The shared '## Case information' body (id, workload, description, band).
 
-    ``arm`` selects the anchor condition (off | numbers | rule). ``include_band``
+    ``arm`` selects the anchor condition (off | stats | rule). ``include_band``
     is a legacy shim (True→"rule", False→"off") kept so pre-three-arm callers keep
     working; it takes precedence over ``arm`` when supplied.
     """
@@ -417,7 +442,7 @@ class LLMAgent:
         max_total_tokens: int = 200_000,
         max_response_tokens: int = 8192,
         provider: str = "anthropic",
-        anchor: str = "on",
+        anchor: str = "rule",
     ) -> None:
         self._client = client
         self._model_id = model_id
@@ -426,7 +451,7 @@ class LLMAgent:
         self._max_total_tokens = max_total_tokens
         self._max_response_tokens = max_response_tokens
         self._provider = provider
-        self._anchor = anchor  # "on" includes the reference band; "off" omits it
+        self._anchor = _normalize_anchor(anchor)  # off | stats | rule (validated up front)
         self._record: dict | None = None
 
     @property
@@ -464,7 +489,7 @@ class LLMAgent:
             self._record["prompt"] = {
                 "system_prompt_text": instruction_prompt,  # legacy key; user-role delivery
                 "prompt_hash": hashlib.sha256(instruction_prompt.encode()).hexdigest(),
-                "prompt_version": f"{REACT_PROMPT_VERSION}-{arm}",  # react-1-off|-numbers|-rule
+                "prompt_version": f"{REACT_PROMPT_VERSION}-{arm}",  # react-2-off|-stats|-rule
             }
 
         # 3. Initialize messages — the instruction prompt is the first USER turn.

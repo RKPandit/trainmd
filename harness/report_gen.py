@@ -235,7 +235,8 @@ def _metric_body(s: dict, records: list, meta: dict) -> list:
         B += [f"_not available: {r.get('reason')}_", ""]
     else:
         B += [f"Method: {r['method']}. Arms: {r['low_arm']}→{r['mid_arm']}→{r['high_arm']}.", "",
-              "| operator | detect off | detect numbers | detect rule | gap | fraction closed by numbers (95% CI) |",
+              f"| operator | detect {r['low_arm']} | detect {r['mid_arm']} | detect {r['high_arm']} | gap | "
+              f"fraction closed by {r['mid_arm']} (95% CI) |",
               "|---|---|---|---|---|---|"]
         for op in s["operators_faulty"]:
             d = r["operators"].get(op)
@@ -270,8 +271,8 @@ def _metric_body(s: dict, records: list, meta: dict) -> list:
             # from the release, and this report must reproduce from the release byte-for-byte.
             # It goes to the internal-only report instead (generate_internal).
             B += ["", _HIDDEN_BAND_NOTE]
-        if "numbers_minus_rule" in c:
-            B += ["", f"- numbers − rule FP difference: {_ci(c['numbers_minus_rule'])}"]
+        for d in c.get("mid_minus_rule") or []:
+            B += ["", f"- {d['mid_arm']} − {d['high_arm']} FP difference: {_ci(d)}"]
         # Legends only for tables actually rendered in THIS report (pooled + visible band).
         B += _legends({"per_arm": c.get("per_arm"), "by_band": c.get("by_band")})
         B += [""]
@@ -304,8 +305,11 @@ def _meta_from_dir(d: Path, name: str) -> dict:
     man = yaml.safe_load(man_p.read_text()) if man_p.exists() else {}
     header = plan.get("header", {})
     date = (man.get("timestamp_utc") or "").split("T")[0] or header.get("created_utc", "").split("T")[0]
-    arms = (header.get("factor_levels", {}) or {}).get("anchors")
-    plan_arms = sorted({normalize_anchor(a) for a in arms}) if arms else None
+    fl = header.get("factor_levels", {}) or {}
+    arms = fl.get("anchors")
+    # Plans before prompt v2 carry no prompt_major (→ v1). The arm keys include the version.
+    major = fl.get("prompt_major", 1)
+    plan_arms = (sorted({normalize_anchor(a, f"react-{major}") for a in arms}) if arms else None)
     models = (header.get("factor_levels", {}) or {}).get("models")
     return {"name": name, "date": date, "model": header.get("model"),
             "models": models, "plan_arms": plan_arms, "n_cells": header.get("n_cells")}

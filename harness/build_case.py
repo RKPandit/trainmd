@@ -481,6 +481,8 @@ def build_case(
             "series": "metric_visible_val_acc",
             "mean": stats["metric_visible_val_acc"]["mean"],
             "std": stats["metric_visible_val_acc"]["std"],
+            # Number of reference runs behind mean/std (prompt-v2 stats arm, STAGE4 4.0.6).
+            "n": stats["num_seeds"],
         },
         "agent_budget": {
             "max_tool_calls": 40,

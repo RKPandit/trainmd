@@ -826,6 +826,10 @@ def _check_c9(
         issues.append(f"mean={band.get('mean')} != reference {exp_mean}")
     if band.get("std") is None or abs(band["std"] - exp_std) > 1e-9:
         issues.append(f"std={band.get('std')} != reference {exp_std}")
+    # n (reference runs; added for the prompt-v2 stats arm) is checked when present — cases
+    # built before it lack it and stay valid, but cannot render the stats/rule arms.
+    if "n" in band and band["n"] != stats.get("num_seeds"):
+        issues.append(f"n={band['n']} != reference num_seeds {stats.get('num_seeds')}")
 
     if issues:
         detail = "Reference band mismatch: " + "; ".join(issues)

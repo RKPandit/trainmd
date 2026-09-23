@@ -184,6 +184,7 @@ def _make_case(
     ref_dir.mkdir(parents=True, exist_ok=True)
     stats = {
         "workload": workload_name,
+        "num_seeds": 30,
         "metric_visible_val_acc": {
             "mean": _REF_VIS_MEAN,
             "std": _REF_VIS_STD,
@@ -748,6 +749,30 @@ class TestReferenceBandCheck:
         report = validate_case(case_dir, project_root=tmp_path)
         failed_names = [c.name for c in report.failed]
         assert "C9_reference_band_matches_reference" in failed_names
+
+    def test_c9_reference_run_count(self, tmp_path):
+        """n (reference runs, prompt-v2 stats arm) must equal stats.yaml num_seeds when present;
+        a pre-n card stays valid (it just cannot render the stats/rule arms)."""
+        case_dir = _make_case(tmp_path)
+        card_path = case_dir / "card.public.yaml"
+        card = yaml.safe_load(card_path.read_text())
+        stats = yaml.safe_load((tmp_path / "workloads" / "tabular_adult" / "reference"
+                                / "stats.yaml").read_text())
+
+        def c9_with(n):
+            band = dict(card["reference_visible_metric"])
+            band.pop("n", None)
+            if n is not None:
+                band["n"] = n
+            card_path.write_text(yaml.dump({**card, "reference_visible_metric": band}))
+            report = validate_case(case_dir, project_root=tmp_path)
+            return [c for c in report.checks if c.name == "C9_reference_band_matches_reference"][0]
+
+        assert stats["num_seeds"] == 30
+        assert c9_with(30).passed
+        assert c9_with(None).passed
+        bad = c9_with(31)
+        assert not bad.passed and "num_seeds" in bad.detail
 
     def test_public_card_excludes_hidden_metrics(self, tmp_path):
         """Public card carries the visible band but no hidden mean/tolerance."""
