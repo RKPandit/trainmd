@@ -1,32 +1,29 @@
-# B2+ DECLARED knob -> concept map (STAGE4_PLAN 4.0.6). One line per KNOWN KNOB: every config key the
-# workloads' train.py / datautil.py actually READ (tabular_adult and tabular_adult_neutral; keys never
-# collide across the two). Keys the code does not read (model.type, model.activation,
-# training.optimizer, metrics.visible) are not knobs and are not listed; the workload / reference
-# sections are ignored by B2 itself.
+# B2+ knob -> concept map, version 2 — THE ANSWER KEY (STAGE4_PLAN 4.0.6; DECISIONS 2026-09-23).
 #
-# The concept is the plain engineering name for "something is wrong with this knob", written from
-# what the CODE does with the key — e.g. data.opt_c / data.opt_c_level feed the same label-derived
-# column as data.include_aux_feature (datautil._derived_column), so a reader of train.py names it
-# leakage even though the key name says nothing. That is the knowledge B2+ adds over B2 (which only
-# echoes the key's leaf name): a one-time read of the code, like a runbook.
+# B2+ is an UPPER BOUND, not a baseline: "config-diff with PERFECT KNOB SEMANTICS". Every knob
+# below exists only because one of OUR operators injects a fault through it (the set is exactly the
+# union of the faulty operators' admissible-repair `allowed_keys` — test-enforced), so for our own
+# operators this map is an answer-key lookup and B2+'s identification is perfect BY CONSTRUCTION.
+# It is never a baseline an LLM is compared against to claim value; it bounds what config-diffing
+# achieves when the meaning of every injected knob is known in advance.
 #
-# DECLARED, NOT TUNED: written 2026-09-23 BEFORE any B2+ result was computed; its sha256 is recorded
-# in docs/DECISIONS.md. The author knows the scorer's vocabulary (harness author) — disclosed — but
-# no label here was chosen or changed by looking at a B2+ score. Validation on held-out
-# (development-seed) instances is reported as-is (docs/audits/b2plus_validation.md); a failure there
-# is a finding, not a reason to edit this file. Any later edit bumps `version` and gets a DECISIONS row.
-version: 1
+# Any other knob — a legitimate setting (the benign-control knobs) or a future operator's knob — is
+# deliberately NOT here: B2+ then FALLS BACK to B2's leaf name, and the fallback rate on such knobs
+# is what is reported (scripts/b2plus_report.py).
+#
+# Each value is the injecting operator's own canonical class (one of its `accepted_classes` —
+# test-enforced), so the lookup is exactly the answer key. v1 (commit de29b78) mapped all 13 keys the
+# workload code reads to engineering names; replaced by this answer-key-only v2 after review (v1 left
+# no held-out knobs to measure fallback on, and a v2 draft that kept an engineering name —
+# `evaluation_subset` — scored 0/18 on metric_inflation, i.e. was not the answer key). Any edit bumps
+# `version`.
+version: 2
 knobs:
-  model.hidden_dims: model_capacity
-  model.dropout: dropout_regularization
-  model.input_dim: input_shape_mismatch
-  training.epochs: training_length
-  training.batch_size: batch_size
-  training.lr: learning_rate
-  training.weight_decay: weight_decay
-  data.label_noise_fraction: label_noise
-  data.include_aux_feature: data_leakage
-  data.aux_feature_strength: data_leakage
-  data.opt_c: data_leakage
-  data.opt_c_level: data_leakage
-  metrics.eval_subset_fraction: evaluation_subset
+  training.lr: lr_warmup                              # silent.lr_warmup.v1
+  data.label_noise_fraction: label_corruption          # silent.label_corruption.v1
+  data.include_aux_feature: data_leakage              # silent.data_leakage.v1
+  data.aux_feature_strength: data_leakage             # silent.data_leakage.v1
+  data.opt_c: data_leakage                            # silent.data_leakage_neutral.v1
+  data.opt_c_level: data_leakage                      # silent.data_leakage_neutral.v1
+  metrics.eval_subset_fraction: metric_inflation      # silent.metric_inflation.v1
+  model.input_dim: shape_mismatch                      # crash.shape_mismatch.v1

@@ -1,4 +1,4 @@
-.PHONY: docker-b2plus-validate data reference build-case verify-repair run-agent smoke score verify validate validate-all clean test \
+.PHONY: docker-b2plus-report data reference build-case verify-repair run-agent smoke score verify validate validate-all clean test \
 	image image-digest docker-data docker-reference docker-build-case docker-validate-all \
 	docker-gate-known-answer docker-audit-index docker-test docker-sweep docker-shell \
 	docker-build-all-cases docker-case-margins
@@ -216,9 +216,9 @@ docker-margin-report:
 docker-calibrate-data-leakage:
 	$(DOCKER_RUN) python scripts/calibrate_data_leakage.py
 
-# B2+ held-out validation (STAGE4 4.0.6): builds development-seed cases in a temp root, scores B2/B2+.
-docker-b2plus-validate:
-	$(DOCKER_RUN) python scripts/b2plus_validate.py
+# B2+ = UPPER BOUND (config-diff with perfect knob semantics): fallback + control false positives.
+docker-b2plus-report:
+	$(DOCKER_RUN) python scripts/b2plus_report.py
 
 # B2 config-delta baseline on the neutral-key cases (detect+recover, identify 0/6).
 docker-baseline-report:

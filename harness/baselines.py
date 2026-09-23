@@ -22,14 +22,14 @@ value clears a trivial floor on detection, and expose where it does not.
   name (scored against the operator's ``core_tokens`` exactly like an agent, so
   config-legibility is measured); evidence = ``config_key`` refs for ALL reset knobs; repair =
   reset every changed knob to clean (unset if absent-when-clean).
-- **B2+ declared-map config-delta** (STAGE4 4.0.6) — B2 exactly (same deltas, evidence and
-  repair), but identification maps the changed knob through a DECLARED knob→concept table
-  (``harness/b2plus_map.yaml``: one line per knob the workload code reads, written from what the
-  code does with each key, committed before any B2+ result). It adds one more piece of workload
-  knowledge — a one-time read of train.py, like a runbook — so it is the honest, stronger
-  terminology baseline: it names ``data.opt_c`` "data_leakage" where B2 echoes "opt_c". The class
-  is the concept of the FIRST effective delta key (B2's own rule); an unmapped key falls back to
-  B2's leaf name, and the submission records which happened (``b2plus_map_hit``).
+- **B2+ — UPPER BOUND, NOT A BASELINE: "config-diff with perfect knob semantics"** (STAGE4
+  4.0.6) — B2 exactly (same deltas, evidence and repair), but identification maps the changed knob
+  through ``harness/b2plus_map.yaml``: the ANSWER KEY, i.e. exactly the knobs our operators inject
+  (test-enforced). For our own operators its identification is therefore perfect BY CONSTRUCTION;
+  it bounds what config-diffing achieves when every injected knob's meaning is known, and is never
+  a baseline an LLM is compared against to claim value. Any other changed knob (a benign setting,
+  a future operator's knob) FALLS BACK to B2's leaf name; ``b2plus_map_hit`` records which, and the
+  fallback rate is what ``scripts/b2plus_report.py`` reports.
 - **B0 exitcode** — the trivially honest crash detector: detected iff the process exited
   nonzero. Detection-only floor (no identification/evidence/repair); a band/config monitor is
   structurally blind to crashes, B0 is not.
@@ -247,12 +247,12 @@ B2PLUS_MAP_PATH = Path(__file__).resolve().parent / "b2plus_map.yaml"
 
 
 def load_b2plus_map(path: Path = B2PLUS_MAP_PATH) -> dict[str, str]:
-    """The declared knob→concept table (``knobs``) — see harness/b2plus_map.yaml."""
+    """The answer-key knob→concept table (``knobs``) — see harness/b2plus_map.yaml."""
     return dict((yaml.safe_load(Path(path).read_text()) or {}).get("knobs") or {})
 
 
 def b2plus(surface: VisibleSurface, knob_map: dict[str, str] | None = None) -> dict:
-    """B2 with identification mapped through the DECLARED knob→concept table.
+    """UPPER BOUND — config-diff with perfect knob semantics (B2 + the answer-key knob map).
 
     Deltas, evidence and repair are B2's, unchanged; only ``operator_class`` differs: the concept
     of B2's identifying key (the first effective delta), or B2's leaf name if that key is unmapped.
