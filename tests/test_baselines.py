@@ -199,3 +199,86 @@ def test_b2_derived_key_kept_when_sole_delta(tmp_path):
     assert sub["diagnosis"]["detected"] is True
     assert sub["repair_spec"]["patches"] == {"model.input_dim": 105}
     assert sub["diagnosis"]["operator_class"] == "input_dim"
+
+
+# ---- B2+ declared-map config-delta (STAGE4 4.0.6) --------------------------
+import hashlib  # noqa: E402
+import re  # noqa: E402
+
+# Pinned: the map is DECLARED, not tuned — any edit must bump `version` + add a DECISIONS row.
+_B2PLUS_MAP_SHA256 = "e696b139f04a3be1ce3a1cc4b4e24b4a68cbd1d9cb0fd484595f08e6f81d1ba0"
+
+
+def test_b2plus_map_is_pinned():
+    assert hashlib.sha256(B.B2PLUS_MAP_PATH.read_bytes()).hexdigest() == _B2PLUS_MAP_SHA256, (
+        "b2plus_map.yaml changed: bump its `version`, record the change in DECISIONS, update the pin")
+
+
+def _read_knobs(workload: str) -> set[str]:
+    """Every config key a workload's code reads: section.key for cfg/dcfg/config accesses."""
+    root = Path(__file__).resolve().parents[1] / "workloads" / workload
+    src = (root / "train.py").read_text() + (root / "datautil.py").read_text()
+    keys = set()
+    # section-qualified reads: config.get("data", {}).get("x") / config["model"] ... cfg.get("x")
+    for sec, key in re.findall(r'config\.get\("(\w+)", \{\}\)\.get\("(\w+)"', src):
+        keys.add(f"{sec}.{key}")
+    # cfg = config["model"] / config["training"]; resolve by the assignment preceding each use
+    for m in re.finditer(r'(\w*cfg)\s*=\s*config(?:\["(\w+)"\]|\.get\("(\w+)", \{\}\))', src):
+        var, sec = m.group(1), m.group(2) or m.group(3)
+        rest = src[m.end():]
+        nxt = re.search(rf'\b{var}\s*=\s*config', rest)
+        scope = rest[: nxt.start()] if nxt else rest
+        for key in re.findall(rf'\b{var}(?:\.get\("(\w+)"|\["(\w+)"\])', scope):
+            keys.add(f"{sec}.{key[0] or key[1]}")
+    return keys
+
+
+def test_b2plus_map_covers_exactly_the_knobs_the_code_reads():
+    knob_map = B.load_b2plus_map()
+    read = _read_knobs("tabular_adult") | _read_knobs("tabular_adult_neutral")
+    assert read, "knob extraction found nothing — the coverage test would be vacuous"
+    assert read - set(knob_map) == set(), f"knobs read by the code but not mapped: {read - set(knob_map)}"
+    assert set(knob_map) - read == set(), f"mapped keys the code never reads: {set(knob_map) - read}"
+
+
+def test_b2plus_maps_the_changed_knob_to_its_concept(tmp_path):
+    cd = _visible_case(tmp_path, [0.857],
+                       resolved={"workload": {"name": "tabular_adult"}, "training": {"lr": 0.5}})
+    s2, s2p = B.b2(B.VisibleSurface(cd, REPO)), B.b2plus(B.VisibleSurface(cd, REPO))
+    assert s2["diagnosis"]["operator_class"] == "lr"
+    assert s2p["diagnosis"]["operator_class"] == "learning_rate" and s2p["b2plus_map_hit"] is True
+    # everything except the class is B2's, unchanged
+    assert s2p["evidence_refs"] == s2["evidence_refs"] and s2p["repair_spec"] == s2["repair_spec"]
+
+
+def test_b2plus_names_a_neutral_key_by_what_the_code_does():
+    surface = type("S", (), {})()
+    sub = {"diagnosis": {"detected": True, "operator_class": "opt_c"},
+           "evidence_refs": [B._config_key("data.opt_c")], "repair_spec": None}
+    orig = B.b2
+    try:
+        B.b2 = lambda s: {k: (dict(v) if isinstance(v, dict) else list(v) if isinstance(v, list) else v)
+                          for k, v in sub.items()}
+        assert B.b2plus(surface)["diagnosis"]["operator_class"] == "data_leakage"
+    finally:
+        B.b2 = orig
+
+
+def test_b2plus_unmapped_key_falls_back_to_b2_leaf():
+    surface = type("S", (), {})()
+    orig = B.b2
+    try:
+        B.b2 = lambda s: {"diagnosis": {"detected": True, "operator_class": "mystery"},
+                          "evidence_refs": [B._config_key("model.mystery")], "repair_spec": None}
+        sub = B.b2plus(surface)
+        assert sub["diagnosis"]["operator_class"] == "mystery" and sub["b2plus_map_hit"] is False
+    finally:
+        B.b2 = orig
+
+
+def test_b2plus_clean_not_flagged(tmp_path):
+    clean = yaml.safe_load((Path(__file__).resolve().parents[1] /
+                            "workloads/tabular_adult/config.yaml").read_text())
+    cd = _visible_case(tmp_path, [0.857], resolved=clean)
+    sub = B.b2plus(B.VisibleSurface(cd, REPO))
+    assert sub["diagnosis"]["detected"] is False and "b2plus_map_hit" not in sub

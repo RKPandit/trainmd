@@ -163,6 +163,12 @@ jobs:
         run: make docker-margin-report
       - name: Baselines on the neutral-key cases (B2 detect+recover, identify 0/6)
         run: make docker-baseline-report
+      - name: B2+ declared-map validation on HELD-OUT development-seed cases (STAGE4 4.0.6)
+        run: make docker-b2plus-validate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: b2plus_validation
+          path: docs/audits/b2plus_validation.md
       - name: H8 + cross-provider sweep plan (canonical cases → committable artifact)
         run: |
           # Generated against the just-built CANONICAL cases (registry present, so

@@ -90,7 +90,9 @@ expansion as before. Roughly 8–10 weeks to a submission-ready study. Target: N
   "Values more than 2 SD from this mean, above OR below, are anomalous." Arm identity includes the
   prompt version, so v1 and v2 arms are never pooled.
 - **B2+ baseline:** B2 with a DECLARED key→concept mapping (one line per known knob),
-  validated on held-out instances — a stronger, honest terminology baseline.
+  validated on held-out instances — a stronger, honest terminology baseline. **Built 2026-09-23**
+  (`harness/b2plus_map.yaml` committed first; validation job in CI `build-and-certify` →
+  `docs/audits/b2plus_validation.md`; DECISIONS).
 - **Benign-configuration controls:** healthy runs with a legitimate non-default knob (e.g. a
   different but valid batch size). Tests whether anchored agents and config-diff baselines
   false-positive on legitimate change — the single best probe of "diagnosis vs flagging."

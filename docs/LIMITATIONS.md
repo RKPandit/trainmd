@@ -429,7 +429,12 @@ So the LLM's identification advantage over B2 on those two operators is a **term
 (it can produce the word "leakage"). That is **not by itself evidence of understanding** — mapping a
 derived-column pattern or a too-good validation metric to the word "leakage" is available to pattern
 recognition and general heuristics (cf. H8's competing explanations). A fair terminology comparison
-needs B2 given a declared key→concept mapping (STAGE4 4.0.6, "B2+").
+needs B2 given a declared key→concept mapping (STAGE4 4.0.6, "B2+"). *Built 2026-09-23:* `b2plus` in
+`harness/baselines.py`, map `harness/b2plus_map.yaml` (one line per knob the workload code reads,
+written from what the code does with each key, committed before any B2+ result; sha256-pinned).
+Held-out validation (development-seed cases, built on native amd64 in CI `build-and-certify`) is
+reported as-is in `docs/audits/b2plus_validation.md`. B2+ carries one more piece of workload
+knowledge than B2 (a one-time read of train.py) and is disclosed as such.
 
 **L26 — The second provider (GPT-5.6 Luna) has NO dated snapshot to pin; the alias IS the
 snapshot.** Anthropic model ids are dated (e.g. `claude-haiku-4-5-20251001`), so a trial's model

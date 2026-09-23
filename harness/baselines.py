@@ -22,6 +22,14 @@ value clears a trivial floor on detection, and expose where it does not.
   name (scored against the operator's ``core_tokens`` exactly like an agent, so
   config-legibility is measured); evidence = ``config_key`` refs for ALL reset knobs; repair =
   reset every changed knob to clean (unset if absent-when-clean).
+- **B2+ declared-map config-delta** (STAGE4 4.0.6) — B2 exactly (same deltas, evidence and
+  repair), but identification maps the changed knob through a DECLARED knob→concept table
+  (``harness/b2plus_map.yaml``: one line per knob the workload code reads, written from what the
+  code does with each key, committed before any B2+ result). It adds one more piece of workload
+  knowledge — a one-time read of train.py, like a runbook — so it is the honest, stronger
+  terminology baseline: it names ``data.opt_c`` "data_leakage" where B2 echoes "opt_c". The class
+  is the concept of the FIRST effective delta key (B2's own rule); an unmapped key falls back to
+  B2's leaf name, and the submission records which happened (``b2plus_map_hit``).
 - **B0 exitcode** — the trivially honest crash detector: detected iff the process exited
   nonzero. Detection-only floor (no identification/evidence/repair); a band/config monitor is
   structurally blind to crashes, B0 is not.
@@ -235,6 +243,31 @@ def b2(surface: VisibleSurface) -> dict:
                 repair={"repair_type": "config_patch", "patches": patches})
 
 
+B2PLUS_MAP_PATH = Path(__file__).resolve().parent / "b2plus_map.yaml"
+
+
+def load_b2plus_map(path: Path = B2PLUS_MAP_PATH) -> dict[str, str]:
+    """The declared knob→concept table (``knobs``) — see harness/b2plus_map.yaml."""
+    return dict((yaml.safe_load(Path(path).read_text()) or {}).get("knobs") or {})
+
+
+def b2plus(surface: VisibleSurface, knob_map: dict[str, str] | None = None) -> dict:
+    """B2 with identification mapped through the DECLARED knob→concept table.
+
+    Deltas, evidence and repair are B2's, unchanged; only ``operator_class`` differs: the concept
+    of B2's identifying key (the first effective delta), or B2's leaf name if that key is unmapped.
+    """
+    sub = b2(surface)
+    if not sub["diagnosis"]["detected"]:
+        return sub
+    knob_map = load_b2plus_map() if knob_map is None else knob_map
+    key = sub["evidence_refs"][0]["detail"]["key_path"]  # B2's identifying key (first effective delta)
+    concept = knob_map.get(key)
+    sub["diagnosis"]["operator_class"] = concept or sub["diagnosis"]["operator_class"]
+    sub["b2plus_map_hit"] = concept is not None
+    return sub
+
+
 def b0(surface: VisibleSurface) -> dict:
     """B0 exitcode detector — the trivially honest crash detector. detected iff the
     process exited nonzero. Detection-only floor: no identification/evidence/repair."""
@@ -303,7 +336,7 @@ def operating_point_for_rate(roc: list[dict], target_tpr: float) -> dict | None:
 # Scoring — the SAME scorer as an agent (baseline reads visible; scorer reads hidden)
 # --------------------------------------------------------------------------- #
 
-_BASELINES = {"b0": b0, "b1": b1, "b2": b2, "b3": b3}
+_BASELINES = {"b0": b0, "b1": b1, "b2": b2, "b2plus": b2plus, "b3": b3}
 
 
 def score_baseline(case_dir, name, band=None, project_root=None) -> tuple[dict, dict]:
@@ -323,7 +356,7 @@ def score_baseline(case_dir, name, band=None, project_root=None) -> tuple[dict, 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Non-LLM baselines (STAGE3_PLAN Part 1)")
-    ap.add_argument("--baseline", choices=["b0", "b1", "b2", "b3", "b4"], required=True)
+    ap.add_argument("--baseline", choices=["b0", "b1", "b2", "b2plus", "b3", "b4"], required=True)
     ap.add_argument("--cases", default="cases/case_*", help="glob for case dirs")
     ap.add_argument("--project-root", type=Path, default=None)
     args = ap.parse_args()
