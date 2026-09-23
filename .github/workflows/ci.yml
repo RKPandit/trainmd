@@ -38,6 +38,11 @@ on:
         type: choice
         default: subset      # one case per (operator,strength) + coverage assert (~15 cases)
         options: [subset, full]   # 'full' = all 128 cases (slow; nightly runs this too)
+      task:
+        description: "What the manual dispatch runs"
+        type: choice
+        default: certify
+        options: [certify, benign-qualify]   # benign-qualify: STAGE4 4.0.6 design-time qualification
 
 concurrency:
   # push/PR runs SHARE a per-ref group (rapid pushes cancel the stale one).
@@ -121,7 +126,7 @@ jobs:
   # 2026-09-19). 240-min budget = the honest wall for the serial build + FULL
   # gate (~2h), NOT a per-PR timeout.
   build-and-certify:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.task != 'benign-qualify') || github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     # 350 min (GitHub's per-job ceiling is 360). Deliberate MANUAL/nightly artifact
     # build, not a push/PR gate. On workflow_dispatch the FULL gate runs on a
@@ -242,6 +247,27 @@ jobs:
           if [ -n "$CHANGED" ]; then echo "::error::a job modified committed reference file(s):"; echo "$CHANGED"; exit 1; fi
 
   # ---- Reproducibility gate: TWO INDEPENDENT RUNNERS (amendment 3) — NIGHTLY
+  # ---- Benign-configuration change QUALIFICATION — MANUAL (task=benign-qualify) ----
+  # STAGE4 4.0.6: design-time test that each candidate benign change leaves hidden accuracy
+  # unchanged on development seeds 0-29 (paired clean vs changed; declared test in
+  # scripts/qualify_benign.py + DECISIONS). Native amd64 only (training is platform-sensitive).
+  benign-qualify:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'benign-qualify' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - run: make docker-data
+      - name: Qualify candidate benign changes (7 x 30 runs)
+        run: make docker-qualify-benign
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benign_qualification
+          path: |
+            docs/audits/benign_qualification.md
+            docs/audits/benign_qualification.json
+
   reference-repro:
     if: ${{ github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
