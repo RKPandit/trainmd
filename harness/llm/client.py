@@ -28,11 +28,18 @@ class ToolCallRequest:
 
 @dataclass(frozen=True)
 class Usage:
-    """Token counts for one LLM call."""
+    """Token counts for one LLM call.
+
+    ``input_tokens`` is ALWAYS the TOTAL prompt size (uncached + cache-written + cache-read),
+    on every provider — the meaning it had in Sweeps 1–3 before any caching, so token counts
+    stay comparable across sweeps. ``cached_tokens`` (cache READS) and ``cache_write_tokens``
+    are subsets of it. (Anthropic's raw ``usage.input_tokens`` is only the uncached remainder
+    once caching is on; the client normalizes it.)"""
 
     input_tokens: int
     output_tokens: int
-    cached_tokens: int = 0
+    cached_tokens: int = 0       # cache reads (hits)
+    cache_write_tokens: int = 0  # cache writes (billed at the write rate)
 
 
 @dataclass(frozen=True)

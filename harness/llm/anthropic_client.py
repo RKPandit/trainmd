@@ -26,14 +26,39 @@ class AnthropicClient:
         model: Exact API model ID string (e.g. ``"claude-haiku-4-5-20251001"``).
             No default — caller must provide a verified ID.
         temperature: Sampling temperature (0.0–1.0).
+        prompt_caching: Enable Anthropic prompt caching (TRANSPORT-ONLY). Adds a single
+            top-level ``cache_control={"type": "ephemeral"}`` (5-minute TTL): the API places the
+            breakpoint on the last cacheable block and moves it forward as a multi-turn
+            conversation grows, so each call reads the prior prefix and writes only the new
+            turn. It changes NO message content — prompt text is byte-identical with caching
+            on or off. Worth it only for multi-turn agents (ReAct); a single-call agent would
+            pay the 1.25x write with nothing to read. Haiku 4.5 caches only prefixes of
+            >= 4,096 tokens (shorter ones silently don't cache). Default off.
     """
 
-    def __init__(self, model: str, temperature: float = 1.0) -> None:
+    # 5-minute TTL: ReAct calls within a trial start seconds apart (H8: max call latency
+    # 65 s), so the default ephemeral entry stays warm; the 1-hour TTL would double the
+    # write price for nothing. Verified 2026-09-23 (platform.claude.com prompt-caching).
+    _CACHE_CONTROL = {"type": "ephemeral"}
+
+    def __init__(self, model: str, temperature: float = 1.0, *,
+                 prompt_caching: bool = False) -> None:
         import anthropic
 
         self._client = anthropic.Anthropic()  # ANTHROPIC_API_KEY from env
         self._model = model
         self._temperature = temperature
+        self.prompt_caching = prompt_caching
+
+    def request_kwargs(self, messages: list[dict], tools_schema: list[dict],
+                       max_tokens: int) -> dict:
+        """The exact ``messages.create`` kwargs. Caching adds ONLY the top-level
+        ``cache_control`` key; ``messages``/``tools`` are passed through untouched."""
+        kwargs = dict(model=self._model, max_tokens=max_tokens, messages=messages,
+                      tools=tools_schema, temperature=self._temperature)
+        if self.prompt_caching:
+            kwargs["cache_control"] = dict(self._CACHE_CONTROL)
+        return kwargs
 
     def complete(
         self,
@@ -57,12 +82,7 @@ class AnthropicClient:
         for attempt in range(_MAX_RETRIES + 1):
             try:
                 response = self._client.messages.create(
-                    model=self._model,
-                    max_tokens=max_tokens,
-                    messages=messages,
-                    tools=tools_schema,
-                    temperature=self._temperature,
-                )
+                    **self.request_kwargs(messages, tools_schema, max_tokens))
                 return self._parse_response(response)
 
             except transient as e:
@@ -105,16 +125,21 @@ class AnthropicClient:
                     )
                 )
 
+        u = response.usage
+        read = getattr(u, "cache_read_input_tokens", 0) or 0
+        write = getattr(u, "cache_creation_input_tokens", 0) or 0
         return LLMResponse(
             text="\n".join(text_parts) if text_parts else None,
             tool_calls=tool_calls,
             stop_reason=response.stop_reason,
             usage=Usage(
-                input_tokens=response.usage.input_tokens,
-                output_tokens=response.usage.output_tokens,
-                cached_tokens=(
-                    getattr(response.usage, "cache_read_input_tokens", 0) or 0
-                ),
+                # With caching on, Anthropic's usage.input_tokens is only the uncached
+                # remainder AFTER the last breakpoint; the total prompt is
+                # input + cache_creation + cache_read. Normalize to the TOTAL (see Usage).
+                input_tokens=u.input_tokens + write + read,
+                output_tokens=u.output_tokens,
+                cached_tokens=read,
+                cache_write_tokens=write,
             ),
             raw={"model": response.model, "id": response.id},
         )

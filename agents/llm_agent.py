@@ -498,6 +498,9 @@ class LLMAgent:
                 self._record["usage"]["input_tokens"] += response.usage.input_tokens
                 self._record["usage"]["output_tokens"] += response.usage.output_tokens
                 self._record["usage"]["cached_tokens"] += response.usage.cached_tokens
+                self._record["usage"]["cache_write_tokens"] = (
+                    self._record["usage"].get("cache_write_tokens", 0)
+                    + response.usage.cache_write_tokens)
 
             # Append to llm_transcript
             if self._record is not None:
@@ -514,6 +517,8 @@ class LLMAgent:
                     "usage": {
                         "input_tokens": response.usage.input_tokens,
                         "output_tokens": response.usage.output_tokens,
+                        "cached_tokens": response.usage.cached_tokens,
+                        "cache_write_tokens": response.usage.cache_write_tokens,
                     },
                 })
                 # Truncation is a per-model behavior worth reporting: count it

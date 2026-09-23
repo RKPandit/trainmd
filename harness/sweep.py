@@ -478,7 +478,8 @@ def _provider_smoke(providers) -> list[str]:
         try:
             if prov == "anthropic":
                 inspect.signature(client._client.messages.create).bind_partial(
-                    model=model, max_tokens=16, messages=[], tools=[], temperature=1.0)
+                    model=model, max_tokens=16, messages=[], tools=[], temperature=1.0,
+                    cache_control={"type": "ephemeral"})   # ReAct cells send it
             else:  # openai
                 inspect.signature(client._client.responses.create).bind_partial(
                     model=model, input=[], tools=[],
@@ -488,15 +489,17 @@ def _provider_smoke(providers) -> list[str]:
     return fails
 
 
-def _make_client(provider: str, model: str):
+def _make_client(provider: str, model: str, *, prompt_caching: bool = False):
     """Construct the LLM client for a provider. The SINGLE dispatch point — the
     factory and the precondition smoke both go through it, so a provider can never
     be silently routed to the wrong client (the bug that produced an all-Haiku
     'cross-provider' run). Study params are pinned here: Anthropic temperature=1.0;
-    OpenAI reasoning_effort=medium (Haiku has no effort knob), no temperature."""
+    OpenAI reasoning_effort=medium (Haiku has no effort knob), no temperature.
+    ``prompt_caching`` (Anthropic only; transport-only, no effect on prompt text) is set by the
+    agent factory for multi-turn agents. OpenAI caches automatically (no switch)."""
     if provider == "anthropic":
         from harness.llm.anthropic_client import AnthropicClient
-        return AnthropicClient(model=model, temperature=1.0)
+        return AnthropicClient(model=model, temperature=1.0, prompt_caching=prompt_caching)
     if provider == "openai":
         from harness.llm.openai_client import OpenAIClient
         return OpenAIClient(model=model, reasoning_effort="medium")
@@ -511,7 +514,9 @@ def _default_agent_factory(cell, model):
     # model, so the OpenAI arm never ran and its cells were mislabeled Haiku).
     provider = cell.get("provider", "anthropic")
     model = cell.get("model") or model
-    client = _make_client(provider, model)
+    # Prompt caching only for the multi-turn ReAct agent (H8: 84% of Haiku ReAct input was
+    # resent history); a single-call static agent would pay the 1.25x write with no reads.
+    client = _make_client(provider, model, prompt_caching=(cell["agent"] != "static"))
     if cell["agent"] == "static":
         return StaticContextAgent(client, model_id=model, anchor=cell["anchor"])
     return LLMAgent(client, model_id=model, anchor=cell["anchor"])

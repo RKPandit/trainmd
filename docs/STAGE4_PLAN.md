@@ -96,6 +96,14 @@ Then and only then, paid runs.
 As v1: all six operators, both providers, now with the bare-stats arm, B2+, and benign
 controls. Pre-register H9 (model dependence generalizes beyond leakage) and H10 (band benefit
 tracks symptom type per model). Gate 1 decides whether Part 2 runs at full scope.
+**Declared in the Part 1 pre-registration — prompt caching (cost optimization, no expected effect
+on outputs):** Anthropic ReAct cells run with prompt caching (one top-level `cache_control`, 5-minute
+TTL); static cells and OpenAI cells are unchanged (OpenAI caches automatically). It is transport-only:
+the prompt text is byte-identical with caching on or off (`tests/test_prompt_caching.py`), so no
+effect on model outputs is expected or tested for. Per-trial cost is reported BOTH as billed and as
+the uncached-equivalent, so Part 1 compares with Sweeps 1–3. Measured on H8: Haiku ReAct resent
+84% of its input as history; caching would have cut that cell from $18.85 to ≈ $8.70 (DECISIONS
+2026-09-23).
 **Blocking prerequisite:** the release archive strategy must be decided before Part 1 runs — the
 in-repo releases already total ~68 MiB against the ~100 MB in-repo rule, so Part 1's release will not
 fit in the repository (DECISIONS 2026-09-23).

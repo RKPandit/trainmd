@@ -23,7 +23,7 @@ from typing import Any
 
 import yaml
 
-from harness.pricing import estimate_cost
+from harness.pricing import estimate_cost, uncached_equivalent_cost
 
 SCHEMA_VERSION = "1.1"
 
@@ -169,10 +169,12 @@ def build_empty_record(
             "llm_calls": 0,
             "input_tokens": 0,
             "output_tokens": 0,
-            "cached_tokens": 0,
+            "cached_tokens": 0,        # cache reads (subset of input_tokens)
+            "cache_write_tokens": 0,   # cache writes (subset of input_tokens)
             "total_tokens": 0,
             "max_tokens_truncations": 0,
-            "estimated_cost_usd": None,
+            "estimated_cost_usd": None,              # BILLED estimate (reads + writes priced)
+            "uncached_equivalent_cost_usd": None,    # same tokens with no caching (Sweeps 1-3 basis)
         },
 
         "submission": None,
@@ -213,14 +215,19 @@ def finalize_record(
     input_tokens = record["usage"]["input_tokens"]
     output_tokens = record["usage"]["output_tokens"]
     cached_tokens = record["usage"]["cached_tokens"]
+    cache_write_tokens = record["usage"].setdefault("cache_write_tokens", 0)
     record["usage"]["total_tokens"] = input_tokens + output_tokens
 
-    cost_est = estimate_cost(model_id, input_tokens, output_tokens, cached_tokens)
+    cost_est = estimate_cost(model_id, input_tokens, output_tokens, cached_tokens,
+                             cache_write_tokens)
+    uncached = uncached_equivalent_cost(model_id, input_tokens, output_tokens)
     if cost_est is not None:
         record["usage"]["estimated_cost_usd"] = cost_est.cost_usd
         record["usage"]["cost_is_estimate"] = cost_est.is_estimate
     else:
         record["usage"]["estimated_cost_usd"] = None
+    record["usage"]["uncached_equivalent_cost_usd"] = (
+        uncached.cost_usd if uncached is not None else None)
 
     if scores is not None:
         record["scores"] = scores
@@ -298,7 +305,10 @@ def _index_line(record: dict) -> dict:
         "evidence_f1": evidence.get("f1"),
         "recovery_verdict": recovery_verdict,
         "total_tokens": usage.get("total_tokens", 0),
+        "cached_tokens": usage.get("cached_tokens", 0),
+        "cache_write_tokens": usage.get("cache_write_tokens", 0),
         "estimated_cost_usd": cost_est,
+        "uncached_equivalent_cost_usd": usage.get("uncached_equivalent_cost_usd"),
         "cost_is_estimate": usage.get("cost_is_estimate", True),
         "harness_git_commit": record.get("environment", {}).get("harness_git_commit"),
         "status": record.get("status", "unknown"),

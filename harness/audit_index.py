@@ -106,7 +106,7 @@ def _r8(rec):  # estimated cost inconsistent with tokens x price (when priced)
         est = estimate_cost(
             (rec.get("model") or {}).get("model_id"),
             usage.get("input_tokens", 0), usage.get("output_tokens", 0),
-            usage.get("cached_tokens", 0),
+            usage.get("cached_tokens", 0), usage.get("cache_write_tokens", 0),
         )
     except Exception:
         return False

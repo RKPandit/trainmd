@@ -290,6 +290,7 @@ class StaticContextAgent:
         u["input_tokens"] += response.usage.input_tokens
         u["output_tokens"] += response.usage.output_tokens
         u["cached_tokens"] += response.usage.cached_tokens
+        u["cache_write_tokens"] = u.get("cache_write_tokens", 0) + response.usage.cache_write_tokens
         entry = {
             "turn": turn,
             "response_text": response.text,
@@ -303,6 +304,8 @@ class StaticContextAgent:
             "usage": {
                 "input_tokens": response.usage.input_tokens,
                 "output_tokens": response.usage.output_tokens,
+                "cached_tokens": response.usage.cached_tokens,
+                "cache_write_tokens": response.usage.cache_write_tokens,
             },
         }
         self._record["llm_transcript"].append(entry)
