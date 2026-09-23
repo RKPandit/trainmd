@@ -1,4 +1,5 @@
 {
+ "agent_name": "llm_claude-haiku-4-5-20251001",
  "case_id": "case_0018",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,232 @@
   "anchor": "off",
   "repeat_index": 1
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "1b8871d3f9da4c705bb1e2c6c4ac7fdcff9c4a096fadc02db9aa0a2725d7cc55",
+  "case_build_id": "e7e425cf563eddf43a6d16daaf90140a15755febe29927e55ba5fdd31bef53de",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T22:36:28.295010+00:00",
+  "wall_clock_sec": 23.872721458
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll investigate this training run systematically. Let me start by exploring the workspace and configuration.",
+   "tool_calls": [
+    {
+     "id": "toolu_01MepZ8qqZg6C7VTWrV6WCvo",
+     "name": "list_files",
+     "arguments": {}
+    },
+    {
+     "id": "toolu_01TjWNwpwyEAsdqBXBeQkSFP",
+     "name": "read_config",
+     "arguments": {}
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.1393,
+   "usage": {
+    "input_tokens": 2255,
+    "output_tokens": 75
+   }
+  },
+  {
+   "turn": 1,
+   "response_text": "Good! I can see the configuration. Let me now check the metrics to look for anomalies in training curves.",
+   "tool_calls": [
+    {
+     "id": "toolu_015U9GPdsUTAHqkme6Qy8gme",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "train_loss"
+     }
+    },
+    {
+     "id": "toolu_01Rfx5ZVVm83sD8VcoK2ipn5",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "metric_visible_val_acc"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.2834,
+   "usage": {
+    "input_tokens": 2696,
+    "output_tokens": 122
+   }
+  },
+  {
+   "turn": 2,
+   "response_text": "Interesting. The training loss is steadily decreasing from 0.666 to 0.653, which looks reasonable. However, the validation accuracy is very noisy and doesn't show a clear trend of improvement\u2014it fluctuates between ~0.828 and ~0.847. This is concerning, but let me check the training logs and code to understand better.",
+   "tool_calls": [
+    {
+     "id": "toolu_01MRXBfuRXnqJr8XPReRJgP7",
+     "name": "read_log",
+     "arguments": {
+      "artifact_id": "logs/stdout.log"
+     }
+    },
+    {
+     "id": "toolu_012ceq2V7qnDfVb4JqNMvb3U",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 2.0464,
+   "usage": {
+    "input_tokens": 3523,
+    "output_tokens": 177
+   }
+  },
+  {
+   "turn": 3,
+   "response_text": "Let me continue reading the training code to understand the training loop and any potential issues:",
+   "tool_calls": [
+    {
+     "id": "toolu_01DNwv1951AEzumGhCmui9bx",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 100,
+      "end_line": 250
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.5349,
+   "usage": {
+    "input_tokens": 6181,
+    "output_tokens": 111
+   }
+  },
+  {
+   "turn": 4,
+   "response_text": "Let me continue reading the training loop:",
+   "tool_calls": [
+    {
+     "id": "toolu_01HVh3NwZevrxkbTwXAYpFrD",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 200,
+      "end_line": 350
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.5286,
+   "usage": {
+    "input_tokens": 7576,
+    "output_tokens": 102
+   }
+  },
+  {
+   "turn": 5,
+   "response_text": "Let me read the rest of the training loop:",
+   "tool_calls": [
+    {
+     "id": "toolu_01W6hmUerG4rPmiSrtq3GEXT",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 300,
+      "end_line": 423
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 2.101,
+   "usage": {
+    "input_tokens": 8997,
+    "output_tokens": 104
+   }
+  },
+  {
+   "turn": 6,
+   "response_text": "Now let me analyze the observations:\n\n**Metrics Analysis:**\n- Training loss: Steadily decreases from 0.666 to 0.653 (good trend)\n- Validation accuracy: Highly noisy, fluctuates between 0.828 and 0.847, no clear improvement trend\n\n**Config Analysis:**\n- Label noise fraction: 0.33 (33% of labels are flipped!)\n- Learning rate: 0.01\n- Batch size: 256\n- Optimizer: Adam with weight decay 0.0001\n\n**Key Concern:** The data has 33% label noise applied. This is configured in `config[\"data\"][\"label_noise_fraction\"] = 0.33`. With 33% of training labels flipped, it's very difficult for the model to achieve good validation accuracy. The model is effectively learning from corrupted labels.\n\nLet me check if there are any issues with how the label noise is being applied or if this is intentional:",
+   "tool_calls": [
+    {
+     "id": "toolu_01B8PVRhGbGNKoafi4q5r79h",
+     "name": "read_code",
+     "arguments": {
+      "path": "datautil.py"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 3.6676,
+   "usage": {
+    "input_tokens": 10423,
+    "output_tokens": 276
+   }
+  },
+  {
+   "turn": 7,
+   "response_text": "Now let me think about this carefully. The 33% label noise appears to be **intentionally configured** in the config, not a bug. The training loop correctly applies the noise using a deterministic selection method from `datautil.nested_prefix_indices()`.\n\nHowever, let me examine the configuration more closely. The issue is that **validation accuracy is very noisy and doesn't improve much despite training loss decreasing**. With 33% label noise, the model is learning from corrupted training labels, which causes:\n\n1. Training loss to decrease (because it's fitting the noisy labels)\n2. Validation accuracy to plateau and become noisy (because clean validation labels don't align well with corrupted training patterns)\n\nThis is expected behavior when there's significant label noise. But let me check if the label noise fraction itself is a bug. Looking at the reference seeds configuration, it seems this is a deliberately introduced difficulty for the workload.\n\nLet me verify that the model is actually training and there are no obvious issues with the training loop. The exit code was 0 (success), and the logs show normal progress. The training completed without errors.\n\n**Analysis Summary:**\n1. Training loss decreases steadily \u2192 model is learning\n2. Validation accuracy fluctuates but stays around 0.84 \u2192 expected behavior with 33% label noise\n3. No errors in logs\n4. Exit code: 0 (success)\n5. Configuration shows label_noise_fraction: 0.33 is **intentionally set**\n\nThe critical question: **Is the 33% label noise fraction a bug or intentional?**\n\nLooking at the configuration structure and the comment in the code about how the noise is applied deterministically and independently of training seed, this appears to be an intentional test harness feature for evaluating robustness. However, this is an unusually high noise rate and could be considered a problem.\n\nLet me examine if there's any documentation or patterns that would suggest whether this is correct:\n\nThe config shows:\n```yaml\ndata:\n  label_noise_fraction: 0.33\n```\n\nThis is a very high label noise fraction. Typical robustness tests use 0.05-0.1. A 33% noise rate means roughly 1 in 3 labels is flipped, which creates a fundamentally harder learning problem. \n\nGiven that:\n1. The training appears to execute correctly\n2. There are no runtime errors\n3. The metrics show expected behavior for a model training on noisy labels\n4. The code implements label noise correctly\n\nHowever, **33% is an unusually aggressive corruption rate** that could indicate a misconfiguration. Let me check if there's a more typical value. Looking at patterns in ML robustness research, 0.1 (10%) is much more common than 0.33 (33%).\n\nThis could be a silent fault where someone set label noise to 0.33 accidentally (perhaps meaning 0.03 or typo), causing the model to train on severely corrupted labels.\n\nLet me submit my findings:",
+   "tool_calls": [
+    {
+     "id": "toolu_01AoKYu1bPt2xVcrtwYxuwds",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "excessive_label_noise"
+      },
+      "evidence_refs": [
+       {
+        "kind": "config_key",
+        "artifact_id": "config.resolved.yaml",
+        "detail": {
+         "key_path": "data.label_noise_fraction"
+        }
+       },
+       {
+        "kind": "metric_window",
+        "artifact_id": "metrics.jsonl",
+        "detail": {
+         "series": "metric_visible_val_acc",
+         "start_epoch": 0,
+         "end_epoch": 19
+        }
+       }
+      ],
+      "rationale": "\nThe configuration sets label_noise_fraction to 0.33 (33%), an unusually aggressive corruption rate that degrades training from corrupted labels. This causes persistent validation accuracy noise (0.828-0.847) despite decreasing training loss. Standard robustness tests use 0.05-0.1; 33% indicates likely misconfiguration.\n",
+      "repair_spec": {
+       "repair_type": "config_patch",
+       "patches": {
+        "data.label_noise_fraction": 0.1
+       }
+      }
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 10.5071,
+   "usage": {
+    "input_tokens": 11334,
+    "output_tokens": 1071
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +243,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0018\nWorkload: tabular_adult\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
+  "prompt_hash": "06db21f9057de6bc1b078af10dd6274a8d8bf14298e4cc0024f65cc13750bb44",
+  "prompt_version": "react-1-off"
+ },
+ "run_id": "20260914T223628Z_7a16ea",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -86,7 +320,40 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "excessive_label_noise"
+  },
+  "evidence_refs": [
+   {
+    "kind": "config_key",
+    "artifact_id": "config.resolved.yaml",
+    "detail": {
+     "key_path": "data.label_noise_fraction"
+    }
+   },
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0,
+     "end_epoch": 19
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "data.label_noise_fraction": 0.1
+   }
+  },
+  "confidence": null,
+  "rationale": "\nThe configuration sets label_noise_fraction to 0.33 (33%), an unusually aggressive corruption rate that degrades training from corrupted labels. This causes persistent validation accuracy noise (0.828-0.847) despite decreasing training loss. Standard robustness tests use 0.05-0.1; 33% indicates likely misconfiguration.\n"
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -981,273 +1248,6 @@
    "phase": null
   }
  ],
- "agent_name": "llm_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll investigate this training run systematically. Let me start by exploring the workspace and configuration.",
-   "tool_calls": [
-    {
-     "id": "toolu_01MepZ8qqZg6C7VTWrV6WCvo",
-     "name": "list_files",
-     "arguments": {}
-    },
-    {
-     "id": "toolu_01TjWNwpwyEAsdqBXBeQkSFP",
-     "name": "read_config",
-     "arguments": {}
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.1393,
-   "usage": {
-    "input_tokens": 2255,
-    "output_tokens": 75
-   }
-  },
-  {
-   "turn": 1,
-   "response_text": "Good! I can see the configuration. Let me now check the metrics to look for anomalies in training curves.",
-   "tool_calls": [
-    {
-     "id": "toolu_015U9GPdsUTAHqkme6Qy8gme",
-     "name": "query_metrics",
-     "arguments": {
-      "series": "train_loss"
-     }
-    },
-    {
-     "id": "toolu_01Rfx5ZVVm83sD8VcoK2ipn5",
-     "name": "query_metrics",
-     "arguments": {
-      "series": "metric_visible_val_acc"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.2834,
-   "usage": {
-    "input_tokens": 2696,
-    "output_tokens": 122
-   }
-  },
-  {
-   "turn": 2,
-   "response_text": "Interesting. The training loss is steadily decreasing from 0.666 to 0.653, which looks reasonable. However, the validation accuracy is very noisy and doesn't show a clear trend of improvement\u2014it fluctuates between ~0.828 and ~0.847. This is concerning, but let me check the training logs and code to understand better.",
-   "tool_calls": [
-    {
-     "id": "toolu_01MRXBfuRXnqJr8XPReRJgP7",
-     "name": "read_log",
-     "arguments": {
-      "artifact_id": "logs/stdout.log"
-     }
-    },
-    {
-     "id": "toolu_012ceq2V7qnDfVb4JqNMvb3U",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 2.0464,
-   "usage": {
-    "input_tokens": 3523,
-    "output_tokens": 177
-   }
-  },
-  {
-   "turn": 3,
-   "response_text": "Let me continue reading the training code to understand the training loop and any potential issues:",
-   "tool_calls": [
-    {
-     "id": "toolu_01DNwv1951AEzumGhCmui9bx",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py",
-      "start_line": 100,
-      "end_line": 250
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.5349,
-   "usage": {
-    "input_tokens": 6181,
-    "output_tokens": 111
-   }
-  },
-  {
-   "turn": 4,
-   "response_text": "Let me continue reading the training loop:",
-   "tool_calls": [
-    {
-     "id": "toolu_01HVh3NwZevrxkbTwXAYpFrD",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py",
-      "start_line": 200,
-      "end_line": 350
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.5286,
-   "usage": {
-    "input_tokens": 7576,
-    "output_tokens": 102
-   }
-  },
-  {
-   "turn": 5,
-   "response_text": "Let me read the rest of the training loop:",
-   "tool_calls": [
-    {
-     "id": "toolu_01W6hmUerG4rPmiSrtq3GEXT",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py",
-      "start_line": 300,
-      "end_line": 423
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 2.101,
-   "usage": {
-    "input_tokens": 8997,
-    "output_tokens": 104
-   }
-  },
-  {
-   "turn": 6,
-   "response_text": "Now let me analyze the observations:\n\n**Metrics Analysis:**\n- Training loss: Steadily decreases from 0.666 to 0.653 (good trend)\n- Validation accuracy: Highly noisy, fluctuates between 0.828 and 0.847, no clear improvement trend\n\n**Config Analysis:**\n- Label noise fraction: 0.33 (33% of labels are flipped!)\n- Learning rate: 0.01\n- Batch size: 256\n- Optimizer: Adam with weight decay 0.0001\n\n**Key Concern:** The data has 33% label noise applied. This is configured in `config[\"data\"][\"label_noise_fraction\"] = 0.33`. With 33% of training labels flipped, it's very difficult for the model to achieve good validation accuracy. The model is effectively learning from corrupted labels.\n\nLet me check if there are any issues with how the label noise is being applied or if this is intentional:",
-   "tool_calls": [
-    {
-     "id": "toolu_01B8PVRhGbGNKoafi4q5r79h",
-     "name": "read_code",
-     "arguments": {
-      "path": "datautil.py"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 3.6676,
-   "usage": {
-    "input_tokens": 10423,
-    "output_tokens": 276
-   }
-  },
-  {
-   "turn": 7,
-   "response_text": "Now let me think about this carefully. The 33% label noise appears to be **intentionally configured** in the config, not a bug. The training loop correctly applies the noise using a deterministic selection method from `datautil.nested_prefix_indices()`.\n\nHowever, let me examine the configuration more closely. The issue is that **validation accuracy is very noisy and doesn't improve much despite training loss decreasing**. With 33% label noise, the model is learning from corrupted training labels, which causes:\n\n1. Training loss to decrease (because it's fitting the noisy labels)\n2. Validation accuracy to plateau and become noisy (because clean validation labels don't align well with corrupted training patterns)\n\nThis is expected behavior when there's significant label noise. But let me check if the label noise fraction itself is a bug. Looking at the reference seeds configuration, it seems this is a deliberately introduced difficulty for the workload.\n\nLet me verify that the model is actually training and there are no obvious issues with the training loop. The exit code was 0 (success), and the logs show normal progress. The training completed without errors.\n\n**Analysis Summary:**\n1. Training loss decreases steadily \u2192 model is learning\n2. Validation accuracy fluctuates but stays around 0.84 \u2192 expected behavior with 33% label noise\n3. No errors in logs\n4. Exit code: 0 (success)\n5. Configuration shows label_noise_fraction: 0.33 is **intentionally set**\n\nThe critical question: **Is the 33% label noise fraction a bug or intentional?**\n\nLooking at the configuration structure and the comment in the code about how the noise is applied deterministically and independently of training seed, this appears to be an intentional test harness feature for evaluating robustness. However, this is an unusually high noise rate and could be considered a problem.\n\nLet me examine if there's any documentation or patterns that would suggest whether this is correct:\n\nThe config shows:\n```yaml\ndata:\n  label_noise_fraction: 0.33\n```\n\nThis is a very high label noise fraction. Typical robustness tests use 0.05-0.1. A 33% noise rate means roughly 1 in 3 labels is flipped, which creates a fundamentally harder learning problem. \n\nGiven that:\n1. The training appears to execute correctly\n2. There are no runtime errors\n3. The metrics show expected behavior for a model training on noisy labels\n4. The code implements label noise correctly\n\nHowever, **33% is an unusually aggressive corruption rate** that could indicate a misconfiguration. Let me check if there's a more typical value. Looking at patterns in ML robustness research, 0.1 (10%) is much more common than 0.33 (33%).\n\nThis could be a silent fault where someone set label noise to 0.33 accidentally (perhaps meaning 0.03 or typo), causing the model to train on severely corrupted labels.\n\nLet me submit my findings:",
-   "tool_calls": [
-    {
-     "id": "toolu_01AoKYu1bPt2xVcrtwYxuwds",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": true,
-       "operator_class": "excessive_label_noise"
-      },
-      "evidence_refs": [
-       {
-        "kind": "config_key",
-        "artifact_id": "config.resolved.yaml",
-        "detail": {
-         "key_path": "data.label_noise_fraction"
-        }
-       },
-       {
-        "kind": "metric_window",
-        "artifact_id": "metrics.jsonl",
-        "detail": {
-         "series": "metric_visible_val_acc",
-         "start_epoch": 0,
-         "end_epoch": 19
-        }
-       }
-      ],
-      "rationale": "\nThe configuration sets label_noise_fraction to 0.33 (33%), an unusually aggressive corruption rate that degrades training from corrupted labels. This causes persistent validation accuracy noise (0.828-0.847) despite decreasing training loss. Standard robustness tests use 0.05-0.1; 33% indicates likely misconfiguration.\n",
-      "repair_spec": {
-       "repair_type": "config_patch",
-       "patches": {
-        "data.label_noise_fraction": 0.1
-       }
-      }
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 10.5071,
-   "usage": {
-    "input_tokens": 11334,
-    "output_tokens": 1071
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "1b8871d3f9da4c705bb1e2c6c4ac7fdcff9c4a096fadc02db9aa0a2725d7cc55",
-  "case_build_id": "e7e425cf563eddf43a6d16daaf90140a15755febe29927e55ba5fdd31bef53de",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T22:36:28.295010+00:00",
-  "wall_clock_sec": 23.872721458
- },
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "excessive_label_noise"
-  },
-  "evidence_refs": [
-   {
-    "kind": "config_key",
-    "artifact_id": "config.resolved.yaml",
-    "detail": {
-     "key_path": "data.label_noise_fraction"
-    }
-   },
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "metric_visible_val_acc",
-     "start_epoch": 0,
-     "end_epoch": 19
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "config_patch",
-   "patches": {
-    "data.label_noise_fraction": 0.1
-   }
-  },
-  "confidence": null,
-  "rationale": "\nThe configuration sets label_noise_fraction to 0.33 (33%), an unusually aggressive corruption rate that degrades training from corrupted labels. This causes persistent validation accuracy noise (0.828-0.847) despite decreasing training loss. Standard robustness tests use 0.05-0.1; 33% indicates likely misconfiguration.\n"
- },
- "run_id": "20260914T223628Z_7a16ea",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0018\nWorkload: tabular_adult\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
-  "prompt_hash": "06db21f9057de6bc1b078af10dd6274a8d8bf14298e4cc0024f65cc13750bb44",
-  "prompt_version": "react-1-off"
- },
  "usage": {
   "llm_calls": 8,
   "input_tokens": 52985,

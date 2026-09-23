@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0007",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,45 @@
   "anchor": "rule",
   "repeat_index": 0
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "d0652f4763a2585a1b246f8cf20fdade532f33d3fe205ebcf3189833c7dd03c4",
+  "case_build_id": "fc720d928e21369d135f1b36e9f7ffd1609807adf39cf145f4ea4adee6d6d890",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T22:40:56.714459+00:00",
+  "wall_clock_sec": 6.848735292000015
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically.\n\n## Analysis\n\n**Healthy Range Reference:**\n- Expected `metric_visible_val_acc` \u2248 0.8568 (healthy range: 0.8538\u20130.8599)\n\n**Observed Metrics (from metrics.jsonl end-of-epoch):**\n- Epoch 0: 0.846970\n- Epoch 5: 0.859354\n- Epoch 10: 0.857880\n- Epoch 13: 0.859649\n- Final (Epoch 19): 0.855079\n\n**Key Observations:**\n\n1. **Metric trajectory**: The validation accuracy starts low at 0.8470 in epoch 0, climbs into the healthy range by epoch 1 (0.8573), and stabilizes around 0.855\u20130.859 for the remainder of training.\n\n2. **Final metric**: The final reported accuracy (epoch 19) is 0.855079, which is **within the healthy range** [0.8538\u20130.8599].\n\n3. **Mid-training metrics**: Most epochs (1\u201319) report values solidly within or very close to the healthy range:\n   - Epochs 1,2,8,9,10,12,13,15,18: clearly in range\n   - A few epochs slightly below (0.852\u20130.854): epochs 3,7,11,14,16\n   - A few epochs slightly above (0.859): epochs 5,13,15\n\n4. **Configuration**: The config is straightforward\u2014standard MLP with reasonable hyperparameters (lr=0.01, batch_size=256, 20 epochs, weight_decay=0.0001).\n\n5. **Code quality**: The training script is well-implemented with proper seeding, determinism checks, and logging.\n\n6. **Training dynamics**: Loss decreases smoothly, validation accuracy stabilizes early and remains stable. No signs of overfitting, underfitting, or divergence.\n\n**Conclusion:**\nThe run shows normal behavior. The final validation accuracy (0.855079) is well within the healthy range, as are the majority of per-epoch values. The initial epoch's lower accuracy (0.8470) is typical for the first epoch before the model has converged. There is no evidence of any anomalous behavior or misconfiguration.",
+   "tool_calls": [
+    {
+     "id": "toolu_01Wgi3XQBUQxJf49Ra8cLeGz",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": false,
+       "operator_class": "none"
+      },
+      "evidence_refs": []
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 6.8208,
+   "usage": {
+    "input_tokens": 8796,
+    "output_tokens": 623
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +56,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0007\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599). Values clearly outside this range, above OR below, are anomalous.\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "d717e23f33b99083467a838eb451ddb07d0b66c19718729f3ba1d527a2ad509a",
+  "prompt_version": "static-1-rule"
+ },
+ "run_id": "20260914T224056Z_44ffce",
+ "schema_version": "1.1",
  "scores": {
   "tier": "control",
   "detection": {
@@ -76,7 +123,18 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": false,
+   "operator_class": "none"
+  },
+  "evidence_refs": [],
+  "repair_spec": null,
+  "confidence": null,
+  "rationale": null
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1205,64 +1263,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically.\n\n## Analysis\n\n**Healthy Range Reference:**\n- Expected `metric_visible_val_acc` \u2248 0.8568 (healthy range: 0.8538\u20130.8599)\n\n**Observed Metrics (from metrics.jsonl end-of-epoch):**\n- Epoch 0: 0.846970\n- Epoch 5: 0.859354\n- Epoch 10: 0.857880\n- Epoch 13: 0.859649\n- Final (Epoch 19): 0.855079\n\n**Key Observations:**\n\n1. **Metric trajectory**: The validation accuracy starts low at 0.8470 in epoch 0, climbs into the healthy range by epoch 1 (0.8573), and stabilizes around 0.855\u20130.859 for the remainder of training.\n\n2. **Final metric**: The final reported accuracy (epoch 19) is 0.855079, which is **within the healthy range** [0.8538\u20130.8599].\n\n3. **Mid-training metrics**: Most epochs (1\u201319) report values solidly within or very close to the healthy range:\n   - Epochs 1,2,8,9,10,12,13,15,18: clearly in range\n   - A few epochs slightly below (0.852\u20130.854): epochs 3,7,11,14,16\n   - A few epochs slightly above (0.859): epochs 5,13,15\n\n4. **Configuration**: The config is straightforward\u2014standard MLP with reasonable hyperparameters (lr=0.01, batch_size=256, 20 epochs, weight_decay=0.0001).\n\n5. **Code quality**: The training script is well-implemented with proper seeding, determinism checks, and logging.\n\n6. **Training dynamics**: Loss decreases smoothly, validation accuracy stabilizes early and remains stable. No signs of overfitting, underfitting, or divergence.\n\n**Conclusion:**\nThe run shows normal behavior. The final validation accuracy (0.855079) is well within the healthy range, as are the majority of per-epoch values. The initial epoch's lower accuracy (0.8470) is typical for the first epoch before the model has converged. There is no evidence of any anomalous behavior or misconfiguration.",
-   "tool_calls": [
-    {
-     "id": "toolu_01Wgi3XQBUQxJf49Ra8cLeGz",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": false,
-       "operator_class": "none"
-      },
-      "evidence_refs": []
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 6.8208,
-   "usage": {
-    "input_tokens": 8796,
-    "output_tokens": 623
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "d0652f4763a2585a1b246f8cf20fdade532f33d3fe205ebcf3189833c7dd03c4",
-  "case_build_id": "fc720d928e21369d135f1b36e9f7ffd1609807adf39cf145f4ea4adee6d6d890",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T22:40:56.714459+00:00",
-  "wall_clock_sec": 6.848735292000015
- },
- "submission": {
-  "diagnosis": {
-   "detected": false,
-   "operator_class": "none"
-  },
-  "evidence_refs": [],
-  "repair_spec": null,
-  "confidence": null,
-  "rationale": null
- },
- "run_id": "20260914T224056Z_44ffce",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0007\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599). Values clearly outside this range, above OR below, are anomalous.\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "d717e23f33b99083467a838eb451ddb07d0b66c19718729f3ba1d527a2ad509a",
-  "prompt_version": "static-1-rule"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8796,

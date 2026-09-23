@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0014",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,45 @@
   "anchor": "off",
   "repeat_index": 1
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "841ed4fd5f94e48c5c74199f25a0c0fdfdecfeec9155bfa96d54ed872a3e1a7c",
+  "case_build_id": "bf453d59cef6ce163db5ea75b81bfba847639311c1c40ce592bb48339a75fd31",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T23:20:15.183919+00:00",
+  "wall_clock_sec": 8.994439334000162
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically across all artifacts.\n\n## Analysis\n\n**Configuration Review:**\n- Config specifies 10 reference seeds (0-9) but resolved config shows seed=43\n- Training hyperparameters look reasonable (lr=0.01, batch_size=256, 20 epochs)\n- Auxiliary feature is enabled with strength 0.35\n- No dropout (0.0), standard Adam optimizer with weight decay\n\n**Code Review:**\n- The training script is well-structured with determinism guards\n- Model architecture: MLP with hidden dims [64, 32] and ReLU activation\n- Proper input_dim resolution: X_train computed as 105 base features + 1 aux feature = 106 total\n- Loss function: BCEWithLogitsLoss (appropriate for binary classification)\n- Evaluation uses threshold 0.5 on sigmoid of logits\n\n**Metrics Review (epochs 0-19):**\n- train_loss: steady decrease from 0.343 \u2192 0.280 (good convergence)\n- val_loss: stable around 0.30, slight increase toward end (0.301 \u2192 0.311) - minor overfitting signal but not extreme\n- metric_visible_val_acc: hovers around 0.862-0.870 range consistently\n- No NaNs, Infs, or anomalous spikes\n- Throughput stable at ~50k samples/sec\n- Training completed successfully (exit code: 0)\n\n**Log Review:**\n- Training ran for all 20 epochs\n- Smooth progression of metrics\n- Wall time: 13.5 seconds is reasonable\n- No errors or warnings\n\n**Potential Issues Checked:**\n1. \u2705 Seed mismatch: config.yaml specifies 10 seeds for reference, but the actual run uses seed=43 (not in the reference list). However, this is expected behavior - the resolved config correctly captures the actual seed used.\n\n2. \u2705 Model convergence: Training loss decreases smoothly, validation accuracy is stable. No signs of divergence, NaN, or optimization failure.\n\n3. \u2705 Input dimension: Correctly inferred as 106 (105 base + 1 aux feature).\n\n4. \u2705 Data pipeline: Aux feature computation is deterministic and properly applied.\n\n5. \u2705 Metrics consistency: All metrics look reasonable for tabular classification on Adult dataset.\n\n**Conclusion:**\nThis is a **healthy run**. The training completed successfully with:\n- Smooth loss curves and stable validation accuracy\n- Proper determinism setup and seed handling\n- No anomalies in metrics or logs\n- Clean exit code\n- Appropriate model architecture and hyperparameters for the task\n\nThe seed=43 in the resolved config is not an error\u2014it's the actual seed used for this particular run, while the reference section documents the 10 seeds used for reference reproducibility testing.",
+   "tool_calls": [
+    {
+     "id": "toolu_01KGKT5tFaYJggJACzATkdLn",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": false,
+       "operator_class": "none"
+      },
+      "evidence_refs": []
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 8.9654,
+   "usage": {
+    "input_tokens": 8809,
+    "output_tokens": 752
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +56,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0014\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "bedec1ea20421185f853c7c314f201c35581aacee0b3bd3fd1e8040de564d1fd",
+  "prompt_version": "static-1-off"
+ },
+ "run_id": "20260914T232015Z_3c54ff",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -83,7 +130,18 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": false,
+   "operator_class": "none"
+  },
+  "evidence_refs": [],
+  "repair_spec": null,
+  "confidence": null,
+  "rationale": null
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1226,64 +1284,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically across all artifacts.\n\n## Analysis\n\n**Configuration Review:**\n- Config specifies 10 reference seeds (0-9) but resolved config shows seed=43\n- Training hyperparameters look reasonable (lr=0.01, batch_size=256, 20 epochs)\n- Auxiliary feature is enabled with strength 0.35\n- No dropout (0.0), standard Adam optimizer with weight decay\n\n**Code Review:**\n- The training script is well-structured with determinism guards\n- Model architecture: MLP with hidden dims [64, 32] and ReLU activation\n- Proper input_dim resolution: X_train computed as 105 base features + 1 aux feature = 106 total\n- Loss function: BCEWithLogitsLoss (appropriate for binary classification)\n- Evaluation uses threshold 0.5 on sigmoid of logits\n\n**Metrics Review (epochs 0-19):**\n- train_loss: steady decrease from 0.343 \u2192 0.280 (good convergence)\n- val_loss: stable around 0.30, slight increase toward end (0.301 \u2192 0.311) - minor overfitting signal but not extreme\n- metric_visible_val_acc: hovers around 0.862-0.870 range consistently\n- No NaNs, Infs, or anomalous spikes\n- Throughput stable at ~50k samples/sec\n- Training completed successfully (exit code: 0)\n\n**Log Review:**\n- Training ran for all 20 epochs\n- Smooth progression of metrics\n- Wall time: 13.5 seconds is reasonable\n- No errors or warnings\n\n**Potential Issues Checked:**\n1. \u2705 Seed mismatch: config.yaml specifies 10 seeds for reference, but the actual run uses seed=43 (not in the reference list). However, this is expected behavior - the resolved config correctly captures the actual seed used.\n\n2. \u2705 Model convergence: Training loss decreases smoothly, validation accuracy is stable. No signs of divergence, NaN, or optimization failure.\n\n3. \u2705 Input dimension: Correctly inferred as 106 (105 base + 1 aux feature).\n\n4. \u2705 Data pipeline: Aux feature computation is deterministic and properly applied.\n\n5. \u2705 Metrics consistency: All metrics look reasonable for tabular classification on Adult dataset.\n\n**Conclusion:**\nThis is a **healthy run**. The training completed successfully with:\n- Smooth loss curves and stable validation accuracy\n- Proper determinism setup and seed handling\n- No anomalies in metrics or logs\n- Clean exit code\n- Appropriate model architecture and hyperparameters for the task\n\nThe seed=43 in the resolved config is not an error\u2014it's the actual seed used for this particular run, while the reference section documents the 10 seeds used for reference reproducibility testing.",
-   "tool_calls": [
-    {
-     "id": "toolu_01KGKT5tFaYJggJACzATkdLn",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": false,
-       "operator_class": "none"
-      },
-      "evidence_refs": []
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 8.9654,
-   "usage": {
-    "input_tokens": 8809,
-    "output_tokens": 752
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "841ed4fd5f94e48c5c74199f25a0c0fdfdecfeec9155bfa96d54ed872a3e1a7c",
-  "case_build_id": "bf453d59cef6ce163db5ea75b81bfba847639311c1c40ce592bb48339a75fd31",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T23:20:15.183919+00:00",
-  "wall_clock_sec": 8.994439334000162
- },
- "submission": {
-  "diagnosis": {
-   "detected": false,
-   "operator_class": "none"
-  },
-  "evidence_refs": [],
-  "repair_spec": null,
-  "confidence": null,
-  "rationale": null
- },
- "run_id": "20260914T232015Z_3c54ff",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0014\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "bedec1ea20421185f853c7c314f201c35581aacee0b3bd3fd1e8040de564d1fd",
-  "prompt_version": "static-1-off"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8809,

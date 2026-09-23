@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0005",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,85 @@
   "anchor": "numbers",
   "repeat_index": 0
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "c463c97c0beb874d0048ca23cfe83ba1cb889aea157c32ccfdda17bcb1b3a3d6",
+  "case_build_id": "f03cb9e9ea3018d1d9b7d071df73de548e027740ff8c40e18cc86df282ff8df7",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T23:14:36.370014+00:00",
+  "wall_clock_sec": 11.767593541999759
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically to determine if there's an incident.\n\n## Analysis\n\n### Run Overview\n- **Workload**: tabular_adult classification\n- **Expected metric**: `metric_visible_val_acc \u2248 0.8568` (healthy range: 0.8538\u20130.8599)\n- **Observed final accuracy**: 0.8529 (from logs and metrics)\n\n### Key Observations\n\n1. **Final Metric Performance**:\n   - Final epoch (19) `metric_visible_val_acc`: 0.852867\n   - This is **below the healthy range** (0.8538\u20130.8599)\n   - The gap is small but consistent\u2014it's 0.0009 below the lower bound\n\n2. **Training Trajectory**:\n   - Early epochs show good progression (0.8518 \u2192 0.8589 by epoch 5)\n   - Peak accuracy reached at epoch 7: 0.8610 (within healthy range)\n   - Late-stage degradation visible from epochs 12\u201319\n   - Final accuracy drops to 0.8529, below the threshold\n\n3. **Loss Patterns**:\n   - Train loss steadily decreases (good convergence)\n   - Validation loss stabilizes around 0.31 but shows slight upward drift in final epochs\n   - This suggests mild overfitting in the late training phase\n\n4. **Configuration Review**:\n   - Model architecture: MLP with [64, 32] hidden dims, dropout=0.0\n   - Training: 20 epochs, batch_size=256, lr=0.01, weight_decay=0.0001\n   - No dropout means the model is prone to overfitting without regularization\n   - Weight decay (0.0001) is quite small\n\n5. **Potential Root Cause**:\n   - The **lack of dropout (dropout=0.0)** combined with **small weight decay** allows the model to overfit, especially in later epochs\n   - The validation accuracy peaks around epoch 7 and then gradually degrades\n   - This is a classic overfitting signature\n\n### Diagnosis\n\nThis is a **regularization insufficiency** issue. The model lacks adequate regularization (no dropout), and the small weight decay isn't compensating. The model achieves acceptable performance mid-training but then overfits in later epochs, resulting in final accuracy below the healthy range.\n\n**Fix**: Increase dropout or weight decay to improve generalization.",
+   "tool_calls": [
+    {
+     "id": "toolu_017q5iihke2wn7dt2jqC6b1Z",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "insufficient_regularization"
+      },
+      "evidence_refs": [
+       {
+        "kind": "metric_window",
+        "artifact_id": "metrics.jsonl",
+        "detail": {
+         "series": "metric_visible_val_acc",
+         "start_epoch": 0,
+         "end_epoch": 19
+        }
+       },
+       {
+        "kind": "config_key",
+        "artifact_id": "config.yaml",
+        "detail": {
+         "key_path": "model.dropout"
+        }
+       },
+       {
+        "kind": "config_key",
+        "artifact_id": "config.yaml",
+        "detail": {
+         "key_path": "training.weight_decay"
+        }
+       },
+       {
+        "kind": "line_range",
+        "artifact_id": "logs/stdout.log",
+        "detail": {
+         "start_line": 8,
+         "end_line": 20
+        }
+       }
+      ],
+      "repair_spec": {
+       "repair_type": "config_patch",
+       "patches": {
+        "model.dropout": 0.3,
+        "training.weight_decay": 0.001
+       }
+      },
+      "confidence": 0.72
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 11.7399,
+   "usage": {
+    "input_tokens": 8781,
+    "output_tokens": 1078
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +96,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0005\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "9a858ad050039c5fc7d3cc38d32801b5fd0553faf0dc33985f772f79b183905c",
+  "prompt_version": "static-1-numbers"
+ },
+ "run_id": "20260914T231436Z_1e17cb",
+ "schema_version": "1.1",
  "scores": {
   "tier": "control",
   "detection": {
@@ -79,7 +166,56 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "insufficient_regularization"
+  },
+  "evidence_refs": [
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0,
+     "end_epoch": 19
+    }
+   },
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "model.dropout"
+    }
+   },
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "training.weight_decay"
+    }
+   },
+   {
+    "kind": "line_range",
+    "artifact_id": "logs/stdout.log",
+    "detail": {
+     "start_line": 8,
+     "end_line": 20
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "model.dropout": 0.3,
+    "training.weight_decay": 0.001
+   }
+  },
+  "confidence": 0.72,
+  "rationale": null
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1248,142 +1384,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically to determine if there's an incident.\n\n## Analysis\n\n### Run Overview\n- **Workload**: tabular_adult classification\n- **Expected metric**: `metric_visible_val_acc \u2248 0.8568` (healthy range: 0.8538\u20130.8599)\n- **Observed final accuracy**: 0.8529 (from logs and metrics)\n\n### Key Observations\n\n1. **Final Metric Performance**:\n   - Final epoch (19) `metric_visible_val_acc`: 0.852867\n   - This is **below the healthy range** (0.8538\u20130.8599)\n   - The gap is small but consistent\u2014it's 0.0009 below the lower bound\n\n2. **Training Trajectory**:\n   - Early epochs show good progression (0.8518 \u2192 0.8589 by epoch 5)\n   - Peak accuracy reached at epoch 7: 0.8610 (within healthy range)\n   - Late-stage degradation visible from epochs 12\u201319\n   - Final accuracy drops to 0.8529, below the threshold\n\n3. **Loss Patterns**:\n   - Train loss steadily decreases (good convergence)\n   - Validation loss stabilizes around 0.31 but shows slight upward drift in final epochs\n   - This suggests mild overfitting in the late training phase\n\n4. **Configuration Review**:\n   - Model architecture: MLP with [64, 32] hidden dims, dropout=0.0\n   - Training: 20 epochs, batch_size=256, lr=0.01, weight_decay=0.0001\n   - No dropout means the model is prone to overfitting without regularization\n   - Weight decay (0.0001) is quite small\n\n5. **Potential Root Cause**:\n   - The **lack of dropout (dropout=0.0)** combined with **small weight decay** allows the model to overfit, especially in later epochs\n   - The validation accuracy peaks around epoch 7 and then gradually degrades\n   - This is a classic overfitting signature\n\n### Diagnosis\n\nThis is a **regularization insufficiency** issue. The model lacks adequate regularization (no dropout), and the small weight decay isn't compensating. The model achieves acceptable performance mid-training but then overfits in later epochs, resulting in final accuracy below the healthy range.\n\n**Fix**: Increase dropout or weight decay to improve generalization.",
-   "tool_calls": [
-    {
-     "id": "toolu_017q5iihke2wn7dt2jqC6b1Z",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": true,
-       "operator_class": "insufficient_regularization"
-      },
-      "evidence_refs": [
-       {
-        "kind": "metric_window",
-        "artifact_id": "metrics.jsonl",
-        "detail": {
-         "series": "metric_visible_val_acc",
-         "start_epoch": 0,
-         "end_epoch": 19
-        }
-       },
-       {
-        "kind": "config_key",
-        "artifact_id": "config.yaml",
-        "detail": {
-         "key_path": "model.dropout"
-        }
-       },
-       {
-        "kind": "config_key",
-        "artifact_id": "config.yaml",
-        "detail": {
-         "key_path": "training.weight_decay"
-        }
-       },
-       {
-        "kind": "line_range",
-        "artifact_id": "logs/stdout.log",
-        "detail": {
-         "start_line": 8,
-         "end_line": 20
-        }
-       }
-      ],
-      "repair_spec": {
-       "repair_type": "config_patch",
-       "patches": {
-        "model.dropout": 0.3,
-        "training.weight_decay": 0.001
-       }
-      },
-      "confidence": 0.72
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 11.7399,
-   "usage": {
-    "input_tokens": 8781,
-    "output_tokens": 1078
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "c463c97c0beb874d0048ca23cfe83ba1cb889aea157c32ccfdda17bcb1b3a3d6",
-  "case_build_id": "f03cb9e9ea3018d1d9b7d071df73de548e027740ff8c40e18cc86df282ff8df7",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T23:14:36.370014+00:00",
-  "wall_clock_sec": 11.767593541999759
- },
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "insufficient_regularization"
-  },
-  "evidence_refs": [
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "metric_visible_val_acc",
-     "start_epoch": 0,
-     "end_epoch": 19
-    }
-   },
-   {
-    "kind": "config_key",
-    "artifact_id": "config.yaml",
-    "detail": {
-     "key_path": "model.dropout"
-    }
-   },
-   {
-    "kind": "config_key",
-    "artifact_id": "config.yaml",
-    "detail": {
-     "key_path": "training.weight_decay"
-    }
-   },
-   {
-    "kind": "line_range",
-    "artifact_id": "logs/stdout.log",
-    "detail": {
-     "start_line": 8,
-     "end_line": 20
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "config_patch",
-   "patches": {
-    "model.dropout": 0.3,
-    "training.weight_decay": 0.001
-   }
-  },
-  "confidence": 0.72,
-  "rationale": null
- },
- "run_id": "20260914T231436Z_1e17cb",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0005\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "9a858ad050039c5fc7d3cc38d32801b5fd0553faf0dc33985f772f79b183905c",
-  "prompt_version": "static-1-numbers"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8781,

@@ -1,4 +1,12 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
+ "case_id": "case_0025",
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "static",
+  "anchor": "off",
+  "repeat_index": 2
+ },
  "environment": {
   "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
   "git_dirty": true,
@@ -9,22 +17,6 @@
   "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
   "timestamp_utc": "2026-09-13T00:42:51.728466+00:00",
   "wall_clock_sec": 12.410310666000441
- },
- "model": {
-  "model_id": "claude-haiku-4-5-20251001",
-  "model_version": null,
-  "provider": "anthropic",
-  "temperature": 1.0,
-  "top_p": null,
-  "max_tokens": 8192,
-  "stop_reason": null,
-  "request_seed": null
- },
- "schema_version": "1.1",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0025\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "ddc19a3ad94727500edcdcb896f0240ec16db806edc88f99500045b2c7ac2ca3",
-  "prompt_version": "static-1-noanchor"
  },
  "llm_transcript": [
   {
@@ -93,6 +85,23 @@
    }
   }
  ],
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0025\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "ddc19a3ad94727500edcdcb896f0240ec16db806edc88f99500045b2c7ac2ca3",
+  "prompt_version": "static-1-noanchor"
+ },
+ "run_id": "20260913T004251Z_419a61",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -176,19 +185,7 @@
    "scorer_version": "evidence_v1"
   }
  },
- "usage": {
-  "llm_calls": 1,
-  "input_tokens": 7817,
-  "output_tokens": 1139,
-  "cached_tokens": 0,
-  "total_tokens": 8956,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.013512,
-  "cost_is_estimate": true
- },
- "termination_reason": "submitted",
  "status": "completed",
- "agent_name": "static_claude-haiku-4-5-20251001",
  "submission": {
   "diagnosis": {
    "detected": true,
@@ -238,13 +235,7 @@
   "confidence": null,
   "rationale": "The learning rate of 0.2 is too high for Adam optimizer, causing validation accuracy to deteriorate sharply in epochs 17-19 (from 0.8415 to 0.7531) while validation loss spikes, indicating training instability and divergence."
  },
- "conditions": {
-  "sweep_name": "sweep1",
-  "agent_type": "static",
-  "anchor": "off",
-  "repeat_index": 2
- },
- "run_id": "20260913T004251Z_419a61",
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1334,5 +1325,14 @@
    "phase": null
   }
  ],
- "case_id": "case_0025"
+ "usage": {
+  "llm_calls": 1,
+  "input_tokens": 7817,
+  "output_tokens": 1139,
+  "cached_tokens": 0,
+  "total_tokens": 8956,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.013512,
+  "cost_is_estimate": true
+ }
 }

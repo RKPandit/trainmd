@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0017",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,45 @@
   "anchor": "off",
   "repeat_index": 0
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "0663d64bdb5d9e43fd6c28580301e86a94c832898e94ba3ee60efeceb0e998e3",
+  "case_build_id": "1f5e0e0a2a534fac52054d279cf1ea0774b07e78625b40b122d01868e83da728",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T22:44:59.187441+00:00",
+  "wall_clock_sec": 10.9535938329999
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically to identify any incidents.\n\n## Analysis\n\n### Configuration Review\n- **Workload**: tabular_adult (binary classification)\n- **Model**: MLP with hidden dims [64, 32], dropout 0.0, relu activation\n- **Training**: 20 epochs, batch size 256, lr 0.01, adam optimizer, weight_decay 0.0001\n- **Data**: Includes auxiliary feature with strength 0.05\n- **Reference seeds**: 10 seeds (0-9), but the run used seed 43\n\n### Code Review\nThe training script is well-structured with:\n- Proper determinism controls (thread pinning requirement, seed setting, single-threaded dataloaders)\n- Correct auxiliary feature computation with deterministic seeding based on split name\n- Proper metric reporting including optional subset accuracy\n- Clean logging and checkpoint saving\n\n### Metrics Analysis\nThe metrics.jsonl shows end-of-epoch metrics across 20 epochs:\n- **Train loss**: Decreases monotonically from 0.1989 \u2192 0.0951 (healthy convergence)\n- **Validation loss**: Stable around 0.11-0.12, slight noise\n- **Validation accuracy**: Consistently high (0.9599-0.9655), showing ~96.3% average\n- **Learning rate**: Constant at 0.01 (as configured)\n- No anomalies in the training progression\n\n### Log Review\n- Training completed successfully with exit code 0\n- All 20 epochs ran without errors\n- Throughput consistent (~45k-50k samples/sec)\n- Wall time reasonable (15.6s)\n- Final validation accuracy reported as 0.9636\n\n### Seed Usage\n**CRITICAL FINDING**: The config specifies `reference.seeds: [0-9]` for reference reproducibility, but `config.resolved.yaml` shows `seed: 43` was actually used for training. However, examining the code:\n\n1. The `--seed` CLI argument defaults to 0 (line in main())\n2. The seed 43 in config.resolved.yaml is added *after* training completes\n3. This appears to be a resolved seed value, but the logs show \"Training seed=43\"\n\nLooking more carefully at the code flow: the `train()` function receives a `seed` parameter. The CLI default is 0, but the config.resolved.yaml shows seed 43 was used. This is unusual given the reference seeds are 0-9, suggesting seed 43 may have been passed via `--seed` flag during this run. However, since the run completed successfully with good metrics, this doesn't constitute an error\u2014just a deviation from the reference set.\n\n### Overall Assessment\n- Training completed successfully (exit code 0)\n- All metrics are reasonable and show healthy convergence\n- No crashes, exceptions, or anomalies in logs\n- The auxiliary feature was properly applied (input_dim increased from original to 106)\n- Metrics are consistent with expected behavior for the Adult dataset\n\nThe use of seed 43 instead of seeds from the reference set (0-9) is notable but doesn't indicate a malfunction or configuration error\u2014it's simply a different run. The run itself is healthy.",
+   "tool_calls": [
+    {
+     "id": "toolu_01W9ScmK5tVbEtrHQSuAhn9w",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": false,
+       "operator_class": "none"
+      },
+      "evidence_refs": []
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 10.9258,
+   "usage": {
+    "input_tokens": 8809,
+    "output_tokens": 819
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +56,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0017\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "4b5fb6fd8481745b221dc2b6f1ccbb452aab1d13f6e91b3e7dca57761656f5ca",
+  "prompt_version": "static-1-off"
+ },
+ "run_id": "20260914T224459Z_f26688",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -83,7 +130,18 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": false,
+   "operator_class": "none"
+  },
+  "evidence_refs": [],
+  "repair_spec": null,
+  "confidence": null,
+  "rationale": null
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1226,64 +1284,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically to identify any incidents.\n\n## Analysis\n\n### Configuration Review\n- **Workload**: tabular_adult (binary classification)\n- **Model**: MLP with hidden dims [64, 32], dropout 0.0, relu activation\n- **Training**: 20 epochs, batch size 256, lr 0.01, adam optimizer, weight_decay 0.0001\n- **Data**: Includes auxiliary feature with strength 0.05\n- **Reference seeds**: 10 seeds (0-9), but the run used seed 43\n\n### Code Review\nThe training script is well-structured with:\n- Proper determinism controls (thread pinning requirement, seed setting, single-threaded dataloaders)\n- Correct auxiliary feature computation with deterministic seeding based on split name\n- Proper metric reporting including optional subset accuracy\n- Clean logging and checkpoint saving\n\n### Metrics Analysis\nThe metrics.jsonl shows end-of-epoch metrics across 20 epochs:\n- **Train loss**: Decreases monotonically from 0.1989 \u2192 0.0951 (healthy convergence)\n- **Validation loss**: Stable around 0.11-0.12, slight noise\n- **Validation accuracy**: Consistently high (0.9599-0.9655), showing ~96.3% average\n- **Learning rate**: Constant at 0.01 (as configured)\n- No anomalies in the training progression\n\n### Log Review\n- Training completed successfully with exit code 0\n- All 20 epochs ran without errors\n- Throughput consistent (~45k-50k samples/sec)\n- Wall time reasonable (15.6s)\n- Final validation accuracy reported as 0.9636\n\n### Seed Usage\n**CRITICAL FINDING**: The config specifies `reference.seeds: [0-9]` for reference reproducibility, but `config.resolved.yaml` shows `seed: 43` was actually used for training. However, examining the code:\n\n1. The `--seed` CLI argument defaults to 0 (line in main())\n2. The seed 43 in config.resolved.yaml is added *after* training completes\n3. This appears to be a resolved seed value, but the logs show \"Training seed=43\"\n\nLooking more carefully at the code flow: the `train()` function receives a `seed` parameter. The CLI default is 0, but the config.resolved.yaml shows seed 43 was used. This is unusual given the reference seeds are 0-9, suggesting seed 43 may have been passed via `--seed` flag during this run. However, since the run completed successfully with good metrics, this doesn't constitute an error\u2014just a deviation from the reference set.\n\n### Overall Assessment\n- Training completed successfully (exit code 0)\n- All metrics are reasonable and show healthy convergence\n- No crashes, exceptions, or anomalies in logs\n- The auxiliary feature was properly applied (input_dim increased from original to 106)\n- Metrics are consistent with expected behavior for the Adult dataset\n\nThe use of seed 43 instead of seeds from the reference set (0-9) is notable but doesn't indicate a malfunction or configuration error\u2014it's simply a different run. The run itself is healthy.",
-   "tool_calls": [
-    {
-     "id": "toolu_01W9ScmK5tVbEtrHQSuAhn9w",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": false,
-       "operator_class": "none"
-      },
-      "evidence_refs": []
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 10.9258,
-   "usage": {
-    "input_tokens": 8809,
-    "output_tokens": 819
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "0663d64bdb5d9e43fd6c28580301e86a94c832898e94ba3ee60efeceb0e998e3",
-  "case_build_id": "1f5e0e0a2a534fac52054d279cf1ea0774b07e78625b40b122d01868e83da728",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T22:44:59.187441+00:00",
-  "wall_clock_sec": 10.9535938329999
- },
- "submission": {
-  "diagnosis": {
-   "detected": false,
-   "operator_class": "none"
-  },
-  "evidence_refs": [],
-  "repair_spec": null,
-  "confidence": null,
-  "rationale": null
- },
- "run_id": "20260914T224459Z_f26688",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0017\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "4b5fb6fd8481745b221dc2b6f1ccbb452aab1d13f6e91b3e7dca57761656f5ca",
-  "prompt_version": "static-1-off"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8809,

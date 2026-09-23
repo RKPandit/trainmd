@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0021",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,70 @@
   "anchor": "rule",
   "repeat_index": 1
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "5e6ff3454c27131b15e18786e1feab9e67ed3e7cbb3a38e57d829c9bf6b08539",
+  "case_build_id": "2f28b7db0476c58cb1d7dc3428d4bee83750e0fa041140ea6c0060f500b6eb86",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T23:27:51.634265+00:00",
+  "wall_clock_sec": 8.88152404199991
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically to identify any anomalies.\n\n## Analysis\n\n### Key Observations\n\n**1. Metric Performance:**\n- The run reports a final `metric_visible_val_acc` of 0.8122 (epoch 19)\n- Healthy runs achieve approximately 0.8568 with range 0.8538\u20130.8599\n- This value is **significantly below** the healthy range (roughly 0.044 absolute difference, ~5.2% relative deviation)\n\n**2. Configuration Issues:**\n- `data.label_noise_fraction: 0.42` \u2014 This is an unusually high label noise level (42%)\n- Healthy reference runs don't show such high noise in their configurations\n- Label noise of this magnitude directly degrades model performance on clean validation data\n\n**3. Validation Accuracy Pattern:**\n- The validation accuracy fluctuates between 0.7971 and 0.8381 throughout training\n- Even the best epoch (epoch 5: 0.8381) is noticeably below the healthy baseline of 0.8568\n- The metric_visible_val_acc consistently stays in the 0.81\u20130.84 range, well below healthy expectation\n\n**4. Training Dynamics:**\n- Training loss steadily decreases (0.6888 \u2192 0.6834), indicating normal learning\n- No signs of divergence, NaN, or crash\n- The code execution completed successfully (exit code 0)\n- This is a well-behaved training run, just with degraded performance\n\n**5. Root Cause:**\nThe configuration applies a 42% label noise fraction to the training set. This corrupts the training targets, making it impossible for the model to achieve high validation accuracy. The label noise is applied deterministically via `nested_prefix_indices()` in `datautil.py`, which flips 42% of training labels before training begins.\n\nThis is a **configuration-driven degradation**, not a code bug or training failure. The mechanism is the `label_noise_fraction` parameter at 0.42.\n\n### Diagnosis\n\nThis run exhibits anomalously low validation accuracy caused by excessive label noise in training data. The fix is to reduce or remove the label noise.",
+   "tool_calls": [
+    {
+     "id": "toolu_01QhWcgcuHfHHaEzH32iJFDC",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "excessive_label_noise"
+      },
+      "evidence_refs": [
+       {
+        "kind": "config_key",
+        "artifact_id": "config.yaml",
+        "detail": {
+         "key_path": "data.label_noise_fraction"
+        }
+       },
+       {
+        "kind": "metric_window",
+        "artifact_id": "metrics.jsonl",
+        "detail": {
+         "series": "metric_visible_val_acc",
+         "start_epoch": 0,
+         "end_epoch": 19
+        }
+       }
+      ],
+      "repair_spec": {
+       "repair_type": "config_patch",
+       "patches": {
+        "data.label_noise_fraction": 0.0
+       }
+      },
+      "rationale": "Label noise fraction of 0.42 corrupts 42% of training labels, degrading validation accuracy to ~0.812 vs. healthy baseline of ~0.857. Setting label_noise_fraction to 0.0 removes this data corruption.",
+      "confidence": 0.95
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 8.8525,
+   "usage": {
+    "input_tokens": 8843,
+    "output_tokens": 866
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +81,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0021\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599). Values clearly outside this range, above OR below, are anomalous.\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "525e1cb25e6212e9c12a27a541f82bcf9dfeda182ea272e086c95faea049c419",
+  "prompt_version": "static-1-rule"
+ },
+ "run_id": "20260914T232751Z_73bca8",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -86,7 +158,40 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "excessive_label_noise"
+  },
+  "evidence_refs": [
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "data.label_noise_fraction"
+    }
+   },
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0,
+     "end_epoch": 19
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "data.label_noise_fraction": 0.0
+   }
+  },
+  "confidence": 0.95,
+  "rationale": "Label noise fraction of 0.42 corrupts 42% of training labels, degrading validation accuracy to ~0.812 vs. healthy baseline of ~0.857. Setting label_noise_fraction to 0.0 removes this data corruption."
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1252,111 +1357,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically to identify any anomalies.\n\n## Analysis\n\n### Key Observations\n\n**1. Metric Performance:**\n- The run reports a final `metric_visible_val_acc` of 0.8122 (epoch 19)\n- Healthy runs achieve approximately 0.8568 with range 0.8538\u20130.8599\n- This value is **significantly below** the healthy range (roughly 0.044 absolute difference, ~5.2% relative deviation)\n\n**2. Configuration Issues:**\n- `data.label_noise_fraction: 0.42` \u2014 This is an unusually high label noise level (42%)\n- Healthy reference runs don't show such high noise in their configurations\n- Label noise of this magnitude directly degrades model performance on clean validation data\n\n**3. Validation Accuracy Pattern:**\n- The validation accuracy fluctuates between 0.7971 and 0.8381 throughout training\n- Even the best epoch (epoch 5: 0.8381) is noticeably below the healthy baseline of 0.8568\n- The metric_visible_val_acc consistently stays in the 0.81\u20130.84 range, well below healthy expectation\n\n**4. Training Dynamics:**\n- Training loss steadily decreases (0.6888 \u2192 0.6834), indicating normal learning\n- No signs of divergence, NaN, or crash\n- The code execution completed successfully (exit code 0)\n- This is a well-behaved training run, just with degraded performance\n\n**5. Root Cause:**\nThe configuration applies a 42% label noise fraction to the training set. This corrupts the training targets, making it impossible for the model to achieve high validation accuracy. The label noise is applied deterministically via `nested_prefix_indices()` in `datautil.py`, which flips 42% of training labels before training begins.\n\nThis is a **configuration-driven degradation**, not a code bug or training failure. The mechanism is the `label_noise_fraction` parameter at 0.42.\n\n### Diagnosis\n\nThis run exhibits anomalously low validation accuracy caused by excessive label noise in training data. The fix is to reduce or remove the label noise.",
-   "tool_calls": [
-    {
-     "id": "toolu_01QhWcgcuHfHHaEzH32iJFDC",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": true,
-       "operator_class": "excessive_label_noise"
-      },
-      "evidence_refs": [
-       {
-        "kind": "config_key",
-        "artifact_id": "config.yaml",
-        "detail": {
-         "key_path": "data.label_noise_fraction"
-        }
-       },
-       {
-        "kind": "metric_window",
-        "artifact_id": "metrics.jsonl",
-        "detail": {
-         "series": "metric_visible_val_acc",
-         "start_epoch": 0,
-         "end_epoch": 19
-        }
-       }
-      ],
-      "repair_spec": {
-       "repair_type": "config_patch",
-       "patches": {
-        "data.label_noise_fraction": 0.0
-       }
-      },
-      "rationale": "Label noise fraction of 0.42 corrupts 42% of training labels, degrading validation accuracy to ~0.812 vs. healthy baseline of ~0.857. Setting label_noise_fraction to 0.0 removes this data corruption.",
-      "confidence": 0.95
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 8.8525,
-   "usage": {
-    "input_tokens": 8843,
-    "output_tokens": 866
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "5e6ff3454c27131b15e18786e1feab9e67ed3e7cbb3a38e57d829c9bf6b08539",
-  "case_build_id": "2f28b7db0476c58cb1d7dc3428d4bee83750e0fa041140ea6c0060f500b6eb86",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T23:27:51.634265+00:00",
-  "wall_clock_sec": 8.88152404199991
- },
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "excessive_label_noise"
-  },
-  "evidence_refs": [
-   {
-    "kind": "config_key",
-    "artifact_id": "config.yaml",
-    "detail": {
-     "key_path": "data.label_noise_fraction"
-    }
-   },
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "metric_visible_val_acc",
-     "start_epoch": 0,
-     "end_epoch": 19
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "config_patch",
-   "patches": {
-    "data.label_noise_fraction": 0.0
-   }
-  },
-  "confidence": 0.95,
-  "rationale": "Label noise fraction of 0.42 corrupts 42% of training labels, degrading validation accuracy to ~0.812 vs. healthy baseline of ~0.857. Setting label_noise_fraction to 0.0 removes this data corruption."
- },
- "run_id": "20260914T232751Z_73bca8",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0021\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599). Values clearly outside this range, above OR below, are anomalous.\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "525e1cb25e6212e9c12a27a541f82bcf9dfeda182ea272e086c95faea049c419",
-  "prompt_version": "static-1-rule"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8843,

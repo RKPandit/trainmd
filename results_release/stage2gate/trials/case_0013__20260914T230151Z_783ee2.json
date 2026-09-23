@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0013",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,77 @@
   "anchor": "numbers",
   "repeat_index": 1
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "920175aab038461765aac217dd3d456f41cb4f468bf9d1fc4452215182395cdf",
+  "case_build_id": "b7367bee3ac74145a0b9701e9f114893be277722fdce68e67b0b1148080c0a0b",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T23:01:51.570880+00:00",
+  "wall_clock_sec": 10.914318874999935
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically by examining the configuration, code, metrics, and logs.\n\n## Analysis\n\n**Healthy Range Check:**\n- Healthy runs achieve `metric_visible_val_acc \u2248 0.8568` (range: 0.8538\u20130.8599)\n- This run's final `metric_visible_val_acc = 0.8648`\n- This falls **above** the healthy range (0.8648 > 0.8599)\n\n**Metrics Trajectory:**\n- Epoch 0: 0.861271\n- Epoch 3 (peak): 0.870706\n- Epoch 19 (final): 0.864809\n- The accuracy is consistently elevated above the healthy range throughout training\n\n**Configuration Review:**\n- All hyperparameters match typical healthy run settings:\n  - lr: 0.01, batch_size: 256, epochs: 20\n  - model: MLP with hidden_dims [64, 32], dropout 0.0\n  - weight_decay: 0.0001\n  - Optimizer: adam\n  - Data includes auxiliary feature: true, strength: 0.35\n\n**Potential Causes:**\nLooking at the code and config, I notice the auxiliary feature mechanism in `_compute_aux_column()`:\n```python\ndef _compute_aux_column(labels: np.ndarray, split_name: str, p: float) -> np.ndarray:\n    # ... uses deterministic seed from split_name and p\n    noise = rng.binomial(1, p, size=len(labels)).astype(np.float32)\n    return np.abs(labels - noise)\n```\n\nThe auxiliary feature is computed with `aux_feature_strength: 0.35`. This creates an additional feature that is highly correlated with labels, which can inflate validation accuracy beyond what the core model features support.\n\nThe consistently elevated validation accuracy (0.864-0.871 range throughout training) compared to the healthy target (0.8538-0.8599) suggests the auxiliary feature provides too much signal, making the validation task artificially easier.\n\n**Root Cause:**\nThe `aux_feature_strength: 0.35` is too high. A lower strength value would reduce the correlation between the auxiliary feature and labels, bringing validation accuracy into the healthy range.\n\nThe appropriate fix is to reduce `aux_feature_strength` from 0.35 to a lower value (approximately 0.15-0.20 based on typical calibration patterns).",
+   "tool_calls": [
+    {
+     "id": "toolu_01RJseSiotqkSy18XNqxrBEa",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "excessive_aux_feature_strength"
+      },
+      "evidence_refs": [
+       {
+        "kind": "metric_window",
+        "artifact_id": "metrics.jsonl",
+        "detail": {
+         "series": "metric_visible_val_acc",
+         "start_epoch": 0,
+         "end_epoch": 19
+        }
+       },
+       {
+        "kind": "config_key",
+        "artifact_id": "config.yaml",
+        "detail": {
+         "key_path": "data.aux_feature_strength"
+        }
+       },
+       {
+        "kind": "code_span",
+        "artifact_id": "train.py",
+        "detail": {
+         "start_line": 235,
+         "end_line": 245
+        }
+       }
+      ],
+      "rationale": "Validation accuracy (0.8648 final, 0.8707 peak) consistently exceeds healthy range (0.8538\u20130.8599), indicating the auxiliary feature with strength 0.35 provides excessive label correlation, inflating performance beyond the baseline model's capability.",
+      "repair_spec": {
+       "repair_type": "config_patch",
+       "patches": {
+        "data.aux_feature_strength": 0.15
+       }
+      }
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 10.884,
+   "usage": {
+    "input_tokens": 8846,
+    "output_tokens": 987
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +88,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0013\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "e5a0c2ad307ef9990caabfa80cda4990bb2fa885f637f7447048fffb19c73c2f",
+  "prompt_version": "static-1-numbers"
+ },
+ "run_id": "20260914T230151Z_783ee2",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -90,7 +169,48 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "excessive_aux_feature_strength"
+  },
+  "evidence_refs": [
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0,
+     "end_epoch": 19
+    }
+   },
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "data.aux_feature_strength"
+    }
+   },
+   {
+    "kind": "code_span",
+    "artifact_id": "train.py",
+    "detail": {
+     "start_line": 235,
+     "end_line": 245
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "data.aux_feature_strength": 0.15
+   }
+  },
+  "confidence": null,
+  "rationale": "Validation accuracy (0.8648 final, 0.8707 peak) consistently exceeds healthy range (0.8538\u20130.8599), indicating the auxiliary feature with strength 0.35 provides excessive label correlation, inflating performance beyond the baseline model's capability."
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1265,126 +1385,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically by examining the configuration, code, metrics, and logs.\n\n## Analysis\n\n**Healthy Range Check:**\n- Healthy runs achieve `metric_visible_val_acc \u2248 0.8568` (range: 0.8538\u20130.8599)\n- This run's final `metric_visible_val_acc = 0.8648`\n- This falls **above** the healthy range (0.8648 > 0.8599)\n\n**Metrics Trajectory:**\n- Epoch 0: 0.861271\n- Epoch 3 (peak): 0.870706\n- Epoch 19 (final): 0.864809\n- The accuracy is consistently elevated above the healthy range throughout training\n\n**Configuration Review:**\n- All hyperparameters match typical healthy run settings:\n  - lr: 0.01, batch_size: 256, epochs: 20\n  - model: MLP with hidden_dims [64, 32], dropout 0.0\n  - weight_decay: 0.0001\n  - Optimizer: adam\n  - Data includes auxiliary feature: true, strength: 0.35\n\n**Potential Causes:**\nLooking at the code and config, I notice the auxiliary feature mechanism in `_compute_aux_column()`:\n```python\ndef _compute_aux_column(labels: np.ndarray, split_name: str, p: float) -> np.ndarray:\n    # ... uses deterministic seed from split_name and p\n    noise = rng.binomial(1, p, size=len(labels)).astype(np.float32)\n    return np.abs(labels - noise)\n```\n\nThe auxiliary feature is computed with `aux_feature_strength: 0.35`. This creates an additional feature that is highly correlated with labels, which can inflate validation accuracy beyond what the core model features support.\n\nThe consistently elevated validation accuracy (0.864-0.871 range throughout training) compared to the healthy target (0.8538-0.8599) suggests the auxiliary feature provides too much signal, making the validation task artificially easier.\n\n**Root Cause:**\nThe `aux_feature_strength: 0.35` is too high. A lower strength value would reduce the correlation between the auxiliary feature and labels, bringing validation accuracy into the healthy range.\n\nThe appropriate fix is to reduce `aux_feature_strength` from 0.35 to a lower value (approximately 0.15-0.20 based on typical calibration patterns).",
-   "tool_calls": [
-    {
-     "id": "toolu_01RJseSiotqkSy18XNqxrBEa",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": true,
-       "operator_class": "excessive_aux_feature_strength"
-      },
-      "evidence_refs": [
-       {
-        "kind": "metric_window",
-        "artifact_id": "metrics.jsonl",
-        "detail": {
-         "series": "metric_visible_val_acc",
-         "start_epoch": 0,
-         "end_epoch": 19
-        }
-       },
-       {
-        "kind": "config_key",
-        "artifact_id": "config.yaml",
-        "detail": {
-         "key_path": "data.aux_feature_strength"
-        }
-       },
-       {
-        "kind": "code_span",
-        "artifact_id": "train.py",
-        "detail": {
-         "start_line": 235,
-         "end_line": 245
-        }
-       }
-      ],
-      "rationale": "Validation accuracy (0.8648 final, 0.8707 peak) consistently exceeds healthy range (0.8538\u20130.8599), indicating the auxiliary feature with strength 0.35 provides excessive label correlation, inflating performance beyond the baseline model's capability.",
-      "repair_spec": {
-       "repair_type": "config_patch",
-       "patches": {
-        "data.aux_feature_strength": 0.15
-       }
-      }
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 10.884,
-   "usage": {
-    "input_tokens": 8846,
-    "output_tokens": 987
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "920175aab038461765aac217dd3d456f41cb4f468bf9d1fc4452215182395cdf",
-  "case_build_id": "b7367bee3ac74145a0b9701e9f114893be277722fdce68e67b0b1148080c0a0b",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T23:01:51.570880+00:00",
-  "wall_clock_sec": 10.914318874999935
- },
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "excessive_aux_feature_strength"
-  },
-  "evidence_refs": [
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "metric_visible_val_acc",
-     "start_epoch": 0,
-     "end_epoch": 19
-    }
-   },
-   {
-    "kind": "config_key",
-    "artifact_id": "config.yaml",
-    "detail": {
-     "key_path": "data.aux_feature_strength"
-    }
-   },
-   {
-    "kind": "code_span",
-    "artifact_id": "train.py",
-    "detail": {
-     "start_line": 235,
-     "end_line": 245
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "config_patch",
-   "patches": {
-    "data.aux_feature_strength": 0.15
-   }
-  },
-  "confidence": null,
-  "rationale": "Validation accuracy (0.8648 final, 0.8707 peak) consistently exceeds healthy range (0.8538\u20130.8599), indicating the auxiliary feature with strength 0.35 provides excessive label correlation, inflating performance beyond the baseline model's capability."
- },
- "run_id": "20260914T230151Z_783ee2",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0013\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "e5a0c2ad307ef9990caabfa80cda4990bb2fa885f637f7447048fffb19c73c2f",
-  "prompt_version": "static-1-numbers"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8846,

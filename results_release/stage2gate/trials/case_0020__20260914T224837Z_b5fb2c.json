@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0020",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,45 @@
   "anchor": "off",
   "repeat_index": 1
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "b89b51e88e6a8cb78404ac8eddd08cafe48fb35563bb228a2695cb8707241aa6",
+  "case_build_id": "4bf69e8e074fc3721e1dc98e82ca931df7d7a73388045089f6f671bef15f8421",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T22:48:38.047858+00:00",
+  "wall_clock_sec": 6.532338499999923
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this machine learning training run systematically.\n\n## Analysis\n\n**Configuration Check:**\n- The config specifies `label_noise_fraction: 0.38` in the data section\n- This means 38% of training labels should be randomly flipped\n- The code correctly imports and uses `nested_prefix_indices` from `datautil.py` to deterministically flip labels\n\n**Code Implementation Review:**\n- Lines 226-233 in train.py show label noise is applied when `noise_frac > 0`\n- The `nested_prefix_indices` function correctly generates deterministic indices for label flipping\n- The implementation depends only on the data size and fraction, not the training seed (as intended)\n\n**Training Metrics Analysis:**\n- Training loss starts at ~0.6815 and gradually decreases to ~0.6718 over 20 epochs\n- Validation accuracy hovers around 0.83, ranging from 0.8167 to 0.8399\n- The metrics are noisy but show expected behavior for a model training on noisy labels\n- No NaN, inf, or crashes observed\n- Exit code: 0 (success)\n\n**Data and Reproducibility:**\n- Seed=43 is set in config.resolved.yaml\n- Thread pinning guards are in place (require_pinned_threads function)\n- Deterministic algorithms enabled in PyTorch\n- Label noise is applied deterministically via `nested_prefix_indices`\n\n**Potential Issues Check:**\n- No warnings in logs about convergence issues\n- No exceptions or tracebacks\n- Metrics are reasonable for a binary classification task with 38% label noise\n- Batch size (256), learning rate (0.01), and architecture seem reasonable\n- Input dimension correctly resolved to 105\n- All output files (config.resolved.yaml, metrics.jsonl, logs, checkpoints) properly generated\n\n**Conclusion:**\nThe run appears completely healthy. The model trains successfully with expected behavior for a dataset with 38% label noise. All metrics are within reasonable ranges, there are no errors, and the training completes normally.",
+   "tool_calls": [
+    {
+     "id": "toolu_01LjmpUWjTpEUzgwMwVmHuFt",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": false,
+       "operator_class": "none"
+      },
+      "evidence_refs": []
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 6.5046,
+   "usage": {
+    "input_tokens": 8791,
+    "output_tokens": 553
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +56,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0020\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "74cba1334cd8302e1e67097b63985ac9142b88db157af5b0f69d4b1d6892c5c5",
+  "prompt_version": "static-1-off"
+ },
+ "run_id": "20260914T224837Z_b5fb2c",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -79,7 +126,18 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": false,
+   "operator_class": "none"
+  },
+  "evidence_refs": [],
+  "repair_spec": null,
+  "confidence": null,
+  "rationale": null
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1220,64 +1278,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this machine learning training run systematically.\n\n## Analysis\n\n**Configuration Check:**\n- The config specifies `label_noise_fraction: 0.38` in the data section\n- This means 38% of training labels should be randomly flipped\n- The code correctly imports and uses `nested_prefix_indices` from `datautil.py` to deterministically flip labels\n\n**Code Implementation Review:**\n- Lines 226-233 in train.py show label noise is applied when `noise_frac > 0`\n- The `nested_prefix_indices` function correctly generates deterministic indices for label flipping\n- The implementation depends only on the data size and fraction, not the training seed (as intended)\n\n**Training Metrics Analysis:**\n- Training loss starts at ~0.6815 and gradually decreases to ~0.6718 over 20 epochs\n- Validation accuracy hovers around 0.83, ranging from 0.8167 to 0.8399\n- The metrics are noisy but show expected behavior for a model training on noisy labels\n- No NaN, inf, or crashes observed\n- Exit code: 0 (success)\n\n**Data and Reproducibility:**\n- Seed=43 is set in config.resolved.yaml\n- Thread pinning guards are in place (require_pinned_threads function)\n- Deterministic algorithms enabled in PyTorch\n- Label noise is applied deterministically via `nested_prefix_indices`\n\n**Potential Issues Check:**\n- No warnings in logs about convergence issues\n- No exceptions or tracebacks\n- Metrics are reasonable for a binary classification task with 38% label noise\n- Batch size (256), learning rate (0.01), and architecture seem reasonable\n- Input dimension correctly resolved to 105\n- All output files (config.resolved.yaml, metrics.jsonl, logs, checkpoints) properly generated\n\n**Conclusion:**\nThe run appears completely healthy. The model trains successfully with expected behavior for a dataset with 38% label noise. All metrics are within reasonable ranges, there are no errors, and the training completes normally.",
-   "tool_calls": [
-    {
-     "id": "toolu_01LjmpUWjTpEUzgwMwVmHuFt",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": false,
-       "operator_class": "none"
-      },
-      "evidence_refs": []
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 6.5046,
-   "usage": {
-    "input_tokens": 8791,
-    "output_tokens": 553
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "b89b51e88e6a8cb78404ac8eddd08cafe48fb35563bb228a2695cb8707241aa6",
-  "case_build_id": "4bf69e8e074fc3721e1dc98e82ca931df7d7a73388045089f6f671bef15f8421",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T22:48:38.047858+00:00",
-  "wall_clock_sec": 6.532338499999923
- },
- "submission": {
-  "diagnosis": {
-   "detected": false,
-   "operator_class": "none"
-  },
-  "evidence_refs": [],
-  "repair_spec": null,
-  "confidence": null,
-  "rationale": null
- },
- "run_id": "20260914T224837Z_b5fb2c",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0020\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "74cba1334cd8302e1e67097b63985ac9142b88db157af5b0f69d4b1d6892c5c5",
-  "prompt_version": "static-1-off"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8791,

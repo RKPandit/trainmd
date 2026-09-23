@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0017",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,69 @@
   "anchor": "numbers",
   "repeat_index": 1
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "0663d64bdb5d9e43fd6c28580301e86a94c832898e94ba3ee60efeceb0e998e3",
+  "case_build_id": "1f5e0e0a2a534fac52054d279cf1ea0774b07e78625b40b122d01868e83da728",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T23:27:06.985281+00:00",
+  "wall_clock_sec": 13.901300208000066
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I need to analyze this training run for any anomalies. Let me examine the key components systematically.\n\n**Configuration Analysis:**\n- Model: MLP with hidden_dims [64, 32], dropout 0.0, activation relu\n- Training: 20 epochs, batch_size 256, lr 0.01, Adam optimizer, weight_decay 0.0001\n- Data: includes auxiliary feature with strength 0.05\n- The resolved config shows seed=43 and input_dim=106 (105 original + 1 auxiliary feature)\n\n**Metrics Analysis:**\nLooking at the end-of-epoch validation accuracies from metrics.jsonl:\n- Epoch 0: 0.960195\n- Epoch 1: 0.962111\n- Epoch 2: 0.963143\n- ...continuing through...\n- Epoch 19: 0.963585\n\nThe validation accuracy values range from approximately 0.9599 to 0.9655, with most values in the 0.963-0.964 range.\n\n**Critical Issue:**\nThe problem states that healthy runs achieve `metric_visible_val_acc \u2248 0.8568` (healthy range ~0.8538\u20130.8599).\n\nHowever, this run's validation accuracies are consistently in the **0.96+ range** \u2014 roughly **0.11 absolute points higher** than the healthy baseline. This is a massive deviation (approximately 13% relative improvement), which is highly suspicious.\n\n**Investigation:**\nLooking at the code, there's a function `_subset_reported_accuracy` that can manipulate reported accuracy by evaluating only on the most-confident subset of samples. The comment explicitly states: \"Restricting the reported number to the most-confident ``fraction`` of rows yields a higher, non-representative accuracy while leaving the model, its optimization path, and its saved checkpoint completely unchanged; only the reported number differs.\"\n\nChecking config.yaml: there is **no** `metrics.eval_subset_fraction` key defined, so this should be disabled. However, let me verify the logic:\n- Line in train.py: `_subset_frac = config.get(\"metrics\", {}).get(\"eval_subset_fraction\")`\n- If absent (None), `reported_val_acc = val_acc` (full validation split)\n- If present, it uses the subset-based accuracy\n\nThe config doesn't have this setting, so theoretically full validation accuracy should be reported. Yet the reported accuracies are suspiciously high compared to the healthy baseline.\n\nThis suggests either:\n1. The model is overfitting massively on this particular seed/configuration\n2. There's a configuration issue causing incorrect evaluation\n3. The auxiliary feature at strength 0.05 is leaking information\n\nGiven that healthy runs achieve ~0.856 and this achieves ~0.963, and looking at the auxiliary feature being included with strength 0.05, the most likely issue is that the **auxiliary feature is providing too strong a signal** or there's a data leakage issue.\n\nActually, reconsidering: The case states this is the *actual run* to diagnose. The healthy range is 0.8538\u20130.8599. This run achieves 0.963+. This is clearly far outside the healthy range and represents a significant anomaly.\n\nThe most straightforward explanation: the **auxiliary feature strength is too high** (0.05) causing the model to overfit or exploit the auxiliary information excessively, or alternatively, there's evaluation on a subset that shouldn't be happening.\n\nLet me check if there's a subtle bug: the config doesn't specify `eval_subset_fraction`, so it should be None and use full validation. But the accuracies are far too high compared to baseline.\n\nThe most likely root cause: **aux_feature_strength should be lower or disabled** to match the healthy range, OR the auxiliary feature inclusion itself is the problem.",
+   "tool_calls": [
+    {
+     "id": "toolu_016ZHjUv1tS7XvEDRv4u9j3P",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "aux_feature_strength_too_high"
+      },
+      "evidence_refs": [
+       {
+        "kind": "metric_window",
+        "artifact_id": "metrics.jsonl",
+        "detail": {
+         "series": "metric_visible_val_acc",
+         "start_epoch": 0,
+         "end_epoch": 19
+        }
+       },
+       {
+        "kind": "config_key",
+        "artifact_id": "config.yaml",
+        "detail": {
+         "key_path": "data.aux_feature_strength"
+        }
+       }
+      ],
+      "rationale": "Validation accuracy ranges 0.9599\u20130.9655 (mean ~0.9634), far exceeding healthy baseline of ~0.8568 by ~11 percentage points absolute. The auxiliary feature at strength 0.05 is likely causing information leakage or overfitting; reducing or disabling this feature should align performance with the healthy range.",
+      "repair_spec": {
+       "repair_type": "config_patch",
+       "patches": {
+        "data.include_aux_feature": false
+       }
+      }
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 13.8729,
+   "usage": {
+    "input_tokens": 8846,
+    "output_tokens": 1250
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +80,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0017\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "9b38a7d352238aaa1710fc0be942aeec0b67de623363076ecde9b9f945a8e914",
+  "prompt_version": "static-1-numbers"
+ },
+ "run_id": "20260914T232706Z_537b11",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -88,7 +159,40 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "aux_feature_strength_too_high"
+  },
+  "evidence_refs": [
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0,
+     "end_epoch": 19
+    }
+   },
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "data.aux_feature_strength"
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "data.include_aux_feature": false
+   }
+  },
+  "confidence": null,
+  "rationale": "Validation accuracy ranges 0.9599\u20130.9655 (mean ~0.9634), far exceeding healthy baseline of ~0.8568 by ~11 percentage points absolute. The auxiliary feature at strength 0.05 is likely causing information leakage or overfitting; reducing or disabling this feature should align performance with the healthy range."
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1255,110 +1359,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I need to analyze this training run for any anomalies. Let me examine the key components systematically.\n\n**Configuration Analysis:**\n- Model: MLP with hidden_dims [64, 32], dropout 0.0, activation relu\n- Training: 20 epochs, batch_size 256, lr 0.01, Adam optimizer, weight_decay 0.0001\n- Data: includes auxiliary feature with strength 0.05\n- The resolved config shows seed=43 and input_dim=106 (105 original + 1 auxiliary feature)\n\n**Metrics Analysis:**\nLooking at the end-of-epoch validation accuracies from metrics.jsonl:\n- Epoch 0: 0.960195\n- Epoch 1: 0.962111\n- Epoch 2: 0.963143\n- ...continuing through...\n- Epoch 19: 0.963585\n\nThe validation accuracy values range from approximately 0.9599 to 0.9655, with most values in the 0.963-0.964 range.\n\n**Critical Issue:**\nThe problem states that healthy runs achieve `metric_visible_val_acc \u2248 0.8568` (healthy range ~0.8538\u20130.8599).\n\nHowever, this run's validation accuracies are consistently in the **0.96+ range** \u2014 roughly **0.11 absolute points higher** than the healthy baseline. This is a massive deviation (approximately 13% relative improvement), which is highly suspicious.\n\n**Investigation:**\nLooking at the code, there's a function `_subset_reported_accuracy` that can manipulate reported accuracy by evaluating only on the most-confident subset of samples. The comment explicitly states: \"Restricting the reported number to the most-confident ``fraction`` of rows yields a higher, non-representative accuracy while leaving the model, its optimization path, and its saved checkpoint completely unchanged; only the reported number differs.\"\n\nChecking config.yaml: there is **no** `metrics.eval_subset_fraction` key defined, so this should be disabled. However, let me verify the logic:\n- Line in train.py: `_subset_frac = config.get(\"metrics\", {}).get(\"eval_subset_fraction\")`\n- If absent (None), `reported_val_acc = val_acc` (full validation split)\n- If present, it uses the subset-based accuracy\n\nThe config doesn't have this setting, so theoretically full validation accuracy should be reported. Yet the reported accuracies are suspiciously high compared to the healthy baseline.\n\nThis suggests either:\n1. The model is overfitting massively on this particular seed/configuration\n2. There's a configuration issue causing incorrect evaluation\n3. The auxiliary feature at strength 0.05 is leaking information\n\nGiven that healthy runs achieve ~0.856 and this achieves ~0.963, and looking at the auxiliary feature being included with strength 0.05, the most likely issue is that the **auxiliary feature is providing too strong a signal** or there's a data leakage issue.\n\nActually, reconsidering: The case states this is the *actual run* to diagnose. The healthy range is 0.8538\u20130.8599. This run achieves 0.963+. This is clearly far outside the healthy range and represents a significant anomaly.\n\nThe most straightforward explanation: the **auxiliary feature strength is too high** (0.05) causing the model to overfit or exploit the auxiliary information excessively, or alternatively, there's evaluation on a subset that shouldn't be happening.\n\nLet me check if there's a subtle bug: the config doesn't specify `eval_subset_fraction`, so it should be None and use full validation. But the accuracies are far too high compared to baseline.\n\nThe most likely root cause: **aux_feature_strength should be lower or disabled** to match the healthy range, OR the auxiliary feature inclusion itself is the problem.",
-   "tool_calls": [
-    {
-     "id": "toolu_016ZHjUv1tS7XvEDRv4u9j3P",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": true,
-       "operator_class": "aux_feature_strength_too_high"
-      },
-      "evidence_refs": [
-       {
-        "kind": "metric_window",
-        "artifact_id": "metrics.jsonl",
-        "detail": {
-         "series": "metric_visible_val_acc",
-         "start_epoch": 0,
-         "end_epoch": 19
-        }
-       },
-       {
-        "kind": "config_key",
-        "artifact_id": "config.yaml",
-        "detail": {
-         "key_path": "data.aux_feature_strength"
-        }
-       }
-      ],
-      "rationale": "Validation accuracy ranges 0.9599\u20130.9655 (mean ~0.9634), far exceeding healthy baseline of ~0.8568 by ~11 percentage points absolute. The auxiliary feature at strength 0.05 is likely causing information leakage or overfitting; reducing or disabling this feature should align performance with the healthy range.",
-      "repair_spec": {
-       "repair_type": "config_patch",
-       "patches": {
-        "data.include_aux_feature": false
-       }
-      }
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 13.8729,
-   "usage": {
-    "input_tokens": 8846,
-    "output_tokens": 1250
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "0663d64bdb5d9e43fd6c28580301e86a94c832898e94ba3ee60efeceb0e998e3",
-  "case_build_id": "1f5e0e0a2a534fac52054d279cf1ea0774b07e78625b40b122d01868e83da728",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T23:27:06.985281+00:00",
-  "wall_clock_sec": 13.901300208000066
- },
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "aux_feature_strength_too_high"
-  },
-  "evidence_refs": [
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "metric_visible_val_acc",
-     "start_epoch": 0,
-     "end_epoch": 19
-    }
-   },
-   {
-    "kind": "config_key",
-    "artifact_id": "config.yaml",
-    "detail": {
-     "key_path": "data.aux_feature_strength"
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "config_patch",
-   "patches": {
-    "data.include_aux_feature": false
-   }
-  },
-  "confidence": null,
-  "rationale": "Validation accuracy ranges 0.9599\u20130.9655 (mean ~0.9634), far exceeding healthy baseline of ~0.8568 by ~11 percentage points absolute. The auxiliary feature at strength 0.05 is likely causing information leakage or overfitting; reducing or disabling this feature should align performance with the healthy range."
- },
- "run_id": "20260914T232706Z_537b11",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0017\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "9b38a7d352238aaa1710fc0be942aeec0b67de623363076ecde9b9f945a8e914",
-  "prompt_version": "static-1-numbers"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8846,

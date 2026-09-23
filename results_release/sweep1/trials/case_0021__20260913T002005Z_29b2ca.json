@@ -1,4 +1,12 @@
 {
+ "agent_name": "llm_claude-haiku-4-5-20251001",
+ "case_id": "case_0021",
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "react",
+  "anchor": "off",
+  "repeat_index": 1
+ },
  "environment": {
   "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
   "git_dirty": true,
@@ -9,22 +17,6 @@
   "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
   "timestamp_utc": "2026-09-13T00:20:05.503903+00:00",
   "wall_clock_sec": 25.76810291699985
- },
- "model": {
-  "model_id": "claude-haiku-4-5-20251001",
-  "model_version": null,
-  "provider": "anthropic",
-  "temperature": 1.0,
-  "top_p": null,
-  "max_tokens": 8192,
-  "stop_reason": null,
-  "request_seed": null
- },
- "schema_version": "1.1",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0021\nWorkload: tabular_adult\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
-  "prompt_hash": "b8bb9f11098744bce1ee2d19ab11f3a46a65676baf7098517f9efc7e639fef83",
-  "prompt_version": "react-1-noanchor"
  },
  "llm_transcript": [
   {
@@ -255,6 +247,23 @@
    }
   }
  ],
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0021\nWorkload: tabular_adult\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
+  "prompt_hash": "b8bb9f11098744bce1ee2d19ab11f3a46a65676baf7098517f9efc7e639fef83",
+  "prompt_version": "react-1-noanchor"
+ },
+ "run_id": "20260913T002005Z_29b2ca",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -337,55 +346,7 @@
    "scorer_version": "evidence_v1"
   }
  },
- "usage": {
-  "llm_calls": 9,
-  "input_tokens": 55066,
-  "output_tokens": 2066,
-  "cached_tokens": 0,
-  "total_tokens": 57132,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.065396,
-  "cost_is_estimate": true
- },
- "termination_reason": "submitted",
  "status": "completed",
- "submission_original": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "high_label_noise_fraction"
-  },
-  "evidence_refs": [
-   {
-    "kind": "config_key",
-    "artifact_id": "config.resolved.yaml",
-    "detail": {
-     "key_path": "data.label_noise_fraction"
-    }
-   },
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "train_loss",
-     "start_epoch": 0,
-     "end_epoch": 19
-    }
-   },
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "metric_visible_val_acc",
-     "start_epoch": 0,
-     "end_epoch": 19
-    }
-   }
-  ],
-  "repair_spec": null,
-  "confidence": null,
-  "rationale": "Label noise fraction of 0.42 (42%) is unreasonably high and causes severe training degradation: minimal loss reduction (~0.9%), high validation accuracy variance, and declining performance in later epochs. Standard practice uses 0.0 (no noise) by default or very small values (0.01-0.05) if intentionally added.</anionale>\n<parameter name=\"repair_spec\">\n{\n  \"repair_type\": \"config_patch\",\n  \"patches\": {\n    \"data.label_noise_fraction\": 0.0\n  }\n}\n"
- },
- "agent_name": "llm_claude-haiku-4-5-20251001",
  "submission": {
   "diagnosis": {
    "detected": true,
@@ -433,13 +394,43 @@
    "method": "parser_fix_v1"
   }
  },
- "conditions": {
-  "sweep_name": "sweep1",
-  "agent_type": "react",
-  "anchor": "off",
-  "repeat_index": 1
+ "submission_original": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "high_label_noise_fraction"
+  },
+  "evidence_refs": [
+   {
+    "kind": "config_key",
+    "artifact_id": "config.resolved.yaml",
+    "detail": {
+     "key_path": "data.label_noise_fraction"
+    }
+   },
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "train_loss",
+     "start_epoch": 0,
+     "end_epoch": 19
+    }
+   },
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0,
+     "end_epoch": 19
+    }
+   }
+  ],
+  "repair_spec": null,
+  "confidence": null,
+  "rationale": "Label noise fraction of 0.42 (42%) is unreasonably high and causes severe training degradation: minimal loss reduction (~0.9%), high validation accuracy variance, and declining performance in later epochs. Standard practice uses 0.0 (no noise) by default or very small values (0.01-0.05) if intentionally added.</anionale>\n<parameter name=\"repair_spec\">\n{\n  \"repair_type\": \"config_patch\",\n  \"patches\": {\n    \"data.label_noise_fraction\": 0.0\n  }\n}\n"
  },
- "run_id": "20260913T002005Z_29b2ca",
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1294,5 +1285,14 @@
    "phase": null
   }
  ],
- "case_id": "case_0021"
+ "usage": {
+  "llm_calls": 9,
+  "input_tokens": 55066,
+  "output_tokens": 2066,
+  "cached_tokens": 0,
+  "total_tokens": 57132,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.065396,
+  "cost_is_estimate": true
+ }
 }
