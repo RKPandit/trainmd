@@ -50,3 +50,18 @@ def test_apply_edits_changes_or_adds_without_mutating_input():
 def test_candidates_cover_both_edit_forms():
     forms = {c["form"] for c in q.CANDIDATES.values()}
     assert forms == {"changed", "added"}
+
+
+def test_visible_band_position_reported_not_gated():
+    # a change that shifts the VISIBLE metric far out of band but leaves hidden accuracy alone
+    cand = {s: (CLEAN[s][0], 0.856 + 0.01) for s in SEEDS}
+    r = q.qualify(CLEAN, cand, SIGMA, vis_band=(0.856, 0.002))
+    assert r["qualified"]                                     # hidden test decides; visible is info
+    v = r["visible"]
+    assert v["shift_sigmas"] == pytest.approx(5.0) and v["band_change"]["above"] == 1.0
+    assert v["band_clean"]["inside"] == 1.0
+
+
+def test_label_noise_is_not_a_benign_candidate():
+    assert all("label_noise_fraction" not in c["edits"] for c in q.CANDIDATES.values())
+    assert q.CANDIDATES["grad_clip_1.0"]["form"] == "added"

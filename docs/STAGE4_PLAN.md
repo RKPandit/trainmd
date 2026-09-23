@@ -132,6 +132,10 @@ trial with `cache_read_tokens > 0` — before the full run. (The agents phase al
 multi-call Anthropic ReAct trials all miss the cache.) Measured on H8: Haiku ReAct resent
 84% of its input as history; caching would have cut that cell from $18.85 to ≈ $8.70 (DECISIONS
 2026-09-23).
+**Declared in the Part 1 pre-registration — the workload source changed:** both `train.py` files now
+contain an inert `training.grad_clip_norm` path (absent = no clipping; needed for the new-key benign
+control — DECISIONS 2026-09-23). The clean path is numerically unchanged (A/B-proven), but agents that
+read `train.py` see three extra lines, so even the `off` arm is comparable with H8 only approximately.
 **Release archive — decided at paper time (no longer a Part 1 prerequisite; DECISIONS 2026-09-23):**
 the archive platform (Zenodo / GitHub Releases / Hugging Face) is chosen at submission, once the venue's
 anonymity and hosting rules are known. Enforced now: new sweep releases (Stage 4 onward) are exported

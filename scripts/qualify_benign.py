@@ -13,7 +13,11 @@ Test (DECLARED before any run; docs/DECISIONS.md 2026-09-23):
   (1) MEAN — TOST equivalence, α = 0.05 per side: the 90% t-interval of mean(d) must lie inside
       (−δ, +δ), δ = 1.0 × σ_ref, σ_ref = the reference hidden-accuracy SD (reference/stats.yaml).
   (2) SPREAD — SD(acc_c) / SD(acc_clean) over the same seeds must lie in [2/3, 3/2].
-  QUALIFIED iff (1) and (2). The visible-metric shift is reported for information only (not gated).
+  QUALIFIED iff (1) and (2).
+  Reported alongside, NOT gated (author's review): the VISIBLE metric — mean shift in σ_vis units and
+  the visible BAND POSITION (share of runs below / inside / above the public band mean ± 2σ_vis, for
+  the change vs clean). Agents see the visible metric, so a change harmless to the model but visibly
+  shifted would be flagged by band-following agents — known before the run, not discovered in it.
 Results are reported as-is; a candidate that fails is rejected, not re-parameterised.
 
 Must run on native amd64 (training is platform-sensitive): CI workflow `benign-qualify`, or
@@ -57,11 +61,14 @@ CANDIDATES = {
     "dropout_0.1": {"edits": {"model.dropout": 0.1}, "form": "changed",
                     "why": "light dropout (0.0 -> 0.1)"},
     "lr_0.005": {"edits": {"training.lr": 0.005}, "form": "changed",
-                 "why": "lower learning rate (0.01 -> 0.005); same knob as the lr fault"},
-    "label_noise_explicit_0": {"edits": {"data.label_noise_fraction": 0.0}, "form": "added",
-                               "why": "explicitly pin label_noise_fraction to its default 0.0 "
-                                      "(new key; same knob as the label-corruption fault)"},
+                 "why": "lower learning rate within its normal range (0.01 -> 0.005); same knob as "
+                        "the lr fault at a different value — tests value reasoning, not knob presence"},
+    "grad_clip_1.0": {"edits": {"training.grad_clip_norm": 1.0}, "form": "added",
+                      "why": "enable gradient-norm clipping at 1.0 (a routine setting; NEW key, not a "
+                             "fault key — train.py reads it, absent = no clipping)"},
 }
+# Dropped after review: data.label_noise_fraction (small label noise is the label-corruption fault at
+# sub-threshold strength — the deferred sub-band tier, not a control).
 
 
 def apply_edits(config: dict, edits: dict) -> dict:
@@ -94,8 +101,17 @@ def _train_eval(config: dict, seed: int, work: Path) -> tuple[float, float]:
     return float(hidden), float(visible)
 
 
-def qualify(clean: dict[int, tuple], cand: dict[int, tuple], sigma_ref: float) -> dict:
-    """The declared test on paired per-seed (hidden, visible) results."""
+def _band_shares(vals, lo, hi) -> dict:
+    n = len(vals)
+    return {"below": float(sum(v < lo for v in vals) / n), "inside": float(sum(lo <= v <= hi for v in vals) / n),
+            "above": float(sum(v > hi for v in vals) / n)}
+
+
+def qualify(clean: dict[int, tuple], cand: dict[int, tuple], sigma_ref: float,
+            vis_band: tuple[float, float] | None = None) -> dict:
+    """The declared test on paired per-seed (hidden, visible) results (+ visible info, not gated).
+
+    ``vis_band`` = (public visible mean, σ_vis) of the reference; the band is mean ± 2σ_vis."""
     seeds = sorted(clean)
     h_c = np.array([cand[s][0] for s in seeds]); h_0 = np.array([clean[s][0] for s in seeds])
     v_c = np.array([cand[s][1] for s in seeds]); v_0 = np.array([clean[s][1] for s in seeds])
@@ -112,10 +128,20 @@ def qualify(clean: dict[int, tuple], cand: dict[int, tuple], sigma_ref: float) -
     ratio = sdc / sd0 if sd0 else float("inf")
     mean_ok = -delta < lo and hi < delta
     spread_ok = SPREAD_BOUNDS[0] <= ratio <= SPREAD_BOUNDS[1]
-    return {"n": n, "mean_d": float(d.mean()), "ci90": [lo, hi], "delta": delta,
+    visible = {"shift": float((v_c - v_0).mean())}
+    if vis_band is not None:
+        vm, vs = vis_band
+        blo, bhi = vm - 2 * vs, vm + 2 * vs
+        visible.update({"shift_sigmas": float((v_c - v_0).mean() / vs),
+                        "band_change": _band_shares(v_c, blo, bhi), "band_clean": _band_shares(v_0, blo, bhi)})
+    return {"n": n, "mean_d": float(d.mean()), "ci90": [lo, hi], "delta": delta, "visible": visible,
             "mean_d_sigmas": float(d.mean() / sigma_ref), "ci90_sigmas": [lo / sigma_ref, hi / sigma_ref],
             "sd_ratio": ratio, "mean_ok": mean_ok, "spread_ok": spread_ok,
-            "visible_shift": float((v_c - v_0).mean()), "qualified": bool(mean_ok and spread_ok)}
+            "visible_shift": visible["shift"], "qualified": bool(mean_ok and spread_ok)}
+
+
+def _pct(x) -> str:
+    return f"{100 * x:.0f}%"
 
 
 def render(results: dict, sigma_ref: float, seeds: list[int]) -> str:
@@ -128,14 +154,25 @@ def render(results: dict, sigma_ref: float, seeds: list[int]) -> str:
          f"{DELTA_SIGMAS * sigma_ref:.6f}.",
          "- QUALIFIED iff the 90% CI of the mean paired difference lies inside (−δ, +δ) (TOST, α=0.05 "
          f"per side) AND SD(change)/SD(clean) ∈ [{SPREAD_BOUNDS[0]:.3f}, {SPREAD_BOUNDS[1]:.3f}].", "",
-         "| change | form | mean Δ hidden (σ_ref) | 90% CI (σ_ref) | SD ratio | mean | spread | "
-         "visible Δ (info) | verdict |", "|---|---|---|---|---|---|---|---|---|"]
+         "", "### Hidden accuracy — the qualification test", "",
+         "| change | form | mean Δ hidden (σ_ref) | 90% CI (σ_ref) | SD ratio | mean | spread | verdict |",
+         "|---|---|---|---|---|---|---|---|"]
     for name, r in results.items():
         L.append(f"| `{name}` — {CANDIDATES[name]['why']} | {CANDIDATES[name]['form']} | "
                  f"{r['mean_d_sigmas']:+.3f} | [{r['ci90_sigmas'][0]:+.3f}, {r['ci90_sigmas'][1]:+.3f}] | "
                  f"{r['sd_ratio']:.3f} | {'ok' if r['mean_ok'] else 'FAIL'} | "
-                 f"{'ok' if r['spread_ok'] else 'FAIL'} | {r['visible_shift']:+.5f} | "
-                 f"**{'QUALIFIED' if r['qualified'] else 'REJECTED'}** |")
+                 f"{'ok' if r['spread_ok'] else 'FAIL'} | **{'QUALIFIED' if r['qualified'] else 'REJECTED'}** |")
+    L += ["", "### Visible metric — what agents see (reported, NOT gated)", "",
+          "Band = public reference visible mean ± 2σ_vis. A change that shifts runs out of band will be "
+          "flagged by band-following agents even if it is harmless to the model.", "",
+          "| change | mean Δ visible (σ_vis) | band position, change: below / inside / above | "
+          "band position, clean (same seeds): below / inside / above |", "|---|---|---|---|"]
+    for name, r in results.items():
+        v = r["visible"]
+        bc, b0 = v.get("band_change"), v.get("band_clean")
+        L.append(f"| `{name}` | {v.get('shift_sigmas', float('nan')):+.3f} | "
+                 + (f"{_pct(bc['below'])} / {_pct(bc['inside'])} / {_pct(bc['above'])} | "
+                    f"{_pct(b0['below'])} / {_pct(b0['inside'])} / {_pct(b0['above'])} |" if bc else "— | — |"))
     return "\n".join(L) + "\n"
 
 
@@ -152,6 +189,7 @@ def main() -> int:
     base = yaml.safe_load((WORKLOAD / "config.yaml").read_text())
     stats = yaml.safe_load((WORKLOAD / "reference" / "stats.yaml").read_text())
     sigma_ref = float(stats["metric_hidden_test_acc"]["std"])
+    vis_band = (float(stats["metric_visible_val_acc"]["mean"]), float(stats["metric_visible_val_acc"]["std"]))
     with tempfile.TemporaryDirectory(prefix="benign_q_") as tmp:
         work = Path(tmp)
         clean = {s: _train_eval(base, s, work / f"clean_{s}") for s in a.seeds}
@@ -160,7 +198,7 @@ def main() -> int:
         for name in a.candidates:
             cfg = apply_edits(base, CANDIDATES[name]["edits"])
             cand = {s: _train_eval(cfg, s, work / f"{name}_{s}") for s in a.seeds}
-            results[name] = qualify(clean, cand, sigma_ref)
+            results[name] = qualify(clean, cand, sigma_ref, vis_band)
             print(name, json.dumps(results[name]), flush=True)
     a.out.write_text(render(results, sigma_ref, a.seeds))
     (a.out.with_suffix(".json")).write_text(json.dumps(

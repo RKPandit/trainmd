@@ -268,8 +268,40 @@ jobs:
             docs/audits/benign_qualification.md
             docs/audits/benign_qualification.json
 
+  # ---- Workload-change proof — MANUAL (task=benign-qualify) ----------------------
+  # STAGE4 4.0.6 adds an inert training.grad_clip_norm path to BOTH train.py files. Proof the
+  # CLEAN path is unchanged: on ONE runner (same microarchitecture — native training is
+  # byte-exact within a microarch, not across; scripts/verify_reference.py), generate each
+  # workload's 30-seed reference with the OLD train.py (origin/main) and the NEW one, and
+  # require every learned value to be IDENTICAL (scripts/compare_stats_exact.py). The new
+  # reference is also compared with the committed stats.yaml (exact: report-only, since the
+  # runner's microarch may differ from the one that generated it; tolerance: verify_reference).
+  reference-ab:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'benign-qualify' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - run: make docker-data
+      - run: make link-neutral-workload
+      - name: A/B the clean path, old vs new train.py, same runner, both workloads
+        run: |
+          RUN="docker run --rm --platform linux/amd64 --user $(id -u):$(id -g) -e HOME=/tmp -e TRAINMD_IN_CONTAINER=1 -v $PWD:/work -w /work trainmd:canonical"
+          for W in tabular_adult tabular_adult_neutral; do
+            git show HEAD:workloads/$W/reference/stats.yaml > committed_$W.yaml
+            rm -rf ab_$W && cp -rL workloads/$W ab_$W && rm -rf ab_$W/reference/runs
+            git show origin/main:workloads/$W/train.py > ab_$W/train.py
+            $RUN python -m harness.reference_run --workload-dir ab_$W
+            $RUN python -m harness.reference_run --workload-dir workloads/$W
+            $RUN python scripts/compare_stats_exact.py ab_$W/reference/stats.yaml workloads/$W/reference/stats.yaml
+            $RUN python scripts/compare_stats_exact.py --report-only committed_$W.yaml workloads/$W/reference/stats.yaml
+            $RUN python scripts/verify_reference.py committed_$W.yaml workloads/$W/reference/stats.yaml
+          done
+
   reference-repro:
-    if: ${{ github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.task == 'benign-qualify') }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
@@ -289,7 +321,7 @@ jobs:
 
   reference-repro-compare:
     needs: reference-repro
-    if: ${{ github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.task == 'benign-qualify') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -306,6 +338,11 @@ jobs:
           docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
             python scripts/verify_reference.py r1/stats.yaml r2/stats.yaml
           echo "REPRODUCIBLE: reference-run-1 == reference-run-2 across independent runners"
+          # exact (report-only: two runners may differ in microarch): run-1 vs run-2, run-1 vs committed
+          docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
+            python scripts/compare_stats_exact.py --report-only r1/stats.yaml r2/stats.yaml
+          docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
+            python scripts/compare_stats_exact.py --report-only workloads/tabular_adult/reference/stats.yaml r1/stats.yaml
 
   # ---- Standing guard: a committed-reference change must rebuild all cases ---
   # Runs on every event: on a normal push it detects "no reference change" and

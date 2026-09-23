@@ -30,6 +30,11 @@ value clears a trivial floor on detection, and expose where it does not.
   a baseline an LLM is compared against to claim value. Any other changed knob (a benign setting,
   a future operator's knob) FALLS BACK to B2's leaf name; ``b2plus_map_hit`` records which, and the
   fallback rate is what ``scripts/b2plus_report.py`` reports.
+- **BF form-only comparator** (STAGE4 4.0.6) — flags iff the resolved config has a key the clean
+  resolved reference does NOT (a newly-present key), ignoring whether an existing value changed.
+  Four of the five fault operators ADD a key, so BF quantifies how far the edit's FORM alone
+  separates faults from benign changes; benign false positives are reported separately for new-key
+  and changed-value benign cases. A comparator, not a contestant.
 - **B0 exitcode** — the trivially honest crash detector: detected iff the process exited
   nonzero. Detection-only floor (no identification/evidence/repair); a band/config monitor is
   structurally blind to crashes, B0 is not.
@@ -268,6 +273,15 @@ def b2plus(surface: VisibleSurface, knob_map: dict[str, str] | None = None) -> d
     return sub
 
 
+def bform(surface: VisibleSurface) -> dict:
+    """Form-only comparator: detected iff some delta key is NEWLY PRESENT (absent from the clean
+    resolved reference). Evidence = those keys; no identification, no repair."""
+    ref = _flatten(surface.reference_resolved_config())
+    new_keys = [k for k, _ in _config_deltas(surface.resolved_config(), surface.reference_resolved_config())
+                if k not in ref and k not in _DERIVED_KEYS]
+    return _sub(bool(new_keys), evidence=[_config_key(k) for k in new_keys])
+
+
 def b0(surface: VisibleSurface) -> dict:
     """B0 exitcode detector — the trivially honest crash detector. detected iff the
     process exited nonzero. Detection-only floor: no identification/evidence/repair."""
@@ -336,7 +350,7 @@ def operating_point_for_rate(roc: list[dict], target_tpr: float) -> dict | None:
 # Scoring — the SAME scorer as an agent (baseline reads visible; scorer reads hidden)
 # --------------------------------------------------------------------------- #
 
-_BASELINES = {"b0": b0, "b1": b1, "b2": b2, "b2plus": b2plus, "b3": b3}
+_BASELINES = {"b0": b0, "b1": b1, "b2": b2, "b2plus": b2plus, "b3": b3, "bform": bform}
 
 
 def score_baseline(case_dir, name, band=None, project_root=None) -> tuple[dict, dict]:
@@ -356,7 +370,8 @@ def score_baseline(case_dir, name, band=None, project_root=None) -> tuple[dict, 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Non-LLM baselines (STAGE3_PLAN Part 1)")
-    ap.add_argument("--baseline", choices=["b0", "b1", "b2", "b2plus", "b3", "b4"], required=True)
+    ap.add_argument("--baseline", choices=["b0", "b1", "b2", "b2plus", "b3", "b4", "bform"],
+                    required=True)
     ap.add_argument("--cases", default="cases/case_*", help="glob for case dirs")
     ap.add_argument("--project-root", type=Path, default=None)
     args = ap.parse_args()
