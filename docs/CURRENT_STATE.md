@@ -5,8 +5,9 @@
 > **Rule.** If this page and any other document disagree, this page is wrong OR the other document
 > is stale — **fix whichever is stale in the same commit.** Machine-checkable facts in §a are
 > verified against the repo by `scripts/check_current_state.py` in CI; that guard fails loudly on
-> drift. Last updated: 2026-09-22 (Sweep 3 `h8_xprovider` complete — H8 confirmed where powered,
-> H7 model-specific; next gate = Stage-4 plan).
+> drift. Last updated: 2026-09-23 (STAGE4 4.0.2/4.0.3: correction #6 zero-event intervals; H8
+> reframed — identification survives the tested key rename in 3 of 5 answering cells, not a mechanism
+> claim; H7 model-specific; next gate = Stage-4.0 validation).
 
 ---
 
@@ -80,7 +81,7 @@ mentioned,"** never "not used"; every rate states its cluster count.
 | Claim | Status |
 |---|---|
 | **A numerical reference baseline restores detection** (numbers arm closes ~94–95% of the off→rule gap on all 3 gate operators). | **Model-specific — supported for Haiku, FAILED TO REPLICATE as a general effect on the 2nd model.** Off-anchor leakage detection Haiku **0.083** vs Luna **0.819**; band adds ~90 pts (Haiku) / ~17 pts (Luna) — Sweep 3 / FINDINGS F14, S16. The Stage-2 "strongest-supported claim" framing is retired; the effect is Haiku-specific, its driver unidentified at n=2 (L28). |
-| **Leakage identification survives renaming the two descriptive config keys (H8).** *(Reworded 2026-09-23 from "fault-mechanism, not config-key-name reading" — an overclaim: renaming two keys tests dependence on THOSE NAMES; code-pattern recognition and general leakage heuristics remain competing explanations.)* | **Often survives the tested renaming; equivalence unresolved in two anchored conditions; Luna's rule arm shows a measurable decrease** (Sweep 3, neutral-key ablation; PRIMARY = PAIRED strength×seed bootstrap): the pre-registered equivalence criterion (±0.15) is met in **4 of 6 provider-specific cells** — but **Haiku off is equivalent FAILURE** (identification ~6% in both variants: 0.056 / 0.069; the pre-registered floor clause says a floored off arm answers nothing), so identification survives the rename **at a working level in 3** (Haiku numbers/rule, Luna off); **0 refuting**; **2 inconclusive** (Luna numbers/rule; Luna rule Δ −0.115 [−0.197, −0.032], sub-0.30). **Not a mechanism claim.** Count is over provider-specific cells only — the pooled ×3 rows (all confirming) reuse the same trials and are a summary, never independent confirmations. Paired promoted to primary after seeing results, justified by the matched-pair design (point estimate unchanged; moves Haiku numbers inconclusive→confirming vs the unpaired 3/6). Disclosed in the report + DECISIONS 2026-09-22. FINDINGS F13; HYPOTHESES H8. |
+| **Leakage identification survives renaming the two descriptive config keys (H8).** *(Reworded 2026-09-23 from "fault-mechanism, not config-key-name reading" — an overclaim: renaming two keys tests dependence on THOSE NAMES; code-pattern recognition and general leakage heuristics remain competing explanations.)* | **Often survives the tested renaming; equivalence unresolved in two anchored conditions; Luna's rule arm shows a measurable decrease** (Sweep 3, neutral-key ablation; PRIMARY = PAIRED strength×seed bootstrap): **4 of 6** provider-specific cells meet the equivalence criterion (±0.15) as run; by the pre-registration's own floor clause **Haiku-off does not answer H8** (identification ~6% in both variants: 0.056 / 0.069 — equivalent failure), so **3 of 5 answering cells confirm** (Haiku numbers/rule, Luna off) and **2 are inconclusive** (Luna numbers/rule; **0 refuting**; Luna rule Δ −0.115 [−0.197, −0.032], sub-0.30). **Not a mechanism claim.** Count is over provider-specific cells only — the pooled ×3 rows (all confirming) reuse the same trials and are a summary, never independent confirmations. Paired promoted to primary after seeing results, justified by the matched-pair design (point estimate unchanged; moves Haiku numbers inconclusive→confirming vs the unpaired 3/6). Disclosed in the report + DECISIONS 2026-09-22. FINDINGS F13; HYPOTHESES H8. |
 | **Reference-context dependence is model-specific (H7).** | **Model dependence ESTABLISHED, driver NOT identified** (n=2 models; capability / hidden reasoning tokens / training all confounded — L28). Use "failed to replicate," not "refuted." FINDINGS S16/F14. |
 | **Positive-symptom under-detection generalizes to a second mechanism.** | **Failed to replicate** (Stage-2 G1): `metric_inflation` anchor-off detection 0.250 [0.083,0.417] = `label_corruption` 0.250; diff +0.001 [−0.281,+0.250]. Symptom-direction≡blindness not supported (FINDINGS S1). |
 | **The data-leakage condition is anchor-off-blind.** | **Observed** (data_leakage off-detection 0.042 [0.000,0.125]) but **cause not isolated** — leakage-specific vs representation/legibility unresolved; the representation ablation is a Stage-3 test (STAGE3_PLAN §3.4). |
@@ -126,7 +127,8 @@ ran (agent phase 978/984 cells, $24.03, 6 unrun — all neutral×Luna×static; v
   general leakage heuristics are not ruled out; Haiku off is equivalent failure at ~6%). PRIMARY analysis = PAIRED (strength×seed)
   bootstrap (point estimate identical to unpaired; promoted after seeing results, justified by the
   matched-pair design, unpaired retained alongside — disclosed). Neutral−descriptive identification
-  equivalent within ±0.15 in **4 of 6 provider-specific cells** (Haiku off/numbers/rule, Luna off),
+  equivalent within ±0.15 in **4 of 6 provider-specific cells** as run (Haiku off/numbers/rule, Luna off) —
+  excluding floored Haiku-off per the pre-registered floor clause, **3 of 5 answering cells confirm**,
   **0 refuting**, **2 inconclusive** (Luna numbers/rule, modest sub-0.30 gap); pooled ×3 confirming is a
   summary of the same trials, not counted. Vs unpaired 3/6 — pairing moves Haiku numbers to confirming. FINDINGS F13.
 - **H7 — reference-context dependence is MODEL-SPECIFIC (failed to replicate as a general effect).**

@@ -797,8 +797,7 @@ what that supports:
   (neutral 0.056, descriptive 0.069). This is the case the pre-registration anticipated — *"the off arm
   may floor on both variants … if it floors, H8 is answered by the stats and rule arms"* — so, applying
   the registered rule (not a post-hoc one), that cell answers nothing and supports **no** understanding
-  claim. The verdict count is kept as run (4 of 6 meet the criterion); identification survives the rename
-  **at a working level in three** (Haiku numbers, Haiku rule, Luna off).
+  claim. The count, stated both ways: **4 of 6** provider-specific cells meet the equivalence criterion as run; by the pre-registration's own floor clause Haiku-off does not answer H8, so **3 of 5 answering cells confirm** (Haiku numbers, Haiku rule, Luna off) and **2 are inconclusive** (Luna numbers, Luna rule).
 - **Power.** Per the pre-registered power note (6 cases/arm, CI half-width ≈0.15–0.25), "confirming" is
   the weaker *"no evidence of a substantial gap"*, and inconclusive-by-power on anchored arms was
   anticipated.
