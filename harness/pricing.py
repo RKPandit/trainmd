@@ -11,7 +11,13 @@ page before reporting cost figures in the paper.
 """
 from __future__ import annotations
 
+import ast
+import functools
+import hashlib
+import json
+import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
 # Verified Sep 2026 from docs.anthropic.com/en/docs/about-claude/pricing.
 # cached_input is the cache-read (hit) price; cache_write is the cache-WRITE price.
@@ -78,8 +84,9 @@ def estimate_cost(
     output_tokens: int,
     cached_tokens: int = 0,
     cache_write_tokens: int = 0,
+    table: dict | None = None,
 ) -> CostEstimate | None:
-    """Estimate the BILLED cost in USD from the built-in price table.
+    """Estimate the BILLED cost in USD from the built-in price table (or ``table``).
 
     *input_tokens* is the TOTAL prompt size; *cached_tokens* (reads) and *cache_write_tokens*
     are subsets of it and replace full-price input tokens at their own rates (cache-write pricing
@@ -93,7 +100,7 @@ def estimate_cost(
     """
     if model_id is None:
         return None
-    prices = _PRICE_TABLE.get(model_id)
+    prices = (_PRICE_TABLE if table is None else table).get(model_id)
     if prices is None:
         return None
 
@@ -124,3 +131,76 @@ def uncached_equivalent_cost(
     rate). Reported beside the billed cost so sweeps that use caching stay comparable with
     Sweeps 1–3, which ran without it."""
     return estimate_cost(model_id, input_tokens, output_tokens)
+
+
+# --------------------------------------------------------------------------- #
+# Price-table versioning — so the R8 audit can recompute any trial's cost from the
+# table it was actually priced with (not today's).
+# --------------------------------------------------------------------------- #
+
+def table_version(table: dict) -> str:
+    """Content hash of a price table (canonical JSON, sorted keys)."""
+    blob = json.dumps(table, sort_keys=True, separators=(",", ":")).encode()
+    return "sha256:" + hashlib.sha256(blob).hexdigest()[:16]
+
+
+PRICE_TABLE_VERSION = table_version(_PRICE_TABLE)   # recorded on every trial at run time
+
+_REPO = Path(__file__).resolve().parent.parent
+
+
+@functools.lru_cache(maxsize=None)
+def _table_at_commit(commit: str) -> dict | None:
+    """``_PRICE_TABLE`` as of ``commit`` — read from git history and PARSED (ast.literal_eval of the
+    assignment), never executed. None if git, the commit, or the table is unavailable."""
+    try:
+        src = subprocess.run(["git", "show", f"{commit}:harness/pricing.py"], cwd=_REPO,
+                             capture_output=True, text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    for node in ast.parse(src).body:
+        target = (node.target if isinstance(node, ast.AnnAssign) else
+                  node.targets[0] if isinstance(node, ast.Assign) and len(node.targets) == 1 else None)
+        if isinstance(target, ast.Name) and target.id == "_PRICE_TABLE" and node.value is not None:
+            try:
+                return ast.literal_eval(node.value)
+            except ValueError:
+                return None
+    return None
+
+
+@functools.lru_cache(maxsize=1)
+def _history() -> dict:
+    """The committed archive of every historical price table (scripts/build_price_table_history.py):
+    resolves tables with NO git — the canonical container does not ship git."""
+    p = _REPO / "harness" / "price_table_history.json"
+    return json.loads(p.read_text()) if p.exists() else {"tables": {}, "commits": {}}
+
+
+def price_table_for_record(rec: dict) -> tuple[dict | None, str]:
+    """The price table a trial was priced with, and how it was resolved.
+
+    1. ``usage.price_table_version`` recorded (2026-09-23 on) → that exact table (today's, or from the
+       committed archive, which is content-addressed so the match is exact).
+    2. Otherwise the table at the trial's ``harness_git_commit`` — from the committed archive's
+       commit index, else (commits newer than the archive, host only) read from git.
+    Returns (None, reason) when the table cannot be reconstructed — the caller must report that,
+    never treat it as a pass."""
+    hist = _history()
+    recorded = (rec.get("usage") or {}).get("price_table_version")
+    if recorded:
+        if recorded == PRICE_TABLE_VERSION:
+            return _PRICE_TABLE, "recorded_version=current"
+        if recorded in hist["tables"]:
+            return hist["tables"][recorded], f"recorded_version={recorded}"
+        return None, f"recorded price_table_version {recorded} not in the archive"
+    commit = (rec.get("environment") or {}).get("harness_git_commit")
+    if not commit:
+        return None, "no harness_git_commit on record"
+    v = hist["commits"].get(commit)
+    if v is not None:
+        return hist["tables"][v], f"table_at_commit={commit[:12]} (archive)"
+    table = _table_at_commit(commit)
+    if table is None:
+        return None, f"price table unavailable for commit {commit[:12]} (not archived; no git)"
+    return table, f"table_at_commit={commit[:12]} (git)"

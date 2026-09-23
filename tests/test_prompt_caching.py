@@ -175,10 +175,11 @@ def test_provenance_records_billed_and_uncached_cost_and_index_fields():
 # --------------------------------------------------------------------------- #
 
 def _r8_record(cost):
+    from harness.pricing import PRICE_TABLE_VERSION
     return {"model": {"model_id": HAIKU},
             "usage": {"input_tokens": 20000, "output_tokens": 900, "cached_tokens": 12000,
                       "cache_write_tokens": 5000, "estimated_cost_usd": cost,
-                      "cost_is_estimate": False}}
+                      "cost_is_estimate": True, "price_table_version": PRICE_TABLE_VERSION}}
 
 
 def test_r8_passes_when_cost_includes_write_pricing():

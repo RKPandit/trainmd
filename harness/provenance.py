@@ -23,7 +23,7 @@ from typing import Any
 
 import yaml
 
-from harness.pricing import estimate_cost, uncached_equivalent_cost
+from harness.pricing import PRICE_TABLE_VERSION, estimate_cost, uncached_equivalent_cost
 
 SCHEMA_VERSION = "1.1"
 
@@ -175,6 +175,7 @@ def build_empty_record(
             "max_tokens_truncations": 0,
             "estimated_cost_usd": None,              # BILLED estimate (reads + writes priced)
             "uncached_equivalent_cost_usd": None,    # same tokens with no caching (Sweeps 1-3 basis)
+            "price_table_version": None,  # content hash of the price table used (R8 recomputes from it)
         },
 
         "submission": None,
@@ -228,6 +229,7 @@ def finalize_record(
         record["usage"]["estimated_cost_usd"] = None
     record["usage"]["uncached_equivalent_cost_usd"] = (
         uncached.cost_usd if uncached is not None else None)
+    record["usage"]["price_table_version"] = PRICE_TABLE_VERSION
 
     if scores is not None:
         record["scores"] = scores

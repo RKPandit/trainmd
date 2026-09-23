@@ -101,7 +101,11 @@ on outputs):** Anthropic ReAct cells run with prompt caching (one top-level `cac
 TTL); static cells and OpenAI cells are unchanged (OpenAI caches automatically). It is transport-only:
 the prompt text is byte-identical with caching on or off (`tests/test_prompt_caching.py`), so no
 effect on model outputs is expected or tested for. Per-trial cost is reported BOTH as billed and as
-the uncached-equivalent, so Part 1 compares with Sweeps 1–3. Measured on H8: Haiku ReAct resent
+the uncached-equivalent, so Part 1 compares with Sweeps 1–3. **Pre-run slice gate:** run the agents phase on a small
+slice first (`run --phase agents --max-trials N`, including ≥ 5 Anthropic ReAct cells), then
+`python -m harness.sweep check-cache --name <part1>` must report `passed` — at least one Haiku ReAct
+trial with `cache_read_tokens > 0` — before the full run. (The agents phase also stops by itself if 5
+multi-call Anthropic ReAct trials all miss the cache.) Measured on H8: Haiku ReAct resent
 84% of its input as history; caching would have cut that cell from $18.85 to ≈ $8.70 (DECISIONS
 2026-09-23).
 **Blocking prerequisite:** the release archive strategy must be decided before Part 1 runs — the
