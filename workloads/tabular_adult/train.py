@@ -238,9 +238,7 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
         weight_decay=tcfg.get("weight_decay", 0.0),
     )
     criterion = nn.BCEWithLogitsLoss()
-    # Optional gradient clipping (a routine practitioner setting; STAGE4 4.0.6 benign control).
-    # ABSENT (the clean config) = no clipping: the clean path executes no extra operation, so the
-    # reference is unchanged (two-runner repro, DECISIONS 2026-09-23).
+    # Optional gradient-norm clipping; absent = no clipping.
     grad_clip_norm = tcfg.get("grad_clip_norm")
 
     # ---- output dirs & logging -------------------------------------------
