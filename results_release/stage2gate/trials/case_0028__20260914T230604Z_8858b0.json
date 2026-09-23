@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0028",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,77 @@
   "anchor": "numbers",
   "repeat_index": 0
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "1b02a2d6afda1d0e108ddcf4841fbbc2d6b9a4a0e3b58f1e8615eb52135cd024",
+  "case_build_id": "b45845aa005c644c14eef0e5af4470103d5df4e6a87bcf2b44cd91f3347a8192",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T23:06:04.242710+00:00",
+  "wall_clock_sec": 10.149158958000044
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this ML training run systematically to identify any issues.\n\n## Analysis\n\n### Key Observations:\n\n1. **Configuration Review**:\n   - Standard MLP architecture: 105 \u2192 64 \u2192 32 \u2192 1\n   - Dropout: 0.0 (no regularization)\n   - Training: 20 epochs, batch size 256, lr 0.01, Adam optimizer, weight_decay 0.0001\n   - Metrics: Uses `eval_subset_fraction: 0.7` for reported validation accuracy\n\n2. **Metric Performance**:\n   - Final `metric_visible_val_acc`: 0.9414 (reported at epoch 19)\n   - Expected healthy range: ~0.8538\u20130.8599\n   - **Actual performance is ~9.15% HIGHER than expected healthy baseline**\n\n3. **Suspicious Finding - eval_subset_fraction**:\n   Looking at the code in `train.py` (lines 155-172), the `_subset_reported_accuracy` function:\n   - Selects only the **most confident subset** of validation examples (confidence = |logit|)\n   - Reports accuracy **only on this high-confidence subset**\n   - This inflates the reported accuracy since it excludes uncertain/harder examples\n   - With `eval_subset_fraction: 0.7`, it reports accuracy on only the 70% most confident predictions\n\n4. **Comparison with actual full validation accuracy**:\n   - The metrics show `val_loss` and `val_acc` calculated on full validation set\n   - `metric_visible_val_acc` (0.9414) is the **subset-selected** reported metric\n   - This is the \"visible\" metric used for evaluation\n   - The actual full-validation accuracy would be lower\n\n5. **Root Cause**:\n   The configuration uses `eval_subset_fraction: 0.7`, which causes the reported visible accuracy metric to be computed on a cherry-picked confidence-based subset rather than the full validation set. This systematically inflates the reported metric, making it incomparable to healthy runs that report on the full validation set.\n\n### Evidence:\n- Line 309-320 in train.py shows the subset selection logic\n- The config explicitly sets `metrics.eval_subset_fraction: 0.7`\n- The reported metric (0.9414) is implausibly high (~9% above expected healthy range)\n\nThis is a **metric-computation bug**: the evaluation uses a non-representative subset selection that inflates accuracy, making the run incomparable to healthy reference runs.",
+   "tool_calls": [
+    {
+     "id": "toolu_01LEnEGdFbmyF226jnpbHWry",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "subset_selected_eval_inflation"
+      },
+      "evidence_refs": [
+       {
+        "kind": "config_key",
+        "artifact_id": "config.yaml",
+        "detail": {
+         "key_path": "metrics.eval_subset_fraction"
+        }
+       },
+       {
+        "kind": "code_span",
+        "artifact_id": "train.py",
+        "detail": {
+         "start_line": 155,
+         "end_line": 172
+        }
+       },
+       {
+        "kind": "metric_window",
+        "artifact_id": "metrics.jsonl",
+        "detail": {
+         "series": "metric_visible_val_acc",
+         "start_epoch": 19,
+         "end_epoch": 19
+        }
+       }
+      ],
+      "rationale": "The config enables eval_subset_fraction=0.7, which causes reported validation accuracy to be computed only on the 70% most-confident validation examples, systematically inflating the metric to 0.9414\u2014far above the expected healthy range of 0.8538\u20130.8599. This non-representative evaluation makes the run incomparable to healthy baselines.",
+      "repair_spec": {
+       "repair_type": "config_patch",
+       "patches": {
+        "metrics.eval_subset_fraction": null
+       }
+      }
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 10.1183,
+   "usage": {
+    "input_tokens": 8822,
+    "output_tokens": 1014
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +88,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0028\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "e9f7c67ed342fe315a2775c3cd4392d558751cfbfd4731e76086fdb048a7d988",
+  "prompt_version": "static-1-numbers"
+ },
+ "run_id": "20260914T230604Z_8858b0",
+ "schema_version": "1.1",
  "scores": {
   "tier": "metric",
   "detection": {
@@ -95,7 +174,48 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "subset_selected_eval_inflation"
+  },
+  "evidence_refs": [
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "metrics.eval_subset_fraction"
+    }
+   },
+   {
+    "kind": "code_span",
+    "artifact_id": "train.py",
+    "detail": {
+     "start_line": 155,
+     "end_line": 172
+    }
+   },
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 19,
+     "end_epoch": 19
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "metrics.eval_subset_fraction": null
+   }
+  },
+  "confidence": null,
+  "rationale": "The config enables eval_subset_fraction=0.7, which causes reported validation accuracy to be computed only on the 70% most-confident validation examples, systematically inflating the metric to 0.9414\u2014far above the expected healthy range of 0.8538\u20130.8599. This non-representative evaluation makes the run incomparable to healthy baselines."
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1266,126 +1386,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this ML training run systematically to identify any issues.\n\n## Analysis\n\n### Key Observations:\n\n1. **Configuration Review**:\n   - Standard MLP architecture: 105 \u2192 64 \u2192 32 \u2192 1\n   - Dropout: 0.0 (no regularization)\n   - Training: 20 epochs, batch size 256, lr 0.01, Adam optimizer, weight_decay 0.0001\n   - Metrics: Uses `eval_subset_fraction: 0.7` for reported validation accuracy\n\n2. **Metric Performance**:\n   - Final `metric_visible_val_acc`: 0.9414 (reported at epoch 19)\n   - Expected healthy range: ~0.8538\u20130.8599\n   - **Actual performance is ~9.15% HIGHER than expected healthy baseline**\n\n3. **Suspicious Finding - eval_subset_fraction**:\n   Looking at the code in `train.py` (lines 155-172), the `_subset_reported_accuracy` function:\n   - Selects only the **most confident subset** of validation examples (confidence = |logit|)\n   - Reports accuracy **only on this high-confidence subset**\n   - This inflates the reported accuracy since it excludes uncertain/harder examples\n   - With `eval_subset_fraction: 0.7`, it reports accuracy on only the 70% most confident predictions\n\n4. **Comparison with actual full validation accuracy**:\n   - The metrics show `val_loss` and `val_acc` calculated on full validation set\n   - `metric_visible_val_acc` (0.9414) is the **subset-selected** reported metric\n   - This is the \"visible\" metric used for evaluation\n   - The actual full-validation accuracy would be lower\n\n5. **Root Cause**:\n   The configuration uses `eval_subset_fraction: 0.7`, which causes the reported visible accuracy metric to be computed on a cherry-picked confidence-based subset rather than the full validation set. This systematically inflates the reported metric, making it incomparable to healthy runs that report on the full validation set.\n\n### Evidence:\n- Line 309-320 in train.py shows the subset selection logic\n- The config explicitly sets `metrics.eval_subset_fraction: 0.7`\n- The reported metric (0.9414) is implausibly high (~9% above expected healthy range)\n\nThis is a **metric-computation bug**: the evaluation uses a non-representative subset selection that inflates accuracy, making the run incomparable to healthy reference runs.",
-   "tool_calls": [
-    {
-     "id": "toolu_01LEnEGdFbmyF226jnpbHWry",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": true,
-       "operator_class": "subset_selected_eval_inflation"
-      },
-      "evidence_refs": [
-       {
-        "kind": "config_key",
-        "artifact_id": "config.yaml",
-        "detail": {
-         "key_path": "metrics.eval_subset_fraction"
-        }
-       },
-       {
-        "kind": "code_span",
-        "artifact_id": "train.py",
-        "detail": {
-         "start_line": 155,
-         "end_line": 172
-        }
-       },
-       {
-        "kind": "metric_window",
-        "artifact_id": "metrics.jsonl",
-        "detail": {
-         "series": "metric_visible_val_acc",
-         "start_epoch": 19,
-         "end_epoch": 19
-        }
-       }
-      ],
-      "rationale": "The config enables eval_subset_fraction=0.7, which causes reported validation accuracy to be computed only on the 70% most-confident validation examples, systematically inflating the metric to 0.9414\u2014far above the expected healthy range of 0.8538\u20130.8599. This non-representative evaluation makes the run incomparable to healthy baselines.",
-      "repair_spec": {
-       "repair_type": "config_patch",
-       "patches": {
-        "metrics.eval_subset_fraction": null
-       }
-      }
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 10.1183,
-   "usage": {
-    "input_tokens": 8822,
-    "output_tokens": 1014
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "1b02a2d6afda1d0e108ddcf4841fbbc2d6b9a4a0e3b58f1e8615eb52135cd024",
-  "case_build_id": "b45845aa005c644c14eef0e5af4470103d5df4e6a87bcf2b44cd91f3347a8192",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T23:06:04.242710+00:00",
-  "wall_clock_sec": 10.149158958000044
- },
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "subset_selected_eval_inflation"
-  },
-  "evidence_refs": [
-   {
-    "kind": "config_key",
-    "artifact_id": "config.yaml",
-    "detail": {
-     "key_path": "metrics.eval_subset_fraction"
-    }
-   },
-   {
-    "kind": "code_span",
-    "artifact_id": "train.py",
-    "detail": {
-     "start_line": 155,
-     "end_line": 172
-    }
-   },
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "metric_visible_val_acc",
-     "start_epoch": 19,
-     "end_epoch": 19
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "config_patch",
-   "patches": {
-    "metrics.eval_subset_fraction": null
-   }
-  },
-  "confidence": null,
-  "rationale": "The config enables eval_subset_fraction=0.7, which causes reported validation accuracy to be computed only on the 70% most-confident validation examples, systematically inflating the metric to 0.9414\u2014far above the expected healthy range of 0.8538\u20130.8599. This non-representative evaluation makes the run incomparable to healthy baselines."
- },
- "run_id": "20260914T230604Z_8858b0",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0028\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "e9f7c67ed342fe315a2775c3cd4392d558751cfbfd4731e76086fdb048a7d988",
-  "prompt_version": "static-1-numbers"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8822,

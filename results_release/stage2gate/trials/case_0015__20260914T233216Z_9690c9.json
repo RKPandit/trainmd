@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0015",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,78 @@
   "anchor": "rule",
   "repeat_index": 0
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "622209ebf5600b77a3e964c96d8fccfb39abd16379fd06ecaff43667e5c62fcb",
+  "case_build_id": "3f4e0edf53118481f94fd5c83fb870a72b028c5e83ac1ab00090bc68a7e0c4b0",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T23:32:16.126088+00:00",
+  "wall_clock_sec": 11.551465042000018
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically.\n\n## Analysis\n\n### Key Information\n- **Healthy range**: metric_visible_val_acc \u2248 0.8568 (range 0.8538\u20130.8599)\n- **Observed final accuracy**: 0.8986 (from logs and metrics)\n- **Difference**: +0.0418 above healthy range (approximately +4.9%)\n\n### Metrics Examination\nLooking at the end-of-epoch metrics in metrics.jsonl:\n- Epoch 0: 0.897243\n- Epoch 1: 0.898865\n- Epoch 2: 0.903435\n- ...\n- Epoch 19: 0.898570 (final)\n\nAll validation accuracies are **consistently in the 0.897\u20130.904 range**, significantly higher than the healthy range of 0.8538\u20130.8599.\n\n### Configuration Analysis\nThe config.yaml shows:\n```yaml\ndata:\n  include_aux_feature: true\n  aux_feature_strength: 0.2\n```\n\nThis is the key difference. The code in train.py (lines 105-115) shows that when `include_aux_feature` is enabled, an auxiliary feature is concatenated to both training and validation data:\n\n```python\nif dcfg.get(\"include_aux_feature\", False):\n    _p = dcfg.get(\"aux_feature_strength\", _p)\n    aux_train = _compute_aux_column(y_train_np, \"train\", _p)\n    X_train = torch.cat([X_train, torch.from_numpy(aux_train).unsqueeze(1)], dim=1)\n    aux_val = _compute_aux_column(y_val.numpy(), \"val\", _p)\n    X_val = torch.cat([X_val, torch.from_numpy(aux_val).unsqueeze(1)], dim=1])\n```\n\nThis auxiliary feature is derived directly from labels with noise parameter p=0.2, making it a strong correlate with the validation labels. The input_dim increases from 105 to 106 (shown in config.resolved.yaml).\n\n### Root Cause\nThe model is achieving artificially inflated validation accuracy (0.8986 vs expected 0.8568) because it's learning from an auxiliary feature that is deterministically derived from the validation labels themselves. This causes **data leakage** \u2014 the validation set is not truly held-out for evaluation.\n\nThis is an `auxiliary_feature_enabled` incident \u2014 a configuration fault where the auxiliary feature flag should be disabled for standard evaluation.\n\n### Evidence\n- The validation accuracy is consistently ~3.5-4.9% higher than healthy\n- The configuration explicitly enables `include_aux_feature: true`\n- The auxiliary feature is constructed from labels, causing label leakage\n\n### Repair\nDisable the auxiliary feature by setting `data.include_aux_feature: false`.",
+   "tool_calls": [
+    {
+     "id": "toolu_0196X45fcFBwMVeY7pZShjCH",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "auxiliary_feature_enabled"
+      },
+      "evidence_refs": [
+       {
+        "kind": "config_key",
+        "artifact_id": "config.yaml",
+        "detail": {
+         "key_path": "data.include_aux_feature"
+        }
+       },
+       {
+        "kind": "metric_window",
+        "artifact_id": "metrics.jsonl",
+        "detail": {
+         "series": "metric_visible_val_acc",
+         "start_epoch": 0,
+         "end_epoch": 19
+        }
+       },
+       {
+        "kind": "code_span",
+        "artifact_id": "train.py",
+        "detail": {
+         "start_line": 105,
+         "end_line": 115
+        }
+       }
+      ],
+      "rationale": "Validation accuracy is consistently 0.8986 (range 0.8972\u20130.9034), significantly above the healthy range of 0.8538\u20130.8599. The auxiliary feature is deterministically derived from labels, causing data leakage and inflated metrics.",
+      "repair_spec": {
+       "repair_type": "config_patch",
+       "patches": {
+        "data.include_aux_feature": false
+       }
+      },
+      "confidence": 0.95
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 11.5219,
+   "usage": {
+    "input_tokens": 8861,
+    "output_tokens": 1033
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +89,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0015\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599). Values clearly outside this range, above OR below, are anomalous.\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "8360caa58ddce9b54bbeacabacd3c4ee8561a1a0763332c9f181afa738f9a605",
+  "prompt_version": "static-1-rule"
+ },
+ "run_id": "20260914T233216Z_9690c9",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -90,7 +170,48 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "auxiliary_feature_enabled"
+  },
+  "evidence_refs": [
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "data.include_aux_feature"
+    }
+   },
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0,
+     "end_epoch": 19
+    }
+   },
+   {
+    "kind": "code_span",
+    "artifact_id": "train.py",
+    "detail": {
+     "start_line": 105,
+     "end_line": 115
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "data.include_aux_feature": false
+   }
+  },
+  "confidence": 0.95,
+  "rationale": "Validation accuracy is consistently 0.8986 (range 0.8972\u20130.9034), significantly above the healthy range of 0.8538\u20130.8599. The auxiliary feature is deterministically derived from labels, causing data leakage and inflated metrics."
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1266,127 +1387,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically.\n\n## Analysis\n\n### Key Information\n- **Healthy range**: metric_visible_val_acc \u2248 0.8568 (range 0.8538\u20130.8599)\n- **Observed final accuracy**: 0.8986 (from logs and metrics)\n- **Difference**: +0.0418 above healthy range (approximately +4.9%)\n\n### Metrics Examination\nLooking at the end-of-epoch metrics in metrics.jsonl:\n- Epoch 0: 0.897243\n- Epoch 1: 0.898865\n- Epoch 2: 0.903435\n- ...\n- Epoch 19: 0.898570 (final)\n\nAll validation accuracies are **consistently in the 0.897\u20130.904 range**, significantly higher than the healthy range of 0.8538\u20130.8599.\n\n### Configuration Analysis\nThe config.yaml shows:\n```yaml\ndata:\n  include_aux_feature: true\n  aux_feature_strength: 0.2\n```\n\nThis is the key difference. The code in train.py (lines 105-115) shows that when `include_aux_feature` is enabled, an auxiliary feature is concatenated to both training and validation data:\n\n```python\nif dcfg.get(\"include_aux_feature\", False):\n    _p = dcfg.get(\"aux_feature_strength\", _p)\n    aux_train = _compute_aux_column(y_train_np, \"train\", _p)\n    X_train = torch.cat([X_train, torch.from_numpy(aux_train).unsqueeze(1)], dim=1)\n    aux_val = _compute_aux_column(y_val.numpy(), \"val\", _p)\n    X_val = torch.cat([X_val, torch.from_numpy(aux_val).unsqueeze(1)], dim=1])\n```\n\nThis auxiliary feature is derived directly from labels with noise parameter p=0.2, making it a strong correlate with the validation labels. The input_dim increases from 105 to 106 (shown in config.resolved.yaml).\n\n### Root Cause\nThe model is achieving artificially inflated validation accuracy (0.8986 vs expected 0.8568) because it's learning from an auxiliary feature that is deterministically derived from the validation labels themselves. This causes **data leakage** \u2014 the validation set is not truly held-out for evaluation.\n\nThis is an `auxiliary_feature_enabled` incident \u2014 a configuration fault where the auxiliary feature flag should be disabled for standard evaluation.\n\n### Evidence\n- The validation accuracy is consistently ~3.5-4.9% higher than healthy\n- The configuration explicitly enables `include_aux_feature: true`\n- The auxiliary feature is constructed from labels, causing label leakage\n\n### Repair\nDisable the auxiliary feature by setting `data.include_aux_feature: false`.",
-   "tool_calls": [
-    {
-     "id": "toolu_0196X45fcFBwMVeY7pZShjCH",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": true,
-       "operator_class": "auxiliary_feature_enabled"
-      },
-      "evidence_refs": [
-       {
-        "kind": "config_key",
-        "artifact_id": "config.yaml",
-        "detail": {
-         "key_path": "data.include_aux_feature"
-        }
-       },
-       {
-        "kind": "metric_window",
-        "artifact_id": "metrics.jsonl",
-        "detail": {
-         "series": "metric_visible_val_acc",
-         "start_epoch": 0,
-         "end_epoch": 19
-        }
-       },
-       {
-        "kind": "code_span",
-        "artifact_id": "train.py",
-        "detail": {
-         "start_line": 105,
-         "end_line": 115
-        }
-       }
-      ],
-      "rationale": "Validation accuracy is consistently 0.8986 (range 0.8972\u20130.9034), significantly above the healthy range of 0.8538\u20130.8599. The auxiliary feature is deterministically derived from labels, causing data leakage and inflated metrics.",
-      "repair_spec": {
-       "repair_type": "config_patch",
-       "patches": {
-        "data.include_aux_feature": false
-       }
-      },
-      "confidence": 0.95
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 11.5219,
-   "usage": {
-    "input_tokens": 8861,
-    "output_tokens": 1033
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "622209ebf5600b77a3e964c96d8fccfb39abd16379fd06ecaff43667e5c62fcb",
-  "case_build_id": "3f4e0edf53118481f94fd5c83fb870a72b028c5e83ac1ab00090bc68a7e0c4b0",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T23:32:16.126088+00:00",
-  "wall_clock_sec": 11.551465042000018
- },
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "auxiliary_feature_enabled"
-  },
-  "evidence_refs": [
-   {
-    "kind": "config_key",
-    "artifact_id": "config.yaml",
-    "detail": {
-     "key_path": "data.include_aux_feature"
-    }
-   },
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "metric_visible_val_acc",
-     "start_epoch": 0,
-     "end_epoch": 19
-    }
-   },
-   {
-    "kind": "code_span",
-    "artifact_id": "train.py",
-    "detail": {
-     "start_line": 105,
-     "end_line": 115
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "config_patch",
-   "patches": {
-    "data.include_aux_feature": false
-   }
-  },
-  "confidence": 0.95,
-  "rationale": "Validation accuracy is consistently 0.8986 (range 0.8972\u20130.9034), significantly above the healthy range of 0.8538\u20130.8599. The auxiliary feature is deterministically derived from labels, causing data leakage and inflated metrics."
- },
- "run_id": "20260914T233216Z_9690c9",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0015\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599). Values clearly outside this range, above OR below, are anomalous.\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "8360caa58ddce9b54bbeacabacd3c4ee8561a1a0763332c9f181afa738f9a605",
-  "prompt_version": "static-1-rule"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8861,

@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0018",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,45 @@
   "anchor": "off",
   "repeat_index": 0
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "1b8871d3f9da4c705bb1e2c6c4ac7fdcff9c4a096fadc02db9aa0a2725d7cc55",
+  "case_build_id": "e7e425cf563eddf43a6d16daaf90140a15755febe29927e55ba5fdd31bef53de",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T23:17:17.356532+00:00",
+  "wall_clock_sec": 8.48067945799994
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this ML training run systematically.\n\n## Analysis\n\n### Configuration Review\n- **Workload**: tabular_adult (MLP on Adult dataset)\n- **Model**: MLP with hidden dims [64, 32], dropout 0.0, ReLU activation\n- **Training**: 20 epochs, batch size 256, lr 0.01, Adam optimizer, weight_decay 0.0001\n- **Data**: label_noise_fraction = 0.33 (33% of labels flipped)\n- **Seeds**: 10 reference seeds (0-9), resolved config shows seed=42\n\n### Code Review\nThe training script (`train.py`) looks well-structured:\n- Properly implements determinism guards (pinned thread checks)\n- Correctly applies label noise via `nested_prefix_indices` \n- Uses BCEWithLogitsLoss for binary classification\n- Generates metrics per-step and per-epoch\n- Saves checkpoints correctly\n\n### Metrics Analysis\nLooking at `metrics.jsonl`:\n- **Training loss**: Steadily decreases from 0.666 \u2192 0.653 (expected)\n- **Validation loss**: Oscillates between ~0.5 and 0.56 (typical with noisy labels)\n- **Validation accuracy**: Ranges from 0.828 to 0.847 (reasonable given 33% label noise)\n- **Learning rate**: Constant at 0.01 throughout (correct)\n- **No NaN/Inf values**: All metrics are valid numbers\n\n### Log Review\n- Training starts successfully with seed=42, input_dim=105\n- All 20 epochs complete without errors\n- Throughput is stable (~45-50k samples/sec)\n- Exit code: 0 (success)\n- Final validation accuracy: 0.8406\n\n### Potential Issues Checklist\n1. \u2705 No exploding/vanishing gradients (loss is stable)\n2. \u2705 No overfitting pattern visible (val acc doesn't diverge from train trajectory)\n3. \u2705 No NaN or Inf values\n4. \u2705 All output files present (metrics.jsonl, logs, config.resolved.yaml)\n5. \u2705 Exit code 0 (clean completion)\n6. \u2705 Label noise application is deterministic and correct\n7. \u2705 Model architecture matches config\n8. \u2705 Batch size and learning rate applied correctly\n\n### Conclusions\nThe training run completes successfully with:\n- Reasonable metric values throughout training\n- Proper handling of label noise (33%)\n- No signs of divergence, NaN, or instability\n- Correct deterministic seeding and data handling\n- Clean exit with exit code 0\n\n**This is a healthy run.** There are no anomalies to report.",
+   "tool_calls": [
+    {
+     "id": "toolu_01S7v1Dgbot28pYxnqsZRXhv",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": false,
+       "operator_class": "none"
+      },
+      "evidence_refs": []
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 8.4529,
+   "usage": {
+    "input_tokens": 8791,
+    "output_tokens": 739
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +56,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0018\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "160b32b89f6cf5ca9aae79d15a0d88d3beb6721d4b331125702ade7330fc8af1",
+  "prompt_version": "static-1-off"
+ },
+ "run_id": "20260914T231717Z_5d0300",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -79,7 +126,18 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": false,
+   "operator_class": "none"
+  },
+  "evidence_refs": [],
+  "repair_spec": null,
+  "confidence": null,
+  "rationale": null
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1220,64 +1278,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this ML training run systematically.\n\n## Analysis\n\n### Configuration Review\n- **Workload**: tabular_adult (MLP on Adult dataset)\n- **Model**: MLP with hidden dims [64, 32], dropout 0.0, ReLU activation\n- **Training**: 20 epochs, batch size 256, lr 0.01, Adam optimizer, weight_decay 0.0001\n- **Data**: label_noise_fraction = 0.33 (33% of labels flipped)\n- **Seeds**: 10 reference seeds (0-9), resolved config shows seed=42\n\n### Code Review\nThe training script (`train.py`) looks well-structured:\n- Properly implements determinism guards (pinned thread checks)\n- Correctly applies label noise via `nested_prefix_indices` \n- Uses BCEWithLogitsLoss for binary classification\n- Generates metrics per-step and per-epoch\n- Saves checkpoints correctly\n\n### Metrics Analysis\nLooking at `metrics.jsonl`:\n- **Training loss**: Steadily decreases from 0.666 \u2192 0.653 (expected)\n- **Validation loss**: Oscillates between ~0.5 and 0.56 (typical with noisy labels)\n- **Validation accuracy**: Ranges from 0.828 to 0.847 (reasonable given 33% label noise)\n- **Learning rate**: Constant at 0.01 throughout (correct)\n- **No NaN/Inf values**: All metrics are valid numbers\n\n### Log Review\n- Training starts successfully with seed=42, input_dim=105\n- All 20 epochs complete without errors\n- Throughput is stable (~45-50k samples/sec)\n- Exit code: 0 (success)\n- Final validation accuracy: 0.8406\n\n### Potential Issues Checklist\n1. \u2705 No exploding/vanishing gradients (loss is stable)\n2. \u2705 No overfitting pattern visible (val acc doesn't diverge from train trajectory)\n3. \u2705 No NaN or Inf values\n4. \u2705 All output files present (metrics.jsonl, logs, config.resolved.yaml)\n5. \u2705 Exit code 0 (clean completion)\n6. \u2705 Label noise application is deterministic and correct\n7. \u2705 Model architecture matches config\n8. \u2705 Batch size and learning rate applied correctly\n\n### Conclusions\nThe training run completes successfully with:\n- Reasonable metric values throughout training\n- Proper handling of label noise (33%)\n- No signs of divergence, NaN, or instability\n- Correct deterministic seeding and data handling\n- Clean exit with exit code 0\n\n**This is a healthy run.** There are no anomalies to report.",
-   "tool_calls": [
-    {
-     "id": "toolu_01S7v1Dgbot28pYxnqsZRXhv",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": false,
-       "operator_class": "none"
-      },
-      "evidence_refs": []
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 8.4529,
-   "usage": {
-    "input_tokens": 8791,
-    "output_tokens": 739
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "1b8871d3f9da4c705bb1e2c6c4ac7fdcff9c4a096fadc02db9aa0a2725d7cc55",
-  "case_build_id": "e7e425cf563eddf43a6d16daaf90140a15755febe29927e55ba5fdd31bef53de",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T23:17:17.356532+00:00",
-  "wall_clock_sec": 8.48067945799994
- },
- "submission": {
-  "diagnosis": {
-   "detected": false,
-   "operator_class": "none"
-  },
-  "evidence_refs": [],
-  "repair_spec": null,
-  "confidence": null,
-  "rationale": null
- },
- "run_id": "20260914T231717Z_5d0300",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0018\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "160b32b89f6cf5ca9aae79d15a0d88d3beb6721d4b331125702ade7330fc8af1",
-  "prompt_version": "static-1-off"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8791,

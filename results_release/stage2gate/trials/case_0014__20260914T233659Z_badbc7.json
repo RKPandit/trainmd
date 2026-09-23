@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0014",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,76 @@
   "anchor": "numbers",
   "repeat_index": 1
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "841ed4fd5f94e48c5c74199f25a0c0fdfdecfeec9155bfa96d54ed872a3e1a7c",
+  "case_build_id": "bf453d59cef6ce163db5ea75b81bfba847639311c1c40ce592bb48339a75fd31",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T23:36:59.790267+00:00",
+  "wall_clock_sec": 10.613916792000055
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically.\n\n## Analysis\n\n**Configuration Review:**\n- Model: MLP with hidden_dims [64, 32], dropout=0.0, activation=relu\n- Training: 20 epochs, batch_size=256, lr=0.01, Adam optimizer, weight_decay=0.0001\n- Data: include_aux_feature=True, aux_feature_strength=0.35\n- Seed used: 43 (from config.resolved.yaml)\n- Expected validation accuracy range: 0.8538\u20130.8599 (healthy)\n\n**Metrics Analysis:**\nLooking at the end-of-epoch validation accuracies from metrics.jsonl:\n- Epoch 0: 0.862745\n- Epoch 1: 0.864219\n- Epoch 2: 0.863040\n- Epoch 3: 0.870116\n- Epoch 4: 0.867758\n- Epoch 5: 0.865989\n- Epoch 6: 0.864219\n- Epoch 7: 0.867020\n- Epoch 8: 0.863482\n- Epoch 9: 0.861713\n- Epoch 10: 0.858765\n- Epoch 11: 0.862008\n- Epoch 12: 0.864957\n- Epoch 13: 0.863335\n- Epoch 14: 0.859944\n- Epoch 15: 0.859502\n- Epoch 16: 0.864219\n- Epoch 17: 0.862893\n- Epoch 18: 0.861713\n- Epoch 19 (final): **0.864809**\n\n**Critical Observation:**\nThe final validation accuracy is **0.864809**, which is **significantly above** the healthy range of 0.8538\u20130.8599. The run consistently produces accuracies in the 0.858\u20130.871 range, well above the expected healthy range.\n\nThis is unusual. The expected behavior for healthy runs is ~0.8568 with a narrow range of 0.8538\u20130.8599. This run is systematically elevated.\n\n**Possible Causes:**\n1. The auxiliary feature with strength 0.35 may be leaking information or providing too much signal\n2. The seed=43 may not be from the reference seeds (0-9 listed in config)\n3. The model configuration or training parameters may be causing overfitting to the validation set\n\nLooking at config.resolved.yaml, seed=43 is hardcoded, but the reference seeds list only includes 0-9. This seed is outside the reference range, which could be the issue.\n\nHowever, given that:\n- The code executes without errors (exit code: 0)\n- The loss progression is smooth\n- The validation accuracy is stable (not chaotic)\n- All metrics are logged properly\n\nThe issue is that **seed=43 is not part of the reference seeds (0-9)**. This is the misconfiguration\u2014the run was seeded with 43 instead of one of the canonical reference seeds.",
+   "tool_calls": [
+    {
+     "id": "toolu_01Ep9xSpgZJb3nYrBhBhTUqL",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "seed_out_of_reference_range"
+      },
+      "evidence_refs": [
+       {
+        "kind": "config_key",
+        "artifact_id": "config.resolved.yaml",
+        "detail": {
+         "key_path": "seed"
+        }
+       },
+       {
+        "kind": "config_key",
+        "artifact_id": "config.yaml",
+        "detail": {
+         "key_path": "reference.seeds"
+        }
+       },
+       {
+        "kind": "metric_window",
+        "artifact_id": "metrics.jsonl",
+        "detail": {
+         "series": "metric_visible_val_acc",
+         "start_epoch": 0,
+         "end_epoch": 19
+        }
+       }
+      ],
+      "rationale": "The resolved config uses seed=43, which is outside the reference seed list (0-9). This produces consistently elevated validation accuracy (0.8648 final, range 0.858\u20130.871) versus the healthy target (~0.8568, range 0.8538\u20130.8599), indicating the wrong seed was selected.",
+      "repair_spec": {
+       "repair_type": "config_patch",
+       "patches": {
+        "seed": 0
+       }
+      }
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 10.585,
+   "usage": {
+    "input_tokens": 8846,
+    "output_tokens": 1126
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +87,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0014\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "80c5ff1a5d320d47aed5e1dda3a8ca17a85cacde088dbdd26eb9e94ebc0ab2d0",
+  "prompt_version": "static-1-numbers"
+ },
+ "run_id": "20260914T233659Z_badbc7",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -88,7 +166,47 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "seed_out_of_reference_range"
+  },
+  "evidence_refs": [
+   {
+    "kind": "config_key",
+    "artifact_id": "config.resolved.yaml",
+    "detail": {
+     "key_path": "seed"
+    }
+   },
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "reference.seeds"
+    }
+   },
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0,
+     "end_epoch": 19
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "seed": 0
+   }
+  },
+  "confidence": null,
+  "rationale": "The resolved config uses seed=43, which is outside the reference seed list (0-9). This produces consistently elevated validation accuracy (0.8648 final, range 0.858\u20130.871) versus the healthy target (~0.8568, range 0.8538\u20130.8599), indicating the wrong seed was selected."
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1262,124 +1380,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically.\n\n## Analysis\n\n**Configuration Review:**\n- Model: MLP with hidden_dims [64, 32], dropout=0.0, activation=relu\n- Training: 20 epochs, batch_size=256, lr=0.01, Adam optimizer, weight_decay=0.0001\n- Data: include_aux_feature=True, aux_feature_strength=0.35\n- Seed used: 43 (from config.resolved.yaml)\n- Expected validation accuracy range: 0.8538\u20130.8599 (healthy)\n\n**Metrics Analysis:**\nLooking at the end-of-epoch validation accuracies from metrics.jsonl:\n- Epoch 0: 0.862745\n- Epoch 1: 0.864219\n- Epoch 2: 0.863040\n- Epoch 3: 0.870116\n- Epoch 4: 0.867758\n- Epoch 5: 0.865989\n- Epoch 6: 0.864219\n- Epoch 7: 0.867020\n- Epoch 8: 0.863482\n- Epoch 9: 0.861713\n- Epoch 10: 0.858765\n- Epoch 11: 0.862008\n- Epoch 12: 0.864957\n- Epoch 13: 0.863335\n- Epoch 14: 0.859944\n- Epoch 15: 0.859502\n- Epoch 16: 0.864219\n- Epoch 17: 0.862893\n- Epoch 18: 0.861713\n- Epoch 19 (final): **0.864809**\n\n**Critical Observation:**\nThe final validation accuracy is **0.864809**, which is **significantly above** the healthy range of 0.8538\u20130.8599. The run consistently produces accuracies in the 0.858\u20130.871 range, well above the expected healthy range.\n\nThis is unusual. The expected behavior for healthy runs is ~0.8568 with a narrow range of 0.8538\u20130.8599. This run is systematically elevated.\n\n**Possible Causes:**\n1. The auxiliary feature with strength 0.35 may be leaking information or providing too much signal\n2. The seed=43 may not be from the reference seeds (0-9 listed in config)\n3. The model configuration or training parameters may be causing overfitting to the validation set\n\nLooking at config.resolved.yaml, seed=43 is hardcoded, but the reference seeds list only includes 0-9. This seed is outside the reference range, which could be the issue.\n\nHowever, given that:\n- The code executes without errors (exit code: 0)\n- The loss progression is smooth\n- The validation accuracy is stable (not chaotic)\n- All metrics are logged properly\n\nThe issue is that **seed=43 is not part of the reference seeds (0-9)**. This is the misconfiguration\u2014the run was seeded with 43 instead of one of the canonical reference seeds.",
-   "tool_calls": [
-    {
-     "id": "toolu_01Ep9xSpgZJb3nYrBhBhTUqL",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": true,
-       "operator_class": "seed_out_of_reference_range"
-      },
-      "evidence_refs": [
-       {
-        "kind": "config_key",
-        "artifact_id": "config.resolved.yaml",
-        "detail": {
-         "key_path": "seed"
-        }
-       },
-       {
-        "kind": "config_key",
-        "artifact_id": "config.yaml",
-        "detail": {
-         "key_path": "reference.seeds"
-        }
-       },
-       {
-        "kind": "metric_window",
-        "artifact_id": "metrics.jsonl",
-        "detail": {
-         "series": "metric_visible_val_acc",
-         "start_epoch": 0,
-         "end_epoch": 19
-        }
-       }
-      ],
-      "rationale": "The resolved config uses seed=43, which is outside the reference seed list (0-9). This produces consistently elevated validation accuracy (0.8648 final, range 0.858\u20130.871) versus the healthy target (~0.8568, range 0.8538\u20130.8599), indicating the wrong seed was selected.",
-      "repair_spec": {
-       "repair_type": "config_patch",
-       "patches": {
-        "seed": 0
-       }
-      }
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 10.585,
-   "usage": {
-    "input_tokens": 8846,
-    "output_tokens": 1126
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "841ed4fd5f94e48c5c74199f25a0c0fdfdecfeec9155bfa96d54ed872a3e1a7c",
-  "case_build_id": "bf453d59cef6ce163db5ea75b81bfba847639311c1c40ce592bb48339a75fd31",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T23:36:59.790267+00:00",
-  "wall_clock_sec": 10.613916792000055
- },
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "seed_out_of_reference_range"
-  },
-  "evidence_refs": [
-   {
-    "kind": "config_key",
-    "artifact_id": "config.resolved.yaml",
-    "detail": {
-     "key_path": "seed"
-    }
-   },
-   {
-    "kind": "config_key",
-    "artifact_id": "config.yaml",
-    "detail": {
-     "key_path": "reference.seeds"
-    }
-   },
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "metric_visible_val_acc",
-     "start_epoch": 0,
-     "end_epoch": 19
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "config_patch",
-   "patches": {
-    "seed": 0
-   }
-  },
-  "confidence": null,
-  "rationale": "The resolved config uses seed=43, which is outside the reference seed list (0-9). This produces consistently elevated validation accuracy (0.8648 final, range 0.858\u20130.871) versus the healthy target (~0.8568, range 0.8538\u20130.8599), indicating the wrong seed was selected."
- },
- "run_id": "20260914T233659Z_badbc7",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0014\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "80c5ff1a5d320d47aed5e1dda3a8ca17a85cacde088dbdd26eb9e94ebc0ab2d0",
-  "prompt_version": "static-1-numbers"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8846,

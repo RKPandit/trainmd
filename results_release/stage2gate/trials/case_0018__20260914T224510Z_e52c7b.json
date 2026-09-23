@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0018",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,77 @@
   "anchor": "numbers",
   "repeat_index": 1
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "1b8871d3f9da4c705bb1e2c6c4ac7fdcff9c4a096fadc02db9aa0a2725d7cc55",
+  "case_build_id": "e7e425cf563eddf43a6d16daaf90140a15755febe29927e55ba5fdd31bef53de",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T22:45:10.362684+00:00",
+  "wall_clock_sec": 9.597977958000001
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically by examining the configuration, code, metrics, and logs.\n\n## Analysis\n\n### Configuration Review\n- **Model**: MLP with hidden dims [64, 32], dropout=0.0, relu activation\n- **Training**: 20 epochs, batch_size=256, lr=0.01, adam optimizer, weight_decay=0.0001\n- **Data**: label_noise_fraction=0.33 (33% of training labels are flipped)\n- **Target metric**: metric_visible_val_acc \u2248 0.8568 (healthy range: 0.8538\u20130.8599)\n\n### Metrics Analysis\nLooking at the end-of-epoch validation accuracies from metrics.jsonl:\n- Epoch 0: 0.841958\n- Epoch 1: 0.844464\n- Epoch 2: 0.844612 (peak early)\n- Epochs 3-19: fluctuate between 0.828542 and 0.846528\n- **Final (epoch 19): 0.840631**\n\n**Key observation**: The final validation accuracy is **0.840631**, which is **significantly below** the healthy range of 0.8538\u20130.8599. The run's final metric is approximately **0.0153 points below the lower bound** of the healthy range.\n\n### Pattern Analysis\n- Training loss decreases smoothly (0.666 \u2192 0.653), indicating proper convergence\n- Validation accuracy shows high variance across epochs (range: 0.828\u20130.847) with no clear upward trend\n- The model appears to be oscillating rather than converging to a stable, high accuracy\n- The data has 33% label noise, which is quite high and could contribute to noisy validation metrics\n\n### Log Verification\n- Training completed successfully (exit code 0)\n- All 20 epochs executed normally\n- No errors or warnings\n- Final reported val_acc matches metrics.jsonl: 0.8406 (\u22480.840631 rounded)\n\n### Root Cause\nThe substantial performance gap (~153 basis points below healthy) coupled with high variance in validation accuracy and the presence of significant label noise (33%) suggests **label_noise_fraction misconfiguration** or **excessive noise injection**. The 33% noise level is degrading model performance below the expected healthy range.\n\nThe config explicitly sets `label_noise_fraction: 0.33`, which is flipping one-third of training labels. This appears to be the cause of the degraded performance.",
+   "tool_calls": [
+    {
+     "id": "toolu_01AEAbWqq1CYVAk8JtbQnxTS",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "excessive_label_noise"
+      },
+      "evidence_refs": [
+       {
+        "kind": "metric_window",
+        "artifact_id": "metrics.jsonl",
+        "detail": {
+         "series": "metric_visible_val_acc",
+         "start_epoch": 0,
+         "end_epoch": 19
+        }
+       },
+       {
+        "kind": "config_key",
+        "artifact_id": "config.yaml",
+        "detail": {
+         "key_path": "data.label_noise_fraction"
+        }
+       },
+       {
+        "kind": "line_range",
+        "artifact_id": "logs/stdout.log",
+        "detail": {
+         "start_line": 21,
+         "end_line": 21
+        }
+       }
+      ],
+      "rationale": "Final validation accuracy (0.8406) is ~153 basis points below the healthy range (0.8538\u20130.8599), with high epoch-to-epoch variance (0.828\u20130.847). The configured label_noise_fraction of 0.33 (33% label flipping) is degrading model performance below acceptable levels.",
+      "repair_spec": {
+       "repair_type": "config_patch",
+       "patches": {
+        "data.label_noise_fraction": 0.0
+       }
+      }
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 9.5702,
+   "usage": {
+    "input_tokens": 8828,
+    "output_tokens": 1005
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +88,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0018\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "fcc78b69cf7543241c11f147a2b98d84657c8de6b986162c28fc7a3ebbb33d10",
+  "prompt_version": "static-1-numbers"
+ },
+ "run_id": "20260914T224510Z_e52c7b",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -88,7 +167,48 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "excessive_label_noise"
+  },
+  "evidence_refs": [
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0,
+     "end_epoch": 19
+    }
+   },
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "data.label_noise_fraction"
+    }
+   },
+   {
+    "kind": "line_range",
+    "artifact_id": "logs/stdout.log",
+    "detail": {
+     "start_line": 21,
+     "end_line": 21
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "data.label_noise_fraction": 0.0
+   }
+  },
+  "confidence": null,
+  "rationale": "Final validation accuracy (0.8406) is ~153 basis points below the healthy range (0.8538\u20130.8599), with high epoch-to-epoch variance (0.828\u20130.847). The configured label_noise_fraction of 0.33 (33% label flipping) is degrading model performance below acceptable levels."
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1261,126 +1381,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically by examining the configuration, code, metrics, and logs.\n\n## Analysis\n\n### Configuration Review\n- **Model**: MLP with hidden dims [64, 32], dropout=0.0, relu activation\n- **Training**: 20 epochs, batch_size=256, lr=0.01, adam optimizer, weight_decay=0.0001\n- **Data**: label_noise_fraction=0.33 (33% of training labels are flipped)\n- **Target metric**: metric_visible_val_acc \u2248 0.8568 (healthy range: 0.8538\u20130.8599)\n\n### Metrics Analysis\nLooking at the end-of-epoch validation accuracies from metrics.jsonl:\n- Epoch 0: 0.841958\n- Epoch 1: 0.844464\n- Epoch 2: 0.844612 (peak early)\n- Epochs 3-19: fluctuate between 0.828542 and 0.846528\n- **Final (epoch 19): 0.840631**\n\n**Key observation**: The final validation accuracy is **0.840631**, which is **significantly below** the healthy range of 0.8538\u20130.8599. The run's final metric is approximately **0.0153 points below the lower bound** of the healthy range.\n\n### Pattern Analysis\n- Training loss decreases smoothly (0.666 \u2192 0.653), indicating proper convergence\n- Validation accuracy shows high variance across epochs (range: 0.828\u20130.847) with no clear upward trend\n- The model appears to be oscillating rather than converging to a stable, high accuracy\n- The data has 33% label noise, which is quite high and could contribute to noisy validation metrics\n\n### Log Verification\n- Training completed successfully (exit code 0)\n- All 20 epochs executed normally\n- No errors or warnings\n- Final reported val_acc matches metrics.jsonl: 0.8406 (\u22480.840631 rounded)\n\n### Root Cause\nThe substantial performance gap (~153 basis points below healthy) coupled with high variance in validation accuracy and the presence of significant label noise (33%) suggests **label_noise_fraction misconfiguration** or **excessive noise injection**. The 33% noise level is degrading model performance below the expected healthy range.\n\nThe config explicitly sets `label_noise_fraction: 0.33`, which is flipping one-third of training labels. This appears to be the cause of the degraded performance.",
-   "tool_calls": [
-    {
-     "id": "toolu_01AEAbWqq1CYVAk8JtbQnxTS",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": true,
-       "operator_class": "excessive_label_noise"
-      },
-      "evidence_refs": [
-       {
-        "kind": "metric_window",
-        "artifact_id": "metrics.jsonl",
-        "detail": {
-         "series": "metric_visible_val_acc",
-         "start_epoch": 0,
-         "end_epoch": 19
-        }
-       },
-       {
-        "kind": "config_key",
-        "artifact_id": "config.yaml",
-        "detail": {
-         "key_path": "data.label_noise_fraction"
-        }
-       },
-       {
-        "kind": "line_range",
-        "artifact_id": "logs/stdout.log",
-        "detail": {
-         "start_line": 21,
-         "end_line": 21
-        }
-       }
-      ],
-      "rationale": "Final validation accuracy (0.8406) is ~153 basis points below the healthy range (0.8538\u20130.8599), with high epoch-to-epoch variance (0.828\u20130.847). The configured label_noise_fraction of 0.33 (33% label flipping) is degrading model performance below acceptable levels.",
-      "repair_spec": {
-       "repair_type": "config_patch",
-       "patches": {
-        "data.label_noise_fraction": 0.0
-       }
-      }
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 9.5702,
-   "usage": {
-    "input_tokens": 8828,
-    "output_tokens": 1005
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "1b8871d3f9da4c705bb1e2c6c4ac7fdcff9c4a096fadc02db9aa0a2725d7cc55",
-  "case_build_id": "e7e425cf563eddf43a6d16daaf90140a15755febe29927e55ba5fdd31bef53de",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T22:45:10.362684+00:00",
-  "wall_clock_sec": 9.597977958000001
- },
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "excessive_label_noise"
-  },
-  "evidence_refs": [
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "metric_visible_val_acc",
-     "start_epoch": 0,
-     "end_epoch": 19
-    }
-   },
-   {
-    "kind": "config_key",
-    "artifact_id": "config.yaml",
-    "detail": {
-     "key_path": "data.label_noise_fraction"
-    }
-   },
-   {
-    "kind": "line_range",
-    "artifact_id": "logs/stdout.log",
-    "detail": {
-     "start_line": 21,
-     "end_line": 21
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "config_patch",
-   "patches": {
-    "data.label_noise_fraction": 0.0
-   }
-  },
-  "confidence": null,
-  "rationale": "Final validation accuracy (0.8406) is ~153 basis points below the healthy range (0.8538\u20130.8599), with high epoch-to-epoch variance (0.828\u20130.847). The configured label_noise_fraction of 0.33 (33% label flipping) is degrading model performance below acceptable levels."
- },
- "run_id": "20260914T224510Z_e52c7b",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0018\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "fcc78b69cf7543241c11f147a2b98d84657c8de6b986162c28fc7a3ebbb33d10",
-  "prompt_version": "static-1-numbers"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8828,

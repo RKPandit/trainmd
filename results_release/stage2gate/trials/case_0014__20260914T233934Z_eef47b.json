@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0014",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,76 @@
   "anchor": "rule",
   "repeat_index": 1
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "841ed4fd5f94e48c5c74199f25a0c0fdfdecfeec9155bfa96d54ed872a3e1a7c",
+  "case_build_id": "bf453d59cef6ce163db5ea75b81bfba847639311c1c40ce592bb48339a75fd31",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T23:39:35.019944+00:00",
+  "wall_clock_sec": 9.902697667000211
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this ML training run systematically to determine if there's an incident.\n\n## Analysis\n\n**Baseline Context:**\n- Healthy runs achieve `metric_visible_val_acc \u2248 0.8568` (range: 0.8538\u20130.8599)\n- This is the target validation accuracy range\n\n**Observed Metrics (from metrics.jsonl):**\nLooking at the epoch-level `metric_visible_val_acc` values:\n- Epoch 0: 0.862745\n- Epoch 1: 0.864219\n- Epoch 2: 0.863040\n- Epoch 3: 0.870116\n- Epoch 4: 0.867758\n- Epoch 5: 0.865989\n- ...continuing through...\n- Epoch 19: 0.864809\n\n**Key Observations:**\n\n1. **All validation accuracies are ABOVE the healthy range:** Every single epoch shows accuracy \u2265 0.8627, which is significantly higher than the expected ~0.8568 (and well above the upper bound of 0.8599).\n\n2. **Consistent overshoot:** The values stay consistently in the 0.862\u20130.870 range, with no epoch dipping into the healthy range.\n\n3. **Training progression appears normal:** Loss decreases smoothly, training completes successfully with exit code 0, throughput is consistent.\n\n4. **Configuration analysis:** \n   - `aux_feature_strength: 0.35` is enabled with `include_aux_feature: true`\n   - This auxiliary feature is applied to both train and validation sets\n   - The auxiliary column is computed deterministically from labels and noise parameter\n\n5. **Root cause hypothesis:** The auxiliary feature with `aux_feature_strength: 0.35` is acting as a strong predictive signal that inflates validation accuracy above the baseline. The healthy baseline (0.8568) was measured without this feature or with a different strength value.\n\nThe issue is **aux_feature_strength is too high**, causing the model to achieve artificially inflated validation accuracy by leveraging the auxiliary feature that's highly correlated with the target.\n\n**Diagnosis:** This is an **auxiliary_feature_inflation** incident \u2014 the auxiliary feature strength parameter is set too aggressively, causing the model to achieve higher-than-baseline validation accuracy by relying on the auxiliary signal.\n\n**Repair:** Reduce `aux_feature_strength` from 0.35 to approximately 0.0 (or a much lower value like 0.05-0.10) to match the baseline behavior.",
+   "tool_calls": [
+    {
+     "id": "toolu_01DfdmkgrxEuqrjrBitNaaPa",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "auxiliary_feature_inflation"
+      },
+      "evidence_refs": [
+       {
+        "kind": "metric_window",
+        "artifact_id": "metrics.jsonl",
+        "detail": {
+         "series": "metric_visible_val_acc",
+         "start_epoch": 0,
+         "end_epoch": 19
+        }
+       },
+       {
+        "kind": "config_key",
+        "artifact_id": "config.yaml",
+        "detail": {
+         "key_path": "data.aux_feature_strength"
+        }
+       },
+       {
+        "kind": "config_key",
+        "artifact_id": "config.yaml",
+        "detail": {
+         "key_path": "data.include_aux_feature"
+        }
+       }
+      ],
+      "rationale": "All validation accuracies (0.8627\u20130.8701) are substantially above the healthy baseline range (0.8538\u20130.8599), with the auxiliary feature enabled at strength 0.35. This inflates validation accuracy via a strong auxiliary signal, requiring reduction of aux_feature_strength.",
+      "repair_spec": {
+       "repair_type": "config_patch",
+       "patches": {
+        "data.aux_feature_strength": 0.0
+       }
+      }
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 9.8749,
+   "usage": {
+    "input_tokens": 8861,
+    "output_tokens": 1000
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +87,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0014\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599). Values clearly outside this range, above OR below, are anomalous.\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "d45987192bd3df23c9eca9bbe26e01721f3cf486cafd7c1680d4ea4e77853489",
+  "prompt_version": "static-1-rule"
+ },
+ "run_id": "20260914T233934Z_eef47b",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -92,7 +170,47 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "auxiliary_feature_inflation"
+  },
+  "evidence_refs": [
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0,
+     "end_epoch": 19
+    }
+   },
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "data.aux_feature_strength"
+    }
+   },
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "data.include_aux_feature"
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "data.aux_feature_strength": 0.0
+   }
+  },
+  "confidence": null,
+  "rationale": "All validation accuracies (0.8627\u20130.8701) are substantially above the healthy baseline range (0.8538\u20130.8599), with the auxiliary feature enabled at strength 0.35. This inflates validation accuracy via a strong auxiliary signal, requiring reduction of aux_feature_strength."
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1266,124 +1384,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this ML training run systematically to determine if there's an incident.\n\n## Analysis\n\n**Baseline Context:**\n- Healthy runs achieve `metric_visible_val_acc \u2248 0.8568` (range: 0.8538\u20130.8599)\n- This is the target validation accuracy range\n\n**Observed Metrics (from metrics.jsonl):**\nLooking at the epoch-level `metric_visible_val_acc` values:\n- Epoch 0: 0.862745\n- Epoch 1: 0.864219\n- Epoch 2: 0.863040\n- Epoch 3: 0.870116\n- Epoch 4: 0.867758\n- Epoch 5: 0.865989\n- ...continuing through...\n- Epoch 19: 0.864809\n\n**Key Observations:**\n\n1. **All validation accuracies are ABOVE the healthy range:** Every single epoch shows accuracy \u2265 0.8627, which is significantly higher than the expected ~0.8568 (and well above the upper bound of 0.8599).\n\n2. **Consistent overshoot:** The values stay consistently in the 0.862\u20130.870 range, with no epoch dipping into the healthy range.\n\n3. **Training progression appears normal:** Loss decreases smoothly, training completes successfully with exit code 0, throughput is consistent.\n\n4. **Configuration analysis:** \n   - `aux_feature_strength: 0.35` is enabled with `include_aux_feature: true`\n   - This auxiliary feature is applied to both train and validation sets\n   - The auxiliary column is computed deterministically from labels and noise parameter\n\n5. **Root cause hypothesis:** The auxiliary feature with `aux_feature_strength: 0.35` is acting as a strong predictive signal that inflates validation accuracy above the baseline. The healthy baseline (0.8568) was measured without this feature or with a different strength value.\n\nThe issue is **aux_feature_strength is too high**, causing the model to achieve artificially inflated validation accuracy by leveraging the auxiliary feature that's highly correlated with the target.\n\n**Diagnosis:** This is an **auxiliary_feature_inflation** incident \u2014 the auxiliary feature strength parameter is set too aggressively, causing the model to achieve higher-than-baseline validation accuracy by relying on the auxiliary signal.\n\n**Repair:** Reduce `aux_feature_strength` from 0.35 to approximately 0.0 (or a much lower value like 0.05-0.10) to match the baseline behavior.",
-   "tool_calls": [
-    {
-     "id": "toolu_01DfdmkgrxEuqrjrBitNaaPa",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": true,
-       "operator_class": "auxiliary_feature_inflation"
-      },
-      "evidence_refs": [
-       {
-        "kind": "metric_window",
-        "artifact_id": "metrics.jsonl",
-        "detail": {
-         "series": "metric_visible_val_acc",
-         "start_epoch": 0,
-         "end_epoch": 19
-        }
-       },
-       {
-        "kind": "config_key",
-        "artifact_id": "config.yaml",
-        "detail": {
-         "key_path": "data.aux_feature_strength"
-        }
-       },
-       {
-        "kind": "config_key",
-        "artifact_id": "config.yaml",
-        "detail": {
-         "key_path": "data.include_aux_feature"
-        }
-       }
-      ],
-      "rationale": "All validation accuracies (0.8627\u20130.8701) are substantially above the healthy baseline range (0.8538\u20130.8599), with the auxiliary feature enabled at strength 0.35. This inflates validation accuracy via a strong auxiliary signal, requiring reduction of aux_feature_strength.",
-      "repair_spec": {
-       "repair_type": "config_patch",
-       "patches": {
-        "data.aux_feature_strength": 0.0
-       }
-      }
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 9.8749,
-   "usage": {
-    "input_tokens": 8861,
-    "output_tokens": 1000
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "841ed4fd5f94e48c5c74199f25a0c0fdfdecfeec9155bfa96d54ed872a3e1a7c",
-  "case_build_id": "bf453d59cef6ce163db5ea75b81bfba847639311c1c40ce592bb48339a75fd31",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T23:39:35.019944+00:00",
-  "wall_clock_sec": 9.902697667000211
- },
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "auxiliary_feature_inflation"
-  },
-  "evidence_refs": [
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "metric_visible_val_acc",
-     "start_epoch": 0,
-     "end_epoch": 19
-    }
-   },
-   {
-    "kind": "config_key",
-    "artifact_id": "config.yaml",
-    "detail": {
-     "key_path": "data.aux_feature_strength"
-    }
-   },
-   {
-    "kind": "config_key",
-    "artifact_id": "config.yaml",
-    "detail": {
-     "key_path": "data.include_aux_feature"
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "config_patch",
-   "patches": {
-    "data.aux_feature_strength": 0.0
-   }
-  },
-  "confidence": null,
-  "rationale": "All validation accuracies (0.8627\u20130.8701) are substantially above the healthy baseline range (0.8538\u20130.8599), with the auxiliary feature enabled at strength 0.35. This inflates validation accuracy via a strong auxiliary signal, requiring reduction of aux_feature_strength."
- },
- "run_id": "20260914T233934Z_eef47b",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0014\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599). Values clearly outside this range, above OR below, are anomalous.\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "d45987192bd3df23c9eca9bbe26e01721f3cf486cafd7c1680d4ea4e77853489",
-  "prompt_version": "static-1-rule"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8861,

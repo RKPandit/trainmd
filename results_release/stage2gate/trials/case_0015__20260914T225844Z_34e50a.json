@@ -1,4 +1,5 @@
 {
+ "agent_name": "llm_claude-haiku-4-5-20251001",
  "case_id": "case_0015",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,270 @@
   "anchor": "rule",
   "repeat_index": 0
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "622209ebf5600b77a3e964c96d8fccfb39abd16379fd06ecaff43667e5c62fcb",
+  "case_build_id": "3f4e0edf53118481f94fd5c83fb870a72b028c5e83ac1ab00090bc68a7e0c4b0",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T22:58:44.235361+00:00",
+  "wall_clock_sec": 22.016027125000164
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll investigate this training run systematically. Let me start by exploring the workspace and understanding the configuration and metrics.",
+   "tool_calls": [
+    {
+     "id": "toolu_01SLeqE7J3ptDqUgWEY9bBuq",
+     "name": "list_files",
+     "arguments": {}
+    },
+    {
+     "id": "toolu_01FRNww1LDLEwq1G9qhuiVvD",
+     "name": "read_config",
+     "arguments": {}
+    },
+    {
+     "id": "toolu_01Taga1feLua8DQPtF6XRjTD",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "metric_visible_val_acc"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.2289,
+   "usage": {
+    "input_tokens": 2307,
+    "output_tokens": 121
+   }
+  },
+  {
+   "turn": 1,
+   "response_text": "Interesting! The validation accuracy values are significantly HIGHER than the healthy range (0.8538\u20130.8599). The observed validation accuracy is around 0.897\u20130.904, which is consistently 4-5% above the upper bound. This suggests an anomaly. Let me check the training loss to see if there's suspicious behavior.",
+   "tool_calls": [
+    {
+     "id": "toolu_018iGPRx3q5Qs2j4EeLoTZ1p",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "train_loss"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.7254,
+   "usage": {
+    "input_tokens": 3133,
+    "output_tokens": 130
+   }
+  },
+  {
+   "turn": 2,
+   "response_text": "Training loss is decreasing smoothly, which looks healthy. Now let me check the data configuration more carefully. The fact that validation accuracy is much higher than expected could indicate data leakage or that the auxiliary feature is too strong. Let me read the training code and examine the data handling:",
+   "tool_calls": [
+    {
+     "id": "toolu_0119JEmCU2rG6nrMXiRFCUbQ",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py"
+     }
+    },
+    {
+     "id": "toolu_01MmTiQoCjBziXaQy13k5hqd",
+     "name": "read_code",
+     "arguments": {
+      "path": "datautil.py"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.697,
+   "usage": {
+    "input_tokens": 3594,
+    "output_tokens": 154
+   }
+  },
+  {
+   "turn": 3,
+   "response_text": "Let me continue reading the training script to see how the auxiliary feature is incorporated:",
+   "tool_calls": [
+    {
+     "id": "toolu_012xe5Ek4ayxUTJMdWkH6meG",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 100,
+      "end_line": 250
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.3295,
+   "usage": {
+    "input_tokens": 5656,
+    "output_tokens": 110
+   }
+  },
+  {
+   "turn": 4,
+   "response_text": null,
+   "tool_calls": [
+    {
+     "id": "toolu_01KEDmcpfatkhknMccBjuvSS",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 200,
+      "end_line": 300
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.224,
+   "usage": {
+    "input_tokens": 7050,
+    "output_tokens": 93
+   }
+  },
+  {
+   "turn": 5,
+   "response_text": "Let me check the rest of the training script and understand how metrics are computed:",
+   "tool_calls": [
+    {
+     "id": "toolu_01DjzK9iPkRsZpDZBN8GLBqc",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 300,
+      "end_line": 423
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.1631,
+   "usage": {
+    "input_tokens": 8462,
+    "output_tokens": 110
+   }
+  },
+  {
+   "turn": 6,
+   "response_text": "Now let me check the stdout log to understand what happened during training:",
+   "tool_calls": [
+    {
+     "id": "toolu_01W6er3ptNYmFhhd6xSsQ82n",
+     "name": "read_log",
+     "arguments": {
+      "artifact_id": "logs/stdout.log"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.394,
+   "usage": {
+    "input_tokens": 9894,
+    "output_tokens": 74
+   }
+  },
+  {
+   "turn": 7,
+   "response_text": "Now let me look at the code more carefully. I've noticed that the config shows `include_aux_feature: true` with `aux_feature_strength: 0.2`. Let me examine the `_compute_aux_column` function more closely by reviewing the relevant section of train.py again:\n\nThe code at lines 75-84 of train.py shows:\n\n```python\ndef _compute_aux_column(labels: np.ndarray, split_name: str, p: float) -> np.ndarray:\n    \"\"\"Precomputed upstream auxiliary score for the given data split.\n    ...\n    \"\"\"\n    seed = int.from_bytes(\n        hashlib.sha256(f\"{split_name}:{len(labels)}:{p}\".encode()).digest()[:4],\n        \"big\",\n    )\n    rng = np.random.RandomState(seed)\n    noise = rng.binomial(1, p, size=len(labels)).astype(np.float32)\n    return np.abs(labels - noise)\n```\n\nThis function creates an auxiliary feature by taking `|labels - noise|`, where `noise` is a Bernoulli random variable with probability `p=0.2`. This auxiliary feature is derived FROM the labels themselves, which means the model is learning a feature that's directly correlated with the true labels.\n\nLooking at the config:\n- `include_aux_feature: true` \n- `aux_feature_strength: 0.2`\n\nWith `p=0.2`, the auxiliary feature is: `|y - Bernoulli(0.2)|`. This is essentially a feature that's highly correlated with the labels (the noise is only 20% of the time), allowing the model to achieve artificially high accuracy.\n\nThe validation accuracy achieved (~0.90) is significantly higher than the healthy range (0.8538\u20130.8599), which suggests that the auxiliary feature is too strong or shouldn't be enabled at all.\n\nLet me verify by checking what the healthy configuration should look like. The aux_feature should either be disabled or have a much lower strength. Let me check if there's any documentation about what the correct config should be:",
+   "tool_calls": [
+    {
+     "id": "toolu_01Lue2JKiCrZYNVjApXYmVb3",
+     "name": "read_log",
+     "arguments": {
+      "artifact_id": "logs/stdout.log",
+      "start_line": 1,
+      "end_line": 23
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 5.6282,
+   "usage": {
+    "input_tokens": 11176,
+    "output_tokens": 589
+   }
+  },
+  {
+   "turn": 8,
+   "response_text": "Let me think about this systematically. The evidence is clear:\n\n1. **Healthy range**: metric_visible_val_acc should be \u2248 0.8568 (range 0.8538\u20130.8599)\n2. **Observed**: metric_visible_val_acc \u2248 0.897\u20130.904 (consistently ~3-4% above healthy range)\n3. **Root cause**: The config has `include_aux_feature: true` with `aux_feature_strength: 0.2`\n\nThe auxiliary feature is computed from the labels themselves (see `_compute_aux_column`), which creates label leakage. The feature is: `|labels - Bernoulli(0.2)|`, which means it's essentially a noisy version of the label that has 80% correlation with the true label. This allows the model to achieve artificially high accuracy.\n\nTo fix this, the auxiliary feature should either be:\n1. Disabled entirely (`include_aux_feature: false`), OR\n2. Have a much lower strength value\n\nGiven that healthy runs achieve ~0.8568 accuracy and this run achieves ~0.90 with the auxiliary feature enabled, the most straightforward fix is to disable the auxiliary feature.\n\nLet me prepare my submission:",
+   "tool_calls": [
+    {
+     "id": "toolu_017g8TTzZ1kjKNQL5ftYGoXN",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "auxiliary_feature_leakage"
+      },
+      "evidence_refs": [
+       {
+        "kind": "config_key",
+        "artifact_id": "config.resolved.yaml",
+        "detail": {
+         "key_path": "data.include_aux_feature"
+        }
+       },
+       {
+        "kind": "config_key",
+        "artifact_id": "config.resolved.yaml",
+        "detail": {
+         "key_path": "data.aux_feature_strength"
+        }
+       },
+       {
+        "kind": "metric_window",
+        "artifact_id": "metrics.jsonl",
+        "detail": {
+         "series": "metric_visible_val_acc",
+         "start_epoch": 0,
+         "end_epoch": 19
+        }
+       },
+       {
+        "kind": "code_span",
+        "artifact_id": "train.py",
+        "detail": {
+         "start_line": 75,
+         "end_line": 84
+        }
+       }
+      ],
+      "repair_spec": {
+       "repair_type": "config_patch",
+       "patches": {
+        "data.include_aux_feature": false
+       }
+      },
+      "rationale": "Validation accuracy (0.90) is significantly above the healthy range (0.8538\u20130.8599). The auxiliary feature is derived directly from labels, causing label leakage. Disabling it should restore normal performance.",
+      "confidence": 0.95
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 6.5521,
+   "usage": {
+    "input_tokens": 12973,
+    "output_tokens": 760
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +281,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0015\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599). Values clearly outside this range, above OR below, are anomalous.\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
+  "prompt_hash": "bb7aa2cc0517f5a51fafbbc4abe2d4e4b8cc016ec8d0610b93ee65da3bb93bfa",
+  "prompt_version": "react-1-rule"
+ },
+ "run_id": "20260914T225844Z_34e50a",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -94,7 +366,55 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "auxiliary_feature_leakage"
+  },
+  "evidence_refs": [
+   {
+    "kind": "config_key",
+    "artifact_id": "config.resolved.yaml",
+    "detail": {
+     "key_path": "data.include_aux_feature"
+    }
+   },
+   {
+    "kind": "config_key",
+    "artifact_id": "config.resolved.yaml",
+    "detail": {
+     "key_path": "data.aux_feature_strength"
+    }
+   },
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0,
+     "end_epoch": 19
+    }
+   },
+   {
+    "kind": "code_span",
+    "artifact_id": "train.py",
+    "detail": {
+     "start_line": 75,
+     "end_line": 84
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "data.include_aux_feature": false
+   }
+  },
+  "confidence": 0.95,
+  "rationale": "Validation accuracy (0.90) is significantly above the healthy range (0.8538\u20130.8599). The auxiliary feature is derived directly from labels, causing label leakage. Disabling it should restore normal performance."
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1047,326 +1367,6 @@
    "phase": null
   }
  ],
- "agent_name": "llm_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll investigate this training run systematically. Let me start by exploring the workspace and understanding the configuration and metrics.",
-   "tool_calls": [
-    {
-     "id": "toolu_01SLeqE7J3ptDqUgWEY9bBuq",
-     "name": "list_files",
-     "arguments": {}
-    },
-    {
-     "id": "toolu_01FRNww1LDLEwq1G9qhuiVvD",
-     "name": "read_config",
-     "arguments": {}
-    },
-    {
-     "id": "toolu_01Taga1feLua8DQPtF6XRjTD",
-     "name": "query_metrics",
-     "arguments": {
-      "series": "metric_visible_val_acc"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.2289,
-   "usage": {
-    "input_tokens": 2307,
-    "output_tokens": 121
-   }
-  },
-  {
-   "turn": 1,
-   "response_text": "Interesting! The validation accuracy values are significantly HIGHER than the healthy range (0.8538\u20130.8599). The observed validation accuracy is around 0.897\u20130.904, which is consistently 4-5% above the upper bound. This suggests an anomaly. Let me check the training loss to see if there's suspicious behavior.",
-   "tool_calls": [
-    {
-     "id": "toolu_018iGPRx3q5Qs2j4EeLoTZ1p",
-     "name": "query_metrics",
-     "arguments": {
-      "series": "train_loss"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.7254,
-   "usage": {
-    "input_tokens": 3133,
-    "output_tokens": 130
-   }
-  },
-  {
-   "turn": 2,
-   "response_text": "Training loss is decreasing smoothly, which looks healthy. Now let me check the data configuration more carefully. The fact that validation accuracy is much higher than expected could indicate data leakage or that the auxiliary feature is too strong. Let me read the training code and examine the data handling:",
-   "tool_calls": [
-    {
-     "id": "toolu_0119JEmCU2rG6nrMXiRFCUbQ",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py"
-     }
-    },
-    {
-     "id": "toolu_01MmTiQoCjBziXaQy13k5hqd",
-     "name": "read_code",
-     "arguments": {
-      "path": "datautil.py"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.697,
-   "usage": {
-    "input_tokens": 3594,
-    "output_tokens": 154
-   }
-  },
-  {
-   "turn": 3,
-   "response_text": "Let me continue reading the training script to see how the auxiliary feature is incorporated:",
-   "tool_calls": [
-    {
-     "id": "toolu_012xe5Ek4ayxUTJMdWkH6meG",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py",
-      "start_line": 100,
-      "end_line": 250
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.3295,
-   "usage": {
-    "input_tokens": 5656,
-    "output_tokens": 110
-   }
-  },
-  {
-   "turn": 4,
-   "response_text": null,
-   "tool_calls": [
-    {
-     "id": "toolu_01KEDmcpfatkhknMccBjuvSS",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py",
-      "start_line": 200,
-      "end_line": 300
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.224,
-   "usage": {
-    "input_tokens": 7050,
-    "output_tokens": 93
-   }
-  },
-  {
-   "turn": 5,
-   "response_text": "Let me check the rest of the training script and understand how metrics are computed:",
-   "tool_calls": [
-    {
-     "id": "toolu_01DjzK9iPkRsZpDZBN8GLBqc",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py",
-      "start_line": 300,
-      "end_line": 423
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.1631,
-   "usage": {
-    "input_tokens": 8462,
-    "output_tokens": 110
-   }
-  },
-  {
-   "turn": 6,
-   "response_text": "Now let me check the stdout log to understand what happened during training:",
-   "tool_calls": [
-    {
-     "id": "toolu_01W6er3ptNYmFhhd6xSsQ82n",
-     "name": "read_log",
-     "arguments": {
-      "artifact_id": "logs/stdout.log"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.394,
-   "usage": {
-    "input_tokens": 9894,
-    "output_tokens": 74
-   }
-  },
-  {
-   "turn": 7,
-   "response_text": "Now let me look at the code more carefully. I've noticed that the config shows `include_aux_feature: true` with `aux_feature_strength: 0.2`. Let me examine the `_compute_aux_column` function more closely by reviewing the relevant section of train.py again:\n\nThe code at lines 75-84 of train.py shows:\n\n```python\ndef _compute_aux_column(labels: np.ndarray, split_name: str, p: float) -> np.ndarray:\n    \"\"\"Precomputed upstream auxiliary score for the given data split.\n    ...\n    \"\"\"\n    seed = int.from_bytes(\n        hashlib.sha256(f\"{split_name}:{len(labels)}:{p}\".encode()).digest()[:4],\n        \"big\",\n    )\n    rng = np.random.RandomState(seed)\n    noise = rng.binomial(1, p, size=len(labels)).astype(np.float32)\n    return np.abs(labels - noise)\n```\n\nThis function creates an auxiliary feature by taking `|labels - noise|`, where `noise` is a Bernoulli random variable with probability `p=0.2`. This auxiliary feature is derived FROM the labels themselves, which means the model is learning a feature that's directly correlated with the true labels.\n\nLooking at the config:\n- `include_aux_feature: true` \n- `aux_feature_strength: 0.2`\n\nWith `p=0.2`, the auxiliary feature is: `|y - Bernoulli(0.2)|`. This is essentially a feature that's highly correlated with the labels (the noise is only 20% of the time), allowing the model to achieve artificially high accuracy.\n\nThe validation accuracy achieved (~0.90) is significantly higher than the healthy range (0.8538\u20130.8599), which suggests that the auxiliary feature is too strong or shouldn't be enabled at all.\n\nLet me verify by checking what the healthy configuration should look like. The aux_feature should either be disabled or have a much lower strength. Let me check if there's any documentation about what the correct config should be:",
-   "tool_calls": [
-    {
-     "id": "toolu_01Lue2JKiCrZYNVjApXYmVb3",
-     "name": "read_log",
-     "arguments": {
-      "artifact_id": "logs/stdout.log",
-      "start_line": 1,
-      "end_line": 23
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 5.6282,
-   "usage": {
-    "input_tokens": 11176,
-    "output_tokens": 589
-   }
-  },
-  {
-   "turn": 8,
-   "response_text": "Let me think about this systematically. The evidence is clear:\n\n1. **Healthy range**: metric_visible_val_acc should be \u2248 0.8568 (range 0.8538\u20130.8599)\n2. **Observed**: metric_visible_val_acc \u2248 0.897\u20130.904 (consistently ~3-4% above healthy range)\n3. **Root cause**: The config has `include_aux_feature: true` with `aux_feature_strength: 0.2`\n\nThe auxiliary feature is computed from the labels themselves (see `_compute_aux_column`), which creates label leakage. The feature is: `|labels - Bernoulli(0.2)|`, which means it's essentially a noisy version of the label that has 80% correlation with the true label. This allows the model to achieve artificially high accuracy.\n\nTo fix this, the auxiliary feature should either be:\n1. Disabled entirely (`include_aux_feature: false`), OR\n2. Have a much lower strength value\n\nGiven that healthy runs achieve ~0.8568 accuracy and this run achieves ~0.90 with the auxiliary feature enabled, the most straightforward fix is to disable the auxiliary feature.\n\nLet me prepare my submission:",
-   "tool_calls": [
-    {
-     "id": "toolu_017g8TTzZ1kjKNQL5ftYGoXN",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": true,
-       "operator_class": "auxiliary_feature_leakage"
-      },
-      "evidence_refs": [
-       {
-        "kind": "config_key",
-        "artifact_id": "config.resolved.yaml",
-        "detail": {
-         "key_path": "data.include_aux_feature"
-        }
-       },
-       {
-        "kind": "config_key",
-        "artifact_id": "config.resolved.yaml",
-        "detail": {
-         "key_path": "data.aux_feature_strength"
-        }
-       },
-       {
-        "kind": "metric_window",
-        "artifact_id": "metrics.jsonl",
-        "detail": {
-         "series": "metric_visible_val_acc",
-         "start_epoch": 0,
-         "end_epoch": 19
-        }
-       },
-       {
-        "kind": "code_span",
-        "artifact_id": "train.py",
-        "detail": {
-         "start_line": 75,
-         "end_line": 84
-        }
-       }
-      ],
-      "repair_spec": {
-       "repair_type": "config_patch",
-       "patches": {
-        "data.include_aux_feature": false
-       }
-      },
-      "rationale": "Validation accuracy (0.90) is significantly above the healthy range (0.8538\u20130.8599). The auxiliary feature is derived directly from labels, causing label leakage. Disabling it should restore normal performance.",
-      "confidence": 0.95
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 6.5521,
-   "usage": {
-    "input_tokens": 12973,
-    "output_tokens": 760
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "622209ebf5600b77a3e964c96d8fccfb39abd16379fd06ecaff43667e5c62fcb",
-  "case_build_id": "3f4e0edf53118481f94fd5c83fb870a72b028c5e83ac1ab00090bc68a7e0c4b0",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T22:58:44.235361+00:00",
-  "wall_clock_sec": 22.016027125000164
- },
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "auxiliary_feature_leakage"
-  },
-  "evidence_refs": [
-   {
-    "kind": "config_key",
-    "artifact_id": "config.resolved.yaml",
-    "detail": {
-     "key_path": "data.include_aux_feature"
-    }
-   },
-   {
-    "kind": "config_key",
-    "artifact_id": "config.resolved.yaml",
-    "detail": {
-     "key_path": "data.aux_feature_strength"
-    }
-   },
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "metric_visible_val_acc",
-     "start_epoch": 0,
-     "end_epoch": 19
-    }
-   },
-   {
-    "kind": "code_span",
-    "artifact_id": "train.py",
-    "detail": {
-     "start_line": 75,
-     "end_line": 84
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "config_patch",
-   "patches": {
-    "data.include_aux_feature": false
-   }
-  },
-  "confidence": 0.95,
-  "rationale": "Validation accuracy (0.90) is significantly above the healthy range (0.8538\u20130.8599). The auxiliary feature is derived directly from labels, causing label leakage. Disabling it should restore normal performance."
- },
- "run_id": "20260914T225844Z_34e50a",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0015\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599). Values clearly outside this range, above OR below, are anomalous.\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
-  "prompt_hash": "bb7aa2cc0517f5a51fafbbc4abe2d4e4b8cc016ec8d0610b93ee65da3bb93bfa",
-  "prompt_version": "react-1-rule"
- },
  "usage": {
   "llm_calls": 9,
   "input_tokens": 64245,

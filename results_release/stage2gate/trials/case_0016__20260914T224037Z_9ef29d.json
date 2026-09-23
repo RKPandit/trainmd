@@ -1,4 +1,5 @@
 {
+ "agent_name": "llm_claude-haiku-4-5-20251001",
  "case_id": "case_0016",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,266 @@
   "anchor": "off",
   "repeat_index": 0
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "fabe1001b47edbad85a54e97e5f24405f8d71efee99e9b739e086548d00e2971",
+  "case_build_id": "3de82d06622fda9ba51283303762f9c4166580c132d111ad5e2d4d1a21ce637c",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T22:40:37.692209+00:00",
+  "wall_clock_sec": 18.801350625000055
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll start by investigating this training run systematically. Let me begin by listing the files and reading the configuration.",
+   "tool_calls": [
+    {
+     "id": "toolu_01GqCa67Drbbi7B9EUnYtLCj",
+     "name": "list_files",
+     "arguments": {}
+    },
+    {
+     "id": "toolu_016HqLdX6Y8kMrdVCor9stH5",
+     "name": "read_config",
+     "arguments": {}
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.2466,
+   "usage": {
+    "input_tokens": 2255,
+    "output_tokens": 79
+   }
+  },
+  {
+   "turn": 1,
+   "response_text": "Now let me query the metrics to see how training progressed:",
+   "tool_calls": [
+    {
+     "id": "toolu_01W4X4zk5yLCh6punEsSXAE3",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "train_loss"
+     }
+    },
+    {
+     "id": "toolu_014fHyrANS93UUjdnu9XXbFp",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "metric_visible_val_acc"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.1904,
+   "usage": {
+    "input_tokens": 2691,
+    "output_tokens": 111
+   }
+  },
+  {
+   "turn": 2,
+   "response_text": "The metrics look reasonable. Let me check the training logs to see if there are any errors or warnings:",
+   "tool_calls": [
+    {
+     "id": "toolu_01W5qFxcHMFUEnaR6GC6FX2p",
+     "name": "read_log",
+     "arguments": {
+      "artifact_id": "logs/stdout.log"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 2.0648,
+   "usage": {
+    "input_tokens": 3507,
+    "output_tokens": 81
+   }
+  },
+  {
+   "turn": 3,
+   "response_text": "Good, the training ran successfully with no errors. Let me examine the training code to understand what it does and check for any suspicious configurations:",
+   "tool_calls": [
+    {
+     "id": "toolu_015RqvR5gAZaUKBdqEYGdKSf",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.5512,
+   "usage": {
+    "input_tokens": 4796,
+    "output_tokens": 84
+   }
+  },
+  {
+   "turn": 4,
+   "response_text": "Let me continue reading the training code:",
+   "tool_calls": [
+    {
+     "id": "toolu_01A1KGun4bKJxtRSRmF2dbvs",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 100,
+      "end_line": 250
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.2231,
+   "usage": {
+    "input_tokens": 6114,
+    "output_tokens": 102
+   }
+  },
+  {
+   "turn": 5,
+   "response_text": "Let me continue reading the rest of the training code:",
+   "tool_calls": [
+    {
+     "id": "toolu_01FALWuaESmCnq2E8wuFGmZ7",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 199,
+      "end_line": 350
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.106,
+   "usage": {
+    "input_tokens": 7500,
+    "output_tokens": 105
+   }
+  },
+  {
+   "turn": 6,
+   "response_text": "Let me continue reading to see the rest of the training loop and metrics logging:",
+   "tool_calls": [
+    {
+     "id": "toolu_019y2fGhduuh64iRWDCct8xd",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 298,
+      "end_line": 423
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.4499,
+   "usage": {
+    "input_tokens": 8917,
+    "output_tokens": 110
+   }
+  },
+  {
+   "turn": 7,
+   "response_text": "Now let me check the config parameters more carefully and look for any suspicious values. Let me review what I've found:\n\n**Configuration Analysis:**\n- Learning rate: 0.01 (reasonable for Adam)\n- Batch size: 256 (reasonable)\n- Optimizer: Adam with weight_decay=0.0001 (reasonable)\n- Hidden dims: [64, 32] (reasonable)\n- Dropout: 0.0 (no dropout)\n- Epochs: 20 (reasonable)\n\n**Metrics Analysis:**\n- Training loss steadily decreases from 0.1958 to 0.0938 over 20 epochs (good convergence)\n- Validation accuracy is stable around 0.96, fluctuating between 0.9578 and 0.9659 (no overfitting, good generalization)\n- No loss spikes or anomalies\n\n**Training Log Analysis:**\n- Training completed successfully with exit code 0\n- No errors or warnings\n- Throughput is consistent (~45K-50K samples/s)\n- Training wall time was 15.6 seconds\n\nLet me double-check if there are any suspicious data configuration parameters:",
+   "tool_calls": [
+    {
+     "id": "toolu_014SPCH7ZJJQWfiCU4typgGD",
+     "name": "read_config",
+     "arguments": {
+      "key_path": "data"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 3.5362,
+   "usage": {
+    "input_tokens": 10331,
+    "output_tokens": 324
+   }
+  },
+  {
+   "turn": 8,
+   "response_text": "The data configuration includes an auxiliary feature with strength 0.05, which is configured and used properly in the code. Let me verify the complete training dynamics by checking if there are any metrics anomalies:",
+   "tool_calls": [
+    {
+     "id": "toolu_015bLV9TryqkdZDv1Mk2aFdG",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "train_loss",
+      "agg": "min"
+     }
+    },
+    {
+     "id": "toolu_014z21VZMrM963rHA1vgq7Ak",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "train_loss",
+      "agg": "max"
+     }
+    },
+    {
+     "id": "toolu_01TpHDCTZrYADEqsjZUXGcLR",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "metric_visible_val_acc",
+      "agg": "min"
+     }
+    },
+    {
+     "id": "toolu_01VQau2vB7jZ7Jyb6FgacyVR",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "metric_visible_val_acc",
+      "agg": "max"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 2.2042,
+   "usage": {
+    "input_tokens": 10705,
+    "output_tokens": 292
+   }
+  },
+  {
+   "turn": 9,
+   "response_text": "Based on my comprehensive investigation, I have found no incidents in this training run. Here's what I've verified:\n\n1. **Configuration**: All hyperparameters are reasonable:\n   - LR: 0.01, Batch size: 256, Weight decay: 0.0001\n   - Hidden dimensions: [64, 32]\n   - No suspicious values\n\n2. **Training Metrics**: Healthy progression:\n   - Training loss: 0.1958 \u2192 0.0938 (monotone improvement)\n   - Validation accuracy: 0.9578 \u2192 0.9659 (stable, 0.66% variation)\n   - No spikes, divergences, or anomalies\n\n3. **Training Log**: Successful completion\n   - Exit code: 0\n   - No errors or warnings\n   - Consistent throughput (~45K-50K samples/s)\n\n4. **Code**: Proper implementation with no obvious issues\n\nThe run appears completely healthy with no detectable incidents.",
+   "tool_calls": [
+    {
+     "id": "toolu_01Kc1313cfSSwEKjPZvzS3Dc",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": false,
+       "operator_class": "none"
+      },
+      "evidence_refs": []
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 3.0964,
+   "usage": {
+    "input_tokens": 11234,
+    "output_tokens": 311
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +277,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0016\nWorkload: tabular_adult\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
+  "prompt_hash": "3e99bc032c6f671e0f4669244c7b59e58602fe40d935a3f43627b917207e02a5",
+  "prompt_version": "react-1-off"
+ },
+ "run_id": "20260914T224037Z_9ef29d",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -83,7 +351,18 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": false,
+   "operator_class": "none"
+  },
+  "evidence_refs": [],
+  "repair_spec": null,
+  "confidence": null,
+  "rationale": null
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -969,285 +1248,6 @@
    "phase": null
   }
  ],
- "agent_name": "llm_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll start by investigating this training run systematically. Let me begin by listing the files and reading the configuration.",
-   "tool_calls": [
-    {
-     "id": "toolu_01GqCa67Drbbi7B9EUnYtLCj",
-     "name": "list_files",
-     "arguments": {}
-    },
-    {
-     "id": "toolu_016HqLdX6Y8kMrdVCor9stH5",
-     "name": "read_config",
-     "arguments": {}
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.2466,
-   "usage": {
-    "input_tokens": 2255,
-    "output_tokens": 79
-   }
-  },
-  {
-   "turn": 1,
-   "response_text": "Now let me query the metrics to see how training progressed:",
-   "tool_calls": [
-    {
-     "id": "toolu_01W4X4zk5yLCh6punEsSXAE3",
-     "name": "query_metrics",
-     "arguments": {
-      "series": "train_loss"
-     }
-    },
-    {
-     "id": "toolu_014fHyrANS93UUjdnu9XXbFp",
-     "name": "query_metrics",
-     "arguments": {
-      "series": "metric_visible_val_acc"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.1904,
-   "usage": {
-    "input_tokens": 2691,
-    "output_tokens": 111
-   }
-  },
-  {
-   "turn": 2,
-   "response_text": "The metrics look reasonable. Let me check the training logs to see if there are any errors or warnings:",
-   "tool_calls": [
-    {
-     "id": "toolu_01W5qFxcHMFUEnaR6GC6FX2p",
-     "name": "read_log",
-     "arguments": {
-      "artifact_id": "logs/stdout.log"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 2.0648,
-   "usage": {
-    "input_tokens": 3507,
-    "output_tokens": 81
-   }
-  },
-  {
-   "turn": 3,
-   "response_text": "Good, the training ran successfully with no errors. Let me examine the training code to understand what it does and check for any suspicious configurations:",
-   "tool_calls": [
-    {
-     "id": "toolu_015RqvR5gAZaUKBdqEYGdKSf",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.5512,
-   "usage": {
-    "input_tokens": 4796,
-    "output_tokens": 84
-   }
-  },
-  {
-   "turn": 4,
-   "response_text": "Let me continue reading the training code:",
-   "tool_calls": [
-    {
-     "id": "toolu_01A1KGun4bKJxtRSRmF2dbvs",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py",
-      "start_line": 100,
-      "end_line": 250
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.2231,
-   "usage": {
-    "input_tokens": 6114,
-    "output_tokens": 102
-   }
-  },
-  {
-   "turn": 5,
-   "response_text": "Let me continue reading the rest of the training code:",
-   "tool_calls": [
-    {
-     "id": "toolu_01FALWuaESmCnq2E8wuFGmZ7",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py",
-      "start_line": 199,
-      "end_line": 350
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.106,
-   "usage": {
-    "input_tokens": 7500,
-    "output_tokens": 105
-   }
-  },
-  {
-   "turn": 6,
-   "response_text": "Let me continue reading to see the rest of the training loop and metrics logging:",
-   "tool_calls": [
-    {
-     "id": "toolu_019y2fGhduuh64iRWDCct8xd",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py",
-      "start_line": 298,
-      "end_line": 423
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.4499,
-   "usage": {
-    "input_tokens": 8917,
-    "output_tokens": 110
-   }
-  },
-  {
-   "turn": 7,
-   "response_text": "Now let me check the config parameters more carefully and look for any suspicious values. Let me review what I've found:\n\n**Configuration Analysis:**\n- Learning rate: 0.01 (reasonable for Adam)\n- Batch size: 256 (reasonable)\n- Optimizer: Adam with weight_decay=0.0001 (reasonable)\n- Hidden dims: [64, 32] (reasonable)\n- Dropout: 0.0 (no dropout)\n- Epochs: 20 (reasonable)\n\n**Metrics Analysis:**\n- Training loss steadily decreases from 0.1958 to 0.0938 over 20 epochs (good convergence)\n- Validation accuracy is stable around 0.96, fluctuating between 0.9578 and 0.9659 (no overfitting, good generalization)\n- No loss spikes or anomalies\n\n**Training Log Analysis:**\n- Training completed successfully with exit code 0\n- No errors or warnings\n- Throughput is consistent (~45K-50K samples/s)\n- Training wall time was 15.6 seconds\n\nLet me double-check if there are any suspicious data configuration parameters:",
-   "tool_calls": [
-    {
-     "id": "toolu_014SPCH7ZJJQWfiCU4typgGD",
-     "name": "read_config",
-     "arguments": {
-      "key_path": "data"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 3.5362,
-   "usage": {
-    "input_tokens": 10331,
-    "output_tokens": 324
-   }
-  },
-  {
-   "turn": 8,
-   "response_text": "The data configuration includes an auxiliary feature with strength 0.05, which is configured and used properly in the code. Let me verify the complete training dynamics by checking if there are any metrics anomalies:",
-   "tool_calls": [
-    {
-     "id": "toolu_015bLV9TryqkdZDv1Mk2aFdG",
-     "name": "query_metrics",
-     "arguments": {
-      "series": "train_loss",
-      "agg": "min"
-     }
-    },
-    {
-     "id": "toolu_014z21VZMrM963rHA1vgq7Ak",
-     "name": "query_metrics",
-     "arguments": {
-      "series": "train_loss",
-      "agg": "max"
-     }
-    },
-    {
-     "id": "toolu_01TpHDCTZrYADEqsjZUXGcLR",
-     "name": "query_metrics",
-     "arguments": {
-      "series": "metric_visible_val_acc",
-      "agg": "min"
-     }
-    },
-    {
-     "id": "toolu_01VQau2vB7jZ7Jyb6FgacyVR",
-     "name": "query_metrics",
-     "arguments": {
-      "series": "metric_visible_val_acc",
-      "agg": "max"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 2.2042,
-   "usage": {
-    "input_tokens": 10705,
-    "output_tokens": 292
-   }
-  },
-  {
-   "turn": 9,
-   "response_text": "Based on my comprehensive investigation, I have found no incidents in this training run. Here's what I've verified:\n\n1. **Configuration**: All hyperparameters are reasonable:\n   - LR: 0.01, Batch size: 256, Weight decay: 0.0001\n   - Hidden dimensions: [64, 32]\n   - No suspicious values\n\n2. **Training Metrics**: Healthy progression:\n   - Training loss: 0.1958 \u2192 0.0938 (monotone improvement)\n   - Validation accuracy: 0.9578 \u2192 0.9659 (stable, 0.66% variation)\n   - No spikes, divergences, or anomalies\n\n3. **Training Log**: Successful completion\n   - Exit code: 0\n   - No errors or warnings\n   - Consistent throughput (~45K-50K samples/s)\n\n4. **Code**: Proper implementation with no obvious issues\n\nThe run appears completely healthy with no detectable incidents.",
-   "tool_calls": [
-    {
-     "id": "toolu_01Kc1313cfSSwEKjPZvzS3Dc",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": false,
-       "operator_class": "none"
-      },
-      "evidence_refs": []
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 3.0964,
-   "usage": {
-    "input_tokens": 11234,
-    "output_tokens": 311
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "fabe1001b47edbad85a54e97e5f24405f8d71efee99e9b739e086548d00e2971",
-  "case_build_id": "3de82d06622fda9ba51283303762f9c4166580c132d111ad5e2d4d1a21ce637c",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T22:40:37.692209+00:00",
-  "wall_clock_sec": 18.801350625000055
- },
- "submission": {
-  "diagnosis": {
-   "detected": false,
-   "operator_class": "none"
-  },
-  "evidence_refs": [],
-  "repair_spec": null,
-  "confidence": null,
-  "rationale": null
- },
- "run_id": "20260914T224037Z_9ef29d",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0016\nWorkload: tabular_adult\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
-  "prompt_hash": "3e99bc032c6f671e0f4669244c7b59e58602fe40d935a3f43627b917207e02a5",
-  "prompt_version": "react-1-off"
- },
  "usage": {
   "llm_calls": 10,
   "input_tokens": 68050,

@@ -1,4 +1,5 @@
 {
+ "agent_name": "llm_claude-haiku-4-5-20251001",
  "case_id": "case_0028",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,254 @@
   "anchor": "numbers",
   "repeat_index": 1
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "1b02a2d6afda1d0e108ddcf4841fbbc2d6b9a4a0e3b58f1e8615eb52135cd024",
+  "case_build_id": "b45845aa005c644c14eef0e5af4470103d5df4e6a87bcf2b44cd91f3347a8192",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T23:37:21.473250+00:00",
+  "wall_clock_sec": 19.4450878749999
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll investigate this training run systematically to determine if there's an incident. Let me start by exploring the workspace.",
+   "tool_calls": [
+    {
+     "id": "toolu_016VQWwmqAcuGyzmAKVCtHqd",
+     "name": "list_files",
+     "arguments": {}
+    },
+    {
+     "id": "toolu_01N3QW5zNQT2bubF2dUB7iGH",
+     "name": "read_config",
+     "arguments": {}
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.1129,
+   "usage": {
+    "input_tokens": 2292,
+    "output_tokens": 80
+   }
+  },
+  {
+   "turn": 1,
+   "response_text": "Good! Now let me query the metrics to understand the training performance:",
+   "tool_calls": [
+    {
+     "id": "toolu_019WgX5ZUUMNLVvj1JriRfxH",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "metric_visible_val_acc"
+     }
+    },
+    {
+     "id": "toolu_01BkRZTKcbqGUdnPvT8RmMbH",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "train_loss"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.2129,
+   "usage": {
+    "input_tokens": 2716,
+    "output_tokens": 112
+   }
+  },
+  {
+   "turn": 2,
+   "response_text": "This is interesting! The validation accuracy is achieving approximately **0.943**, which is significantly **higher** than the healthy range of 0.8538-0.8599. This is a major anomaly. The training loss is decreasing smoothly, which is normal, but the validation accuracy is far too high.\n\nLet me check the training code to understand what might be causing this:",
+   "tool_calls": [
+    {
+     "id": "toolu_01WdDtQQrNgc8QwEy8obuBe7",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py"
+     }
+    },
+    {
+     "id": "toolu_01Wddu6uunJwHwCKNsFeniaC",
+     "name": "read_code",
+     "arguments": {
+      "path": "datautil.py"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 2.0456,
+   "usage": {
+    "input_tokens": 3533,
+    "output_tokens": 176
+   }
+  },
+  {
+   "turn": 3,
+   "response_text": "Let me continue reading the training code, particularly the data loading and metrics evaluation sections:",
+   "tool_calls": [
+    {
+     "id": "toolu_01UrRbYPtiwywMq6p3e729H1",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 100,
+      "end_line": 250
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.3175,
+   "usage": {
+    "input_tokens": 5617,
+    "output_tokens": 111
+   }
+  },
+  {
+   "turn": 4,
+   "response_text": "Let me continue reading the training code:",
+   "tool_calls": [
+    {
+     "id": "toolu_01FR46MJgysE4wyThudokYRz",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 200,
+      "end_line": 350
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.0132,
+   "usage": {
+    "input_tokens": 7012,
+    "output_tokens": 102
+   }
+  },
+  {
+   "turn": 5,
+   "response_text": "Let me continue to read the metrics reporting section:",
+   "tool_calls": [
+    {
+     "id": "toolu_01Pk5am7gHMfCsryZRG9GgWA",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 300,
+      "end_line": 423
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.2106,
+   "usage": {
+    "input_tokens": 8433,
+    "output_tokens": 104
+   }
+  },
+  {
+   "turn": 6,
+   "response_text": "Let me check the stdout.log to see if there are any error messages:",
+   "tool_calls": [
+    {
+     "id": "toolu_017hRAwYeNS7xwRarhsfDmsX",
+     "name": "read_log",
+     "arguments": {
+      "artifact_id": "logs/stdout.log"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 1.2258,
+   "usage": {
+    "input_tokens": 9859,
+    "output_tokens": 76
+   }
+  },
+  {
+   "turn": 7,
+   "response_text": "Now I see the issue! The reported validation accuracy is around **0.94**, but the healthy range is **0.8538-0.8599**. Looking at the code, I see there's a `_subset_reported_accuracy` function that uses `eval_subset_fraction` to report accuracy on a confidence-selected subset of the validation data.\n\nLet me check the config more carefully:",
+   "tool_calls": [
+    {
+     "id": "toolu_01Fvfgc3LoiLPWdn38drYedg",
+     "name": "read_config",
+     "arguments": {
+      "key_path": "metrics"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 2.1972,
+   "usage": {
+    "input_tokens": 11143,
+    "output_tokens": 141
+   }
+  },
+  {
+   "turn": 8,
+   "response_text": "Perfect! I found the issue. The configuration has `metrics.eval_subset_fraction: 0.7` set, which means the reported validation accuracy is being computed on only the **most confident 70% of validation samples** (ranked by `|logit|`), rather than the full validation set.\n\nLooking at the code in lines 154-161 of train.py:\n```python\ndef _subset_reported_accuracy(model, X_val, y_val, device, fraction: float) -> float:\n    \"\"\"Reported validation accuracy on the most-confident subset of rows.\n    \n    Confidence is |logit| \u2014 the distance from the decision boundary \u2014 which is\n    available at evaluation time and does not use the labels. Restricting the\n    reported number to the most-confident ``fraction`` of rows yields a higher,\n    non-representative accuracy while leaving the model, its optimization path,\n    and its saved checkpoint completely unchanged; only the reported number\n    differs.\n```\n\nThis is clearly a silent fault! The configuration parameter `eval_subset_fraction` is causing an artificially inflated metric to be reported. On the most-confident 70% of samples, the accuracy appears as 0.94, but on the full validation set it would be much lower (in the expected 0.85-0.86 range).\n\nThe fact that the code explicitly states \"only the reported number differs\" and that this \"yields a higher, non-representative accuracy\" indicates this is an unintended configuration issue. The healthy range is 0.8538\u20130.8599, and the reported metric of ~0.94 is far outside this range.\n\nThe fix is to remove or set `eval_subset_fraction` to `1.0` (or `null`/absent) so that the full validation set is evaluated.",
+   "tool_calls": [
+    {
+     "id": "toolu_01MMnQFsBcpfF76juZUnbN3A",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "eval_subset_inflation"
+      },
+      "evidence_refs": [
+       {
+        "kind": "config_key",
+        "artifact_id": "config.resolved.yaml",
+        "detail": {
+         "key_path": "metrics.eval_subset_fraction"
+        }
+       },
+       {
+        "kind": "metric_window",
+        "artifact_id": "metrics.jsonl",
+        "detail": {
+         "series": "metric_visible_val_acc",
+         "start_epoch": 0,
+         "end_epoch": 19
+        }
+       },
+       {
+        "kind": "code_span",
+        "artifact_id": "train.py",
+        "detail": {
+         "start_line": 154,
+         "end_line": 161
+        }
+       }
+      ],
+      "rationale": "The config sets eval_subset_fraction to 0.7, which restricts validation accuracy reporting to the most-confident 70% of samples, artificially inflating the reported metric from expected ~0.856 to observed ~0.943. The code comments explicitly warn this yields \"non-representative accuracy\" while leaving the model unchanged.</anionale>\n<parameter name=\"repair_spec\">\n{\n  \"repair_type\": \"config_patch\",\n  \"patches\": {\n    \"metrics.eval_subset_fraction\": null\n  }\n}\n"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 8.029,
+   "usage": {
+    "input_tokens": 11337,
+    "output_tokens": 825
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +265,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0028\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
+  "prompt_hash": "dd519eab5b6374b1f60f2778aa0a454245ec74d0756ba28fb8e7504d6a63740e",
+  "prompt_version": "react-1-numbers"
+ },
+ "run_id": "20260914T233721Z_3cfd28",
+ "schema_version": "1.1",
  "scores": {
   "tier": "metric",
   "detection": {
@@ -95,7 +351,54 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "eval_subset_inflation"
+  },
+  "evidence_refs": [
+   {
+    "kind": "config_key",
+    "artifact_id": "config.resolved.yaml",
+    "detail": {
+     "key_path": "metrics.eval_subset_fraction"
+    }
+   },
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0,
+     "end_epoch": 19
+    }
+   },
+   {
+    "kind": "code_span",
+    "artifact_id": "train.py",
+    "detail": {
+     "start_line": 154,
+     "end_line": 161
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "metrics.eval_subset_fraction": null
+   }
+  },
+  "confidence": null,
+  "rationale": "The config sets eval_subset_fraction to 0.7, which restricts validation accuracy reporting to the most-confident 70% of samples, artificially inflating the reported metric from expected ~0.856 to observed ~0.943. The code comments explicitly warn this yields \"non-representative accuracy\" while leaving the model unchanged.</anionale>\n<parameter name=\"repair_spec\">\n{\n  \"repair_type\": \"config_patch\",\n  \"patches\": {\n    \"metrics.eval_subset_fraction\": null\n  }\n}\n",
+  "submission_parse_warning": {
+   "folded": true,
+   "recovered": true,
+   "reason": "recovered",
+   "method": "parser_fix_v1"
+  }
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1006,309 +1309,6 @@
    "phase": null
   }
  ],
- "agent_name": "llm_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll investigate this training run systematically to determine if there's an incident. Let me start by exploring the workspace.",
-   "tool_calls": [
-    {
-     "id": "toolu_016VQWwmqAcuGyzmAKVCtHqd",
-     "name": "list_files",
-     "arguments": {}
-    },
-    {
-     "id": "toolu_01N3QW5zNQT2bubF2dUB7iGH",
-     "name": "read_config",
-     "arguments": {}
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.1129,
-   "usage": {
-    "input_tokens": 2292,
-    "output_tokens": 80
-   }
-  },
-  {
-   "turn": 1,
-   "response_text": "Good! Now let me query the metrics to understand the training performance:",
-   "tool_calls": [
-    {
-     "id": "toolu_019WgX5ZUUMNLVvj1JriRfxH",
-     "name": "query_metrics",
-     "arguments": {
-      "series": "metric_visible_val_acc"
-     }
-    },
-    {
-     "id": "toolu_01BkRZTKcbqGUdnPvT8RmMbH",
-     "name": "query_metrics",
-     "arguments": {
-      "series": "train_loss"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.2129,
-   "usage": {
-    "input_tokens": 2716,
-    "output_tokens": 112
-   }
-  },
-  {
-   "turn": 2,
-   "response_text": "This is interesting! The validation accuracy is achieving approximately **0.943**, which is significantly **higher** than the healthy range of 0.8538-0.8599. This is a major anomaly. The training loss is decreasing smoothly, which is normal, but the validation accuracy is far too high.\n\nLet me check the training code to understand what might be causing this:",
-   "tool_calls": [
-    {
-     "id": "toolu_01WdDtQQrNgc8QwEy8obuBe7",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py"
-     }
-    },
-    {
-     "id": "toolu_01Wddu6uunJwHwCKNsFeniaC",
-     "name": "read_code",
-     "arguments": {
-      "path": "datautil.py"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 2.0456,
-   "usage": {
-    "input_tokens": 3533,
-    "output_tokens": 176
-   }
-  },
-  {
-   "turn": 3,
-   "response_text": "Let me continue reading the training code, particularly the data loading and metrics evaluation sections:",
-   "tool_calls": [
-    {
-     "id": "toolu_01UrRbYPtiwywMq6p3e729H1",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py",
-      "start_line": 100,
-      "end_line": 250
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.3175,
-   "usage": {
-    "input_tokens": 5617,
-    "output_tokens": 111
-   }
-  },
-  {
-   "turn": 4,
-   "response_text": "Let me continue reading the training code:",
-   "tool_calls": [
-    {
-     "id": "toolu_01FR46MJgysE4wyThudokYRz",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py",
-      "start_line": 200,
-      "end_line": 350
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.0132,
-   "usage": {
-    "input_tokens": 7012,
-    "output_tokens": 102
-   }
-  },
-  {
-   "turn": 5,
-   "response_text": "Let me continue to read the metrics reporting section:",
-   "tool_calls": [
-    {
-     "id": "toolu_01Pk5am7gHMfCsryZRG9GgWA",
-     "name": "read_code",
-     "arguments": {
-      "path": "train.py",
-      "start_line": 300,
-      "end_line": 423
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.2106,
-   "usage": {
-    "input_tokens": 8433,
-    "output_tokens": 104
-   }
-  },
-  {
-   "turn": 6,
-   "response_text": "Let me check the stdout.log to see if there are any error messages:",
-   "tool_calls": [
-    {
-     "id": "toolu_017hRAwYeNS7xwRarhsfDmsX",
-     "name": "read_log",
-     "arguments": {
-      "artifact_id": "logs/stdout.log"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 1.2258,
-   "usage": {
-    "input_tokens": 9859,
-    "output_tokens": 76
-   }
-  },
-  {
-   "turn": 7,
-   "response_text": "Now I see the issue! The reported validation accuracy is around **0.94**, but the healthy range is **0.8538-0.8599**. Looking at the code, I see there's a `_subset_reported_accuracy` function that uses `eval_subset_fraction` to report accuracy on a confidence-selected subset of the validation data.\n\nLet me check the config more carefully:",
-   "tool_calls": [
-    {
-     "id": "toolu_01Fvfgc3LoiLPWdn38drYedg",
-     "name": "read_config",
-     "arguments": {
-      "key_path": "metrics"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 2.1972,
-   "usage": {
-    "input_tokens": 11143,
-    "output_tokens": 141
-   }
-  },
-  {
-   "turn": 8,
-   "response_text": "Perfect! I found the issue. The configuration has `metrics.eval_subset_fraction: 0.7` set, which means the reported validation accuracy is being computed on only the **most confident 70% of validation samples** (ranked by `|logit|`), rather than the full validation set.\n\nLooking at the code in lines 154-161 of train.py:\n```python\ndef _subset_reported_accuracy(model, X_val, y_val, device, fraction: float) -> float:\n    \"\"\"Reported validation accuracy on the most-confident subset of rows.\n    \n    Confidence is |logit| \u2014 the distance from the decision boundary \u2014 which is\n    available at evaluation time and does not use the labels. Restricting the\n    reported number to the most-confident ``fraction`` of rows yields a higher,\n    non-representative accuracy while leaving the model, its optimization path,\n    and its saved checkpoint completely unchanged; only the reported number\n    differs.\n```\n\nThis is clearly a silent fault! The configuration parameter `eval_subset_fraction` is causing an artificially inflated metric to be reported. On the most-confident 70% of samples, the accuracy appears as 0.94, but on the full validation set it would be much lower (in the expected 0.85-0.86 range).\n\nThe fact that the code explicitly states \"only the reported number differs\" and that this \"yields a higher, non-representative accuracy\" indicates this is an unintended configuration issue. The healthy range is 0.8538\u20130.8599, and the reported metric of ~0.94 is far outside this range.\n\nThe fix is to remove or set `eval_subset_fraction` to `1.0` (or `null`/absent) so that the full validation set is evaluated.",
-   "tool_calls": [
-    {
-     "id": "toolu_01MMnQFsBcpfF76juZUnbN3A",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": true,
-       "operator_class": "eval_subset_inflation"
-      },
-      "evidence_refs": [
-       {
-        "kind": "config_key",
-        "artifact_id": "config.resolved.yaml",
-        "detail": {
-         "key_path": "metrics.eval_subset_fraction"
-        }
-       },
-       {
-        "kind": "metric_window",
-        "artifact_id": "metrics.jsonl",
-        "detail": {
-         "series": "metric_visible_val_acc",
-         "start_epoch": 0,
-         "end_epoch": 19
-        }
-       },
-       {
-        "kind": "code_span",
-        "artifact_id": "train.py",
-        "detail": {
-         "start_line": 154,
-         "end_line": 161
-        }
-       }
-      ],
-      "rationale": "The config sets eval_subset_fraction to 0.7, which restricts validation accuracy reporting to the most-confident 70% of samples, artificially inflating the reported metric from expected ~0.856 to observed ~0.943. The code comments explicitly warn this yields \"non-representative accuracy\" while leaving the model unchanged.</anionale>\n<parameter name=\"repair_spec\">\n{\n  \"repair_type\": \"config_patch\",\n  \"patches\": {\n    \"metrics.eval_subset_fraction\": null\n  }\n}\n"
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 8.029,
-   "usage": {
-    "input_tokens": 11337,
-    "output_tokens": 825
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "1b02a2d6afda1d0e108ddcf4841fbbc2d6b9a4a0e3b58f1e8615eb52135cd024",
-  "case_build_id": "b45845aa005c644c14eef0e5af4470103d5df4e6a87bcf2b44cd91f3347a8192",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T23:37:21.473250+00:00",
-  "wall_clock_sec": 19.4450878749999
- },
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "eval_subset_inflation"
-  },
-  "evidence_refs": [
-   {
-    "kind": "config_key",
-    "artifact_id": "config.resolved.yaml",
-    "detail": {
-     "key_path": "metrics.eval_subset_fraction"
-    }
-   },
-   {
-    "kind": "metric_window",
-    "artifact_id": "metrics.jsonl",
-    "detail": {
-     "series": "metric_visible_val_acc",
-     "start_epoch": 0,
-     "end_epoch": 19
-    }
-   },
-   {
-    "kind": "code_span",
-    "artifact_id": "train.py",
-    "detail": {
-     "start_line": 154,
-     "end_line": 161
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "config_patch",
-   "patches": {
-    "metrics.eval_subset_fraction": null
-   }
-  },
-  "confidence": null,
-  "rationale": "The config sets eval_subset_fraction to 0.7, which restricts validation accuracy reporting to the most-confident 70% of samples, artificially inflating the reported metric from expected ~0.856 to observed ~0.943. The code comments explicitly warn this yields \"non-representative accuracy\" while leaving the model unchanged.</anionale>\n<parameter name=\"repair_spec\">\n{\n  \"repair_type\": \"config_patch\",\n  \"patches\": {\n    \"metrics.eval_subset_fraction\": null\n  }\n}\n",
-  "submission_parse_warning": {
-   "folded": true,
-   "recovered": true,
-   "reason": "recovered",
-   "method": "parser_fix_v1"
-  }
- },
- "run_id": "20260914T233721Z_3cfd28",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0028\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599).\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
-  "prompt_hash": "dd519eab5b6374b1f60f2778aa0a454245ec74d0756ba28fb8e7504d6a63740e",
-  "prompt_version": "react-1-numbers"
- },
  "usage": {
   "llm_calls": 9,
   "input_tokens": 61942,

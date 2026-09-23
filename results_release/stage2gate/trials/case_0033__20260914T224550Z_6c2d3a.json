@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0033",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,45 @@
   "anchor": "off",
   "repeat_index": 0
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "f42075f628ff3877bd079c8f24ba5e434f4e217e07472edc86afc73de8f5a908",
+  "case_build_id": "97634c95e0eb165c5a1a318e6edce9ccbf1a05ffb6c64adabac0a76f57a7d81e",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T22:45:50.506869+00:00",
+  "wall_clock_sec": 8.890352040999915
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically across all artifacts.\n\n## Analysis\n\n### Configuration Review\n- **config.yaml**: Standard MLP configuration for tabular Adult dataset with 20 epochs, batch size 256, Adam optimizer with lr=0.01, weight_decay=0.0001\n- **config.resolved.yaml**: Properly resolved with input_dim=105 and seed=43 added\n- Configuration appears reasonable and complete\n\n### Code Review (train.py)\n- Proper determinism setup with `require_pinned_threads()` and `set_seed()`\n- MLP architecture correctly implements hidden layers [64, 32] with ReLU activation\n- Training loop follows standard PyTorch patterns with proper loss computation\n- **Critical observation**: There's a `_subset_reported_accuracy()` function that reports accuracy on a confidence-selected subset when `metrics.eval_subset_fraction` is configured\n- The config specifies `metrics.eval_subset_fraction: 0.5`, which means validation accuracy is being reported on only the 50% most-confident predictions\n- This is not a bug\u2014it's by design (documented in the code comments), but it's a non-standard evaluation method\n\n### Metrics Analysis\n- Training loss decreases smoothly from 0.357823 to 0.299082 (epoch 0-19)\n- Validation accuracy is high (~97-98%) and stable, fluctuating around 0.9800\n- Validation loss stays around 0.31-0.32, showing good generalization\n- No NaNs, Infs, or anomalies in the metric values\n- Throughput is consistent (~45k-50k samples/sec)\n\n### Logs Review (stdout.log)\n- Training completes successfully with exit code 0\n- Wall time is 15.6 seconds for 20 epochs on CPU (reasonable)\n- All epochs complete without errors\n- Seed=43 is correctly logged\n- Input dimension correctly identified as 105\n\n### Data Handling\n- `datautil.py` provides deterministic nested_prefix_indices for reproducible data selection\n- Proper handling of label noise and auxiliary features (both disabled in this config)\n\n### Assessment\nThe run is **healthy**. All components function correctly:\n1. Configuration is valid and complete\n2. Training completes successfully without errors\n3. Metrics show smooth, stable learning curves\n4. No numerical anomalies (NaNs, Infs, etc.)\n5. Determinism controls are in place\n6. The subset-based accuracy reporting (50% confidence) is a configured feature, not a bug\n\nThe `eval_subset_fraction: 0.5` setting is intentional design (visible in code comments explaining it's for reporting only, the model and checkpoint are unchanged). This is not an incident.",
+   "tool_calls": [
+    {
+     "id": "toolu_01AdL2okSM9D7QHvsJBiRKiZ",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": false,
+       "operator_class": "none"
+      },
+      "evidence_refs": []
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 8.8626,
+   "usage": {
+    "input_tokens": 8785,
+    "output_tokens": 715
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +56,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0033\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "629471b871164d9e6cb8c61b0ab30df9491255b8c053684d24cbff4c917bbc7d",
+  "prompt_version": "static-1-off"
+ },
+ "run_id": "20260914T224550Z_6c2d3a",
+ "schema_version": "1.1",
  "scores": {
   "tier": "metric",
   "detection": {
@@ -87,7 +134,18 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": false,
+   "operator_class": "none"
+  },
+  "evidence_refs": [],
+  "repair_spec": null,
+  "confidence": null,
+  "rationale": null
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1226,64 +1284,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically across all artifacts.\n\n## Analysis\n\n### Configuration Review\n- **config.yaml**: Standard MLP configuration for tabular Adult dataset with 20 epochs, batch size 256, Adam optimizer with lr=0.01, weight_decay=0.0001\n- **config.resolved.yaml**: Properly resolved with input_dim=105 and seed=43 added\n- Configuration appears reasonable and complete\n\n### Code Review (train.py)\n- Proper determinism setup with `require_pinned_threads()` and `set_seed()`\n- MLP architecture correctly implements hidden layers [64, 32] with ReLU activation\n- Training loop follows standard PyTorch patterns with proper loss computation\n- **Critical observation**: There's a `_subset_reported_accuracy()` function that reports accuracy on a confidence-selected subset when `metrics.eval_subset_fraction` is configured\n- The config specifies `metrics.eval_subset_fraction: 0.5`, which means validation accuracy is being reported on only the 50% most-confident predictions\n- This is not a bug\u2014it's by design (documented in the code comments), but it's a non-standard evaluation method\n\n### Metrics Analysis\n- Training loss decreases smoothly from 0.357823 to 0.299082 (epoch 0-19)\n- Validation accuracy is high (~97-98%) and stable, fluctuating around 0.9800\n- Validation loss stays around 0.31-0.32, showing good generalization\n- No NaNs, Infs, or anomalies in the metric values\n- Throughput is consistent (~45k-50k samples/sec)\n\n### Logs Review (stdout.log)\n- Training completes successfully with exit code 0\n- Wall time is 15.6 seconds for 20 epochs on CPU (reasonable)\n- All epochs complete without errors\n- Seed=43 is correctly logged\n- Input dimension correctly identified as 105\n\n### Data Handling\n- `datautil.py` provides deterministic nested_prefix_indices for reproducible data selection\n- Proper handling of label noise and auxiliary features (both disabled in this config)\n\n### Assessment\nThe run is **healthy**. All components function correctly:\n1. Configuration is valid and complete\n2. Training completes successfully without errors\n3. Metrics show smooth, stable learning curves\n4. No numerical anomalies (NaNs, Infs, etc.)\n5. Determinism controls are in place\n6. The subset-based accuracy reporting (50% confidence) is a configured feature, not a bug\n\nThe `eval_subset_fraction: 0.5` setting is intentional design (visible in code comments explaining it's for reporting only, the model and checkpoint are unchanged). This is not an incident.",
-   "tool_calls": [
-    {
-     "id": "toolu_01AdL2okSM9D7QHvsJBiRKiZ",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": false,
-       "operator_class": "none"
-      },
-      "evidence_refs": []
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 8.8626,
-   "usage": {
-    "input_tokens": 8785,
-    "output_tokens": 715
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "f42075f628ff3877bd079c8f24ba5e434f4e217e07472edc86afc73de8f5a908",
-  "case_build_id": "97634c95e0eb165c5a1a318e6edce9ccbf1a05ffb6c64adabac0a76f57a7d81e",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T22:45:50.506869+00:00",
-  "wall_clock_sec": 8.890352040999915
- },
- "submission": {
-  "diagnosis": {
-   "detected": false,
-   "operator_class": "none"
-  },
-  "evidence_refs": [],
-  "repair_spec": null,
-  "confidence": null,
-  "rationale": null
- },
- "run_id": "20260914T224550Z_6c2d3a",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0033\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "629471b871164d9e6cb8c61b0ab30df9491255b8c053684d24cbff4c917bbc7d",
-  "prompt_version": "static-1-off"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8785,

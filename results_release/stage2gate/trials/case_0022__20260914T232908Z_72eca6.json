@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0022",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,65 @@
   "anchor": "off",
   "repeat_index": 0
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "cab6760e2680239170cbc437e3eebc3c81de4003b42bb6ff9e5ffc24a065565e",
+  "case_build_id": "e8f30f85b5bcb06a031141de31dea8503373345428af8e3eb182ebec7f0d4ed4",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T23:29:09.044575+00:00",
+  "wall_clock_sec": 10.117707082999914
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically by examining the configuration, code, metrics, and logs.\n\n## Initial Observations\n\n**Config Analysis:**\n- `label_noise_fraction: 0.42` \u2014 42% of training labels are flipped\n- Learning rate: 0.01, optimizer: Adam, weight_decay: 0.0001\n- Model: MLP with hidden_dims [64, 32], dropout: 0.0\n- 20 epochs, batch_size: 256\n- 10 reference seeds configured (0-9), but the resolved config shows seed=43\n\n**Training Run Metrics:**\n- Training loss decreases smoothly from 0.689 \u2192 0.684 over 20 epochs\n- Validation accuracy hovers around 0.82-0.83 with some noise\n- Wall time: 15.5s, exit code: 0 (success)\n- No errors in logs\n\n**Code Review:**\n- Determinism safeguards are present (thread pinning, seed setting)\n- Label noise is correctly applied via `nested_prefix_indices()` from `datautil.py`\n- The code implements BCEWithLogitsLoss correctly for binary classification\n- Checkpoint saving and metric logging appear correct\n\n**Key Issue: Seed Mismatch**\n\nLooking at `config.yaml` vs `config.resolved.yaml`:\n- `config.yaml` specifies `reference.seeds: [0, 1, 2, ..., 9]` with `reference.num_seeds: 10`\n- `config.resolved.yaml` shows `seed: 43`\n\nThe config.yaml defines a reference set of seeds (0-9) for reproducibility, but the actual training was executed with seed=43. This is inconsistent with the declared reference configuration. The seed value of 43 appears in the resolved config but is not part of the declared reference set.\n\n**However**, let me examine the logs and metrics more carefully:\n- The training runs successfully with exit code 0\n- The metrics show normal training progression\n- No actual training failures or anomalies\n\nThe seed mismatch could indicate either:\n1. A configuration override at runtime (not visible in these artifacts)\n2. An intentional deviation from the reference set\n3. A misconfiguration where the seed should be constrained to the reference set\n\nGiven that the reference configuration explicitly lists 10 seeds (0-9) and this run uses seed=43 (outside that set), this represents a **reference_seed_mismatch** \u2014 the actual training seed does not belong to the declared reference set, which could affect reproducibility and validation consistency.",
+   "tool_calls": [
+    {
+     "id": "toolu_011LQe1oqGCVuZV5BxxdANGD",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "reference_seed_mismatch"
+      },
+      "evidence_refs": [
+       {
+        "kind": "config_key",
+        "artifact_id": "config.yaml",
+        "detail": {
+         "key_path": "reference.seeds"
+        }
+       },
+       {
+        "kind": "config_key",
+        "artifact_id": "config.resolved.yaml",
+        "detail": {
+         "key_path": "seed"
+        }
+       }
+      ],
+      "rationale": "The training was executed with seed=43, which is not in the declared reference.seeds list [0-9]. This violates the reference reproducibility contract where training should use one of the specified reference seeds.",
+      "repair_spec": {
+       "repair_type": "none",
+       "patches": {}
+      }
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 10.088,
+   "usage": {
+    "input_tokens": 8791,
+    "output_tokens": 882
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +76,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0022\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "b616b2800d45394c603159d28543246fa13bb7338f3efab8ac00e25611e5bf54",
+  "prompt_version": "static-1-off"
+ },
+ "run_id": "20260914T232908Z_72eca6",
+ "schema_version": "1.1",
  "scores": {
   "tier": "dynamics",
   "detection": {
@@ -80,7 +147,36 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "reference_seed_mismatch"
+  },
+  "evidence_refs": [
+   {
+    "kind": "config_key",
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "reference.seeds"
+    }
+   },
+   {
+    "kind": "config_key",
+    "artifact_id": "config.resolved.yaml",
+    "detail": {
+     "key_path": "seed"
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "none",
+   "patches": {}
+  },
+  "confidence": null,
+  "rationale": "The training was executed with seed=43, which is not in the declared reference.seeds list [0-9]. This violates the reference reproducibility contract where training should use one of the specified reference seeds."
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1241,102 +1337,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically by examining the configuration, code, metrics, and logs.\n\n## Initial Observations\n\n**Config Analysis:**\n- `label_noise_fraction: 0.42` \u2014 42% of training labels are flipped\n- Learning rate: 0.01, optimizer: Adam, weight_decay: 0.0001\n- Model: MLP with hidden_dims [64, 32], dropout: 0.0\n- 20 epochs, batch_size: 256\n- 10 reference seeds configured (0-9), but the resolved config shows seed=43\n\n**Training Run Metrics:**\n- Training loss decreases smoothly from 0.689 \u2192 0.684 over 20 epochs\n- Validation accuracy hovers around 0.82-0.83 with some noise\n- Wall time: 15.5s, exit code: 0 (success)\n- No errors in logs\n\n**Code Review:**\n- Determinism safeguards are present (thread pinning, seed setting)\n- Label noise is correctly applied via `nested_prefix_indices()` from `datautil.py`\n- The code implements BCEWithLogitsLoss correctly for binary classification\n- Checkpoint saving and metric logging appear correct\n\n**Key Issue: Seed Mismatch**\n\nLooking at `config.yaml` vs `config.resolved.yaml`:\n- `config.yaml` specifies `reference.seeds: [0, 1, 2, ..., 9]` with `reference.num_seeds: 10`\n- `config.resolved.yaml` shows `seed: 43`\n\nThe config.yaml defines a reference set of seeds (0-9) for reproducibility, but the actual training was executed with seed=43. This is inconsistent with the declared reference configuration. The seed value of 43 appears in the resolved config but is not part of the declared reference set.\n\n**However**, let me examine the logs and metrics more carefully:\n- The training runs successfully with exit code 0\n- The metrics show normal training progression\n- No actual training failures or anomalies\n\nThe seed mismatch could indicate either:\n1. A configuration override at runtime (not visible in these artifacts)\n2. An intentional deviation from the reference set\n3. A misconfiguration where the seed should be constrained to the reference set\n\nGiven that the reference configuration explicitly lists 10 seeds (0-9) and this run uses seed=43 (outside that set), this represents a **reference_seed_mismatch** \u2014 the actual training seed does not belong to the declared reference set, which could affect reproducibility and validation consistency.",
-   "tool_calls": [
-    {
-     "id": "toolu_011LQe1oqGCVuZV5BxxdANGD",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": true,
-       "operator_class": "reference_seed_mismatch"
-      },
-      "evidence_refs": [
-       {
-        "kind": "config_key",
-        "artifact_id": "config.yaml",
-        "detail": {
-         "key_path": "reference.seeds"
-        }
-       },
-       {
-        "kind": "config_key",
-        "artifact_id": "config.resolved.yaml",
-        "detail": {
-         "key_path": "seed"
-        }
-       }
-      ],
-      "rationale": "The training was executed with seed=43, which is not in the declared reference.seeds list [0-9]. This violates the reference reproducibility contract where training should use one of the specified reference seeds.",
-      "repair_spec": {
-       "repair_type": "none",
-       "patches": {}
-      }
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 10.088,
-   "usage": {
-    "input_tokens": 8791,
-    "output_tokens": 882
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "cab6760e2680239170cbc437e3eebc3c81de4003b42bb6ff9e5ffc24a065565e",
-  "case_build_id": "e8f30f85b5bcb06a031141de31dea8503373345428af8e3eb182ebec7f0d4ed4",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T23:29:09.044575+00:00",
-  "wall_clock_sec": 10.117707082999914
- },
- "submission": {
-  "diagnosis": {
-   "detected": true,
-   "operator_class": "reference_seed_mismatch"
-  },
-  "evidence_refs": [
-   {
-    "kind": "config_key",
-    "artifact_id": "config.yaml",
-    "detail": {
-     "key_path": "reference.seeds"
-    }
-   },
-   {
-    "kind": "config_key",
-    "artifact_id": "config.resolved.yaml",
-    "detail": {
-     "key_path": "seed"
-    }
-   }
-  ],
-  "repair_spec": {
-   "repair_type": "none",
-   "patches": {}
-  },
-  "confidence": null,
-  "rationale": "The training was executed with seed=43, which is not in the declared reference.seeds list [0-9]. This violates the reference reproducibility contract where training should use one of the specified reference seeds."
- },
- "run_id": "20260914T232908Z_72eca6",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0022\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "b616b2800d45394c603159d28543246fa13bb7338f3efab8ac00e25611e5bf54",
-  "prompt_version": "static-1-off"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8791,

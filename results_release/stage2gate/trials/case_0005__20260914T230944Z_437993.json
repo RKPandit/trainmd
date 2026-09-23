@@ -1,4 +1,5 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
  "case_id": "case_0005",
  "conditions": {
   "sweep_name": "stage2gate",
@@ -6,6 +7,45 @@
   "anchor": "rule",
   "repeat_index": 0
  },
+ "environment": {
+  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
+  "git_dirty": true,
+  "case_card_hash": "c463c97c0beb874d0048ca23cfe83ba1cb889aea157c32ccfdda17bcb1b3a3d6",
+  "case_build_id": "f03cb9e9ea3018d1d9b7d071df73de548e027740ff8c40e18cc86df282ff8df7",
+  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
+  "platform": "macOS-10.16-x86_64-i386-64bit",
+  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-14T23:09:45.054335+00:00",
+  "wall_clock_sec": 7.544511874999898
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": "I'll analyze this training run systematically by examining the configuration, code, metrics, and logs.\n\n## Analysis\n\n**Healthy Range Check:**\n- Expected: `metric_visible_val_acc \u2248 0.8568` (range 0.8538\u20130.8599)\n- Actual final value: 0.852867 (epoch 19)\n- Mean across epochs: ~0.8565\n- Range across epochs: 0.8518\u20130.8610\n\n**Key Observations:**\n\n1. **Metric values**: The visible validation accuracy values across all epochs fall mostly within or very close to the healthy range. The mean is approximately 0.8565, which matches the expected ~0.8568. While epoch 19 reaches 0.8529 (slightly below the range floor of 0.8538), and epoch 7 reaches 0.8610 (slightly above 0.8599), these are minor deviations that reflect normal training variance.\n\n2. **Training behavior**: \n   - Loss steadily decreases (0.3598 \u2192 0.2999)\n   - Validation accuracy stabilizes around 0.857-0.858 after epoch 5\n   - No signs of divergence, NaNs, or crashes\n   - Exit code: 0 (success)\n\n3. **Configuration**: \n   - Standard hyperparameters (lr=0.01, batch_size=256, 20 epochs)\n   - Simple MLP architecture (64-32 hidden dims, no dropout)\n   - No anomalous data transformations or unusual settings\n   - Properly resolved config includes input_dim=105\n\n4. **Code quality**: \n   - Determinism guards in place (thread pinning check, seed setting)\n   - Proper data loading and validation\n   - Standard BCEWithLogitsLoss for binary classification\n   - Checkpoint saving and logging working correctly\n\n5. **Logs**: Clean execution with no warnings or errors. Performance metrics (throughput, memory) are reasonable.\n\n**Conclusion:**\nThis run is **healthy**. The validation accuracy metrics are essentially at the expected value with normal fluctuations. There are no configuration errors, code issues, or anomalous behaviors detected. This is a nominal, successful training run.",
+   "tool_calls": [
+    {
+     "id": "toolu_01NeBDkSPAmgPrMi7mPWhXDV",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": false,
+       "operator_class": "none"
+      },
+      "evidence_refs": []
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "claude-haiku-4-5-20251001",
+   "latency_sec": 7.5154,
+   "usage": {
+    "input_tokens": 8796,
+    "output_tokens": 598
+   }
+  }
+ ],
  "model": {
   "model_id": "claude-haiku-4-5-20251001",
   "model_version": null,
@@ -16,6 +56,13 @@
   "stop_reason": null,
   "request_seed": null
  },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0005\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599). Values clearly outside this range, above OR below, are anomalous.\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "28e27d24ed38afaaca7747b25133cb6aa0e511643d00a602401d60d994f17b50",
+  "prompt_version": "static-1-rule"
+ },
+ "run_id": "20260914T230944Z_437993",
+ "schema_version": "1.1",
  "scores": {
   "tier": "control",
   "detection": {
@@ -76,7 +123,18 @@
    "scorer_version": "evidence_v2"
   }
  },
- "schema_version": "1.1",
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": false,
+   "operator_class": "none"
+  },
+  "evidence_refs": [],
+  "repair_spec": null,
+  "confidence": null,
+  "rationale": null
+ },
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -1205,64 +1263,6 @@
    "phase": null
   }
  ],
- "agent_name": "static_claude-haiku-4-5-20251001",
- "termination_reason": "submitted",
- "status": "completed",
- "llm_transcript": [
-  {
-   "turn": 0,
-   "response_text": "I'll analyze this training run systematically by examining the configuration, code, metrics, and logs.\n\n## Analysis\n\n**Healthy Range Check:**\n- Expected: `metric_visible_val_acc \u2248 0.8568` (range 0.8538\u20130.8599)\n- Actual final value: 0.852867 (epoch 19)\n- Mean across epochs: ~0.8565\n- Range across epochs: 0.8518\u20130.8610\n\n**Key Observations:**\n\n1. **Metric values**: The visible validation accuracy values across all epochs fall mostly within or very close to the healthy range. The mean is approximately 0.8565, which matches the expected ~0.8568. While epoch 19 reaches 0.8529 (slightly below the range floor of 0.8538), and epoch 7 reaches 0.8610 (slightly above 0.8599), these are minor deviations that reflect normal training variance.\n\n2. **Training behavior**: \n   - Loss steadily decreases (0.3598 \u2192 0.2999)\n   - Validation accuracy stabilizes around 0.857-0.858 after epoch 5\n   - No signs of divergence, NaNs, or crashes\n   - Exit code: 0 (success)\n\n3. **Configuration**: \n   - Standard hyperparameters (lr=0.01, batch_size=256, 20 epochs)\n   - Simple MLP architecture (64-32 hidden dims, no dropout)\n   - No anomalous data transformations or unusual settings\n   - Properly resolved config includes input_dim=105\n\n4. **Code quality**: \n   - Determinism guards in place (thread pinning check, seed setting)\n   - Proper data loading and validation\n   - Standard BCEWithLogitsLoss for binary classification\n   - Checkpoint saving and logging working correctly\n\n5. **Logs**: Clean execution with no warnings or errors. Performance metrics (throughput, memory) are reasonable.\n\n**Conclusion:**\nThis run is **healthy**. The validation accuracy metrics are essentially at the expected value with normal fluctuations. There are no configuration errors, code issues, or anomalous behaviors detected. This is a nominal, successful training run.",
-   "tool_calls": [
-    {
-     "id": "toolu_01NeBDkSPAmgPrMi7mPWhXDV",
-     "name": "submit",
-     "arguments": {
-      "diagnosis": {
-       "detected": false,
-       "operator_class": "none"
-      },
-      "evidence_refs": []
-     }
-    }
-   ],
-   "stop_reason": "tool_use",
-   "api_model": "claude-haiku-4-5-20251001",
-   "latency_sec": 7.5154,
-   "usage": {
-    "input_tokens": 8796,
-    "output_tokens": 598
-   }
-  }
- ],
- "environment": {
-  "harness_git_commit": "4b4af43b0dd6fe40e25a7cd5e2b1be097688741e",
-  "git_dirty": true,
-  "case_card_hash": "c463c97c0beb874d0048ca23cfe83ba1cb889aea157c32ccfdda17bcb1b3a3d6",
-  "case_build_id": "f03cb9e9ea3018d1d9b7d071df73de548e027740ff8c40e18cc86df282ff8df7",
-  "python_version": "3.9.12 (main, Apr  5 2022, 01:53:17) \n[Clang 12.0.0 ]",
-  "platform": "macOS-10.16-x86_64-i386-64bit",
-  "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
-  "in_container": false,
-  "image_digest": null,
-  "timestamp_utc": "2026-09-14T23:09:45.054335+00:00",
-  "wall_clock_sec": 7.544511874999898
- },
- "submission": {
-  "diagnosis": {
-   "detected": false,
-   "operator_class": "none"
-  },
-  "evidence_refs": [],
-  "repair_spec": null,
-  "confidence": null,
-  "rationale": null
- },
- "run_id": "20260914T230944Z_437993",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0005\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8568 (healthy range roughly 0.8538\u20130.8599). Values clearly outside this range, above OR below, are anomalous.\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "28e27d24ed38afaaca7747b25133cb6aa0e511643d00a602401d60d994f17b50",
-  "prompt_version": "static-1-rule"
- },
  "usage": {
   "llm_calls": 1,
   "input_tokens": 8796,

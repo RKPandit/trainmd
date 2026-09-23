@@ -56,7 +56,10 @@ def _sanitize_trial(rec: dict) -> dict:
     if unknown:
         raise SystemExit(f"export: unclassified trial field(s) {sorted(unknown)} in run "
                          f"{rec.get('run_id')} — add to _TRIAL_ALLOW or _TRIAL_DROP (never leak silently)")
-    out = {k: rec[k] for k in _TRIAL_ALLOW if k in rec}
+    # Iterate the allowlist in SORTED order: `_TRIAL_ALLOW` is a set, and set iteration order
+    # follows per-process string-hash randomization, so iterating it directly made the released
+    # JSON key order (and therefore every trial file's bytes) change from run to run.
+    out = {k: rec[k] for k in sorted(_TRIAL_ALLOW) if k in rec}
     scores = out.get("scores")
     if isinstance(scores, dict) and isinstance(scores.get("recovery"), dict):
         out["scores"] = {**scores, "recovery": {k: v for k, v in scores["recovery"].items()

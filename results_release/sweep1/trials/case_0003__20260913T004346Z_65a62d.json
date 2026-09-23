@@ -1,4 +1,12 @@
 {
+ "agent_name": "static_claude-haiku-4-5-20251001",
+ "case_id": "case_0003",
+ "conditions": {
+  "sweep_name": "sweep1",
+  "agent_type": "static",
+  "anchor": "off",
+  "repeat_index": 0
+ },
  "environment": {
   "harness_git_commit": "738db4ee60dce2d9b11e1525834b9c62571cc9cf",
   "git_dirty": true,
@@ -9,22 +17,6 @@
   "uv_lock_hash": "eed60e816ee6ece73bbf8d9b2877990bc0565dcee8c909b5709cdb1128b31898",
   "timestamp_utc": "2026-09-13T00:43:46.421676+00:00",
   "wall_clock_sec": 7.945541749999393
- },
- "model": {
-  "model_id": "claude-haiku-4-5-20251001",
-  "model_version": null,
-  "provider": "anthropic",
-  "temperature": 1.0,
-  "top_p": null,
-  "max_tokens": 8192,
-  "stop_reason": null,
-  "request_seed": null
- },
- "schema_version": "1.1",
- "prompt": {
-  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0003\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
-  "prompt_hash": "d8d6139ea59c48a924d0bc0840cbc106605b4254264dd6935573f501354b6d41",
-  "prompt_version": "static-1-noanchor"
  },
  "llm_transcript": [
   {
@@ -84,6 +76,23 @@
    }
   }
  ],
+ "model": {
+  "model_id": "claude-haiku-4-5-20251001",
+  "model_version": null,
+  "provider": "anthropic",
+  "temperature": 1.0,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null
+ },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are analyzing a possibly-faulty training run. You are given the COMPLETE contents of the run below \u2014 config, code, metrics, and logs \u2014 in a single view. Analyze them in one pass, then call the submit tool EXACTLY ONCE with your diagnosis.\n\n## Case information\n\nCase ID: case_0003\nWorkload: tabular_adult\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches",
+  "prompt_hash": "d8d6139ea59c48a924d0bc0840cbc106605b4254264dd6935573f501354b6d41",
+  "prompt_version": "static-1-noanchor"
+ },
+ "run_id": "20260913T004346Z_65a62d",
+ "schema_version": "1.1",
  "scores": {
   "tier": "execution",
   "detection": {
@@ -171,19 +180,7 @@
    "scorer_version": "evidence_v1"
   }
  },
- "usage": {
-  "llm_calls": 1,
-  "input_tokens": 6811,
-  "output_tokens": 957,
-  "cached_tokens": 0,
-  "total_tokens": 7768,
-  "max_tokens_truncations": 0,
-  "estimated_cost_usd": 0.011596,
-  "cost_is_estimate": true
- },
- "termination_reason": "submitted",
  "status": "completed",
- "agent_name": "static_claude-haiku-4-5-20251001",
  "submission": {
   "diagnosis": {
    "detected": true,
@@ -224,13 +221,7 @@
   "confidence": null,
   "rationale": "Model input_dim (10) is set from config before auxiliary features are concatenated to X_train, causing shape mismatch (256x105 cannot multiply with 10x64). The input dimension must be computed after all data augmentations."
  },
- "conditions": {
-  "sweep_name": "sweep1",
-  "agent_type": "static",
-  "anchor": "off",
-  "repeat_index": 0
- },
- "run_id": "20260913T004346Z_65a62d",
+ "termination_reason": "submitted",
  "tool_transcript": [
   {
    "index": 0,
@@ -991,5 +982,14 @@
    "phase": null
   }
  ],
- "case_id": "case_0003"
+ "usage": {
+  "llm_calls": 1,
+  "input_tokens": 6811,
+  "output_tokens": 957,
+  "cached_tokens": 0,
+  "total_tokens": 7768,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.011596,
+  "cost_is_estimate": true
+ }
 }
