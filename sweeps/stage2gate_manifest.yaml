@@ -67,5 +67,5 @@ frozen_note: >-
   CURRENT cases," not "no longer reproducible": the loader's frozen path keeps them so rebuild_tables
   verifies this release byte-for-byte. See docs/DECISIONS.md. CORRECTED 2026-09-23 under
   correction #6: the generated report was RE-RENDERED (records unchanged) so that zero-event rates
-  carry a one-sided 95% Clopper-Pearson upper bound instead of a false-precision [0, 0]; no point
+  carry the exact two-sided 95% Clopper-Pearson interval over unique cases instead of a false-precision [0, 0]; no point
   estimate moved. rebuild_tables byte-matches the re-rendered report, not the pre-correction one.

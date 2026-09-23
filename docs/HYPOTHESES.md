@@ -855,9 +855,12 @@ arms.)
 Detection false-positive rate on **20 unique control cases** (× 2 providers = 40 static control
 trials per arm): **numbers 0.025 [0.000, 0.075], off 0.025 [0.000, 0.075], rule 0.100 [0.000,
 0.225]** (control FPR table, pooled). **Precision, stated rather than asserted:** at the observed
-rates, 20 controls give a case-clustered 95% CI half-width of **≈ ±0.04** (numbers/off) and **≈ ±0.11**
-(rule); zero-event strata are bounded one-sided (e.g. numbers in-band 0/38 ⇒ ≤ 0.076, correction #6).
-That cannot tell a 2% FPR from a 20% one on the rule arm, and the numbers − rule contrast
+case level the FP counts are 1 of 20 cases (numbers, off) and 3 of 20 (rule), whose exact Clopper–Pearson
+intervals are **[0.001, 0.249]** and **[0.032, 0.379]** — half-widths ≈ **±0.12** and **±0.17**. (The
+table's bootstrap intervals, [0, 0.075] and [0, 0.225], understate this: numbers/off rest on a single FP
+case, where the percentile bootstrap is unreliable — flagged ‡, LIMITATIONS L30. Zero-event strata carry
+the exact interval over unique cases, e.g. numbers in-band 0/38 over 19 cases → [0, 0.176], correction #6.)
+That cannot tell a 2% FPR from a 25% one, and the numbers − rule contrast
 (−0.075 [−0.200, 0.000]) touches zero, so **no arm difference is established**. The earlier label
 "first adequately-powered" is withdrawn: 20 meets the L20 *count* threshold, but the resulting
 precision does not support the word "adequate".

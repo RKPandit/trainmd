@@ -11,8 +11,8 @@ reporting error; none inflated a score by changing ground truth. (The first thre
 scoring/schema + folded-repair corrections; the fourth, 2026-09-15, disaggregated the pooled H1
 negative-symptom comparator; the fifth, 2026-09-15, migrated Sweep-1 evidence from v1 — which the
 docs had mislabeled as v2 — to **v2.1** (bipartite one-to-one) primary; the sixth, 2026-09-23,
-replaced the false-precision `[0, 0]` interval on every zero-event rate with a one-sided 95%
-Clopper–Pearson upper bound — it moves **no point estimate** and only **widens** intervals that had
+replaced the false-precision `[0, 0]` interval on every zero-event rate with the exact two-sided
+95% Clopper–Pearson interval over the number of unique cases — it moves **no point estimate** and only **widens** intervals that had
 overstated precision — see FINDINGS "Post-hoc corrections" #4–#6.) Originals are kept beside
 corrected values throughout.
 
@@ -296,8 +296,8 @@ fault). Until then recovery is reported for completeness but is not a discrimina
 
 **L20 — Controls are under-powered: 3 unique healthy cases.** The gate has 3 control cases (one per
 control-seed); per anchor arm that is 12 trials from 3 clusters, so the case-clustered control
-false-positive CIs are enormous — off 0/12 **[0, 0.221]** (one-sided 95% upper bound; rendered
-`[0.000, 0.000]` before correction #6, which understated even this), numbers 0.500 **[0.000, 0.750]**, rule
+false-positive CIs are enormous — off 0/12 over 3 cases **[0, 0.708]** (exact two-sided Clopper–Pearson over the 3 unique cases; rendered
+`[0.000, 0.000]` before correction #6), numbers 0.500 **[0.000, 0.750]**, rule
 0.167 **[0.000, 0.500]**, numbers−rule +0.336 **[0.000, 0.750]**. No control-arm contrast is
 decidable and the control FPR is not a population rate. This extends L12/S3's under-powering from
 Sweep 1. *Remedy:* **≥20 unique control cases per workload** before any false-positive claim
@@ -388,7 +388,8 @@ removed) and decoupling the recovery tolerance from the detection band (one band
 these operators (L19: any admissible repair reconstructs the clean run), so a config-reset
 matching the oracle is expected, not evidence of repair intelligence (it is, instead, the evidence
 *for* L19). B2's control-FPR is **0/20** (no config delta on a clean control) — **a one-sided 95%
-upper bound of ≤ 0.139, not a demonstrated zero** (correction #6). B1's is 1/20 (the case_0039
+ceiling of 0.139 over its 20 unique cases (exact two-sided [0, 0.168]), not a demonstrated zero**
+(correction #6). B1's is 1/20 (the case_0039
 two-sided-band false positive). B2 is observed lower, but 0/20 vs 1/20 is well within sampling noise
 at n = 20, so neither "B2 dominates B1 on specificity" nor "a 0-FPR floor" is supported *(both
 phrasings withdrawn 2026-09-23)*.
@@ -470,3 +471,14 @@ whose H8 rows are already inconclusive, so it cannot be separated from that stru
 mildly under-powers that corner further. The fix (the submit tool returning a tool error the agent
 can recover from, instead of raising) landed after this sweep and therefore **applies only from the
 next sweep** — these 6 cells stay lost in the frozen h8_xprovider record.
+
+**L30 — The case-clustered percentile bootstrap understates uncertainty at 1–2 events (found
+2026-09-23).** Correction #6 fixed the extreme case (0 events ⇒ `[0, 0]`), but the same false-precision
+class persists just above it: with one or two events the bootstrap has too few distinct resampled
+values to reach its true tail. Example — one FP case out of 19: bootstrap interval `[0, 0.158]`, exact
+Clopper–Pearson `[0.001, 0.260]`. At case level the Sweep-3 control FPRs are 1/20 (numbers, off; exact
+[0.001, 0.249] vs bootstrap [0, 0.075]) and 3/20 (rule; exact [0.032, 0.379] vs bootstrap [0, 0.225]).
+Every such row with 1–2 events is flagged **‡** in the generated tables ("bootstrap interval unreliable
+at this count") and should be read as indicative only; narrative precision statements cite the exact
+case-level intervals. *Remedy (STAGE4, before the paper):* move the control-FP table to exact
+Clopper–Pearson on case-level counts for every row — one method throughout — disclosed as its own change.

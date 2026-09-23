@@ -139,23 +139,30 @@ diagnostics and corrected by principle — never by copying observed outputs int
    STAGE4 4.0.2).** The case-clustered bootstrap percentile CI returns `[0, 0]` for any stratum with
    **zero** observed events, because every resample also contains zero — which reports *zero
    uncertainty from zero observations*. That is a wrong interval, not a style choice, and it sat in
-   reports presented as externally verifiable. Every zero-event **rate** now carries a **one-sided
-   95% Clopper–Pearson upper bound**, exact for k = 0: `p_upper = 1 − 0.05^(1/n)` over the trial
-   count (e.g. **0/20 ⇒ ≤ 0.139** — twenty clean controls still permit a ~14% false-positive rate).
-   Rendered `0.000 [0, U]†` with a legend; `harness/sweep_stats.zero_event_upper`, locked by
+   reports presented as externally verifiable. **Method:** in every table a zero-event **rate** now
+   carries the **exact two-sided 95% Clopper–Pearson interval over the number of UNIQUE CASES**,
+   `[0, 1 − 0.025^(1/n_cases)]` — the same cluster unit as the case-clustered bootstrap it replaces
+   (trials within a case are correlated; bounding over trials would itself overstate precision), and
+   two-sided so it is comparable with the intervals beside it. The one-sided form appears only in
+   prose, labelled as a ceiling: twenty clean control cases still leave a **one-sided 95% ceiling of
+   0.139** (~14%). Rendered `0.000 [0, U]†` with a legend; `harness/sweep_stats.zero_event_upper`, locked by
    `tests/test_zero_event_interval.py`. **No point estimate moves** — only intervals, all of which
    were wrong in the direction of **overstating precision**. Affected rows (before → after):
 
    | sweep | row | n_fp / n_trials | before | after |
    |---|---|---|---|---|
-   | sweep1 | control FPR, off (pooled) | 0/18 | `[0.000, 0.000]` | `[0, 0.153]` |
-   | stage2gate | control FPR, off (pooled) | 0/12 | `[0.000, 0.000]` | `[0, 0.221]` |
-   | h8_xprovider | control FPR strata (every zero-event in/out-of-band row, per arm × provider) | 0/1 … 0/40 | `[0.000, 0.000]` | `[0, 0.950]` … `[0, 0.072]` |
+   | sweep1 | control FPR, off (pooled) | 0/18 trials over **3** cases | `[0.000, 0.000]` | `[0, 0.708]` |
+   | stage2gate | control FPR, off (pooled) | 0/12 trials over **3** cases | `[0.000, 0.000]` | `[0, 0.708]` |
+   | h8_xprovider | every zero-event control-FPR row (20 rows: pooled + in/out-of-band strata, per arm × provider) | 0 events over 1–20 cases | `[0.000, 0.000]` | `[0, 0.975]` (1 case) … `[0, 0.168]` (20 cases) |
 
    The three generated reports were regenerated, `rebuild_tables` byte-matches the **regenerated**
    (not the old) reports from the committed releases, and the frozen-artifact note on each records
    the correction. Scope: *rates* only — differences (e.g. numbers − rule) are not binomial rates and
-   are unchanged; non-zero tiny-n strata (e.g. 1/1, 1/2) keep their bootstrap CI and are already
+   are unchanged. Rows with **1–2 events** keep their bootstrap CI but are now flagged **‡** —
+   the percentile bootstrap understates uncertainty at that count (1 of 19 cases: bootstrap upper
+   0.158 vs exact Clopper–Pearson 0.260), the same false-precision class as `[0, 0]`, recorded as
+   LIMITATIONS L30 and not fixed here (STAGE4 plans exact CP on case-level counts for every row
+   before the paper). Non-zero tiny-n strata (e.g. 1/1, 1/2) are additionally
    flagged in the narrative as single-control artifacts.
 
 **Unchanged by corrections #1–#4:** detection trial scores — therefore H2 and the controls finding
@@ -601,21 +608,21 @@ set," not a naive differ. (`harness/baselines.py`; DECISIONS 2026-09-17.)
 
 | baseline | detection (faulty) | control-FPR | identification | evidence F1 | recovery |
 |---|---|---|---|---|---|
-| **B0** exitcode | 6/30 (crash only) | 0/20 (≤ 0.139)† | — | — | — |
+| **B0** exitcode | 6/30 (crash only) | 0/20 [0, 0.168]† | — | — | — |
 | **B1** band | 24/30 = 0.80 | 1/20 = 0.05 | — | 0.43 | — |
-| **B2** config-delta [^b2] | **30/30 = 1.00** | **0/20 (≤ 0.139)†** | **18/30 = 0.60** ‡ | 0.63 | **30/30 = 1.00** |
+| **B2** config-delta [^b2] | **30/30 = 1.00** | **0/20 [0, 0.168]†** | **18/30 = 0.60** ‡ | 0.63 | **30/30 = 1.00** |
 | **B3** union (B1∪B2) | **30/30 = 1.00** | 1/20 = 0.05 | 18/30 = 0.60 ‡ | 0.63 | 30/30 = 1.00 |
 
 [^b2]: B2 uses the clean RESOLVED config + the derived-key set (`model.input_dim`) — workload-specific
 knowledge, disclosed above; not a naive config-diff.
 
-† Zero-event rate: one-sided 95% Clopper–Pearson upper bound, not a demonstrated zero (correction #6,
-2026-09-23; previously written `0/20 = 0.00`). ‡ **Terminology, not localization** — see below: B2
+† Zero-event rate: exact two-sided 95% Clopper–Pearson interval over the 20 unique control cases, not a
+demonstrated zero (correction #6, 2026-09-23; previously written `0/20 = 0.00`). ‡ **Terminology, not localization** — see below: B2
 localizes the injected knob on every case; its class string is that key's leaf name, so this column
 scores whether the key's *name* contains the concept token.
 
 LLM (FROZEN, prior superseded set; case-clustered CI within the frozen data):
-off-anchor det 0.46 [0.31,0.61] / id 0.41 [0.26,0.57] / rec 0.37 [0.24,0.52], FPR 0/30 (≤ 0.095)† ·
+off-anchor det 0.46 [0.31,0.61] / id 0.41 [0.26,0.57] / rec 0.37 [0.24,0.52], FPR 0/30 — 30 trials over only **3** unique control cases, so a one-sided 95% ceiling of 0.632 ·
 stats (numbers) arm det 0.94 [0.90,0.99] / id 0.83 [0.74,0.92] / rec 0.85 [0.74,0.94], FPR 6/12=0.50 ·
 ref-anchored det 1.00 / id 0.96 [0.92,0.99] / rec 0.94 [0.88,0.98], FPR 4/18=0.22.
 
@@ -637,7 +644,7 @@ must be reported apart: **localization 30/30; terminology 18/30** (0/6 on each o
 **Interpretation (measured, not generalized).** On THIS workload's five operators, a
 config-delta baseline with knowledge of the clean resolved config and of derived keys **matches
 the ref-anchored LLM on detection (30/30 vs 1.00) and on recovery (30/30 vs 0.94), at an
-observed-lower FPR (0/20, ≤ 0.139 one-sided, vs 4/18 = 0.22 — suggestive only: the intervals
+observed-lower FPR (0/20 over 20 cases — one-sided 95% ceiling 0.139 — vs 4/18 = 0.22 over 3 cases — suggestive only: the intervals
 overlap at these n; "better specificity" withdrawn 2026-09-23).** We do NOT claim "the LLM adds nothing on detection or recovery":
 that generalization is what Sweep 3 and the code-origin operator would test and is not
 established here — and recovery in particular is a DEGENERATE axis on these operators (L19: any

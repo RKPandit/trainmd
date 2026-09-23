@@ -43,12 +43,14 @@ Method: case-level bootstrap of the ratio, 10000 resamples, seed 20260913. Arms:
 | arm | FP rate (95% CI) | n_fp / n_trials | unique FP cases / control cases |
 |---|---|---|---|
 | numbers | 0.500 [0.000, 0.750] | 6/12 | 2/3 |
-| off | 0.000 [0, 0.221]† | 0/12 | 0/3 |
-| rule | 0.167 [0.000, 0.500] | 2/12 | 1/3 |
+| off | 0.000 [0, 0.708]† | 0/12 | 0/3 |
+| rule | 0.167 [0.000, 0.500]‡ | 2/12 | 1/3 |
 
 - numbers − rule FP difference: 0.333 [0.000, 0.750]
 
-† zero-event rate: `[0, x]` is a one-sided 95% Clopper–Pearson upper bound (0 observed events is not 0 uncertainty — e.g. 0/20 ⇒ ≤0.139, 0/2 ⇒ ≤0.776); only the upper edge is bounded, the point estimate is 0.
+† zero-event rate: `[0, x]` is the exact two-sided 95% Clopper–Pearson interval over the number of UNIQUE CASES (clusters), x = 1 − 0.025^(1/n_cases) — 0 observed events is not 0 uncertainty (e.g. 20 cases ⇒ [0, 0.168], 3 cases ⇒ [0, 0.708]). The point estimate is 0.
+
+‡ 1–2 events: the case-clustered percentile bootstrap interval is unreliable at this count — it understates uncertainty (e.g. 1 of 19 cases: bootstrap upper 0.158 vs exact Clopper–Pearson 0.260). Read as indicative only.
 
 ## ReAct − static evidence F1 (faulty operators, pooled)
 
