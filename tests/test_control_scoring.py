@@ -13,7 +13,11 @@ import pytest
 
 from harness.scoring import aggregate_scores, score_diagnosis
 
-CONTROL_CASE = Path(__file__).resolve().parent.parent / "cases" / "case_0005"
+from tests._real_cases import real_case  # noqa: E402
+
+# A real built CONTROL case, selected by tier (was hard-coded case_0005 — a shape-mismatch case
+# under the current design, so these tests mis-targeted wherever cases were built).
+CONTROL_CASE = real_case(layer="control")
 
 
 def _rec(detected, cls, refs, repair):
@@ -28,8 +32,8 @@ def _rec(detected, cls, refs, repair):
 
 
 def _skip_if_no_control():
-    if not CONTROL_CASE.exists():
-        pytest.skip("control case_0005 not built")
+    if CONTROL_CASE is None:
+        pytest.skip("no control case built (runs in build-and-certify)")
 
 
 def test_correct_healthy_call_scores_perfect():

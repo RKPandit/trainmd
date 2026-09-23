@@ -133,6 +133,7 @@ jobs:
           bash scripts/ci_fingerprint.sh           # CPU + data hashes (diagnostic)
           make docker-build-all-cases              # all cases from the registry design, fresh
           make docker-validate-all
+          make docker-test-real-cases              # hidden-ground-truth tests: must ALL run (--fail-on-skip)
           make docker-gate-known-answer            # --fast (default): no verify_repair
           make docker-case-margins
           END=$(date +%s)

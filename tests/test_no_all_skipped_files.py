@@ -36,3 +36,13 @@ def test_without_the_flag_nothing_changes(pytester):
     pytester.makeconftest(CONFTEST)
     pytester.makepyfile(test_ghost="import pytest\n\ndef test_c():\n    pytest.skip('x')\n")
     assert pytester.runpytest("-p", "no:cacheprovider").ret == 0
+
+
+def test_fail_on_skip_fails_on_any_skip(pytester):
+    pytester.makeconftest(CONFTEST)
+    pytester.makepyfile(test_mix="import pytest\n\ndef test_a():\n    pass\n\n"
+                                 "def test_b():\n    pytest.skip('no case')\n")
+    r = pytester.runpytest("--fail-on-skip", "-p", "no:cacheprovider")
+    assert r.ret == 1 and "test_mix.py" in r.stdout.str()
+    pytester.makepyfile(test_mix="def test_a():\n    pass\n")
+    assert pytester.runpytest("--fail-on-skip", "-p", "no:cacheprovider").ret == 0

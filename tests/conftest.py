@@ -59,6 +59,9 @@ _FILES_SKIPPED_AT_COLLECTION: set[str] = set()
 def pytest_addoption(parser):
     parser.addoption("--fail-on-all-skipped-file", action="store_true", default=False,
                      help="fail the session if any test file skips every one of its tests")
+    parser.addoption("--fail-on-skip", action="store_true", default=False,
+                     help="fail the session if ANY test is skipped (build-and-certify runs the "
+                          "real-case tests this way, confirming every test runs somewhere)")
 
 
 def pytest_collectreport(report):
@@ -79,12 +82,23 @@ def all_skipped_files() -> list[str]:
     return sorted(files | _FILES_SKIPPED_AT_COLLECTION)
 
 
+def skipped_tests() -> list[str]:
+    return sorted(f for f, outs in _FILE_OUTCOMES.items() if "skipped" in outs) + sorted(
+        _FILES_SKIPPED_AT_COLLECTION)
+
+
 def pytest_sessionfinish(session, exitstatus):  # noqa: ARG001
+    tr = session.config.pluginmanager.get_plugin("terminalreporter")
+    if session.config.getoption("--fail-on-skip") and skipped_tests():
+        msg = ("FAIL (--fail-on-skip): tests were SKIPPED in a run that must execute every test:\n  "
+               + "\n  ".join(skipped_tests()))
+        if tr is not None:
+            tr.write_line(msg, red=True)
+        session.exitstatus = 1
     if not session.config.getoption("--fail-on-all-skipped-file"):
         return
     bad = all_skipped_files()
     if bad:
-        tr = session.config.pluginmanager.get_plugin("terminalreporter")
         msg = ("FAIL (--fail-on-all-skipped-file): every test in these files was SKIPPED — a test that "
                "never runs proves nothing:\n  " + "\n  ".join(bad))
         if tr is not None:
