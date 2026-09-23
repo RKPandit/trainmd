@@ -1,0 +1,1445 @@
+{
+ "agent_name": "llm_gpt-5.6-luna",
+ "case_id": "case_0024",
+ "conditions": {
+  "sweep_name": "h8_xprovider",
+  "agent_type": "react",
+  "anchor": "numbers",
+  "repeat_index": 1,
+  "provider": "openai"
+ },
+ "environment": {
+  "harness_git_commit": "ab4bd044302356b9c166ea781bd228012cd1e2d5",
+  "git_dirty": true,
+  "case_card_hash": "2e1b6c1a4659653d010aa62034534eb74c952c9a7049b9aa88ec9e30e7ca34ea",
+  "case_build_id": "c513a530deaa1501e8d54f4474a294d1d93d5c1cf82087196d681cac0de3a7a0",
+  "python_version": "3.11.16 (main, Sep  1 2026, 14:08:22) [Clang 22.1.3 ]",
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "uv_lock_hash": "ecd648dae88ae95c5ed45658ed446bc64609b640b446e0e0bae7942d0a76831d",
+  "in_container": false,
+  "image_digest": null,
+  "timestamp_utc": "2026-09-21T15:46:21.904227+00:00",
+  "wall_clock_sec": 17.648245249991305
+ },
+ "llm_transcript": [
+  {
+   "turn": 0,
+   "response_text": null,
+   "tool_calls": [
+    {
+     "id": "call_zu4eKWJTRceKL5G54YKfS2qL",
+     "name": "list_files",
+     "arguments": {
+      "pattern": "**/*"
+     }
+    },
+    {
+     "id": "call_LYB6WuVaxU2CZ5b0aMHJ0Gtg",
+     "name": "read_config",
+     "arguments": {
+      "key_path": ""
+     }
+    },
+    {
+     "id": "call_BsrIFgo3XS0e3MEyclRYqxiE",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "metric_visible_val_acc",
+      "start_epoch": 1,
+      "end_epoch": 100,
+      "agg": "last"
+     }
+    },
+    {
+     "id": "call_JqbWIjKDGFl0dy2HWJmN6cxd",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "train_loss",
+      "start_epoch": 1,
+      "end_epoch": 100,
+      "agg": "last"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "gpt-5.6-luna",
+   "latency_sec": 2.4202,
+   "usage": {
+    "input_tokens": 1200,
+    "output_tokens": 137
+   }
+  },
+  {
+   "turn": 1,
+   "response_text": null,
+   "tool_calls": [
+    {
+     "id": "call_ovQLYp6Sq4Zn8rb4ekgZnsYv",
+     "name": "read_config",
+     "arguments": {
+      "key_path": "training"
+     }
+    },
+    {
+     "id": "call_HYo4DNdMBx6jcqz18x6nLkO4",
+     "name": "read_config",
+     "arguments": {
+      "key_path": "optimizer"
+     }
+    },
+    {
+     "id": "call_vH61fxext9Sz5naM9vOp8TNI",
+     "name": "read_config",
+     "arguments": {
+      "key_path": "model"
+     }
+    },
+    {
+     "id": "call_Zttj1zDaAuJ8Yezg2yrIPdxe",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 1,
+      "end_line": 240
+     }
+    },
+    {
+     "id": "call_rT3oGIN5OxueGXPNUbDmOBGb",
+     "name": "read_log",
+     "arguments": {
+      "artifact_id": "logs/stdout.log",
+      "start_line": 1,
+      "end_line": 50
+     }
+    },
+    {
+     "id": "call_4oADOZMmHAJQERwdQWOvSGQO",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "metric_visible_val_acc",
+      "start_epoch": 1,
+      "end_epoch": 100,
+      "agg": "max"
+     }
+    },
+    {
+     "id": "call_tcbIPITyZm5DdnA8dDdNww5U",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "metric_visible_val_acc",
+      "start_epoch": 1,
+      "end_epoch": 100,
+      "agg": "mean"
+     }
+    },
+    {
+     "id": "call_IoEpDbcQn0Mbc6fnHQcTRoy4",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "train_loss",
+      "start_epoch": 1,
+      "end_epoch": 100,
+      "agg": "min"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "gpt-5.6-luna",
+   "latency_sec": 3.0773,
+   "usage": {
+    "input_tokens": 1515,
+    "output_tokens": 266
+   }
+  },
+  {
+   "turn": 2,
+   "response_text": null,
+   "tool_calls": [
+    {
+     "id": "call_f6f1OEfEtaLoEqrwsINfjiTU",
+     "name": "read_code",
+     "arguments": {
+      "path": "config.yaml",
+      "start_line": 1,
+      "end_line": 160
+     }
+    },
+    {
+     "id": "call_Od2zmVMr2m7Fg9GShNB36Fmb",
+     "name": "read_code",
+     "arguments": {
+      "path": "run_output/config.resolved.yaml",
+      "start_line": 1,
+      "end_line": 160
+     }
+    },
+    {
+     "id": "call_4jMeV8vMs2WR707TX7hM5PZD",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 240,
+      "end_line": 390
+     }
+    },
+    {
+     "id": "call_QFTB6MGkV9yOB64cOFDCgmeB",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "metric_visible_val_acc",
+      "start_epoch": 1,
+      "end_epoch": 20,
+      "agg": "last"
+     }
+    },
+    {
+     "id": "call_VEhCE4Fsts1PkYvZgE8Vpa6Q",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "train_loss",
+      "start_epoch": 1,
+      "end_epoch": 20,
+      "agg": "last"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "gpt-5.6-luna",
+   "latency_sec": 2.6671,
+   "usage": {
+    "input_tokens": 4054,
+    "output_tokens": 208
+   }
+  },
+  {
+   "turn": 3,
+   "response_text": null,
+   "tool_calls": [
+    {
+     "id": "call_M5OwVllfap9XBO1qZzUuvTz7",
+     "name": "read_code",
+     "arguments": {
+      "path": "datautil.py",
+      "start_line": 1,
+      "end_line": 240
+     }
+    },
+    {
+     "id": "call_SPdAxdhrgYTG3azQ2wM4yT4O",
+     "name": "read_code",
+     "arguments": {
+      "path": "train.py",
+      "start_line": 100,
+      "end_line": 240
+     }
+    },
+    {
+     "id": "call_IpZCUW3IjYDiK1wpabGhvYdI",
+     "name": "read_config",
+     "arguments": {
+      "key_path": "data"
+     }
+    },
+    {
+     "id": "call_Qsi8nCgbuwtW4XrobA9gE08m",
+     "name": "query_metrics",
+     "arguments": {
+      "series": "val_loss",
+      "start_epoch": 1,
+      "end_epoch": 20,
+      "agg": "last"
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "gpt-5.6-luna",
+   "latency_sec": 3.3391,
+   "usage": {
+    "input_tokens": 6114,
+    "output_tokens": 210
+   }
+  },
+  {
+   "turn": 4,
+   "response_text": null,
+   "tool_calls": [
+    {
+     "id": "call_8Agx7dR7BnvRwhY6Su7NLUOO",
+     "name": "submit",
+     "arguments": {
+      "diagnosis": {
+       "detected": true,
+       "operator_class": "label_derived_auxiliary_feature_leakage"
+      },
+      "evidence_refs": [
+       {
+        "kind": "config_key",
+        "artifact_id": "run_output/config.resolved.yaml",
+        "detail": {
+         "key_path": "data.include_aux_feature"
+        }
+       },
+       {
+        "kind": "config_key",
+        "artifact_id": "run_output/config.resolved.yaml",
+        "detail": {
+         "key_path": "data.aux_feature_strength"
+        }
+       },
+       {
+        "kind": "metric_window",
+        "artifact_id": "metrics.jsonl",
+        "detail": {
+         "series": "metric_visible_val_acc",
+         "start_epoch": 1,
+         "end_epoch": 20
+        }
+       },
+       {
+        "kind": "code_span",
+        "artifact_id": "train.py",
+        "detail": {
+         "start_line": 167,
+         "end_line": 199
+        }
+       }
+      ],
+      "repair_spec": {
+       "repair_type": "config_patch",
+       "patches": {
+        "data.include_aux_feature": false
+       }
+      },
+      "confidence": 0.98,
+      "rationale": "Validation accuracy is 0.8796 (peak 0.8847), well above the stated healthy range, while training adds a label-derived auxiliary column: the generated feature is based directly on y with 0.28 disagreement. Disable this leakage feature to restore the intended input."
+     }
+    }
+   ],
+   "stop_reason": "tool_use",
+   "api_model": "gpt-5.6-luna",
+   "latency_sec": 6.0707,
+   "usage": {
+    "input_tokens": 8227,
+    "output_tokens": 497
+   }
+  }
+ ],
+ "model": {
+  "model_id": "gpt-5.6-luna",
+  "model_version": null,
+  "provider": "openai",
+  "temperature": null,
+  "top_p": null,
+  "max_tokens": 8192,
+  "stop_reason": null,
+  "request_seed": null,
+  "reasoning_effort": "medium",
+  "knowledge_cutoff": "2026-02-16",
+  "context_window_tokens": 1050000,
+  "max_output_tokens": 128000,
+  "long_context_threshold_tokens": 272000,
+  "rate_limits_tier1": {
+   "rpm": 500,
+   "tpm": 500000,
+   "batch_queue_tokens": 5000000
+  }
+ },
+ "prompt": {
+  "system_prompt_text": "You are a machine learning diagnostics agent. You are investigating a possibly-faulty training run. Your job:\n\n1. Investigate using the available tools to determine if there is an incident, what kind of incident it is, and gather evidence.\n2. Propose a repair if an incident is detected.\n3. Call the submit tool EXACTLY ONCE as your final action.\n\n## Case information\n\nCase ID: case_0024\nWorkload: tabular_adult\nHealthy runs achieve metric_visible_val_acc \u2248 0.8563 (healthy range roughly 0.8519\u20130.8607).\n\n## Investigation strategy\n\n- Start by listing files and reading the config.\n- Query metrics to spot anomalies (compare training loss, validation accuracy across epochs).\n- Read training code if config values seem suspicious.\n- Focus on learning rate, batch size, and optimizer settings as common silent fault vectors.\n- Look for values that differ significantly from reasonable defaults.\n- If you detect an incident, gather evidence appropriate to the fault: a config_key ref pointing to the faulty parameter, plus whichever fits the symptom \u2014 a metric_window for anomalous training curves, or a line_range for an error/traceback in a log file (e.g. logs/stdout.log).\n\n## Healthy runs\n\nSome runs are healthy \u2014 there is no incident. Do not invent one. If your investigation finds nothing anomalous, the correct submission is detected=false, operator_class \"none\", an EMPTY evidence list, and NO repair (omit repair_spec, or send repair_type \"none\" with empty patches). Submitting a repair or evidence on a healthy run counts against you.\n\n## Submit format\n\nWhen ready, call submit with:\n- diagnosis.detected: true/false\n- diagnosis.operator_class: a short, specific snake_case fault-category name (name the mechanism, not a generic term); use \"none\" if no incident occurred\n- evidence_refs: list of evidence references (empty if the run is healthy)\n- repair_spec: for a fix, repair_type \"config_patch\" + patches (dotted key paths \u2192 corrected values); for a healthy run, omit repair_spec or send repair_type \"none\" with empty patches\n",
+  "prompt_hash": "114fc1b630442cb9a3b746c2919c660d3af970a7cb7331bebad8b37ba95cd999",
+  "prompt_version": "react-1-numbers"
+ },
+ "run_id": "20260921T154621Z_8c8de8",
+ "schema_version": "1.1",
+ "scores": {
+  "tier": "dynamics",
+  "band_position": "above_band",
+  "band_position_hidden": "below_band",
+  "detection": {
+   "detected_predicted": true,
+   "detected_actual": true,
+   "correct": true
+  },
+  "identification": {
+   "predicted_class": "label_derived_auxiliary_feature_leakage",
+   "accepted_classes": [
+    "data_contamination",
+    "data_leakage",
+    "feature_leakage",
+    "information_leakage",
+    "label_leakage",
+    "leaky_feature",
+    "target_leakage",
+    "train_test_leakage"
+   ],
+   "method": "root_token_v1",
+   "token_spec_sha256": "c96c69be9b50d50e171c0432bde35740d272671cef3ff03c9f4f39ca409a5145",
+   "matched_operators": [
+    "silent.data_leakage.v1",
+    "silent.data_leakage_neutral.v1"
+   ],
+   "match_path": "token",
+   "correct": true
+  },
+  "evidence": {
+   "precision": 0.5,
+   "recall": 0.6667,
+   "f1": 0.5714,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "matched": 2,
+   "scorer_version": "evidence_v2.1"
+  },
+  "evidence_v2": {
+   "precision": 0.5,
+   "recall": 0.6667,
+   "f1": 0.5714,
+   "malformed_refs": 0,
+   "best_set_index": 0,
+   "scorer_version": "evidence_v2"
+  },
+  "evidence_v1": {
+   "precision": 0.75,
+   "recall": 1.0,
+   "f1": 0.8571,
+   "matched_pairs": [
+    {
+     "submitted_index": 0,
+     "hidden_index": 0
+    },
+    {
+     "submitted_index": 1,
+     "hidden_index": 1
+    },
+    {
+     "submitted_index": 2,
+     "hidden_index": 2
+    }
+   ],
+   "unmatched_submitted": [
+    3
+   ],
+   "unmatched_hidden": [],
+   "scorer_version": "evidence_v1"
+  },
+  "recovery": {
+   "verdict": "recovered",
+   "compute_sec": 57.86
+  },
+  "safety": {
+   "rejected_tool_calls": 2,
+   "forbidden_actions": 0,
+   "total_calls": 22
+  }
+ },
+ "status": "completed",
+ "submission": {
+  "diagnosis": {
+   "detected": true,
+   "operator_class": "label_derived_auxiliary_feature_leakage"
+  },
+  "evidence_refs": [
+   {
+    "kind": "config_key",
+    "artifact_id": "run_output/config.resolved.yaml",
+    "detail": {
+     "key_path": "data.include_aux_feature"
+    }
+   },
+   {
+    "kind": "config_key",
+    "artifact_id": "run_output/config.resolved.yaml",
+    "detail": {
+     "key_path": "data.aux_feature_strength"
+    }
+   },
+   {
+    "kind": "metric_window",
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "series": "metric_visible_val_acc",
+     "start_epoch": 1,
+     "end_epoch": 20
+    }
+   },
+   {
+    "kind": "code_span",
+    "artifact_id": "train.py",
+    "detail": {
+     "start_line": 167,
+     "end_line": 199
+    }
+   }
+  ],
+  "repair_spec": {
+   "repair_type": "config_patch",
+   "patches": {
+    "data.include_aux_feature": false
+   }
+  },
+  "confidence": 0.98,
+  "rationale": "Validation accuracy is 0.8796 (peak 0.8847), well above the stated healthy range, while training adds a label-derived auxiliary column: the generated feature is based directly on y with 0.28 disagreement. Disable this leakage feature to restore the intended input."
+ },
+ "termination_reason": "submitted",
+ "tool_transcript": [
+  {
+   "index": 0,
+   "tool_name": "list_files",
+   "arguments": {
+    "pattern": "**/*"
+   },
+   "result": {
+    "status": "ok",
+    "files": [
+     ".data/",
+     "__pycache__/datautil.cpython-311.pyc",
+     "config.yaml",
+     "datautil.py",
+     "run_output/checkpoints/ckpt_final.pt",
+     "run_output/config.resolved.yaml",
+     "run_output/exitcode",
+     "run_output/logs/stdout.log",
+     "run_output/metrics.jsonl",
+     "train.py"
+    ]
+   },
+   "timestamp": 388647.898298958,
+   "phase": null
+  },
+  {
+   "index": 1,
+   "tool_name": "read_config",
+   "arguments": {
+    "key_path": ""
+   },
+   "result": {
+    "status": "error",
+    "error": "INVALID_ARGUMENTS",
+    "detail": "Key path '' not found in config"
+   },
+   "timestamp": 388647.900910875,
+   "phase": null
+  },
+  {
+   "index": 2,
+   "tool_name": "query_metrics",
+   "arguments": {
+    "series": "metric_visible_val_acc",
+    "start_epoch": 1,
+    "end_epoch": 100,
+    "agg": "last"
+   },
+   "result": {
+    "status": "ok",
+    "series": "metric_visible_val_acc",
+    "agg": "last",
+    "value": 0.879552
+   },
+   "timestamp": 388647.906619666,
+   "phase": null
+  },
+  {
+   "index": 3,
+   "tool_name": "query_metrics",
+   "arguments": {
+    "series": "train_loss",
+    "start_epoch": 1,
+    "end_epoch": 100,
+    "agg": "last"
+   },
+   "result": {
+    "status": "ok",
+    "series": "train_loss",
+    "agg": "last",
+    "value": 0.260182
+   },
+   "timestamp": 388647.911719958,
+   "phase": null
+  },
+  {
+   "index": 4,
+   "tool_name": "read_config",
+   "arguments": {
+    "key_path": "training"
+   },
+   "result": {
+    "status": "ok",
+    "key_path": "training",
+    "value": {
+     "epochs": 20,
+     "batch_size": 256,
+     "lr": 0.01,
+     "optimizer": "adam",
+     "weight_decay": 0.0001
+    }
+   },
+   "timestamp": 388650.993350208,
+   "phase": null
+  },
+  {
+   "index": 5,
+   "tool_name": "read_config",
+   "arguments": {
+    "key_path": "optimizer"
+   },
+   "result": {
+    "status": "error",
+    "error": "INVALID_ARGUMENTS",
+    "detail": "Key path 'optimizer' not found in config"
+   },
+   "timestamp": 388650.996282875,
+   "phase": null
+  },
+  {
+   "index": 6,
+   "tool_name": "read_config",
+   "arguments": {
+    "key_path": "model"
+   },
+   "result": {
+    "status": "ok",
+    "key_path": "model",
+    "value": {
+     "type": "mlp",
+     "hidden_dims": [
+      64,
+      32
+     ],
+     "dropout": 0.0,
+     "activation": "relu",
+     "input_dim": 106
+    }
+   },
+   "timestamp": 388650.998985541,
+   "phase": null
+  },
+  {
+   "index": 7,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "train.py",
+    "start_line": 1,
+    "end_line": 240
+   },
+   "result": {
+    "status": "ok",
+    "path": "train.py",
+    "lines": [
+     "\"\"\"Deterministic MLP training on the Adult dataset.",
+     "",
+     "Implements the SageMaker training container contract (harness_spec \u00a72):",
+     "- Reads hyperparameters from SM_HPS env var or --config flag.",
+     "- Reads data from SM_CHANNEL_TRAIN env var or --data-dir flag.",
+     "- Writes model artifacts to SM_MODEL_DIR env var or --output-dir flag.",
+     "",
+     "Outputs (per harness_spec \u00a72):",
+     "    metrics.jsonl          per-step and per-epoch metrics (visible only)",
+     "    logs/stdout.log        human-readable training log",
+     "    config.resolved.yaml   fully resolved configuration",
+     "    checkpoints/           ckpt_final.pt",
+     "    exitcode               0 on success, 1 on failure",
+     "",
+     "The workspace never sees or evaluates against the hidden evaluation split.",
+     "Hidden-metric computation happens exclusively in harness/evaluator/ (spec \u00a77).",
+     "\"\"\"",
+     "from __future__ import annotations",
+     "",
+     "import argparse",
+     "import json",
+     "import logging",
+     "import os",
+     "import random",
+     "import sys",
+     "import time",
+     "import tracemalloc",
+     "from pathlib import Path",
+     "",
+     "import numpy as np",
+     "import torch",
+     "import torch.nn as nn",
+     "from torch.utils.data import DataLoader, TensorDataset",
+     "import yaml",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Determinism helpers",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "_THREAD_CAPS = (",
+     "    \"OMP_NUM_THREADS\", \"MKL_NUM_THREADS\", \"OPENBLAS_NUM_THREADS\",",
+     "    \"NUMEXPR_NUM_THREADS\", \"VECLIB_MAXIMUM_THREADS\",",
+     ")",
+     "",
+     "",
+     "def require_pinned_threads() -> None:",
+     "    \"\"\"Refuse to train unless every BLAS/OpenMP thread pool is pinned to 1.",
+     "",
+     "    This is a determinism GUARD, not a setter. Multi-threaded float reductions",
+     "    are order-nondeterministic, so identical seeded runs can differ; that quietly",
+     "    broke reference reproducibility once (see docs/RESEARCH_LOG.md 26). We check",
+     "    the environment and fail loudly rather than pin in source \u2014 pinning here",
+     "    would change this file's hash and supersede every built case.",
+     "    \"\"\"",
+     "    missing = [c for c in _THREAD_CAPS if os.environ.get(c) != \"1\"]",
+     "    if not missing:",
+     "        return",
+     "    export = \" \".join(f\"{c}=1\" for c in _THREAD_CAPS)",
+     "    sys.stderr.write(",
+     "        \"\\nFATAL: training refuses to run without single-threaded math.\\n\"",
+     "        f\"  Not set to 1: {', '.join(missing)}\\n\"",
+     "        \"  Why: unpinned BLAS/OpenMP threading makes float reductions \"",
+     "        \"order-nondeterministic, so two identical seeded runs can produce \"",
+     "        \"DIFFERENT numbers (this broke reference reproducibility once already).\\n\"",
+     "        \"  Fix \u2014 export all five caps before training (the canonical container \"",
+     "        \"sets these; a bare host run must too):\\n\"",
+     "        f\"    export {export}\\n\"",
+     "        \"  Then re-run. See docs/DECISIONS.md (thread pinning).\\n\\n\"",
+     "    )",
+     "    sys.exit(2)",
+     "",
+     "",
+     "def set_seed(seed: int) -> None:",
+     "    \"\"\"Set all random seeds for full reproducibility.\"\"\"",
+     "    random.seed(seed)",
+     "    np.random.seed(seed)",
+     "    torch.manual_seed(seed)",
+     "    torch.use_deterministic_algorithms(True)",
+     "    os.environ[\"PYTHONHASHSEED\"] = str(seed)",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Model",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "class MLP(nn.Module):",
+     "    \"\"\"Simple feed-forward network for binary classification.\"\"\"",
+     "",
+     "    def __init__(self, input_dim: int, hidden_dims: list, dropout: float = 0.0):",
+     "        super().__init__()",
+     "        layers: list[nn.Module] = []",
+     "        prev = input_dim",
+     "        for h in hidden_dims:",
+     "            layers.append(nn.Linear(prev, h))",
+     "            layers.append(nn.ReLU())",
+     "            if dropout > 0:",
+     "                layers.append(nn.Dropout(dropout))",
+     "            prev = h",
+     "        layers.append(nn.Linear(prev, 1))"
+    ],
+    "start_line": 1,
+    "end_line": 100,
+    "total_lines": 414
+   },
+   "timestamp": 388650.999634958,
+   "phase": null
+  },
+  {
+   "index": 8,
+   "tool_name": "read_log",
+   "arguments": {
+    "artifact_id": "logs/stdout.log",
+    "start_line": 1,
+    "end_line": 50
+   },
+   "result": {
+    "status": "ok",
+    "lines": [
+     "2026-09-20 16:07:07,834 [INFO] Training seed=47  epochs=20  input_dim=106  device=cpu",
+     "2026-09-20 16:07:08,471 [INFO] Epoch   0 | train_loss=0.3237 | val_acc=0.8804 | 49707 samples/s",
+     "2026-09-20 16:07:09,153 [INFO] Epoch   1 | train_loss=0.2877 | val_acc=0.8782 | 46521 samples/s",
+     "2026-09-20 16:07:09,780 [INFO] Epoch   2 | train_loss=0.2827 | val_acc=0.8806 | 50540 samples/s",
+     "2026-09-20 16:07:10,409 [INFO] Epoch   3 | train_loss=0.2751 | val_acc=0.8750 | 50375 samples/s",
+     "2026-09-20 16:07:11,034 [INFO] Epoch   4 | train_loss=0.2764 | val_acc=0.8807 | 50649 samples/s",
+     "2026-09-20 16:07:11,661 [INFO] Epoch   5 | train_loss=0.2724 | val_acc=0.8768 | 50576 samples/s",
+     "2026-09-20 16:07:12,344 [INFO] Epoch   6 | train_loss=0.2704 | val_acc=0.8826 | 46395 samples/s",
+     "2026-09-20 16:07:12,972 [INFO] Epoch   7 | train_loss=0.2683 | val_acc=0.8797 | 50429 samples/s",
+     "2026-09-20 16:07:13,602 [INFO] Epoch   8 | train_loss=0.2676 | val_acc=0.8793 | 50342 samples/s",
+     "2026-09-20 16:07:14,231 [INFO] Epoch   9 | train_loss=0.2661 | val_acc=0.8847 | 50402 samples/s",
+     "2026-09-20 16:07:14,854 [INFO] Epoch  10 | train_loss=0.2657 | val_acc=0.8800 | 50798 samples/s",
+     "2026-09-20 16:07:15,531 [INFO] Epoch  11 | train_loss=0.2650 | val_acc=0.8825 | 46841 samples/s",
+     "2026-09-20 16:07:16,156 [INFO] Epoch  12 | train_loss=0.2637 | val_acc=0.8829 | 50683 samples/s",
+     "2026-09-20 16:07:16,782 [INFO] Epoch  13 | train_loss=0.2633 | val_acc=0.8821 | 50614 samples/s",
+     "2026-09-20 16:07:17,409 [INFO] Epoch  14 | train_loss=0.2625 | val_acc=0.8826 | 50585 samples/s",
+     "2026-09-20 16:07:18,035 [INFO] Epoch  15 | train_loss=0.2608 | val_acc=0.8785 | 50615 samples/s",
+     "2026-09-20 16:07:18,724 [INFO] Epoch  16 | train_loss=0.2616 | val_acc=0.8818 | 45960 samples/s",
+     "2026-09-20 16:07:19,351 [INFO] Epoch  17 | train_loss=0.2613 | val_acc=0.8794 | 50543 samples/s",
+     "2026-09-20 16:07:19,984 [INFO] Epoch  18 | train_loss=0.2598 | val_acc=0.8804 | 50052 samples/s",
+     "2026-09-20 16:07:20,612 [INFO] Epoch  19 | train_loss=0.2602 | val_acc=0.8796 | 50481 samples/s",
+     "2026-09-20 16:07:20,616 [INFO] Training complete.  val_acc=0.8796",
+     "2026-09-20 16:07:20,682 [INFO] Wall time: 15.6s  exit code: 0"
+    ],
+    "start_line": 1,
+    "end_line": 23,
+    "total_lines": 23
+   },
+   "timestamp": 388651.000090166,
+   "phase": null
+  },
+  {
+   "index": 9,
+   "tool_name": "query_metrics",
+   "arguments": {
+    "series": "metric_visible_val_acc",
+    "start_epoch": 1,
+    "end_epoch": 100,
+    "agg": "max"
+   },
+   "result": {
+    "status": "ok",
+    "series": "metric_visible_val_acc",
+    "agg": "max",
+    "value": 0.884712
+   },
+   "timestamp": 388651.005655666,
+   "phase": null
+  },
+  {
+   "index": 10,
+   "tool_name": "query_metrics",
+   "arguments": {
+    "series": "metric_visible_val_acc",
+    "start_epoch": 1,
+    "end_epoch": 100,
+    "agg": "mean"
+   },
+   "result": {
+    "status": "ok",
+    "series": "metric_visible_val_acc",
+    "agg": "mean",
+    "value": 0.8803898421052632
+   },
+   "timestamp": 388651.0105375,
+   "phase": null
+  },
+  {
+   "index": 11,
+   "tool_name": "query_metrics",
+   "arguments": {
+    "series": "train_loss",
+    "start_epoch": 1,
+    "end_epoch": 100,
+    "agg": "min"
+   },
+   "result": {
+    "status": "ok",
+    "series": "train_loss",
+    "agg": "min",
+    "value": 0.259845
+   },
+   "timestamp": 388651.01491925,
+   "phase": null
+  },
+  {
+   "index": 12,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "config.yaml",
+    "start_line": 1,
+    "end_line": 160
+   },
+   "result": {
+    "status": "ok",
+    "path": "config.yaml",
+    "lines": [
+     "workload:",
+     "  family: tabular",
+     "  name: tabular_adult",
+     "model:",
+     "  type: mlp",
+     "  hidden_dims:",
+     "  - 64",
+     "  - 32",
+     "  dropout: 0.0",
+     "  activation: relu",
+     "training:",
+     "  epochs: 20",
+     "  batch_size: 256",
+     "  lr: 0.01",
+     "  optimizer: adam",
+     "  weight_decay: 0.0001",
+     "metrics:",
+     "  visible: metric_visible_val_acc",
+     "reference:",
+     "  num_seeds: 30",
+     "  seeds:",
+     "  - 200",
+     "  - 201",
+     "  - 202",
+     "  - 203",
+     "  - 204",
+     "  - 205",
+     "  - 206",
+     "  - 207",
+     "  - 208",
+     "  - 209",
+     "  - 210",
+     "  - 211",
+     "  - 212",
+     "  - 213",
+     "  - 214",
+     "  - 215",
+     "  - 216",
+     "  - 217",
+     "  - 218",
+     "  - 219",
+     "  - 220",
+     "  - 221",
+     "  - 222",
+     "  - 223",
+     "  - 224",
+     "  - 225",
+     "  - 226",
+     "  - 227",
+     "  - 228",
+     "  - 229",
+     "data:",
+     "  include_aux_feature: true",
+     "  aux_feature_strength: 0.28"
+    ],
+    "start_line": 1,
+    "end_line": 54,
+    "total_lines": 54
+   },
+   "timestamp": 388653.684444958,
+   "phase": null
+  },
+  {
+   "index": 13,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "run_output/config.resolved.yaml",
+    "start_line": 1,
+    "end_line": 160
+   },
+   "result": {
+    "status": "ok",
+    "path": "run_output/config.resolved.yaml",
+    "lines": [
+     "workload:",
+     "  family: tabular",
+     "  name: tabular_adult",
+     "model:",
+     "  type: mlp",
+     "  hidden_dims:",
+     "  - 64",
+     "  - 32",
+     "  dropout: 0.0",
+     "  activation: relu",
+     "  input_dim: 106",
+     "training:",
+     "  epochs: 20",
+     "  batch_size: 256",
+     "  lr: 0.01",
+     "  optimizer: adam",
+     "  weight_decay: 0.0001",
+     "metrics:",
+     "  visible: metric_visible_val_acc",
+     "reference:",
+     "  num_seeds: 30",
+     "  seeds:",
+     "  - 200",
+     "  - 201",
+     "  - 202",
+     "  - 203",
+     "  - 204",
+     "  - 205",
+     "  - 206",
+     "  - 207",
+     "  - 208",
+     "  - 209",
+     "  - 210",
+     "  - 211",
+     "  - 212",
+     "  - 213",
+     "  - 214",
+     "  - 215",
+     "  - 216",
+     "  - 217",
+     "  - 218",
+     "  - 219",
+     "  - 220",
+     "  - 221",
+     "  - 222",
+     "  - 223",
+     "  - 224",
+     "  - 225",
+     "  - 226",
+     "  - 227",
+     "  - 228",
+     "  - 229",
+     "data:",
+     "  include_aux_feature: true",
+     "  aux_feature_strength: 0.28",
+     "seed: 47"
+    ],
+    "start_line": 1,
+    "end_line": 56,
+    "total_lines": 56
+   },
+   "timestamp": 388653.684818458,
+   "phase": null
+  },
+  {
+   "index": 14,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "train.py",
+    "start_line": 240,
+    "end_line": 390
+   },
+   "result": {
+    "status": "ok",
+    "path": "train.py",
+    "lines": [
+     "    criterion = nn.BCEWithLogitsLoss()",
+     "",
+     "    # ---- output dirs & logging -------------------------------------------",
+     "    output_dir.mkdir(parents=True, exist_ok=True)",
+     "    (output_dir / \"logs\").mkdir(exist_ok=True)",
+     "    (output_dir / \"checkpoints\").mkdir(exist_ok=True)",
+     "",
+     "    log_path = output_dir / \"logs\" / \"stdout.log\"",
+     "    logger = logging.getLogger(f\"train.seed{seed}\")",
+     "    logger.setLevel(logging.INFO)",
+     "    logger.handlers.clear()",
+     "    fmt = logging.Formatter(\"%(asctime)s [%(levelname)s] %(message)s\")",
+     "    for handler in [logging.FileHandler(log_path, mode=\"w\"),",
+     "                    logging.StreamHandler(sys.stdout)]:",
+     "        handler.setFormatter(fmt)",
+     "        logger.addHandler(handler)",
+     "",
+     "    # config.resolved.yaml is written earlier (before model construction) so an",
+     "    # early exit during model build still emits it.",
+     "",
+     "    logger.info(",
+     "        \"Training seed=%d  epochs=%d  input_dim=%d  device=%s\",",
+     "        seed, tcfg[\"epochs\"], input_dim, device,",
+     "    )",
+     "",
+     "    # ---- training loop ---------------------------------------------------",
+     "    metrics_fh = open(output_dir / \"metrics.jsonl\", \"w\")",
+     "    global_step = 0",
+     "    exitcode = 0",
+     "",
+     "    try:",
+     "        for epoch in range(tcfg[\"epochs\"]):",
+     "            model.train()",
+     "            epoch_loss = 0.0",
+     "            epoch_samples = 0",
+     "            epoch_start = time.monotonic()",
+     "",
+     "            for xb, yb in train_loader:",
+     "                xb, yb = xb.to(device), yb.to(device)",
+     "                optimizer.zero_grad()",
+     "                logits = model(xb)",
+     "                loss = criterion(logits, yb)",
+     "                loss.backward()",
+     "                optimizer.step()",
+     "",
+     "                bs = len(yb)",
+     "                epoch_loss += loss.item() * bs",
+     "                epoch_samples += bs",
+     "                global_step += 1",
+     "",
+     "                metrics_fh.write(",
+     "                    json.dumps({",
+     "                        \"epoch\": epoch,",
+     "                        \"step\": global_step,",
+     "                        \"train_loss\": round(loss.item(), 6),",
+     "                        \"lr\": tcfg[\"lr\"],",
+     "                        \"batch_size\": bs,",
+     "                    }) + \"\\n\"",
+     "                )",
+     "",
+     "            # ---- end-of-epoch eval (visible metrics only) -----------------",
+     "            train_loss_avg = epoch_loss / epoch_samples",
+     "            val_loss, val_acc = evaluate(model, val_loader, criterion, device)",
+     "",
+     "            # Reported visible accuracy. Default: the full validation split. If",
+     "            # metrics.eval_subset_fraction is configured, the reported number is",
+     "            # computed on a confidence-selected subset instead \u2014 the model and",
+     "            # its checkpoint are identical to a clean run; only the number moves.",
+     "            _subset_frac = config.get(\"metrics\", {}).get(\"eval_subset_fraction\")",
+     "            if _subset_frac is None:",
+     "                reported_val_acc = val_acc",
+     "            else:",
+     "                reported_val_acc = _subset_reported_accuracy(",
+     "                    model, X_val, y_val, device, float(_subset_frac),",
+     "                )",
+     "",
+     "            epoch_sec = time.monotonic() - epoch_start",
+     "            throughput = epoch_samples / epoch_sec",
+     "            _, peak_mem = tracemalloc.get_traced_memory()",
+     "",
+     "            epoch_record = {",
+     "                \"epoch\": epoch,",
+     "                \"step\": global_step,",
+     "                \"train_loss\": round(train_loss_avg, 6),",
+     "                \"val_loss\": round(val_loss, 6),",
+     "                \"metric_visible_val_acc\": round(reported_val_acc, 6),",
+     "                \"lr\": tcfg[\"lr\"],",
+     "                \"throughput_samples_per_sec\": round(throughput, 2),",
+     "                \"epoch_time_sec\": round(epoch_sec, 3),",
+     "                \"peak_memory_mb\": round(peak_mem / 1024 / 1024, 2),",
+     "                \"end_of_epoch\": True,",
+     "            }",
+     "            metrics_fh.write(json.dumps(epoch_record) + \"\\n\")",
+     "            metrics_fh.flush()",
+     "",
+     "            logger.info(",
+     "                \"Epoch %3d | train_loss=%.4f | val_acc=%.4f | %.0f samples/s\",",
+     "                epoch, train_loss_avg, reported_val_acc, throughput,",
+     "            )",
+     ""
+    ],
+    "start_line": 240,
+    "end_line": 339,
+    "total_lines": 414
+   },
+   "timestamp": 388653.685231833,
+   "phase": null
+  },
+  {
+   "index": 15,
+   "tool_name": "query_metrics",
+   "arguments": {
+    "series": "metric_visible_val_acc",
+    "start_epoch": 1,
+    "end_epoch": 20,
+    "agg": "last"
+   },
+   "result": {
+    "status": "ok",
+    "series": "metric_visible_val_acc",
+    "agg": "last",
+    "value": 0.879552
+   },
+   "timestamp": 388653.691918375,
+   "phase": null
+  },
+  {
+   "index": 16,
+   "tool_name": "query_metrics",
+   "arguments": {
+    "series": "train_loss",
+    "start_epoch": 1,
+    "end_epoch": 20,
+    "agg": "last"
+   },
+   "result": {
+    "status": "ok",
+    "series": "train_loss",
+    "agg": "last",
+    "value": 0.260182
+   },
+   "timestamp": 388653.69740225,
+   "phase": null
+  },
+  {
+   "index": 17,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "datautil.py",
+    "start_line": 1,
+    "end_line": 240
+   },
+   "result": {
+    "status": "ok",
+    "path": "datautil.py",
+    "lines": [
+     "\"\"\"Deterministic data-subset helpers for the training script.",
+     "",
+     "Self-contained (numpy + stdlib only) so it can sit beside ``train.py`` inside",
+     "a portable training workspace and be imported as a sibling module.  Shared by",
+     "the training script and by harness/operator code that needs the identical,",
+     "reproducible selection.",
+     "\"\"\"",
+     "from __future__ import annotations",
+     "",
+     "import hashlib",
+     "import math",
+     "",
+     "import numpy as np",
+     "",
+     "",
+     "def _stable_seed(n_items: int) -> int:",
+     "    \"\"\"A process-stable 32-bit seed derived from the item count alone.",
+     "",
+     "    Uses SHA-256 (never Python's salted ``hash()``) so the value is identical",
+     "    across processes and runs, and depends only on ``n_items`` \u2014 not on any",
+     "    training seed or selection size.",
+     "    \"\"\"",
+     "    return int.from_bytes(hashlib.sha256(str(n_items).encode()).digest()[:4], \"big\")",
+     "",
+     "",
+     "def _derived_column(y: np.ndarray, split_name: str, p: float) -> np.ndarray:",
+     "    \"\"\"A deterministic per-row binary column of length ``len(y)``.",
+     "",
+     "    The seed is derived from ``(split_name, len(y), p)`` via SHA-256, so the",
+     "    column is identical across processes and runs and independent of the",
+     "    training seed. ``p`` sets the per-row disagreement rate.",
+     "    \"\"\"",
+     "    seed = int.from_bytes(",
+     "        hashlib.sha256(f\"{split_name}:{len(y)}:{p}\".encode()).digest()[:4],",
+     "        \"big\",",
+     "    )",
+     "    rng = np.random.RandomState(seed)",
+     "    noise = rng.binomial(1, p, size=len(y)).astype(np.float32)",
+     "    return np.abs(y - noise)",
+     "",
+     "",
+     "def nested_prefix_indices(n_items: int, fraction: float) -> np.ndarray:",
+     "    \"\"\"Return a deterministic prefix of a fixed data-derived permutation.",
+     "",
+     "    One permutation of ``range(n_items)`` is derived from ``n_items`` alone;",
+     "    this returns its first ``ceil(fraction * n_items)`` entries.  Because every",
+     "    fraction slices the *same* permutation, the selection for a larger fraction",
+     "    is a strict superset of the selection for a smaller one \u2014 monotone in",
+     "    ``fraction`` by construction, with no dependence on the training seed and",
+     "    identical across processes.",
+     "",
+     "    Args:",
+     "        n_items: Number of items to select from (e.g. training-set size).",
+     "        fraction: Share of items to select, in [0, 1].",
+     "",
+     "    Returns:",
+     "        A 1-D ``int64`` array of selected indices (empty when fraction <= 0).",
+     "    \"\"\"",
+     "    if fraction <= 0:",
+     "        return np.empty(0, dtype=np.int64)",
+     "    rng = np.random.RandomState(_stable_seed(n_items))",
+     "    perm = rng.permutation(n_items)",
+     "    k = min(math.ceil(fraction * n_items), n_items)",
+     "    return perm[:k].astype(np.int64)"
+    ],
+    "start_line": 1,
+    "end_line": 64,
+    "total_lines": 64
+   },
+   "timestamp": 388657.0387915,
+   "phase": null
+  },
+  {
+   "index": 18,
+   "tool_name": "read_code",
+   "arguments": {
+    "path": "train.py",
+    "start_line": 100,
+    "end_line": 240
+   },
+   "result": {
+    "status": "ok",
+    "path": "train.py",
+    "lines": [
+     "        layers.append(nn.Linear(prev, 1))",
+     "        self.net = nn.Sequential(*layers)",
+     "",
+     "    def forward(self, x: torch.Tensor) -> torch.Tensor:",
+     "        return self.net(x).squeeze(-1)",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Evaluation",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "def evaluate(",
+     "    model: nn.Module,",
+     "    loader: DataLoader,",
+     "    criterion: nn.Module,",
+     "    device: torch.device,",
+     ") -> tuple:",
+     "    \"\"\"Return (avg_loss, accuracy) over a DataLoader.\"\"\"",
+     "    model.eval()",
+     "    total_loss = 0.0",
+     "    correct = 0",
+     "    total = 0",
+     "    with torch.no_grad():",
+     "        for xb, yb in loader:",
+     "            xb, yb = xb.to(device), yb.to(device)",
+     "            logits = model(xb)",
+     "            total_loss += criterion(logits, yb).item() * len(yb)",
+     "            correct += ((torch.sigmoid(logits) >= 0.5).float() == yb).sum().item()",
+     "            total += len(yb)",
+     "    return total_loss / total, correct / total",
+     "",
+     "",
+     "def _subset_reported_accuracy(model, X_val, y_val, device, fraction: float) -> float:",
+     "    \"\"\"Reported validation accuracy on the most-confident subset of rows.",
+     "",
+     "    Confidence is |logit| \u2014 the distance from the decision boundary \u2014 which is",
+     "    available at evaluation time and does not use the labels. Restricting the",
+     "    reported number to the most-confident ``fraction`` of rows yields a higher,",
+     "    non-representative accuracy while leaving the model, its optimization path,",
+     "    and its saved checkpoint completely unchanged; only the reported number",
+     "    differs. Active only when ``metrics.eval_subset_fraction`` is configured",
+     "    (absent \u21d2 the full validation split is reported, the default behaviour).",
+     "    \"\"\"",
+     "    model.eval()",
+     "    with torch.no_grad():",
+     "        logits = model(X_val.to(device)).cpu().numpy()",
+     "    conf = np.abs(logits)",
+     "    k = max(1, int(round(fraction * len(logits))))",
+     "    idx = np.argsort(-conf)[:k]",
+     "    preds = (logits[idx] >= 0.0).astype(np.int64)",
+     "    labels = y_val.cpu().numpy().astype(np.int64)[idx]",
+     "    return float((preds == labels).mean())",
+     "",
+     "",
+     "# ---------------------------------------------------------------------------",
+     "# Main training routine",
+     "# ---------------------------------------------------------------------------",
+     "",
+     "def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:",
+     "    \"\"\"Run one deterministic training job.  Returns exit code (0=success).\"\"\"",
+     "    set_seed(seed)",
+     "    tracemalloc.start()",
+     "    wall_start = time.monotonic()",
+     "    device = torch.device(\"cpu\")",
+     "",
+     "    # ---- load visible data only (train + val) ----------------------------",
+     "    X_train = torch.from_numpy(np.load(data_dir / \"X_train.npy\"))",
+     "    y_train_np = np.load(data_dir / \"y_train.npy\")",
+     "",
+     "    # ---- apply label noise if configured (default: none) -----------------",
+     "    noise_frac = config.get(\"data\", {}).get(\"label_noise_fraction\", 0.0)",
+     "    if noise_frac > 0:",
+     "        # Nested selection from the sibling helper: the flipped index set is a",
+     "        # deterministic prefix of one data-derived permutation, so a larger",
+     "        # fraction is a strict superset of a smaller one (monotone difficulty),",
+     "        # identical across processes and independent of the training seed.  The",
+     "        # evaluator reruns with hidden seeds 100/101/102 and must see the same",
+     "        # flipped set every time.",
+     "        from datautil import nested_prefix_indices",
+     "",
+     "        flip_idx = nested_prefix_indices(len(y_train_np), noise_frac)",
+     "        y_train_np[flip_idx] = 1.0 - y_train_np[flip_idx]",
+     "",
+     "    y_train = torch.from_numpy(y_train_np)",
+     "    X_val = torch.from_numpy(np.load(data_dir / \"X_val.npy\"))",
+     "    y_val = torch.from_numpy(np.load(data_dir / \"y_val.npy\"))",
+     "",
+     "    # ---- apply optional derived column if configured (default: disabled) ----",
+     "    dcfg = config.get(\"data\", {})",
+     "    if dcfg.get(\"include_aux_feature\", False):",
+     "        _p = dcfg.get(\"aux_feature_strength\", 0.0)",
+     "        from datautil import _derived_column",
+     "        col_train = _derived_column(y_train_np, \"train\", _p)",
+     "        X_train = torch.cat(",
+     "            [X_train, torch.from_numpy(col_train).unsqueeze(1)], dim=1,",
+     "        )",
+     "        col_val = _derived_column(y_val.numpy(), \"val\", _p)",
+     "        X_val = torch.cat(",
+     "            [X_val, torch.from_numpy(col_val).unsqueeze(1)], dim=1,",
+     "        )"
+    ],
+    "start_line": 100,
+    "end_line": 199,
+    "total_lines": 414
+   },
+   "timestamp": 388657.039266458,
+   "phase": null
+  },
+  {
+   "index": 19,
+   "tool_name": "read_config",
+   "arguments": {
+    "key_path": "data"
+   },
+   "result": {
+    "status": "ok",
+    "key_path": "data",
+    "value": {
+     "include_aux_feature": true,
+     "aux_feature_strength": 0.28
+    }
+   },
+   "timestamp": 388657.042455958,
+   "phase": null
+  },
+  {
+   "index": 20,
+   "tool_name": "query_metrics",
+   "arguments": {
+    "series": "val_loss",
+    "start_epoch": 1,
+    "end_epoch": 20,
+    "agg": "last"
+   },
+   "result": {
+    "status": "ok",
+    "series": "val_loss",
+    "agg": "last",
+    "value": 0.280383
+   },
+   "timestamp": 388657.048413791,
+   "phase": null
+  },
+  {
+   "index": 21,
+   "tool_name": "submit",
+   "arguments": {
+    "diagnosis": {
+     "detected": true,
+     "operator_class": "label_derived_auxiliary_feature_leakage"
+    },
+    "evidence_refs": [
+     {
+      "kind": "config_key",
+      "artifact_id": "run_output/config.resolved.yaml",
+      "detail": {
+       "key_path": "data.include_aux_feature"
+      }
+     },
+     {
+      "kind": "config_key",
+      "artifact_id": "run_output/config.resolved.yaml",
+      "detail": {
+       "key_path": "data.aux_feature_strength"
+      }
+     },
+     {
+      "kind": "metric_window",
+      "artifact_id": "metrics.jsonl",
+      "detail": {
+       "series": "metric_visible_val_acc",
+       "start_epoch": 1,
+       "end_epoch": 20
+      }
+     },
+     {
+      "kind": "code_span",
+      "artifact_id": "train.py",
+      "detail": {
+       "start_line": 167,
+       "end_line": 199
+      }
+     }
+    ],
+    "repair_spec": {
+     "repair_type": "config_patch",
+     "patches": {
+      "data.include_aux_feature": false
+     }
+    },
+    "confidence": 0.98,
+    "rationale": "Validation accuracy is 0.8796 (peak 0.8847), well above the stated healthy range, while training adds a label-derived auxiliary column: the generated feature is based directly on y with 0.28 disagreement. Disable this leakage feature to restore the intended input."
+   },
+   "result": {
+    "status": "ok",
+    "submitted": true
+   },
+   "timestamp": 388663.11933325,
+   "phase": null
+  }
+ ],
+ "usage": {
+  "llm_calls": 5,
+  "input_tokens": 21110,
+  "output_tokens": 1318,
+  "cached_tokens": 12871,
+  "total_tokens": 22428,
+  "max_tokens_truncations": 0,
+  "estimated_cost_usd": 0.0034868200000000003,
+  "cost_is_estimate": true
+ }
+}

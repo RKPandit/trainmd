@@ -1,0 +1,52 @@
+{
+ "operator_id": "silent.data_leakage.v1",
+ "tier": "dynamics",
+ "strength": "moderate",
+ "seed": 44,
+ "build_id": "0a815d4dd9ac30eca62c4ace6646b628527905a021d04cfd0abd0b515ec77514",
+ "symptom_direction": "positive",
+ "visible_sigma_distance": -20.716887,
+ "hidden_sigma_distance": 27.143096,
+ "band_position_visible": "above_band",
+ "case_id": "case_0027",
+ "public_card": {
+  "case_id": "case_0027",
+  "case_build_id": "0a815d4dd9ac30eca62c4ace6646b628527905a021d04cfd0abd0b515ec77514",
+  "workload_family": "tabular",
+  "workload_name": "tabular_adult",
+  "permitted_tools": [
+   "read_log",
+   "query_metrics",
+   "read_config",
+   "diff_config",
+   "read_code",
+   "list_files",
+   "run_training",
+   "submit"
+  ],
+  "permitted_edit_paths": [
+   "workspace/config.yaml"
+  ],
+  "reference_visible_metric": {
+   "series": "metric_visible_val_acc",
+   "mean": 0.856298,
+   "std": 0.002197
+  },
+  "agent_budget": {
+   "max_tool_calls": 40,
+   "max_reruns": 2,
+   "max_rerun_steps_fraction": 0.25,
+   "max_submissions": 1
+  },
+  "artifact_inventory": [
+   "workspace/run_output/metrics.jsonl",
+   "workspace/run_output/logs/stdout.log",
+   "workspace/run_output/config.resolved.yaml",
+   "workspace/run_output/checkpoints/ckpt_final.pt",
+   "workspace/run_output/exitcode",
+   "workspace/config.yaml",
+   "workspace/train.py",
+   "workspace/datautil.py"
+  ]
+ }
+}

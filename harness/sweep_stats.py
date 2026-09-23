@@ -236,10 +236,12 @@ def case_meta_from_release(release_dir: Path):
     def meta(cid: str) -> dict:
         if cid not in cache:
             d = json.loads((release_dir / "cases" / f"{cid}.json").read_text())
+            # The release ships ONLY the visible band label; the hidden one is never read here,
+            # so a release cannot carry (or be edited to inject) a hidden-band stratification.
             cache[cid] = {k: d.get(k) for k in (
                 "operator_id", "tier", "symptom_direction",
                 "visible_sigma_distance", "hidden_sigma_distance",
-                "band_position_visible", "band_position_hidden",
+                "band_position_visible",
                 "strength", "seed")}
         return cache[cid]
 

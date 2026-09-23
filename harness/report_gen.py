@@ -47,6 +47,46 @@ def _has_flag(d, flag: str) -> bool:
     return False
 
 
+_HIDDEN_BAND_NOTE = (
+    "_Hidden-band stratification (a case-quality label, never the stratification key) is "
+    "internal-only by design and is not part of this report: the release never carries hidden "
+    "band labels, so that table cannot be rebuilt from the release. It is written to the sweep's "
+    "`_internal.md` report, generated from local cases only._")
+
+_LEGEND_ZERO = ("† zero-event rate: `[0, x]` is the exact two-sided 95% Clopper–Pearson interval "
+                "over the number of UNIQUE CASES (clusters), x = 1 − 0.025^(1/n_cases) — 0 observed "
+                "events is not 0 uncertainty (e.g. 20 cases ⇒ [0, 0.168], 3 cases ⇒ [0, 0.708]). "
+                "The point estimate is 0.")
+_LEGEND_LOW = ("‡ 1–2 events: the case-clustered percentile bootstrap interval is unreliable at "
+               "this count — it understates uncertainty (e.g. 1 of 19 cases: bootstrap upper 0.158 "
+               "vs exact Clopper–Pearson 0.260). Read as indicative only.")
+
+
+def _legends(tables) -> list:
+    """Legend lines for the flags present in the tables actually rendered."""
+    out = []
+    if _has_flag(tables, "zero_event_cp"):
+        out += ["", _LEGEND_ZERO]
+    if _has_flag(tables, "low_count"):
+        out += ["", _LEGEND_LOW]
+    return out
+
+
+def _band_table(title, breakdown):
+    rows = ["", title, "",
+            "| arm | band | FP rate (95% CI) | n_fp / n_trials | unique FP cases / control cases |",
+            "|---|---|---|---|---|"]
+    for arm in sorted(breakdown):
+        for band in ("in_band", "out_of_band"):
+            b = breakdown[arm][band]
+            if not b.get("available"):
+                rows.append(f"| {arm} | {band} | _no controls in stratum_ | 0/0 | 0/0 |")
+            else:
+                rows.append(f"| {arm} | {band} | {_ci(b)} | {b['n_fp']}/{b['n_trials']} | "
+                            f"{len(b['fp_cases'])}/{b['n_cases']} |")
+    return rows
+
+
 def generate(records: list[dict], meta: dict) -> str:
     """Build the deterministic markdown from attached records + report metadata.
 
@@ -219,43 +259,21 @@ def _metric_body(s: dict, records: list, meta: dict) -> list:
             B.append(f"| {arm} | {_ci(a)} | {a['n_fp']}/{a['n_trials']} | {len(a['fp_cases'])}/{a['n_cases']} |")
         # §5.1: stratified breakdown (in-band vs out-of-band) when controls carry
         # band labels. Never present the pooled rate alone once we have this.
-        def _band_table(title, breakdown):
-            rows = ["", title, "",
-                    "| arm | band | FP rate (95% CI) | n_fp / n_trials | unique FP cases / control cases |",
-                    "|---|---|---|---|---|"]
-            for arm in sorted(breakdown):
-                for band in ("in_band", "out_of_band"):
-                    b = breakdown[arm][band]
-                    if not b.get("available"):
-                        rows.append(f"| {arm} | {band} | _no controls in stratum_ | 0/0 | 0/0 |")
-                    else:
-                        rows.append(f"| {arm} | {band} | {_ci(b)} | {b['n_fp']}/{b['n_trials']} | "
-                                    f"{len(b['fp_cases'])}/{b['n_cases']} |")
-            return rows
         if c.get("stratified"):
             # PRIMARY: visible band position — the key by mechanism (a control false
             # positive is a visible-metric event: the agent reads the visible metric,
             # compares to its band, and flags).
             B += _band_table("### Stratified by VISIBLE band position (§5.1 — the key, by mechanism)",
                              c["by_band"])
-            # ALONGSIDE: hidden band position as a case-quality label (the agent never
-            # sees it; no causal path to the false positive being measured).
-            if c.get("by_band_hidden"):
-                B += _band_table(
-                    "### Stratified by HIDDEN band position "
-                    "(case-quality label, reported alongside — not the key; the agent never sees it)",
-                    c["by_band_hidden"])
+            # The HIDDEN-band breakdown (a case-quality label, never the key) is NOT rendered
+            # here: the release never carries hidden band labels, so it could not be rebuilt
+            # from the release, and this report must reproduce from the release byte-for-byte.
+            # It goes to the internal-only report instead (generate_internal).
+            B += ["", _HIDDEN_BAND_NOTE]
         if "numbers_minus_rule" in c:
             B += ["", f"- numbers − rule FP difference: {_ci(c['numbers_minus_rule'])}"]
-        if _has_flag(c, "zero_event_cp"):
-            B += ["", "† zero-event rate: `[0, x]` is the exact two-sided 95% Clopper–Pearson interval "
-                  "over the number of UNIQUE CASES (clusters), x = 1 − 0.025^(1/n_cases) — 0 observed "
-                  "events is not 0 uncertainty (e.g. 20 cases ⇒ [0, 0.168], 3 cases ⇒ [0, 0.708]). "
-                  "The point estimate is 0."]
-        if _has_flag(c, "low_count"):
-            B += ["", "‡ 1–2 events: the case-clustered percentile bootstrap interval is unreliable at "
-                  "this count — it understates uncertainty (e.g. 1 of 19 cases: bootstrap upper 0.158 "
-                  "vs exact Clopper–Pearson 0.260). Read as indicative only."]
+        # Legends only for tables actually rendered in THIS report (pooled + visible band).
+        B += _legends({"per_arm": c.get("per_arm"), "by_band": c.get("by_band")})
         B += [""]
 
     # ReAct − static
@@ -298,6 +316,44 @@ def generate_from_cases(root: Path, name: str, excluded: dict | None = None) -> 
     meta = _meta_from_dir(root / "sweeps", name)
     meta["excluded"] = excluded or {"trusted": 0, "superseded": 0}
     return generate(records, meta)
+
+
+def generate_internal(records: list[dict], meta: dict) -> str | None:
+    """INTERNAL-ONLY report: the control-FPR breakdown by HIDDEN band position.
+
+    Generated from local cases only (the hidden band label comes from the hidden card) and never
+    reproducible from the release, which by design ships only the VISIBLE band label. Returns None
+    when no record carries a hidden band label (pre-§5.1 sweeps), so nothing is written for them.
+    """
+    if not records or not all(r.get("_band_hid") is not None
+                              for r in records if r.get("_tier") == "control"):
+        return None
+    name = meta["name"]
+    L = [f"# Sweep {name} — INTERNAL report (hidden-band stratification)", "",
+         "> INTERNAL-ONLY by design. Generated from local cases by `harness/report_gen.py` "
+         "(`make report NAME=%s`); do NOT hand-edit. The hidden band label is a case-quality "
+         "label — the agent never sees it and it is never the stratification key — and the public "
+         "release never carries it, so this table **cannot be rebuilt from the release**. The "
+         "release-reproducible report is `sweep_%s_generated.md`." % (name, name), ""]
+    facets = [("Pooled — all providers", records)]
+    providers = ss.providers_present(records)
+    if len(providers) > 1:
+        facets += [(f"Provider: {p}", [r for r in records if r.get("_provider") == p])
+                   for p in providers]
+    for title, recs in facets:
+        c = ss.control_fpr(recs)
+        L += [f"## {title}", ""]
+        if not c.get("by_band_hidden"):
+            L += ["_no hidden-band breakdown available_", ""]
+            continue
+        L += _band_table("### Control FP rate stratified by HIDDEN band position", c["by_band_hidden"])
+        L += _legends(c["by_band_hidden"])
+        L += [""]
+    return "\n".join(L) + "\n"
+
+
+def generate_internal_from_cases(root: Path, name: str) -> str | None:
+    return generate_internal(ss.load_from_cases(root, name), _meta_from_dir(root / "sweeps", name))
 
 
 def generate_from_release(release_dir: Path, name: str) -> str:
