@@ -604,11 +604,17 @@ class LLMAgent:
             tool_results: list[dict] = []
             for tc in response.tool_calls:
                 try:
-                    if not isinstance(tc.arguments, dict):
+                    if tc.name == "submit" and not isinstance(tc.arguments, dict):
+                        # Malformed submit payload: a submit with every field missing —
+                        # accepted and scored empty, EXACTLY as the static agent handles it
+                        # (never an error to retry: that would favour ReAct over static).
+                        result = tools.call("submit")
+                    elif not isinstance(tc.arguments, dict):
                         raise TypeError(
                             f"Expected dict arguments, got {type(tc.arguments).__name__}"
                         )
-                    result = tools.call(tc.name, **tc.arguments)
+                    else:
+                        result = tools.call(tc.name, **tc.arguments)
                 except Exception as e:
                     result = {
                         "status": "error",

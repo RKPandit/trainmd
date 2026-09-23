@@ -345,6 +345,8 @@ jobs:
         run: python scripts/check_release_files.py
       - name: Release field inventories current + doc claims agree with them
         run: python scripts/check_release_claims.py
+      - name: Every test named in LIMITATIONS / FINDINGS exists (a claimed fix names its proof)
+        run: python scripts/check_doc_test_refs.py
       - name: Rebuild each report FROM THE RELEASE and byte-match the committed report
         run: |
           python scripts/rebuild_tables.py --sweep sweep1

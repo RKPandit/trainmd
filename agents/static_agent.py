@@ -258,10 +258,10 @@ class StaticContextAgent:
             submit_calls = [tc for tc in response.tool_calls if tc.name == "submit"]
             if submit_calls:
                 tc = submit_calls[0]
-                result = (tools.call("submit", **tc.arguments) if isinstance(tc.arguments, dict)
-                          else {"status": "error"})
-                # A submit the tool rejected (e.g. unknown argument) is recorded as such, not
-                # as "submitted": the submission stays None and scores as a non-submission.
+                # A non-dict (malformed) payload is a submit with every field missing —
+                # accepted and scored empty, EXACTLY as the ReAct agent handles it.
+                args = tc.arguments if isinstance(tc.arguments, dict) else {}
+                result = tools.call("submit", **args)
                 termination = "submitted" if result.get("status") == "ok" else "submit_rejected"
                 break
 
