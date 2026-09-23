@@ -1,7 +1,8 @@
 .PHONY: docker-qualify-benign docker-b2plus-report data reference build-case verify-repair run-agent smoke score verify validate validate-all clean test \
 	image image-digest docker-data docker-reference docker-build-case docker-validate-all \
 	docker-gate-known-answer docker-audit-index docker-test docker-sweep docker-shell \
-	docker-build-all-cases docker-case-margins
+	docker-build-all-cases docker-case-margins \
+	certify restore-cases sweep-run sweep-verify sweep-report doctor
 
 WORKLOAD ?= tabular_adult
 WORKLOAD_DIR := workloads/$(WORKLOAD)
@@ -227,3 +228,44 @@ docker-qualify-benign:
 # B2 config-delta baseline on the neutral-key cases (detect+recover, identify 0/6).
 docker-baseline-report:
 	$(DOCKER_RUN) python scripts/baseline_report.py
+
+# ---------------------------------------------------------------------------
+# Operator convenience workflows (scripts/*.sh — set -euo pipefail, actionable
+# errors, idempotent). See README quickstart.
+# ---------------------------------------------------------------------------
+
+# Refuse a sweep target unless NAME was passed on the command line (the NAME
+# default above is for the report/export/rebuild targets; a paid sweep must be
+# named explicitly so a forgotten NAME never spends on the wrong plan).
+require-name:
+	@[ "$(origin NAME)" = "command line" ] || { \
+	  echo "error: NAME=<name> is required (e.g. NAME=h8_xprovider)" >&2; exit 1; }
+.PHONY: require-name
+
+# Dispatch build-and-certify on main, print run id + URL, poll to PASS/FAIL.
+# Fails up front if SWEEP_BUNDLE_KEY is not a repo secret. GATE_SCOPE=subset|full.
+certify:
+	bash scripts/certify.sh
+
+# Full local restore of built cases from the latest green certify run
+# (download → decrypt with $$SWEEP_BUNDLE_KEY → extract → data → validate).
+restore-cases:
+	bash scripts/restore_cases.sh
+
+# Paid agents phase (both API keys + caffeinate). MAX_COST caps spend (default $5;
+# a real sweep exceeds it, so pass MAX_COST= explicitly). NAME=<name> required.
+MAX_COST ?= 5
+sweep-run: require-name
+	bash scripts/sweep_agents.sh "$(NAME)" "$(MAX_COST)"
+
+# Free recovery/verify phase, in the canonical container. NAME=<name> required.
+sweep-verify: require-name
+	$(DOCKER_RUN) python -m harness.sweep run --name "$(NAME)" --phase verify
+
+# Report → docs/audits/sweep_<name>_<date>.md. NAME=<name> required.
+sweep-report: require-name
+	uv run python -m harness.sweep report --name "$(NAME)"
+
+# One-shot read-only health check (see scripts/doctor.sh).
+doctor:
+	bash scripts/doctor.sh
