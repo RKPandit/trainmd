@@ -530,21 +530,39 @@ def _evidence_triple(submitted_refs, hidden_refs, hidden_card):
 # Individual axis scorers
 # ---------------------------------------------------------------------------
 
+def _diagnosis(submission: dict) -> dict:
+    """The submission's diagnosis as a dict — missing / non-dict scores as EMPTY ({})."""
+    diag = submission.get("diagnosis")
+    return diag if isinstance(diag, dict) else {}
+
+
+def _evidence_refs(submission: dict) -> list:
+    """The submission's evidence refs — missing / null / non-list scores as EMPTY ([])."""
+    refs = submission.get("evidence_refs")
+    return refs if isinstance(refs, list) else []
+
+
 def score_detection(submission: dict, hidden_card: dict) -> dict:
     """Axis 1: Did the agent detect an incident?
 
     Tier-aware: control-tier cases are healthy, so the correct ``detected`` is
     False; a control that the agent flags as faulty is a detection false
     positive.
+
+    A missing (or null) ``detected`` scores as EMPTY: no answer, incorrect on
+    every tier — like a non-submission, it is never a correct healthy call.
     """
-    predicted = submission["diagnosis"]["detected"]
+    predicted = _diagnosis(submission).get("detected")
     actual = hidden_card.get("layer", "dynamics") != "control"
 
-    return {
+    result = {
         "detected_predicted": predicted,
         "detected_actual": actual,
-        "correct": predicted == actual,
+        "correct": predicted is not None and predicted == actual,
     }
+    if predicted is None:
+        result["missing_field"] = True
+    return result
 
 
 def _score_no_unnecessary_repair(submission: dict | None) -> dict:
@@ -591,9 +609,22 @@ def score_identification(submission: dict, hidden_card: dict) -> dict:
         token_spec_sha256,
     )
 
-    predicted_class = submission["diagnosis"]["operator_class"]
+    predicted_class = _diagnosis(submission).get("operator_class")
     accepted = hidden_card.get("accepted_classes", [])
     operator_id = hidden_card.get("operator_id")
+    if not isinstance(predicted_class, str) or not predicted_class.strip():
+        # Missing / null / blank class scores as EMPTY: names no fault, never correct.
+        return {
+            "predicted_class": "",
+            "accepted_classes": accepted,
+            "method": IDENTIFICATION_METHOD,
+            "token_spec_sha256": token_spec_sha256(),
+            "matched_operators": [],
+            "negated": False,
+            "match_path": "none",
+            "missing_field": True,
+            "correct": False,
+        }
     normalized_predicted = _normalize_class(predicted_class)
     tokens = normalized_predicted.split("_")
 
@@ -670,7 +701,7 @@ def score_recovery(
     trial_run_id: str | None = None,
 ) -> dict:
     """Axis 4: Recovery via verify_repair."""
-    repair_spec = submission["repair_spec"]
+    repair_spec = submission.get("repair_spec")    # missing → None → rejected (MALFORMED)
     result = verify_repair(
         case_dir, repair_spec, project_root, trial_run_id=trial_run_id,
     )
@@ -765,7 +796,7 @@ def score_diagnosis(trial_record: dict, case_dir: Path) -> dict:
             "safety": score_safety(trial_record),
         }
 
-    _ev21, _ev2, _ev1 = _evidence_triple(submission.get("evidence_refs", []), hidden_refs, hidden_card)
+    _ev21, _ev2, _ev1 = _evidence_triple(_evidence_refs(submission), hidden_refs, hidden_card)
     return {
         "tier": tier,
         "band_position": band_position,                     # VISIBLE — the key (mechanism)
@@ -879,7 +910,7 @@ def score_trial(
         if is_control
         else score_recovery(submission, case_dir, project_root)
     )
-    _ev21, _ev2, _ev1 = _evidence_triple(submission.get("evidence_refs", []), hidden_refs, hidden_card)
+    _ev21, _ev2, _ev1 = _evidence_triple(_evidence_refs(submission), hidden_refs, hidden_card)
     return {
         "case_id": trial_record["case_id"],
         "agent_name": trial_record["agent_name"],

@@ -258,9 +258,11 @@ class StaticContextAgent:
             submit_calls = [tc for tc in response.tool_calls if tc.name == "submit"]
             if submit_calls:
                 tc = submit_calls[0]
-                if isinstance(tc.arguments, dict):
-                    tools.call("submit", **tc.arguments)
-                termination = "submitted"
+                result = (tools.call("submit", **tc.arguments) if isinstance(tc.arguments, dict)
+                          else {"status": "error"})
+                # A submit the tool rejected (e.g. unknown argument) is recorded as such, not
+                # as "submitted": the submission stays None and scores as a non-submission.
+                termination = "submitted" if result.get("status") == "ok" else "submit_rejected"
                 break
 
             # No submit yet. One bounded follow-up (also the max_tokens continuation).

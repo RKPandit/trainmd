@@ -94,7 +94,8 @@ expansion as before. Roughly 8–10 weeks to a submission-ready study. Target: N
 - **Benign-configuration controls:** healthy runs with a legitimate non-default knob (e.g. a
   different but valid batch size). Tests whether anchored agents and config-diff baselines
   false-positive on legitimate change — the single best probe of "diagnosis vs flagging."
-- Missing tool fields score as empty, not crash (Stage 3 mandate).
+- Missing tool fields score as empty, not crash (Stage 3 mandate). **Built 2026-09-23**
+  (DECISIONS; `tests/test_missing_tool_fields.py`) — previously documented as done but not built.
 
 **Gate 4.0:** matcher fixed and re-scored with disclosure; statistics corrected; H8 released
 and reproducible; human-audit agreement reported; the three cheap fixes built and certified.

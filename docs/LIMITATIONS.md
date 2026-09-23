@@ -477,7 +477,7 @@ controlled cross-model design (matched reasoning budget, more models) is require
 "models differ because X" claim.
 
 **L29 — Six cells are missing and they are concentrated in ONE condition; the crash class is fixed
-only going forward.** The agent phase completed 978/984 cells; the **6 unrun cells are all neutral ×
+only going forward (the fix was built 2026-09-23 — see the correction at the end of this entry).** The agent phase completed 978/984 cells; the **6 unrun cells are all neutral ×
 Luna × static**, lost to a `submit()`-without-`evidence_refs` harness crash (≈6% first-attempt rate
 on Luna static, ~80% recovered by retry — F15). Because the loss is entirely inside the
 neutral/Luna/static corner, it is **not missing-at-random**: it coincides with the exact cell type
@@ -485,6 +485,12 @@ whose H8 rows are already inconclusive, so it cannot be separated from that stru
 mildly under-powers that corner further. The fix (the submit tool returning a tool error the agent
 can recover from, instead of raising) landed after this sweep and therefore **applies only from the
 next sweep** — these 6 cells stay lost in the frozen h8_xprovider record.
+*Correction (2026-09-23):* until 2026-09-23 this entry, F15 and the STAGE4 plan described that fix
+as landed; it had **not** been built — `submit()` still required `evidence_refs` and raised. It was
+built in STAGE4 4.0.6 (DECISIONS 2026-09-23): missing submit fields now score as EMPTY (a missing
+`evidence_refs` is `[]`; a missing `detected` / `operator_class` scores that axis incorrect), and any
+call the tool's signature cannot bind is a logged, recoverable `INVALID_ARGUMENTS` tool error. The
+frozen sweeps were run before either and are not re-scored.
 
 **L30 — The case-clustered percentile bootstrap understates uncertainty at 1–2 events (found
 2026-09-23).** Correction #6 fixed the extreme case (0 events ⇒ `[0, 0]`), but the same false-precision

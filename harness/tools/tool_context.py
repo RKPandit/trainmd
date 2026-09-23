@@ -5,6 +5,7 @@ for one agent trial on one case.
 """
 from __future__ import annotations
 
+import inspect
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -110,6 +111,16 @@ class ToolContext:
                 "TOOL_NOT_AVAILABLE",
                 f"Tool {tool_name!r} is not implemented",
             )
+            self._log_call(tool_name, kwargs, result)
+            return result
+
+        # Argument check BEFORE dispatch: a call the tool's signature cannot bind (an
+        # unknown argument, or a missing required one) is a logged, recoverable tool
+        # error — never an exception that crashes the trial or escapes the transcript.
+        try:
+            inspect.signature(fn).bind(self, **kwargs)
+        except TypeError as exc:
+            result = _error("INVALID_ARGUMENTS", f"{tool_name}: {exc}")
             self._log_call(tool_name, kwargs, result)
             return result
 

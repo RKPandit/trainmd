@@ -212,8 +212,11 @@ def list_files(ctx: ToolContext, *, pattern: str = "**/*") -> dict:
     return {"status": "ok", "files": files}
 
 
-def submit(ctx: ToolContext, *, diagnosis: dict,
-           evidence_refs: list, repair_spec: dict | None = None,
+_REQUIRED_DIAGNOSIS_KEYS = ("detected", "operator_class")
+
+
+def submit(ctx: ToolContext, *, diagnosis: dict | None = None,
+           evidence_refs: list | None = None, repair_spec: dict | None = None,
            confidence: float | None = None, rationale: str | None = None) -> dict:
     """Record the agent's submission.
 
@@ -222,12 +225,28 @@ def submit(ctx: ToolContext, *, diagnosis: dict,
     expects a ``config_patch`` repair.  ``confidence`` (0–1) and ``rationale``
     are optional and stored EXACTLY as given (no clamping) for later calibration;
     scoring ignores them.
+
+    Missing schema-required fields score as EMPTY, never crash (Stage 3 mandate;
+    STAGE4_PLAN 4.0.6): a missing ``diagnosis`` is stored as ``{}``, missing
+    ``evidence_refs`` as ``[]``; a missing ``detected`` / ``operator_class`` is left
+    absent and the scorer counts that axis incorrect. The absent paths are recorded
+    in ``submission["missing_fields"]`` and echoed in the tool result.
     """
     if ctx.submission_count >= ctx.max_submissions:
         return _error(
             "SUBMISSION_LIMIT_REACHED",
             f"Maximum submissions ({ctx.max_submissions}) reached",
         )
+
+    missing = []
+    if diagnosis is None:
+        missing.append("diagnosis")
+        diagnosis = {}
+    if evidence_refs is None:
+        missing.append("evidence_refs")
+        evidence_refs = []
+    if isinstance(diagnosis, dict):
+        missing += [f"diagnosis.{k}" for k in _REQUIRED_DIAGNOSIS_KEYS if diagnosis.get(k) is None]
 
     submission = {
         "diagnosis": diagnosis,
@@ -236,6 +255,8 @@ def submit(ctx: ToolContext, *, diagnosis: dict,
         "confidence": confidence,
         "rationale": rationale,
     }
+    if missing:
+        submission["missing_fields"] = missing
 
     # Self-heal MODEL-SIDE output folding: some models emit the repair as text
     # inside a sibling string (rationale) instead of the structured repair_spec
@@ -257,7 +278,10 @@ def submit(ctx: ToolContext, *, diagnosis: dict,
 
     ctx.record_submission(submission)
 
-    return {"status": "ok", "submitted": True}
+    result = {"status": "ok", "submitted": True}
+    if missing:
+        result["missing_fields"] = missing
+    return result
 
 
 def diff_config(ctx: ToolContext, **kwargs: Any) -> dict:

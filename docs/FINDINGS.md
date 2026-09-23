@@ -778,8 +778,9 @@ Two Luna transport/robustness properties, reported descriptively (not diagnosis-
 class new to the cross-provider run — ~**6% of first-attempt Luna static trials** called `submit()`
 without the required `evidence_refs` (≈31 of ~492 Luna trials; `sweeps/h8_xprovider_progress.jsonl`).
 **~80% recovered on the built-in retry** (25/31 completed on the second attempt); **6 cells were
-lost**, all **neutral × Luna × static** (the crash fix — `submit()` returning a tool error instead of
-raising — applies only from the next sweep; DECISIONS/LIMITATIONS). A large per-provider compliance
+lost**, all **neutral × Luna × static** (the crash fix applies only from the next sweep; it was
+described here as landed but was not built until 2026-09-23 — missing submit fields now score as
+empty — LIMITATIONS L29 correction; DECISIONS 2026-09-23). A large per-provider compliance
 gap is a **caveat on cross-provider score comparison**, not a finding about either model's diagnosis.
 
 **Status:** unplanned · Luna-specific · the crash class is fixed forward-only · pending replication.
