@@ -119,6 +119,38 @@ The existing document mixes primary sources with ResearchGate, alphaXiv, and sec
 | AgentHPO and autoresearch HPO study | No incident suite | Yes | Not the target | Iterative trials | RQ5 must be scoped to diagnosis-informed recovery, not generic HPO. |
 | MicroRemed / AIOpsLab / SREGym | Non-ML systems | Yes in some settings | Yes | Yes | Good templates for isolation, action constraints, and recovery oracles. |
 
+### 3.1 Positioning against AutoTrainer and RFT-FaultBench / RFT-FM (2026-09-23, STAGE4 4.0.3)
+
+The two nearest training-repair predecessors, stated from their recorded claims (CITATIONS
+`AutoTrainer2021`, `RFTFM2026`; both queued for author re-check):
+
+- **AutoTrainer (ICSE 2021)** is a *non-LLM repair system*: it monitors training, detects five targeted
+  DNN training problems, and automatically repairs them by changing architecture or hyperparameters and
+  continuing training.
+- **RFT-FaultBench / RFT-FM (2026 preprint)** is a *closed-loop failure-management framework for
+  reinforcement fine-tuning*: RFT-FaultBench covers five fault families, 16 fault types, and 779 runs;
+  RFT-FM runs detection, diagnosis, and remediation, judging remediation by reduced anomaly severity
+  after revalidation. Its intervention is part of the authors' framework, not a general-purpose agent.
+
+**What TrainMD does differently** — and, as important, what it does *not* claim:
+1. **The contestant is a general-purpose, tool-using LLM agent** (ReAct and static variants), not a
+   purpose-built repair procedure. Neither predecessor evaluates one.
+2. **Diagnosis is graded against sealed ground truth on controlled, injected incidents** — detection,
+   identification, and evidence localization, including *silent* faults whose visible symptom can read
+   as health. The grading keys are read only by the evaluator, hypotheses are pre-registered, and the
+   released records rebuild every reported table.
+3. **Recovery is NOT a claimed differentiator.** "Recovery to a hidden task-performance oracle" versus
+   RFT-FM's severity reduction is a difference in *metric definition*, not a demonstrated advantage:
+   on TrainMD's current operators the recovery axis is **degenerate** (LIMITATIONS L19 — a config-reset
+   baseline with no fault diagnosis recovers 30/30). Until operators with a wide admissible-repair space
+   exist, recovery is reported for completeness only.
+4. **Narrower scope than both**: one workload (Adult / MLP), small CPU jobs, two models. AutoTrainer and
+   RFT-FaultBench span more training settings and fault types; TrainMD's claim is controlled,
+   verifiable *diagnosis* evaluation of general agents, not breadth.
+
+Identification results carry the same caution as H8: surviving a key rename shows independence from two
+key names, not mechanism understanding (FINDINGS F13).
+
 ## 4. Revised problem framing
 
 ### Recommended title

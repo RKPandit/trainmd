@@ -43,10 +43,12 @@ Method: case-level bootstrap of the ratio, 10000 resamples, seed 20260913. Arms:
 | arm | FP rate (95% CI) | n_fp / n_trials | unique FP cases / control cases |
 |---|---|---|---|
 | numbers | 0.500 [0.000, 0.750] | 6/12 | 2/3 |
-| off | 0.000 [0.000, 0.000] | 0/12 | 0/3 |
+| off | 0.000 [0, 0.221]† | 0/12 | 0/3 |
 | rule | 0.167 [0.000, 0.500] | 2/12 | 1/3 |
 
 - numbers − rule FP difference: 0.333 [0.000, 0.750]
+
+† zero-event rate: `[0, x]` is a one-sided 95% Clopper–Pearson upper bound (0 observed events is not 0 uncertainty — e.g. 0/20 ⇒ ≤0.139, 0/2 ⇒ ≤0.776); only the upper edge is bounded, the point estimate is 0.
 
 ## ReAct − static evidence F1 (faulty operators, pooled)
 

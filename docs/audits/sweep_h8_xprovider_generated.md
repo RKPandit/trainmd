@@ -53,10 +53,10 @@ Method: case-level bootstrap of the ratio, 10000 resamples, seed 20260913. Arms:
 
 | arm | band | FP rate (95% CI) | n_fp / n_trials | unique FP cases / control cases |
 |---|---|---|---|---|
-| numbers | in_band | 0.000 [0.000, 0.000] | 0/38 | 0/19 |
+| numbers | in_band | 0.000 [0, 0.076]† | 0/38 | 0/19 |
 | numbers | out_of_band | 0.500 [0.500, 0.500] | 1/2 | 1/1 |
 | off | in_band | 0.026 [0.000, 0.079] | 1/38 | 1/19 |
-| off | out_of_band | 0.000 [0.000, 0.000] | 0/2 | 0/1 |
+| off | out_of_band | 0.000 [0, 0.776]† | 0/2 | 0/1 |
 | rule | in_band | 0.079 [0.000, 0.211] | 3/38 | 2/19 |
 | rule | out_of_band | 0.500 [0.500, 0.500] | 1/2 | 1/1 |
 
@@ -65,13 +65,15 @@ Method: case-level bootstrap of the ratio, 10000 resamples, seed 20260913. Arms:
 | arm | band | FP rate (95% CI) | n_fp / n_trials | unique FP cases / control cases |
 |---|---|---|---|---|
 | numbers | in_band | 0.028 [0.000, 0.083] | 1/36 | 1/18 |
-| numbers | out_of_band | 0.000 [0.000, 0.000] | 0/4 | 0/2 |
+| numbers | out_of_band | 0.000 [0, 0.527]† | 0/4 | 0/2 |
 | off | in_band | 0.028 [0.000, 0.083] | 1/36 | 1/18 |
-| off | out_of_band | 0.000 [0.000, 0.000] | 0/4 | 0/2 |
+| off | out_of_band | 0.000 [0, 0.527]† | 0/4 | 0/2 |
 | rule | in_band | 0.056 [0.000, 0.139] | 2/36 | 2/18 |
 | rule | out_of_band | 0.500 [0.000, 1.000] | 2/4 | 1/2 |
 
 - numbers − rule FP difference: -0.075 [-0.200, 0.000]
+
+† zero-event rate: `[0, x]` is a one-sided 95% Clopper–Pearson upper bound (0 observed events is not 0 uncertainty — e.g. 0/20 ⇒ ≤0.139, 0/2 ⇒ ≤0.776); only the upper edge is bounded, the point estimate is 0.
 
 ## ReAct − static evidence F1 (faulty operators, pooled)
 
@@ -121,10 +123,10 @@ Method: case-level bootstrap of the ratio, 10000 resamples, seed 20260913. Arms:
 
 | arm | band | FP rate (95% CI) | n_fp / n_trials | unique FP cases / control cases |
 |---|---|---|---|---|
-| numbers | in_band | 0.000 [0.000, 0.000] | 0/19 | 0/19 |
+| numbers | in_band | 0.000 [0, 0.146]† | 0/19 | 0/19 |
 | numbers | out_of_band | 1.000 [1.000, 1.000] | 1/1 | 1/1 |
 | off | in_band | 0.053 [0.000, 0.158] | 1/19 | 1/19 |
-| off | out_of_band | 0.000 [0.000, 0.000] | 0/1 | 0/1 |
+| off | out_of_band | 0.000 [0, 0.950]† | 0/1 | 0/1 |
 | rule | in_band | 0.105 [0.000, 0.263] | 2/19 | 2/19 |
 | rule | out_of_band | 1.000 [1.000, 1.000] | 1/1 | 1/1 |
 
@@ -133,13 +135,15 @@ Method: case-level bootstrap of the ratio, 10000 resamples, seed 20260913. Arms:
 | arm | band | FP rate (95% CI) | n_fp / n_trials | unique FP cases / control cases |
 |---|---|---|---|---|
 | numbers | in_band | 0.056 [0.000, 0.167] | 1/18 | 1/18 |
-| numbers | out_of_band | 0.000 [0.000, 0.000] | 0/2 | 0/2 |
+| numbers | out_of_band | 0.000 [0, 0.776]† | 0/2 | 0/2 |
 | off | in_band | 0.056 [0.000, 0.167] | 1/18 | 1/18 |
-| off | out_of_band | 0.000 [0.000, 0.000] | 0/2 | 0/2 |
+| off | out_of_band | 0.000 [0, 0.776]† | 0/2 | 0/2 |
 | rule | in_band | 0.111 [0.000, 0.278] | 2/18 | 2/18 |
 | rule | out_of_band | 0.500 [0.000, 1.000] | 1/2 | 1/2 |
 
 - numbers − rule FP difference: -0.100 [-0.250, 0.000]
+
+† zero-event rate: `[0, x]` is a one-sided 95% Clopper–Pearson upper bound (0 observed events is not 0 uncertainty — e.g. 0/20 ⇒ ≤0.139, 0/2 ⇒ ≤0.776); only the upper edge is bounded, the point estimate is 0.
 
 ## ReAct − static evidence F1 (faulty operators, pooled)
 
@@ -181,33 +185,35 @@ Method: case-level bootstrap of the ratio, 10000 resamples, seed 20260913. Arms:
 
 | arm | FP rate (95% CI) | n_fp / n_trials | unique FP cases / control cases |
 |---|---|---|---|
-| numbers | 0.000 [0.000, 0.000] | 0/20 | 0/20 |
-| off | 0.000 [0.000, 0.000] | 0/20 | 0/20 |
+| numbers | 0.000 [0, 0.139]† | 0/20 | 0/20 |
+| off | 0.000 [0, 0.139]† | 0/20 | 0/20 |
 | rule | 0.050 [0.000, 0.150] | 1/20 | 1/20 |
 
 ### Stratified by VISIBLE band position (§5.1 — the key, by mechanism)
 
 | arm | band | FP rate (95% CI) | n_fp / n_trials | unique FP cases / control cases |
 |---|---|---|---|---|
-| numbers | in_band | 0.000 [0.000, 0.000] | 0/19 | 0/19 |
-| numbers | out_of_band | 0.000 [0.000, 0.000] | 0/1 | 0/1 |
-| off | in_band | 0.000 [0.000, 0.000] | 0/19 | 0/19 |
-| off | out_of_band | 0.000 [0.000, 0.000] | 0/1 | 0/1 |
+| numbers | in_band | 0.000 [0, 0.146]† | 0/19 | 0/19 |
+| numbers | out_of_band | 0.000 [0, 0.950]† | 0/1 | 0/1 |
+| off | in_band | 0.000 [0, 0.146]† | 0/19 | 0/19 |
+| off | out_of_band | 0.000 [0, 0.950]† | 0/1 | 0/1 |
 | rule | in_band | 0.053 [0.000, 0.158] | 1/19 | 1/19 |
-| rule | out_of_band | 0.000 [0.000, 0.000] | 0/1 | 0/1 |
+| rule | out_of_band | 0.000 [0, 0.950]† | 0/1 | 0/1 |
 
 ### Stratified by HIDDEN band position (case-quality label, reported alongside — not the key; the agent never sees it)
 
 | arm | band | FP rate (95% CI) | n_fp / n_trials | unique FP cases / control cases |
 |---|---|---|---|---|
-| numbers | in_band | 0.000 [0.000, 0.000] | 0/18 | 0/18 |
-| numbers | out_of_band | 0.000 [0.000, 0.000] | 0/2 | 0/2 |
-| off | in_band | 0.000 [0.000, 0.000] | 0/18 | 0/18 |
-| off | out_of_band | 0.000 [0.000, 0.000] | 0/2 | 0/2 |
-| rule | in_band | 0.000 [0.000, 0.000] | 0/18 | 0/18 |
+| numbers | in_band | 0.000 [0, 0.153]† | 0/18 | 0/18 |
+| numbers | out_of_band | 0.000 [0, 0.776]† | 0/2 | 0/2 |
+| off | in_band | 0.000 [0, 0.153]† | 0/18 | 0/18 |
+| off | out_of_band | 0.000 [0, 0.776]† | 0/2 | 0/2 |
+| rule | in_band | 0.000 [0, 0.153]† | 0/18 | 0/18 |
 | rule | out_of_band | 0.500 [0.000, 1.000] | 1/2 | 1/2 |
 
 - numbers − rule FP difference: -0.050 [-0.150, 0.000]
+
+† zero-event rate: `[0, x]` is a one-sided 95% Clopper–Pearson upper bound (0 observed events is not 0 uncertainty — e.g. 0/20 ⇒ ≤0.139, 0/2 ⇒ ≤0.776); only the upper edge is bounded, the point estimate is 0.
 
 ## ReAct − static evidence F1 (faulty operators, pooled)
 

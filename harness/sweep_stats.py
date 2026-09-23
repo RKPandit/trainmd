@@ -343,6 +343,32 @@ def _rate(pred):
     return stat
 
 
+def zero_event_upper(n, alpha=0.05):
+    """Clopper–Pearson ONE-SIDED (1−alpha) upper bound for 0 successes in n trials.
+
+    Exact for k=0: P(X=0) = (1−p)^n = alpha  ⇒  p_upper = 1 − alpha^(1/n).
+    A zero-event rate is NOT [0, 0] — 0 observed events is not 0 uncertainty
+    (0/20 ⇒ ≤0.139 at 95%; 0/18 ⇒ ≤0.153; 0/12 ⇒ ≤0.221). Correction #6
+    (2026-09-23): the bootstrap percentile CI renders [0, 0] on any zero-event
+    stratum, a false-precision claim; this replaces the upper edge only (the
+    point estimate stays 0.0). See docs/DECISIONS.md."""
+    if not n or n <= 0:
+        return None
+    return 1.0 - alpha ** (1.0 / n)
+
+
+def _mark_zero_event(ci):
+    """If a RATE CI observed zero events, replace its degenerate [0, 0] with the
+    one-sided Clopper–Pearson upper bound over its trial count (never [0, 0]).
+    No-op on any CI with ≥1 event. Mutates and returns the CI dict."""
+    if ci.get("n_fp") == 0 and ci.get("n_trials"):
+        ci["one_sided_upper"] = True
+        ci["point"] = 0.0
+        ci["lo"] = 0.0
+        ci["hi"] = round(zero_event_upper(ci["n_trials"]), 6)
+    return ci
+
+
 def _detect_rate(trials):
     return _rate(_detect_correct)(trials)
 
@@ -485,6 +511,7 @@ def control_fpr(recs):
         fp = [r for r in ctrl if _detected(r) is True]
         ci["n_fp"] = len(fp)
         ci["fp_cases"] = sorted({r["case_id"] for r in fp})
+        _mark_zero_event(ci)          # zero-event rate → one-sided upper bound, never [0, 0]
         per_arm[arm] = ci
     out = {"available": True, "per_arm": per_arm}
 
@@ -520,6 +547,7 @@ def control_fpr(recs):
                 ci["available"] = True
                 ci["n_fp"] = len(fp)
                 ci["fp_cases"] = sorted({r["case_id"] for r in fp})
+                _mark_zero_event(ci)  # zero-event stratum → one-sided upper bound, never [0, 0]
                 strata[name] = ci
             breakdown[arm] = strata
         return breakdown

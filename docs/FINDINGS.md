@@ -28,7 +28,7 @@ with a more precise mechanism than predicted) · `refuted` (pre-registered crite
 | S2 | ~~Detection follows symptom sign first, then magnitude.~~ **H2 (a fitted σ threshold) is REFUTED** — no threshold fitted, pooled curve non-monotone. Exploratory successor (post-hoc, to pre-register): symptom *sign* moderates magnitude→detection. | Sweep 1 H2 per-case table. | refuted (prediction) · exploratory successor · pending prospective test |
 | S3 | **The reference band is a trade: it rescues true detection and induces false alarms on healthy runs.** | Sweep 1: anchor-on control FPR 0.222, 95% CI [0.0, 0.5] — 4/18 from just 2 unique healthy cases (not a population rate; the width argues for 20+ controls). | unplanned · under-powered · pending replication |
 | S4 | **The ReAct−static gap is real but does not isolate tool use.** ReAct beats static +0.135 evidence F1 overall, 95% CI [0.075, 0.204], most on subtle noise; leakage sub-claim +0.006 (≤0 criterion **not** formally met). The arms also differ in calls, deliberation, tokens, and prompt text. | Sweep 1 H6 + cost table. | overall confirmed · sub-claim not formally confirmed · confounded (needs token-matched baseline) |
-| S5 | **On the strict endpoint, this model names faults somewhat more reliably than it autonomously repairs them.** id − *strict* recovery is 0.10–0.24 (CI excludes 0) on 3/4 operators; *semantic* recovery nearly closes it, so most of the gap is submission-format compliance + strict admissibility. Pre-registered direction (recovery > id) refuted. **The gap is "naming vs correctly-formatted admissible submission," not "naming vs fixing" — recovery is degenerate on these operators (L19).** | Sweep 1 H3; Stage-2: `not_recovered` 0/138, DegenerateAgent 18/18 strict recovery. | refuted (predicted direction) · modest id>strict dissociation · **recovery axis degenerate (L19)** · pending replication |
+| S5 | **On the strict endpoint, this model names faults somewhat more reliably than it autonomously repairs them.** id − *strict* recovery is 0.10–0.24 (CI excludes 0) on 3/4 operators; *semantic* recovery nearly closes it, so most of the gap is submission-format compliance + strict admissibility. Pre-registered direction (recovery > id) refuted. **The gap is "naming vs correctly-formatted admissible submission," not "naming vs fixing" — recovery is degenerate on these operators (L19).** | Sweep 1 H3; Stage-2: `not_recovered` 0/138; degeneracy evidence = **B2's 30/30** (a no-diagnosis config reset). *(Corrected 2026-09-23: the DegenerateAgent's 18/18 was cited here, but it reads the oracle repair from hidden material, so it is true by construction.)* | refuted (predicted direction) · modest id>strict dissociation · **recovery axis degenerate (L19)** · pending replication |
 | S6 | **Diagnostic outcomes are reproducible under nondeterminism; identification agreement drops on the hardest fault.** | Sweep 1 H4: mean agreement 0.82; leakage identification agreement 0.71 vs lr 0.96. | partially confirmed · pending replication |
 | S7 | **Adult+MLP is robust to symmetric label noise**; label corruption is a *subtle* fault on tabular data. Even the operator's calibrated ladder (33/38/42% flips) degrades accuracy only ~1–2 pt. | Calibration sweeps (DECISIONS 2026-09-11, ladder 0.33/0.38/0.42). | unplanned · workload-specific |
 | S8 | **A visible knob without a norm is not a signal.** A configuration value that names a fault, sitting in plain view in the prompt, does not trigger detection unless the agent also has a reference for what is normal — the missing baseline, not missing information, is what blinds it. | Sweep 1: `label_noise_fraction: 0.38` present, un-truncated, in 18/18 static anchor-off contexts and echoed in the response, yet static detected the fault 1/18 vs ReAct 11/18. | unplanned · pending replication |
@@ -39,7 +39,7 @@ with a more precise mechanism than predicted) · `refuted` (pre-registered crite
 | S13 | **A numerical baseline restores detection — but this is MODEL-SPECIFIC (Haiku; small for Luna).** Supplying the healthy metric band flips *Haiku* from "looks fine → healthy" to detecting the fault, and the bare band (not the decision rule) does ~all of it. A second model (Luna) detects the silent fault off-anchor and gains only ~17 pts from the band. ~~The strongest-supported claim in the project.~~ | Stage-2 G2 (F10, Haiku): **numbers** arm closes **94–95%** of the off→rule gap on 3 operators; replicates S8/F8. **Sweep 3 (F14): off-anchor leakage detection Haiku 0.083 vs Luna 0.819 — band adds ~90 pts for Haiku, ~17 for Luna.** | **Haiku-specific** (Stage-2 G2) · **failed to replicate as a general effect on the 2nd model (F14)** · first ≥20-control FPR now measured (H8 controls) |
 | S16 | **Reference-context dependence is model-specific.** The Sweep-1/gate headline that agents need a numeric reference baseline to detect silent faults holds for Haiku and largely does not for Luna. Model dependence is established; its cause (capability / hidden reasoning tokens / training) is not, at n=2. | Sweep 3 (F14): anchor-off descriptive-leakage detection **Haiku 0.083, Luna 0.819**; band adds ~90 pts (Haiku) vs ~17 pts (Luna). Two models, one workload, one mechanism family. | **model dependence ESTABLISHED · driver NOT identified (n=2, L28)** · pending a controlled cross-model design |
 | S14 | **Detection tracks symptom *obviousness*, not symptom sign** (candidate replacement for the refuted S1 sign-claim). Detection falls monotonically with how visible the fault's symptom is: catastrophic crash → collapse → subtle silent → inverted (leakage). | Sweep-1 + gate anchor-off detection: shape crash **1.000**, lr collapse **0.944**, subtle silent (label 0.333 / metric 0.250) **0.25–0.33**, leakage **0.042–0.083**. | **EXPLORATORY · post-hoc · must be pre-registered before it is tested** |
-| S15 | **On config-knob faults, a config-delta baseline (WITH clean-resolved-config + derived-key knowledge) matches the ref-anchored LLM on detection and recovery at better specificity; the agent's measured surviving value is identifying faults whose knob name ≠ the concept, and it is anchor-dependent.** NOT "the LLM adds nothing on detection/recovery" — that generalization is Sweep-3 / code-origin territory. | B2 (native 50-case): det **30/30**, FPR **0/20**, id **18/30**, ev 0.63, rec **30/30**. LLM ref-anchored (frozen, superseded set): det 1.00, id 0.96, rec 0.94, FPR 0.22. B2 id misses exactly `data_leakage` + `metric_inflation`; LLM off-anchor leakage id **0/30**. **Sweep 3 (F13): the leakage identification is mechanism, not name-reading — neutral-vs-descriptive equivalent within ±0.15 wherever powered, 0 refuting.** | unplanned · per-operator DIRECTIONAL only (baselines native, LLM frozen-superseded — no cross-set gap CI) · **neutral-key test now DONE (H8/F13, confirmed where powered)**; cross-set LLM−B2 gap CI still pending a matched-set run |
+| S15 | **On config-knob faults, a config-delta baseline (WITH clean-resolved-config + derived-key knowledge) matches the ref-anchored LLM on detection and recovery at better specificity; the agent's measured surviving value is identifying faults whose knob name ≠ the concept, and it is anchor-dependent.** NOT "the LLM adds nothing on detection/recovery" — that generalization is Sweep-3 / code-origin territory. | B2 (native 50-case): det **30/30**, FPR **0/20**, id **18/30**, ev 0.63, rec **30/30**. LLM ref-anchored (frozen, superseded set): det 1.00, id 0.96, rec 0.94, FPR 0.22. B2 id misses exactly `data_leakage` + `metric_inflation`; LLM off-anchor leakage id **0/30**. **Sweep 3 (F13): leakage identification often survives the tested key rename — equivalence unresolved in two anchored conditions, Luna's rule arm measurably lower, 0 refuting; this tests dependence on the two key names only, not mechanism understanding (code-pattern recognition / general leakage heuristics not ruled out).** | unplanned · per-operator DIRECTIONAL only (baselines native, LLM frozen-superseded — no cross-set gap CI) · **neutral-key test now DONE (H8/F13 — survives the rename in 3 cells at a working level, equivalent failure in 1, unresolved in 2)**; cross-set LLM−B2 gap CI still pending a matched-set run |
 
 ---
 
@@ -64,8 +64,9 @@ clean; validate-all 27/27; plan file git-clean and build_id-pinned.
 
 ### Post-hoc scoring corrections (disclosed; see HYPOTHESES.md Results and DECISIONS 2026-09-13)
 
-**Five** Sweep-1 corrections were applied, disclosed, with originals kept beside corrected values
-in every table. The first two were **scoring/schema artifacts, not model behaviour**; the third
+**Six** post-hoc corrections have been applied, disclosed, with originals kept beside corrected
+values in every table — five to Sweep-1 records (#1–#5, below) and a sixth (#6, 2026-09-23) to the
+interval renderer across every released sweep. The first two were **scoring/schema artifacts, not model behaviour**; the third
 (#3) is **model-side output folding, not a harness bug** — we recover a well-formed repair the
 model misplaced; the fourth (#4, added 2026-09-15) is an **analysis-aggregation correction** —
 a pooled comparator that averaged two unlike operators; the fifth (#5, 2026-09-15) is an
@@ -134,10 +135,34 @@ diagnostics and corrected by principle — never by copying observed outputs int
    *difference* barely moves. Retained: `evidence_v2` + `evidence_v1` beside `evidence` (v2.1) on every
    record. My first framing ("v2.1 fixed shape_mismatch") was **wrong** and is corrected here.
 
+6. **Zero-event intervals rendered a false-precision `[0, 0]` (2026-09-23; third external review,
+   STAGE4 4.0.2).** The case-clustered bootstrap percentile CI returns `[0, 0]` for any stratum with
+   **zero** observed events, because every resample also contains zero — which reports *zero
+   uncertainty from zero observations*. That is a wrong interval, not a style choice, and it sat in
+   reports presented as externally verifiable. Every zero-event **rate** now carries a **one-sided
+   95% Clopper–Pearson upper bound**, exact for k = 0: `p_upper = 1 − 0.05^(1/n)` over the trial
+   count (e.g. **0/20 ⇒ ≤ 0.139** — twenty clean controls still permit a ~14% false-positive rate).
+   Rendered `0.000 [0, U]†` with a legend; `harness/sweep_stats.zero_event_upper`, locked by
+   `tests/test_zero_event_interval.py`. **No point estimate moves** — only intervals, all of which
+   were wrong in the direction of **overstating precision**. Affected rows (before → after):
+
+   | sweep | row | n_fp / n_trials | before | after |
+   |---|---|---|---|---|
+   | sweep1 | control FPR, off (pooled) | 0/18 | `[0.000, 0.000]` | `[0, 0.153]` |
+   | stage2gate | control FPR, off (pooled) | 0/12 | `[0.000, 0.000]` | `[0, 0.221]` |
+   | h8_xprovider | control FPR strata (every zero-event in/out-of-band row, per arm × provider) | 0/1 … 0/40 | `[0.000, 0.000]` | `[0, 0.950]` … `[0, 0.072]` |
+
+   The three generated reports were regenerated, `rebuild_tables` byte-matches the **regenerated**
+   (not the old) reports from the committed releases, and the frozen-artifact note on each records
+   the correction. Scope: *rates* only — differences (e.g. numbers − rule) are not binomial rates and
+   are unchanged; non-zero tiny-n strata (e.g. 1/1, 1/2) keep their bootstrap CI and are already
+   flagged in the narrative as single-control artifacts.
+
 **Unchanged by corrections #1–#4:** detection trial scores — therefore H2 and the controls finding
 stand as pre-registered. Recovery moves (Corrections 2–3), sharpening H3. **H1's headline is revised**
 by the analysis-aggregation correction #4 + Stage-2 G1 (below). **Correction #5 moves evidence and
-H6** (evidence scorer v1→v2.1; H6 0.135→0.134, verdict held) — see above.
+H6** (evidence scorer v1→v2.1; H6 0.135→0.134, verdict held) — see above. **Correction #6 moves no
+point estimate and no verdict** — only the upper edge of zero-event rate intervals.
 
 **Shipped-but-unexploited vulnerability (2026-09-22) — identification matcher hardened `root_token_v1`→
 `root_token_v2`** (a fifth change-taxonomy category, CURRENT_STATE §f; NOT a numbered correction — no
@@ -147,8 +172,9 @@ as correct identifications. The audit — attributing each frozen-sweep record's
 `accepted_classes`, never today's `cases/` — found **zero** such labels among every scored-correct
 identification in Sweeps 1–3 (0 of 1156), and a full re-score under the hardened rule flips **0** labels in
 either direction. So the rule was exploitable but was never exploited: **no published identification number,
-and no H8 verdict, moves**, and the corrections count therefore stays **five** (a moved-number counter must
-not tick when nothing moved). The exploitable rule is still closed by principle (negation detection,
+and no H8 verdict, moves**, and the matcher hardening therefore did **not** tick the corrections count (a
+moved-number counter must not tick when nothing moved; the count's later move to six is correction #6,
+an unrelated interval fix). The exploitable rule is still closed by principle (negation detection,
 whole-token/inflection matching, per-operator off-concept vetoes). DECISIONS 2026-09-22;
 `tests/test_identification_v2_hardening.py`; `scripts/audit_stage4_identification.py`.
 
@@ -326,8 +352,9 @@ id > strict-recovery dissociation** (largely a compliance/admissibility effect, 
 Both endpoints reported.
 
 **Stage-2 addendum (2026-09-15) — read the id−strict contrast correctly.** On the Stage-2 gate
-operators, recovery is **degenerate** (`not_recovered` 0/138; the DegenerateAgent scores 18/18 —
-L19), so **id − strict recovery there is "naming vs a correctly-formatted admissible submission,"
+operators, recovery is **degenerate** (`not_recovered` 0/138; a no-diagnosis config-reset baseline,
+B2, recovers 30/30 — L19; the DegenerateAgent's 18/18, cited here previously, is true by construction
+because it reads the oracle repair from hidden material — corrected 2026-09-23), so **id − strict recovery there is "naming vs a correctly-formatted admissible submission,"
 NOT "naming vs fixing"** — strict recovery cannot fail for a wrong-but-admissible repair because
 the admissible space is a single oracle-equivalent point. The Sweep-1 id > strict dissociation
 above is therefore best read the same way (submission-format compliance + admissibility, which
@@ -574,16 +601,21 @@ set," not a naive differ. (`harness/baselines.py`; DECISIONS 2026-09-17.)
 
 | baseline | detection (faulty) | control-FPR | identification | evidence F1 | recovery |
 |---|---|---|---|---|---|
-| **B0** exitcode | 6/30 (crash only) | 0/20 | — | — | — |
+| **B0** exitcode | 6/30 (crash only) | 0/20 (≤ 0.139)† | — | — | — |
 | **B1** band | 24/30 = 0.80 | 1/20 = 0.05 | — | 0.43 | — |
-| **B2** config-delta [^b2] | **30/30 = 1.00** | **0/20 = 0.00** | **18/30 = 0.60** | 0.63 | **30/30 = 1.00** |
-| **B3** union (B1∪B2) | **30/30 = 1.00** | 1/20 = 0.05 | 18/30 = 0.60 | 0.63 | 30/30 = 1.00 |
+| **B2** config-delta [^b2] | **30/30 = 1.00** | **0/20 (≤ 0.139)†** | **18/30 = 0.60** ‡ | 0.63 | **30/30 = 1.00** |
+| **B3** union (B1∪B2) | **30/30 = 1.00** | 1/20 = 0.05 | 18/30 = 0.60 ‡ | 0.63 | 30/30 = 1.00 |
 
 [^b2]: B2 uses the clean RESOLVED config + the derived-key set (`model.input_dim`) — workload-specific
 knowledge, disclosed above; not a naive config-diff.
 
+† Zero-event rate: one-sided 95% Clopper–Pearson upper bound, not a demonstrated zero (correction #6,
+2026-09-23; previously written `0/20 = 0.00`). ‡ **Terminology, not localization** — see below: B2
+localizes the injected knob on every case; its class string is that key's leaf name, so this column
+scores whether the key's *name* contains the concept token.
+
 LLM (FROZEN, prior superseded set; case-clustered CI within the frozen data):
-off-anchor det 0.46 [0.31,0.61] / id 0.41 [0.26,0.57] / rec 0.37 [0.24,0.52], FPR 0/30 ·
+off-anchor det 0.46 [0.31,0.61] / id 0.41 [0.26,0.57] / rec 0.37 [0.24,0.52], FPR 0/30 (≤ 0.095)† ·
 stats (numbers) arm det 0.94 [0.90,0.99] / id 0.83 [0.74,0.92] / rec 0.85 [0.74,0.94], FPR 6/12=0.50 ·
 ref-anchored det 1.00 / id 0.96 [0.92,0.99] / rec 0.94 [0.88,0.98], FPR 4/18=0.22.
 
@@ -592,20 +624,35 @@ metric_inflation** recovered but NOT identified (`aux_feature_strength` / `eval_
 do not contain the fault concept). LLM off-anchor per-operator: shape id 17/18, lr 18/18,
 label 14/30, metric 4/12, **leakage 0/30**.
 
+**Localization vs terminology (2026-09-23, STAGE4 4.0.3).** B2's two "NOT identified" operators are
+**localized correctly** — its repair patches exactly the injected knob, which is why it recovers
+them (30/30 on the native 50-case set; on the neutral-key cases its submitted repair likewise targets
+the injected `opt_c` / `opt_c_level` — `scripts/baseline_report.py`). What it lacks is
+**terminology**: its output convention emits the changed key's leaf name as the fault class, so it
+cannot produce "leakage" for `aux_feature_strength` (or `opt_c`). Its identification miss on those
+operators is therefore **partly built into the convention**, not a capability finding, and the two
+must be reported apart: **localization 30/30; terminology 18/30** (0/6 on each of `data_leakage` and
+`metric_inflation`).
+
 **Interpretation (measured, not generalized).** On THIS workload's five operators, a
 config-delta baseline with knowledge of the clean resolved config and of derived keys **matches
-the ref-anchored LLM on detection (30/30 vs 1.00) and on recovery (30/30 vs 0.94) at better
-specificity (0/20 vs 0.22).** We do NOT claim "the LLM adds nothing on detection or recovery":
+the ref-anchored LLM on detection (30/30 vs 1.00) and on recovery (30/30 vs 0.94), at an
+observed-lower FPR (0/20, ≤ 0.139 one-sided, vs 4/18 = 0.22 — suggestive only: the intervals
+overlap at these n; "better specificity" withdrawn 2026-09-23).** We do NOT claim "the LLM adds nothing on detection or recovery":
 that generalization is what Sweep 3 and the code-origin operator would test and is not
 established here — and recovery in particular is a DEGENERATE axis on these operators (L19: any
 admissible repair reconstructs the clean run), so the recovery match is expected, not evidence
 of cleverness. The honest headline: **on config-knob faults, the agent's measured value is
 IDENTIFICATION of faults whose knob name does not name the concept** — `data_leakage` (knob
 `aux_feature`, concept `leak`) and `metric_inflation` (knob `eval_subset_fraction`, concept
-`bias`/`inflation`) — where B2 scores 0/6 each and the anchored LLM 0.83–0.96. **And that value
-is ANCHOR-DEPENDENT:** off-anchor the LLM's `data_leakage` identification collapses to 0/30.
-Whether it is fault-understanding or reference-anchored config-legibility is exactly what Part
-2's neutral-key test decides (HYPOTHESES, Sweep-3 addendum).
+`bias`/`inflation`) — where B2 scores 0/6 each and the anchored LLM 0.83–0.96. That gap is a
+**terminology** gap (above): B2 localizes these faults but its convention cannot name them, and the
+LLM's ability to produce the word "leakage" is **not by itself evidence of understanding**. **And that
+value is ANCHOR-DEPENDENT:** off-anchor the LLM's `data_leakage` identification collapses to 0/30.
+Part 2's neutral-key test (H8, F13) then showed the identification does **not** depend on the two
+descriptive key names — but it cannot decide fault-understanding: code-pattern recognition and
+general leakage heuristics remain competing explanations *(the earlier "exactly what the neutral-key
+test decides" overstated the test; corrected 2026-09-23)*.
 
 **Correction folded in (RESEARCH_LOG 32).** An earlier correctly-run table read B2/B3 detection
 as 24/30 and concluded "the LLM's detection edge is the crash tier." That was an instrument
@@ -626,7 +673,7 @@ directional only, no cross-set gap CI) · generalization pending Sweep 3.
 
 ## Sweep 3 (2026-09-22) — neutral-key ablation, cross-provider
 
-### F13 — Leakage identification survives a neutral rename: mechanism, not name-reading (H8) · confirmed where powered; not refuted anywhere
+### F13 — Leakage identification often survives the tested key rename (H8) · equivalence unresolved in two anchored conditions; Luna's rule arm shows a measurable decrease; not a mechanism claim
 
 The decisive test of S15/F12's surviving headline. `silent.data_leakage_neutral.v1` renames the two
 config keys (`include_aux_feature`/`aux_feature_strength` → `opt_c`/`opt_c_level`) with the fault
@@ -649,8 +696,26 @@ trials, so they are a cross-provider **summary**, NOT independent confirmations,
 the count. Under the paired primary: **4 of 6 provider-specific cells confirming** (Haiku off/numbers/rule,
 Luna off), **2 inconclusive** (Luna numbers, Luna rule), **0 refuting** — pooled ×3 all confirming
 (summary). (Unpaired: **3 of 6** provider-specific confirming — Haiku off/rule, Luna off — and 3
-inconclusive; the only difference is Haiku numbers.) The identification headline **holds** wherever the
-design has power; the neutral rename does not collapse identification toward the config-name-blind B2 floor.
+inconclusive; the only difference is Haiku numbers.) **Identification often survives the tested renaming;
+equivalence is unresolved in two anchored conditions (Luna numbers, Luna rule); Luna's rule arm shows a
+measurable decrease.** The neutral rename does not collapse identification toward the config-name-blind
+B2 floor — but see the next paragraph for what that does and does not establish.
+
+**What this test can and cannot show (2026-09-23 framing correction — the earlier "mechanism, not
+name-reading" headline overstated it).**
+- **It tests dependence on THOSE TWO NAMES, not "mechanism."** Renaming `include_aux_feature` /
+  `aux_feature_strength` → `opt_c` / `opt_c_level` removes one lexical cue. Surviving that removal shows
+  identification does not *require those two key names*; it does not show the agent reasons about the
+  fault mechanism. **Code-pattern recognition** (the derivation `datautil._derived_column` is byte-identical
+  in both variants and visible in the workspace) and **general leakage heuristics** (a suspiciously
+  near-perfect validation metric reads as "leakage" regardless of any name) **remain competing
+  explanations** that this design does not separate.
+- **One of the four "confirming" cells is equivalent FAILURE.** Haiku's off arm meets the equivalence
+  criterion (Δ −0.014 [−0.083, +0.056]) because identification is **~6% in both variants** (neutral
+  0.056, descriptive 0.069). Equivalence at a failing level supports **no** understanding claim — it says
+  only that removing the names cannot lower a rate that is already near zero. The pre-registered verdict
+  count is kept as run (4 of 6), but **only three cells show identification surviving the rename at a
+  working level** (Haiku numbers 0.889/0.847, Haiku rule 0.861/0.861, Luna off 0.800/0.806).
 
 **Direction of the (paired) inconclusives matters (recorded, not smoothed over):**
 - **Haiku numbers** Δ **+0.042** [−0.056, +0.139] (paired): now **confirming** — the paired CI no longer
@@ -672,9 +737,11 @@ Because only neutral ≪ descriptive threatens the mechanism claim, a **one-side
 flag the non-threatening Haiku-numbers excursion. We did **not** switch it post-hoc (that is the move
 pre-registration exists to prevent); logged for replication.
 
-**Status:** pre-registered (HYPOTHESES H8) · confirmed where powered, 0 refuting · two Luna anchored
-arms carry a modest sub-refutation gap · updates S15 (the surviving-value headline is understanding,
-not legibility, on `data_leakage`).
+**Status:** pre-registered (HYPOTHESES H8) · 4 of 6 provider-specific cells meet the equivalence
+criterion (one of them — Haiku off — as equivalent failure at ~6%), 2 unresolved (Luna anchored), 0
+refuting · Luna's rule arm shows a measurable (sub-refutation) decrease · updates S15 narrowly:
+identification on `data_leakage` does not depend on the two descriptive key names; it is **not** shown to
+be mechanism understanding (code-pattern recognition and general leakage heuristics are not ruled out).
 
 ### F14 — Reference-context dependence is model-specific (H7 failed to replicate as a general effect) · headline
 

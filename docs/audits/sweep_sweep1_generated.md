@@ -37,8 +37,10 @@ _not available: needs arms off/numbers/rule; present ['off', 'rule']_
 
 | arm | FP rate (95% CI) | n_fp / n_trials | unique FP cases / control cases |
 |---|---|---|---|
-| off | 0.000 [0.000, 0.000] | 0/18 | 0/3 |
+| off | 0.000 [0, 0.153]† | 0/18 | 0/3 |
 | rule | 0.222 [0.000, 0.500] | 4/18 | 2/3 |
+
+† zero-event rate: `[0, x]` is a one-sided 95% Clopper–Pearson upper bound (0 observed events is not 0 uncertainty — e.g. 0/20 ⇒ ≤0.139, 0/2 ⇒ ≤0.776); only the upper edge is bounded, the point estimate is 0.
 
 ## ReAct − static evidence F1 (faulty operators, pooled)
 

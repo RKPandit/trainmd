@@ -781,12 +781,27 @@ confirming under the paired primary; the two that persist are the Luna arms):
   small config-legibility contribution to Luna's *anchored* identification, not a collapse toward
   the B2 floor.
 
-**Reading.** Where the design has power (Haiku off/rule, Luna off, and every pooled arm), neutral
-and descriptive identification are equivalent within ±0.15 → the surviving headline (identification
-is fault-mechanism, not key-name reading) **stands**. The two Luna anchored arms carry a modest real
-gap that is nowhere near refutation. Per the pre-registered **power note** (6 cases/arm, CI
-half-width ≈0.15–0.25), "confirming" here is the weaker *"no evidence of a substantial gap"*, and
-inconclusive-by-power on the anchored arms was anticipated.
+**Reading (corrected 2026-09-23, STAGE4 4.0.3 — the earlier reading overstated the result).**
+**Identification often survives the tested renaming; equivalence is unresolved in two anchored
+conditions (Luna numbers, Luna rule); Luna's rule arm shows a measurable decrease** (Δ −0.115, paired CI
+[−0.197, −0.032], excluding 0 but far short of the −0.30 refutation bound). Three qualifications bound
+what that supports:
+- **Renaming two keys tests dependence on THOSE NAMES.** A surviving identification shows the agent does
+  not need `include_aux_feature` / `aux_feature_strength` to name the fault. It does **not** establish
+  that the agent reads the fault *mechanism*: **code-pattern recognition** (the identical derivation code
+  is in both workspaces) and **general leakage heuristics** (a too-good validation metric reads as
+  leakage whatever the knob is called) remain **competing explanations** this design does not separate.
+  The pre-registered gloss "the agent reads the mechanism" (above) claimed more than the manipulation can
+  test; it is kept as registered and corrected here.
+- **Haiku's off-arm "confirming" is equivalent FAILURE.** Identification is ~6% in both variants
+  (neutral 0.056, descriptive 0.069). This is the case the pre-registration anticipated — *"the off arm
+  may floor on both variants … if it floors, H8 is answered by the stats and rule arms"* — so, applying
+  the registered rule (not a post-hoc one), that cell answers nothing and supports **no** understanding
+  claim. The verdict count is kept as run (4 of 6 meet the criterion); identification survives the rename
+  **at a working level in three** (Haiku numbers, Haiku rule, Luna off).
+- **Power.** Per the pre-registered power note (6 cases/arm, CI half-width ≈0.15–0.25), "confirming" is
+  the weaker *"no evidence of a substantial gap"*, and inconclusive-by-power on anchored arms was
+  anticipated.
 
 **Secondary (as pre-registered, expected UNCHANGED between variants — instrument check).**
 Detection and semantic recovery per variant × arm × provider track closely between descriptive and
@@ -837,13 +852,29 @@ config key name affects detection *confidence under anchoring* even where it doe
 the H8 primary results above, which held for the off arm and Haiku-rule but not the other anchored
 arms.)
 
-**Controls — first adequately-powered FPR measurement.** Detection false-positive rate on **20
-unique control cases** (× 2 providers = 40 static control trials per arm): **numbers 0.025 [0.000,
-0.075], off 0.025 [0.000, 0.075], rule 0.100 [0.000, 0.225]** (control FPR table, pooled). The
-anchored false positives are driven by the **single out-of-band control**: in the §5.1 visible-band
-stratification the lone out-of-band control fires at 0.500–1.000 while in-band controls sit at
-0.000–0.105. This supersedes the under-powered Sweep-1 (2 clusters) and Stage-2 (3 clusters, L20)
-FPRs — no control claim was established before; this is the first ≥20-control rate.
+**Controls — first FPR measured on 20 unique controls; still imprecise (corrected 2026-09-23).**
+Detection false-positive rate on **20 unique control cases** (× 2 providers = 40 static control
+trials per arm): **numbers 0.025 [0.000, 0.075], off 0.025 [0.000, 0.075], rule 0.100 [0.000,
+0.225]** (control FPR table, pooled). **Precision, stated rather than asserted:** at the observed
+rates, 20 controls give a case-clustered 95% CI half-width of **≈ ±0.04** (numbers/off) and **≈ ±0.11**
+(rule); zero-event strata are bounded one-sided (e.g. numbers in-band 0/38 ⇒ ≤ 0.076, correction #6).
+That cannot tell a 2% FPR from a 20% one on the rule arm, and the numbers − rule contrast
+(−0.075 [−0.200, 0.000]) touches zero, so **no arm difference is established**. The earlier label
+"first adequately-powered" is withdrawn: 20 meets the L20 *count* threshold, but the resulting
+precision does not support the word "adequate".
+
+**The out-of-band control does NOT drive the anchored false positives** (the earlier narrative said
+it did; its own table contradicts that). §5.1 visible-band stratification (pooled), FP trials per
+stratum:
+- **rule:** in-band **3/38**, out-of-band **1/2** → **3 of its 4 FPs are on IN-BAND controls.**
+- **numbers:** in-band 0/38, out-of-band 1/2 → its single FP is the out-of-band control.
+- **off:** in-band 1/38, out-of-band 0/2 → its single FP is in-band.
+
+Across the two anchored arms the out-of-band control accounts for **2 of 5** false positives and
+in-band controls for **3 of 5**, all three in the rule arm. So the rule arm's higher FPR (0.100 vs
+0.025) comes mainly from **ordinary in-band healthy runs** — the more consequential pattern, since it
+is not an artifact of one borderline case — though at this n it is suggestive, not established. This
+supersedes the under-powered Sweep-1 (2 clusters) and Stage-2 (3 clusters, L20) FPRs.
 
 **Luna secondaries.**
 - **The rule arm does not help Luna.** Luna neutral identification is **0.843 on rule vs 0.900 on

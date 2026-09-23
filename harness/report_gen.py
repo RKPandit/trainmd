@@ -27,7 +27,22 @@ def _f(x, nd=3):
 def _ci(c, nd=3):
     if not c or c.get("point") is None:
         return "n/a"
+    if c.get("one_sided_upper"):
+        # Zero-event rate: one-sided 95% Clopper–Pearson upper bound, never [0, 0]
+        # (0 events is not 0 uncertainty). The † is explained by a legend under the table.
+        return f"{c['point']:.{nd}f} [0, {_f(c.get('hi'), nd)}]†"
     return f"{c['point']:.{nd}f} [{_f(c.get('lo'), nd)}, {_f(c.get('hi'), nd)}]"
+
+
+def _has_one_sided(d) -> bool:
+    """True if any CI dict nested in `d` is a zero-event one-sided bound (for the legend)."""
+    if isinstance(d, dict):
+        if d.get("one_sided_upper"):
+            return True
+        return any(_has_one_sided(v) for v in d.values())
+    if isinstance(d, list):
+        return any(_has_one_sided(v) for v in d)
+    return False
 
 
 def generate(records: list[dict], meta: dict) -> str:
@@ -230,6 +245,10 @@ def _metric_body(s: dict, records: list, meta: dict) -> list:
                     c["by_band_hidden"])
         if "numbers_minus_rule" in c:
             B += ["", f"- numbers − rule FP difference: {_ci(c['numbers_minus_rule'])}"]
+        if _has_one_sided(c):
+            B += ["", "† zero-event rate: `[0, x]` is a one-sided 95% Clopper–Pearson upper "
+                  "bound (0 observed events is not 0 uncertainty — e.g. 0/20 ⇒ ≤0.139, "
+                  "0/2 ⇒ ≤0.776); only the upper edge is bounded, the point estimate is 0."]
         B += [""]
 
     # ReAct − static
