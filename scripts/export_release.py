@@ -7,6 +7,11 @@ excluded. After writing, a WALL scans every released byte for the formatted hidd
 validator W4 does), the hidden-seed literal, any string from a hidden card, and secret patterns —
 and fails the export loudly on any hit. The release lets `rebuild_tables.py` reproduce every
 generated number with NO access to `cases/` or `results/` or the registry.
+
+What a release CONTAINS is not described here: after every export, `FIELD_INVENTORY.json` (every key
+path in the release, with file counts — `scripts/release_field_inventory.py`) is generated from the
+written bytes, and `scripts/check_release_claims.py` fails CI if a doc says a field is absent that
+the inventory shows present (DECISIONS 2026-09-23).
 """
 from __future__ import annotations
 
@@ -46,8 +51,11 @@ _CASE_META = {  # hidden-card field -> release field
     "operator_id": "operator_id", "layer": "tier", "strength": "strength", "seed": "seed",
     "case_build_id": "build_id", "symptom_direction": "symptom_direction",
     "visible_sigma_distance": "visible_sigma_distance", "hidden_sigma_distance": "hidden_sigma_distance",
-    # §5.1 VISIBLE band label only — derivable from public data (the agent-visible metric vs the
-    # public band). The HIDDEN band label is never exported (it encodes the hidden test metric).
+    # §5.1 VISIBLE band label only in per-case metadata — derivable from public data (the
+    # agent-visible metric vs the public band). NOTE: per-trial `scores` are exported whole (minus
+    # recovery internals), so releases since §5.1 DO hold the hidden band position per trial —
+    # released cases are burned (LIMITATIONS L31). The authority on release content is the
+    # generated FIELD_INVENTORY.json, not this comment.
     "band_position_visible": "band_position_visible",
 }
 
@@ -361,6 +369,10 @@ def export(root: Path, name: str, include_probes: bool = False) -> dict:
     hits = _scan_release(root, out_dir, case_ids)
     if hits:
         raise SystemExit("export: HIDDEN-VALUE LEAK — refusing to release:\n  " + "\n  ".join(hits[:20]))
+
+    # Field inventory: generated FROM the written release, the authority on its content.
+    from scripts.release_field_inventory import write as write_inventory
+    write_inventory(out_dir)
 
     size = sum(p.stat().st_size for p in out_dir.rglob("*") if p.is_file())
     return {"out_dir": out_dir, "n_trials": n_trials, "n_probes_excluded_or_segregated": n_probes,

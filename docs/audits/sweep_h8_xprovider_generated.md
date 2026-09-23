@@ -60,7 +60,7 @@ Method: case-level bootstrap of the ratio, 10000 resamples, seed 20260913. Arms:
 | rule | in_band | 0.079 [0.000, 0.211] | 3/38 | 2/19 |
 | rule | out_of_band | 0.500 [0.500, 0.500]‡ | 1/2 | 1/1 |
 
-_Hidden-band stratification (a case-quality label, never the stratification key) is internal-only by design and is not part of this report: the release never carries hidden band labels, so that table cannot be rebuilt from the release. It is written to the sweep's `_internal.md` report, generated from local cases only._
+_Hidden-band stratification (a case-quality label, never the stratification key) is not rendered in this report: the report reads band labels only from the release's per-case metadata, which holds the visible label alone. That table is written to the sweep's `_internal.md` report, generated from local cases. The fields a release does contain are listed in its `FIELD_INVENTORY.json` (per-trial `scores` may include the hidden band position)._
 
 - numbers − rule FP difference: -0.075 [-0.200, 0.000]
 
@@ -123,7 +123,7 @@ Method: case-level bootstrap of the ratio, 10000 resamples, seed 20260913. Arms:
 | rule | in_band | 0.105 [0.000, 0.263]‡ | 2/19 | 2/19 |
 | rule | out_of_band | 1.000 [1.000, 1.000]‡ | 1/1 | 1/1 |
 
-_Hidden-band stratification (a case-quality label, never the stratification key) is internal-only by design and is not part of this report: the release never carries hidden band labels, so that table cannot be rebuilt from the release. It is written to the sweep's `_internal.md` report, generated from local cases only._
+_Hidden-band stratification (a case-quality label, never the stratification key) is not rendered in this report: the report reads band labels only from the release's per-case metadata, which holds the visible label alone. That table is written to the sweep's `_internal.md` report, generated from local cases. The fields a release does contain are listed in its `FIELD_INVENTORY.json` (per-trial `scores` may include the hidden band position)._
 
 - numbers − rule FP difference: -0.100 [-0.250, 0.000]
 
@@ -186,7 +186,7 @@ Method: case-level bootstrap of the ratio, 10000 resamples, seed 20260913. Arms:
 | rule | in_band | 0.053 [0.000, 0.158]‡ | 1/19 | 1/19 |
 | rule | out_of_band | 0.000 [0, 0.975]† | 0/1 | 0/1 |
 
-_Hidden-band stratification (a case-quality label, never the stratification key) is internal-only by design and is not part of this report: the release never carries hidden band labels, so that table cannot be rebuilt from the release. It is written to the sweep's `_internal.md` report, generated from local cases only._
+_Hidden-band stratification (a case-quality label, never the stratification key) is not rendered in this report: the report reads band labels only from the release's per-case metadata, which holds the visible label alone. That table is written to the sweep's `_internal.md` report, generated from local cases. The fields a release does contain are listed in its `FIELD_INVENTORY.json` (per-trial `scores` may include the hidden band position)._
 
 - numbers − rule FP difference: -0.050 [-0.150, 0.000]
 
