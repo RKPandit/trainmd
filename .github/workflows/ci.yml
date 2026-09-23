@@ -42,7 +42,7 @@ on:
         description: "What the manual dispatch runs"
         type: choice
         default: certify
-        options: [certify, benign-qualify]   # benign-qualify: STAGE4 4.0.6 design-time qualification
+        options: [certify, benign-qualify, reference-ab]   # benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone
 
 concurrency:
   # push/PR runs SHARE a per-ref group (rapid pushes cancel the stale one).
@@ -126,7 +126,7 @@ jobs:
   # 2026-09-19). 240-min budget = the honest wall for the serial build + FULL
   # gate (~2h), NOT a per-PR timeout.
   build-and-certify:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.task != 'benign-qualify') || github.event_name == 'schedule' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.task == 'certify') || github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     # 350 min (GitHub's per-job ceiling is 360). Deliberate MANUAL/nightly artifact
     # build, not a push/PR gate. On workflow_dispatch the FULL gate runs on a
@@ -277,7 +277,7 @@ jobs:
   # reference is also compared with the committed stats.yaml (exact: report-only, since the
   # runner's microarch may differ from the one that generated it; tolerance: verify_reference).
   reference-ab:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'benign-qualify' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.task == 'benign-qualify' || inputs.task == 'reference-ab') }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -288,16 +288,23 @@ jobs:
       - run: make link-neutral-workload
       - name: A/B the clean path, old vs new train.py, same runner, both workloads
         run: |
+          # Both workloads SHARE one reference (tabular_adult_neutral/reference is a symlink to
+          # tabular_adult/reference), so each A/B runs in COPIED dirs (cp -rL) and never writes
+          # through the symlink; the committed reference is tabular_adult's.
           RUN="docker run --rm --platform linux/amd64 --user $(id -u):$(id -g) -e HOME=/tmp -e TRAINMD_IN_CONTAINER=1 -v $PWD:/work -w /work trainmd:canonical"
+          git show HEAD:workloads/tabular_adult/reference/stats.yaml > committed.yaml
           for W in tabular_adult tabular_adult_neutral; do
-            git show HEAD:workloads/$W/reference/stats.yaml > committed_$W.yaml
-            rm -rf ab_$W && cp -rL workloads/$W ab_$W && rm -rf ab_$W/reference/runs
-            git show origin/main:workloads/$W/train.py > ab_$W/train.py
-            $RUN python -m harness.reference_run --workload-dir ab_$W
-            $RUN python -m harness.reference_run --workload-dir workloads/$W
-            $RUN python scripts/compare_stats_exact.py ab_$W/reference/stats.yaml workloads/$W/reference/stats.yaml
-            $RUN python scripts/compare_stats_exact.py --report-only committed_$W.yaml workloads/$W/reference/stats.yaml
-            $RUN python scripts/verify_reference.py committed_$W.yaml workloads/$W/reference/stats.yaml
+            for V in old new; do
+              rm -rf ab_${W}_$V && cp -rL workloads/$W ab_${W}_$V && rm -rf ab_${W}_$V/reference/runs
+            done
+            git show origin/main:workloads/$W/train.py > ab_${W}_old/train.py
+            $RUN python -m harness.reference_run --workload-dir ab_${W}_old
+            $RUN python -m harness.reference_run --workload-dir ab_${W}_new
+            echo "== $W: old vs new train.py (same runner) — must be IDENTICAL"
+            $RUN python scripts/compare_stats_exact.py ab_${W}_old/reference/stats.yaml ab_${W}_new/reference/stats.yaml
+            echo "== $W: new vs committed (exact report-only; tolerance gate)"
+            $RUN python scripts/compare_stats_exact.py --report-only committed.yaml ab_${W}_new/reference/stats.yaml
+            $RUN python scripts/verify_reference.py committed.yaml ab_${W}_new/reference/stats.yaml
           done
 
   reference-repro:
