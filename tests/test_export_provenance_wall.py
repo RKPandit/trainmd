@@ -184,3 +184,31 @@ def test_release_loader_ignores_a_hidden_band_label(tmp_path):
     meta = case_meta_from_release(rel)("case_0001")
     assert meta["band_position_visible"] == "in_band"
     assert meta.get("band_position_hidden") is None
+
+
+# ---- frozen-sweep guard: never regenerate per-case metadata from rebuilt cards -----------------
+
+def _freeze(root: Path, record_build_id: str):
+    (root / "sweeps").mkdir(exist_ok=True)
+    (root / "sweeps" / f"{SWEEP}_manifest.yaml").write_text(yaml.dump({"frozen": True}))
+    t = root / "results" / "case_0001" / "trials" / "t1.yaml"
+    rec = yaml.safe_load(t.read_text())
+    rec["environment"] = {"case_build_id": record_build_id}
+    t.write_text(yaml.dump(rec))
+
+
+def test_frozen_sweep_with_rebuilt_card_refuses_and_leaves_release_untouched(tmp_path):
+    root = _project(tmp_path, {})
+    _freeze(root, record_build_id="b0")               # card says b1: the case was rebuilt
+    existing = root / "results_release" / SWEEP
+    existing.mkdir(parents=True)
+    (existing / "SENTINEL").write_text("committed release")
+    with pytest.raises(SystemExit, match="refusing to regenerate FROZEN sweep"):
+        export(root, SWEEP)
+    assert (existing / "SENTINEL").read_text() == "committed release"   # nothing deleted
+
+
+def test_frozen_sweep_with_matching_build_ids_exports(tmp_path):
+    root = _project(tmp_path, {})
+    _freeze(root, record_build_id="b1")
+    assert export(root, SWEEP)["n_trials"] == 1

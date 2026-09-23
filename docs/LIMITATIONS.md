@@ -484,7 +484,10 @@ case-level intervals. *Remedy (STAGE4, before the paper):* move the control-FP t
 Clopper–Pearson on case-level counts for every row — one method throughout — disclosed as its own change.
 **L31 — Released cases are BURNED as an evaluation set, by construction (2026-09-23).** A release of
 scored records necessarily discloses per-case ground truth: each trial's `detection_correct` and
-`identification_correct` reveal whether its case is faulty and which fault class it holds. Every case
+`identification_correct` reveal whether its case is faulty and which fault class it holds — and every
+release since §0.3 also carries the operator's `accepted_classes` inside `scores.identification`,
+deliberately, so a reviewer can re-derive identification scores (it is per-operator and public in
+operator source). Every case
 in `results_release/` (sweep1, stage2gate, h8_xprovider) is therefore spent as an evaluation item — the
 standard position for a benchmark that publishes scored results — and must not be reused as held-out
 material. Consequently `hidden_sigma_distance` and the hidden band label add **no protection-relevant

@@ -81,7 +81,11 @@ def _forbidden_needles(root: Path, case_ids: set[str]) -> dict[str, str]:
     tolerance_lower, hidden mean/std, and the hidden-eval-seed literals. NOT scanned:
     ``faulty_visible_value`` (the agent-VISIBLE faulty metric, legitimately in metrics.jsonl and the
     transcripts) or mutation values (the injected config knob, visible in config.yaml) — those are
-    agent-visible by design. accepted_classes/core_tokens are generic words, never exported.
+    agent-visible by design. accepted_classes/core_tokens are not scanned: they are generic words, and
+    `accepted_classes` IS exported — inside each trial's `scores.identification`, as it has been in every
+    release since §0.3. That is deliberate (a reviewer needs it to re-derive identification scores; it is
+    per-operator and public in operator source; released cases are burned — LIMITATIONS L31). The earlier
+    "never exported" wording here was a documentation error: it never matched the artifact.
     """
     needles: dict[str, str] = {}
     for cid in case_ids:
@@ -241,9 +245,38 @@ def _scan_release(root: Path, out_dir: Path, case_ids: set[str]) -> list[str]:
     return hits
 
 
+def _frozen_build_id_mismatches(root: Path, name: str) -> list[str]:
+    """For a FROZEN sweep: records whose sealed `environment.case_build_id` differs from the CURRENT
+    card's `case_build_id`. A mismatch means the case_id was rebuilt (possibly as a different operator)
+    after the sweep ran, so today's card would mislabel that case's released metadata."""
+    bad = []
+    for f in sorted((root / "results").glob("*/trials/*.yaml")):
+        rec = yaml.safe_load(f.read_text())
+        if (rec.get("conditions") or {}).get("sweep_name") != name:
+            continue
+        cid = rec.get("case_id")
+        hp = root / "cases" / str(cid) / "hidden" / "card.hidden.yaml"
+        card_bid = (yaml.safe_load(hp.read_text()) or {}).get("case_build_id") if hp.exists() else None
+        rec_bid = (rec.get("environment") or {}).get("case_build_id")
+        if not rec_bid or rec_bid != card_bid:
+            bad.append(f"{cid} run {rec.get('run_id')}: record build {str(rec_bid)[:12]} != card {str(card_bid)[:12]}")
+    return bad
+
+
 def export(root: Path, name: str, include_probes: bool = False) -> dict:
     root = Path(root)
     out_dir = root / "results_release" / name
+    # GUARD (before anything is deleted): a FROZEN sweep's per-case metadata is regenerated from
+    # today's cards only if every record's sealed build_id still matches its card. Re-exporting after
+    # a rebuild silently mislabels operators (found 2026-09-23: stage2gate case_0002 label_corruption →
+    # shape_mismatch). Refuse, and leave the committed release untouched.
+    if sweep_is_frozen(root, name):
+        bad = _frozen_build_id_mismatches(root, name)
+        if bad:
+            raise SystemExit(
+                f"export: refusing to regenerate FROZEN sweep {name!r}: {len(bad)} record(s) were built "
+                f"on a case card that has since been rebuilt, so today's per-case metadata would mislabel "
+                f"them (the committed release is left untouched). e.g.\n  " + "\n  ".join(bad[:5]))
     if out_dir.exists():
         shutil.rmtree(out_dir)
     (out_dir / "trials").mkdir(parents=True)

@@ -96,6 +96,9 @@ Then and only then, paid runs.
 As v1: all six operators, both providers, now with the bare-stats arm, B2+, and benign
 controls. Pre-register H9 (model dependence generalizes beyond leakage) and H10 (band benefit
 tracks symptom type per model). Gate 1 decides whether Part 2 runs at full scope.
+**Blocking prerequisite:** the release archive strategy must be decided before Part 1 runs — the
+in-repo releases already total ~68 MiB against the ~100 MB in-repo rule, so Part 1's release will not
+fit in the repository (DECISIONS 2026-09-23).
 
 ## Part 2 — Model dimension (~2 weeks, ~$100–200)
 As v1, unchanged in substance: Sonnet 5, GPT-5.6 Terra, **Luna with reasoning.effort=none**
@@ -106,7 +109,9 @@ hierarchical estimates.
 ## Part 3 — Second workload, frozen as the evaluation set (~2 weeks)
 As v1, with one change from the review: the second workload doubles as the **fresh frozen
 evaluation set** — built after the scorer and protocol stop changing, never used for
-development. Synthetic tabular (closes the prior-knowledge objection). Gate 3: does the
+development. **Never released until its results are final:** a release of scored records discloses
+per-case ground truth and burns the cases (LIMITATIONS L31), so the frozen set's records, cases and
+hidden-derived fields stay unreleased until its results are final. Synthetic tabular (closes the prior-knowledge objection). Gate 3: does the
 pattern replicate on data no model has seen?
 
 ## Then: write.
