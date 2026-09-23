@@ -27,7 +27,24 @@ def _f(x, nd=3):
 def _ci(c, nd=3):
     if not c or c.get("point") is None:
         return "n/a"
-    return f"{c['point']:.{nd}f} [{_f(c.get('lo'), nd)}, {_f(c.get('hi'), nd)}]"
+    if c.get("zero_event_cp"):
+        # Zero-event rate: exact two-sided 95% Clopper–Pearson over unique cases, never [0, 0]
+        # (0 events is not 0 uncertainty). The † is explained by a legend under the table.
+        return f"{c['point']:.{nd}f} [0, {_f(c.get('hi'), nd)}]†"
+    text = f"{c['point']:.{nd}f} [{_f(c.get('lo'), nd)}, {_f(c.get('hi'), nd)}]"
+    # 1–2 events: the percentile bootstrap understates uncertainty at this count (‡ legend).
+    return text + "‡" if c.get("low_count") else text
+
+
+def _has_flag(d, flag: str) -> bool:
+    """True if any CI dict nested in `d` carries `flag` (drives the table legends)."""
+    if isinstance(d, dict):
+        if d.get(flag):
+            return True
+        return any(_has_flag(v, flag) for v in d.values())
+    if isinstance(d, list):
+        return any(_has_flag(v, flag) for v in d)
+    return False
 
 
 def generate(records: list[dict], meta: dict) -> str:
@@ -230,6 +247,15 @@ def _metric_body(s: dict, records: list, meta: dict) -> list:
                     c["by_band_hidden"])
         if "numbers_minus_rule" in c:
             B += ["", f"- numbers − rule FP difference: {_ci(c['numbers_minus_rule'])}"]
+        if _has_flag(c, "zero_event_cp"):
+            B += ["", "† zero-event rate: `[0, x]` is the exact two-sided 95% Clopper–Pearson interval "
+                  "over the number of UNIQUE CASES (clusters), x = 1 − 0.025^(1/n_cases) — 0 observed "
+                  "events is not 0 uncertainty (e.g. 20 cases ⇒ [0, 0.168], 3 cases ⇒ [0, 0.708]). "
+                  "The point estimate is 0."]
+        if _has_flag(c, "low_count"):
+            B += ["", "‡ 1–2 events: the case-clustered percentile bootstrap interval is unreliable at "
+                  "this count — it understates uncertainty (e.g. 1 of 19 cases: bootstrap upper 0.158 "
+                  "vs exact Clopper–Pearson 0.260). Read as indicative only."]
         B += [""]
 
     # ReAct − static

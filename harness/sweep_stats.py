@@ -343,6 +343,63 @@ def _rate(pred):
     return stat
 
 
+def _binom_cdf(k: int, n: int, p: float) -> float:
+    """P(X <= k) for X ~ Binomial(n, p) — exact, stdlib only."""
+    from math import comb
+    return sum(comb(n, i) * p ** i * (1 - p) ** (n - i) for i in range(k + 1))
+
+
+def clopper_pearson(k: int, n: int, alpha: float = 0.05) -> tuple[float, float]:
+    """Exact two-sided (1−alpha) Clopper–Pearson interval for k events in n independent units.
+
+    lo solves P(X >= k) = alpha/2, hi solves P(X <= k) = alpha/2 (bisection on the exact binomial
+    CDF; no scipy). lo = 0 when k = 0 and hi = 1 when k = n."""
+    if n <= 0 or not 0 <= k <= n:
+        raise ValueError(f"need 0 <= k <= n, n > 0 (got k={k}, n={n})")
+
+    def solve(f, target):          # f increasing in p on [0, 1]; find p with f(p) = target
+        a, b = 0.0, 1.0
+        for _ in range(100):
+            m = (a + b) / 2
+            a, b = (m, b) if f(m) < target else (a, m)
+        return (a + b) / 2
+
+    lo = 0.0 if k == 0 else solve(lambda p: 1 - _binom_cdf(k - 1, n, p), alpha / 2)
+    hi = 1.0 if k == n else solve(lambda p: 1 - _binom_cdf(k, n, p), 1 - alpha / 2)
+    return lo, hi
+
+
+def zero_event_upper(n, alpha=0.05, two_sided=True):
+    """Exact Clopper–Pearson upper limit for 0 events in n independent units (closed form).
+
+    Callers pass the number of UNIQUE CASES (clusters) as n, never the trial count: trials within
+    a case are correlated, and every other interval here clusters by case.
+      two_sided=True  (TABLES):  1 − (alpha/2)^(1/n) — the upper limit of the two-sided (1−alpha)
+                                 interval [0, U]; 3 cases ⇒ 0.708, 19 ⇒ 0.176, 20 ⇒ 0.168.
+      two_sided=False (PROSE ceilings only, labelled one-sided): 1 − alpha^(1/n); 20 ⇒ 0.139.
+    Correction #6 (2026-09-23): a zero-event stratum's bootstrap percentile CI is a false-precision
+    [0, 0]; tables carry the exact interval instead. The point estimate stays 0.0."""
+    if not n or n <= 0:
+        return None
+    return 1.0 - (alpha / 2 if two_sided else alpha) ** (1.0 / n)
+
+
+def _mark_zero_event(ci):
+    """If a RATE CI observed zero events, replace its degenerate [0, 0] with the exact two-sided
+    95% Clopper–Pearson interval over its number of UNIQUE CASES — the cluster unit of the
+    case-clustered bootstrap it replaces. Rows with 1–2 events are flagged `low_count`: the
+    percentile bootstrap understates uncertainty there (LIMITATIONS L30). Mutates and returns ci."""
+    n_fp = ci.get("n_fp")
+    if n_fp == 0 and ci.get("n_cases"):
+        ci["zero_event_cp"] = True
+        ci["point"] = 0.0
+        ci["lo"] = 0.0
+        ci["hi"] = round(zero_event_upper(ci["n_cases"], two_sided=True), 6)
+    elif n_fp in (1, 2):
+        ci["low_count"] = True
+    return ci
+
+
 def _detect_rate(trials):
     return _rate(_detect_correct)(trials)
 
@@ -485,6 +542,7 @@ def control_fpr(recs):
         fp = [r for r in ctrl if _detected(r) is True]
         ci["n_fp"] = len(fp)
         ci["fp_cases"] = sorted({r["case_id"] for r in fp})
+        _mark_zero_event(ci)          # zero-event → exact CP over cases; 1–2 events flagged
         per_arm[arm] = ci
     out = {"available": True, "per_arm": per_arm}
 
@@ -520,6 +578,7 @@ def control_fpr(recs):
                 ci["available"] = True
                 ci["n_fp"] = len(fp)
                 ci["fp_cases"] = sorted({r["case_id"] for r in fp})
+                _mark_zero_event(ci)  # zero-event → exact CP over cases; 1–2 events flagged
                 strata[name] = ci
             breakdown[arm] = strata
         return breakdown

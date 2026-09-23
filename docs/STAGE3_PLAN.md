@@ -118,7 +118,9 @@ not bare numbers.
 - **Baselines B1–B4 in every table.** LLM value = (identification, evidence, repair) beyond
   B3, with CIs.
 - **Recovery is reported as a compliance measure**, not repair competence, until a
-  wide-admissible operator exists (L19). DegenerateAgent's 18/18 stands as the evidence.
+  wide-admissible operator exists (L19). B2's 30/30 (a no-diagnosis config reset) is the evidence.
+  *(Corrected 2026-09-23: this line previously cited the DegenerateAgent's 18/18, which reads the
+  oracle repair from hidden material and is therefore true by construction, not evidence.)*
 - **Cell equation written out** before budgeting; controls in the static protocol × arms × 1
   repeat; ReAct on a pre-specified subset. Cost cap and repeats declared. Deviations
   appended, never edited.

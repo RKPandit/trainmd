@@ -1,5 +1,7 @@
 # Stage-2 gate — full report incl. recovery (2026-09-15)
 
+> **Correction note (2026-09-23; body unchanged as a dated record):** the DegenerateAgent's 18/18 recovery in the degenerate-probe section below reads the oracle repair from hidden verification material, so it is true by construction and is not evidence of recovery degeneracy — the supporting evidence is B2's 30/30. See LIMITATIONS L19 and DECISIONS 2026-09-23.
+
 Sweep: `stage2gate` · plan `sweeps/stage2gate_plan.yaml` (252 cells, 0 MISSING) ·
 agent progress 252 · verify progress 216 (canonical re-run). Supersedes the
 2026-09-14 report, whose recovery axis was VOID (verify aborted off-canonical);

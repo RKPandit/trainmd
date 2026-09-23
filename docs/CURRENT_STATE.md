@@ -5,8 +5,9 @@
 > **Rule.** If this page and any other document disagree, this page is wrong OR the other document
 > is stale — **fix whichever is stale in the same commit.** Machine-checkable facts in §a are
 > verified against the repo by `scripts/check_current_state.py` in CI; that guard fails loudly on
-> drift. Last updated: 2026-09-22 (Sweep 3 `h8_xprovider` complete — H8 confirmed where powered,
-> H7 model-specific; next gate = Stage-4 plan).
+> drift. Last updated: 2026-09-23 (STAGE4 4.0.2/4.0.3: correction #6 zero-event intervals; H8
+> reframed — identification survives the tested key rename in 3 of 5 answering cells, not a mechanism
+> claim; H7 model-specific; next gate = Stage-4.0 validation).
 
 ---
 
@@ -31,7 +32,7 @@ evidence_scorer_versions: [evidence_v1, evidence_v2, evidence_v2.1]
 canonical_image_digest: sha256:0354db57c29a5092ace862a0d8716dfe3729d4f8b893fe3079c66d947daeb25d
 reference_seeds: 30
 latest_sweep: stage2gate
-corrections_count: 5
+corrections_count: 6
 ```
 
 - **Workloads:** 1 — `tabular_adult` (Adult / MLP). (Second workload deferred to the full study.)
@@ -49,8 +50,9 @@ corrections_count: 5
   so it *would* score fault negations (`no_leakage`) and off-concept collisions (`memory_leak`) as correct;
   the audit of every scored-correct label in Sweeps 1–3 found **zero** such cases (0 of 1156), and a full
   re-score under v2 moves **0** labels (delta 0). So the rule was exploitable, was never exploited, and
-  **no published identification number — nor the H8 verdict — moves**; `corrections_count` **stays 5**
-  (no published number was ever wrong). v2 fixes it by principle: negation detection (token path only),
+  **no published identification number — nor the H8 verdict — moves**; the matcher hardening therefore
+  did **not** tick `corrections_count` (no published number was ever wrong; the later bump to 6 is the
+  unrelated zero-event interval fix, correction #6). v2 fixes it by principle: negation detection (token path only),
   whole-token/declared-inflection matching (never a free substring), and a per-operator
   `off_concept_vetoes()` list. See DECISIONS 2026-09-22; tests `test_identification_v2_hardening.py`;
   audit `scripts/audit_stage4_identification.py`.
@@ -79,12 +81,12 @@ mentioned,"** never "not used"; every rate states its cluster count.
 | Claim | Status |
 |---|---|
 | **A numerical reference baseline restores detection** (numbers arm closes ~94–95% of the off→rule gap on all 3 gate operators). | **Model-specific — supported for Haiku, FAILED TO REPLICATE as a general effect on the 2nd model.** Off-anchor leakage detection Haiku **0.083** vs Luna **0.819**; band adds ~90 pts (Haiku) / ~17 pts (Luna) — Sweep 3 / FINDINGS F14, S16. The Stage-2 "strongest-supported claim" framing is retired; the effect is Haiku-specific, its driver unidentified at n=2 (L28). |
-| **Leakage identification is fault-mechanism, not config-key-name reading (H8).** | **Supported where powered** (Sweep 3, neutral-key ablation; PRIMARY = PAIRED strength×seed bootstrap): neutral−descriptive identification equivalent within ±0.15 in **4 of 6 provider-specific cells** (Haiku off/numbers/rule, Luna off), **0 refuting**; **2 inconclusive** (Luna numbers/rule, modest sub-0.30 gap). Count is over provider-specific cells only — the pooled ×3 rows (all confirming) reuse the same trials and are a summary, never independent confirmations. Paired promoted to primary after seeing results, justified by the matched-pair design (point estimate unchanged; moves Haiku numbers inconclusive→confirming vs the unpaired 3/6). Disclosed in the report + DECISIONS 2026-09-22. FINDINGS F13; HYPOTHESES H8. |
+| **Leakage identification survives renaming the two descriptive config keys (H8).** *(Reworded 2026-09-23 from "fault-mechanism, not config-key-name reading" — an overclaim: renaming two keys tests dependence on THOSE NAMES; code-pattern recognition and general leakage heuristics remain competing explanations.)* | **Often survives the tested renaming; equivalence unresolved in two anchored conditions; Luna's rule arm shows a measurable decrease** (Sweep 3, neutral-key ablation; PRIMARY = PAIRED strength×seed bootstrap): **4 of 6** provider-specific cells meet the equivalence criterion (±0.15) as run; by the pre-registration's own floor clause **Haiku-off does not answer H8** (identification ~6% in both variants: 0.056 / 0.069 — equivalent failure), so **3 of 5 answering cells confirm** (Haiku numbers/rule, Luna off) and **2 are inconclusive** (Luna numbers/rule; **0 refuting**; Luna rule Δ −0.115 [−0.197, −0.032], sub-0.30). **Not a mechanism claim.** Count is over provider-specific cells only — the pooled ×3 rows (all confirming) reuse the same trials and are a summary, never independent confirmations. Paired promoted to primary after seeing results, justified by the matched-pair design (point estimate unchanged; moves Haiku numbers inconclusive→confirming vs the unpaired 3/6). Disclosed in the report + DECISIONS 2026-09-22. FINDINGS F13; HYPOTHESES H8. |
 | **Reference-context dependence is model-specific (H7).** | **Model dependence ESTABLISHED, driver NOT identified** (n=2 models; capability / hidden reasoning tokens / training all confounded — L28). Use "failed to replicate," not "refuted." FINDINGS S16/F14. |
 | **Positive-symptom under-detection generalizes to a second mechanism.** | **Failed to replicate** (Stage-2 G1): `metric_inflation` anchor-off detection 0.250 [0.083,0.417] = `label_corruption` 0.250; diff +0.001 [−0.281,+0.250]. Symptom-direction≡blindness not supported (FINDINGS S1). |
 | **The data-leakage condition is anchor-off-blind.** | **Observed** (data_leakage off-detection 0.042 [0.000,0.125]) but **cause not isolated** — leakage-specific vs representation/legibility unresolved; the representation ablation is a Stage-3 test (STAGE3_PLAN §3.4). |
-| **Recovery discriminates diagnosis quality.** | **Does not, on current operators — degenerate** (L19): `not_recovered` 0/138; DegenerateAgent scores 18/18 strict recovery. Recovery reported for completeness only. |
-| **Control false-positive rate.** | **First adequately-powered measurement (Sweep 3): 20 unique controls** × 2 providers — numbers **0.025 [0.000,0.075]**, off **0.025**, rule **0.100 [0.000,0.225]**; the single out-of-band control drives the anchored FPs (§5.1 visible-band stratification). Supersedes the under-powered Sweep-1 (2 clusters) / Stage-2 (3 clusters, L20) rates. |
+| **Recovery discriminates diagnosis quality.** | **Does not, on current operators — degenerate** (L19): `not_recovered` 0/138. The evidence is **B2's 30/30 recovery** — a config-reset baseline with **no fault diagnosis**, reading only the agent-visible surface plus the committed clean reference config (never hidden material), recovers every case. (B2 is not "blind": it carries declared workload knowledge — the clean resolved config and which keys are derived.) *(Corrected 2026-09-23: the `DegenerateAgent`'s 18/18 was previously cited as the proof, but it reads the oracle repair from hidden verification material, so its recovery is true **by construction** and demonstrates nothing about a blind policy.)* Recovery reported for completeness only. |
+| **Control false-positive rate.** | **First FPR measured on 20 unique controls (Sweep 3), still imprecise** × 2 providers — numbers **0.025 [0.000,0.075]**, off **0.025**, rule **0.100 [0.000,0.225]**. *Precision:* at case level the FP counts are 1/20 (numbers, off) and 3/20 (rule) — exact Clopper–Pearson **[0.001, 0.249]** and **[0.032, 0.379]** (half-widths ≈ ±0.12 / ±0.17; the table's bootstrap intervals understate this at 1–2 events, L30); the numbers − rule contrast (−0.075 [−0.200, 0.000]) touches zero, so no arm difference is established. *(Corrected 2026-09-23: "first adequately-powered" withdrawn — 20 meets the L20 count threshold but this precision does not support "adequate"; and the claim that "the single out-of-band control drives the anchored FPs" contradicted the table — in the rule arm **3 of 4 FP trials are on IN-BAND controls**; across both anchored arms the out-of-band control accounts for 2 of 5 FPs.)* Zero-event strata carry the exact two-sided Clopper–Pearson interval over unique cases (correction #6). Supersedes the under-powered Sweep-1 (2 clusters) / Stage-2 (3 clusters, L20) rates. |
 | **Tool use (ReAct) helps.** | **Supported but confounded** (FINDINGS S4): ReAct − static evidence F1 +0.135 [0.075,0.204] overall, but arms also differ in calls/deliberation/tokens/prompt; needs a token-matched baseline. |
 
 ## c. Known limitations (pointers to LIMITATIONS.md)
@@ -119,10 +121,14 @@ mentioned,"** never "not used"; every rate states its cluster count.
 **SWEEP 3 (`h8_xprovider`) COMPLETE (2026-09-22).** The H8 neutral-key ablation + cross-provider sweep
 ran (agent phase 978/984 cells, $24.03, 6 unrun — all neutral×Luna×static; verify 834 reruns). Report:
 `docs/audits/sweep_h8_xprovider_generated.md`. Results (all cited there):
-- **H8 — identification is fault-mechanism, not name-reading.** PRIMARY analysis = PAIRED (strength×seed)
+- **H8 — identification often survives the tested key renaming; equivalence unresolved in two anchored
+  conditions; Luna's rule arm shows a measurable decrease** (reworded 2026-09-23 from "fault-mechanism,
+  not name-reading": renaming tests dependence on those two names only; code-pattern recognition and
+  general leakage heuristics are not ruled out; Haiku off is equivalent failure at ~6%). PRIMARY analysis = PAIRED (strength×seed)
   bootstrap (point estimate identical to unpaired; promoted after seeing results, justified by the
   matched-pair design, unpaired retained alongside — disclosed). Neutral−descriptive identification
-  equivalent within ±0.15 in **4 of 6 provider-specific cells** (Haiku off/numbers/rule, Luna off),
+  equivalent within ±0.15 in **4 of 6 provider-specific cells** as run (Haiku off/numbers/rule, Luna off) —
+  excluding floored Haiku-off per the pre-registered floor clause, **3 of 5 answering cells confirm**,
   **0 refuting**, **2 inconclusive** (Luna numbers/rule, modest sub-0.30 gap); pooled ×3 confirming is a
   summary of the same trials, not counted. Vs unpaired 3/6 — pairing moves Haiku numbers to confirming. FINDINGS F13.
 - **H7 — reference-context dependence is MODEL-SPECIFIC (failed to replicate as a general effect).**
@@ -221,12 +227,20 @@ Five categories for a change to a committed fact, so the next classification is 
 
 - **Correction** — a PUBLISHED number was measurably wrong. Bumps `corrections_count`; the
   corrected value becomes primary, the prior retained for audit. *e.g.* correction #5 (evidence
-  v1→v2.1); the 5 tracked in `corrections_count`.
+  v1→v2.1); correction #6 (2026-09-23, zero-event intervals: every rate with 0 observed events had
+  rendered a false-precision `[0, 0]`, replaced by the exact two-sided 95% Clopper–Pearson interval
+  over the number of unique cases — an
+  interval is a published number, so this counts even though no point estimate moved); the 6 tracked
+  in `corrections_count`.
 - **Latent-bug fix** — a defect caught BEFORE it published. No `corrections_count` change
   (nothing wrong was ever released). *e.g.* the §0.3 scorer/analysis fixes.
 - **Documentation error** — prose that was NEVER true as written. No number changes;
   `corrections_count` unchanged. *e.g.* `case_0031/0032` mislabelled “control” (they are
-  `silent.metric_inflation.v1`) — DECISIONS 2026-09-16.
+  `silent.metric_inflation.v1`) — DECISIONS 2026-09-16; and the 2026-09-23 framing corrections
+  (STAGE4 4.0.2/4.0.3): the H8 “mechanism, not name-reading” headline, the control narrative that
+  contradicted its own table, “first adequately-powered FPR”, the `DegenerateAgent` 18/18 read as a
+  blind-repair result, and B2's identification miss read as pure capability — all overclaims, none a
+  moved number.
 - **Stale snapshot** — prose that was TRUE when written but the world moved under it. Not an
   error; update in place. *e.g.* `case_count` 33 (correct pre-§5.2, now 50); the retrospective's
   test count (grew every PR).

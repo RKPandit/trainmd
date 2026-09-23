@@ -6,12 +6,15 @@ per-hypothesis verdicts live in `docs/HYPOTHESES.md` Results and the evidence in
 
 ## The corrections, stated plainly
 
-All five post-hoc corrections removed harness-imposed penalties or fixed a measurement/aggregation
-error; none inflated a score by changing ground truth. (The first three are the Sweep-1 scoring/
-schema + folded-repair corrections; the fourth, 2026-09-15, disaggregated the pooled H1
+All six post-hoc corrections removed harness-imposed penalties or fixed a measurement/aggregation/
+reporting error; none inflated a score by changing ground truth. (The first three are the Sweep-1
+scoring/schema + folded-repair corrections; the fourth, 2026-09-15, disaggregated the pooled H1
 negative-symptom comparator; the fifth, 2026-09-15, migrated Sweep-1 evidence from v1 — which the
-docs had mislabeled as v2 — to **v2.1** (bipartite one-to-one) primary — see FINDINGS "Post-hoc
-corrections" #4 and #5.) Originals are kept beside corrected values throughout.
+docs had mislabeled as v2 — to **v2.1** (bipartite one-to-one) primary; the sixth, 2026-09-23,
+replaced the false-precision `[0, 0]` interval on every zero-event rate with the exact two-sided
+95% Clopper–Pearson interval over the number of unique cases — it moves **no point estimate** and only **widens** intervals that had
+overstated precision — see FINDINGS "Post-hoc corrections" #4–#6.) Originals are kept beside
+corrected values throughout.
 
 ## Disclosure rule
 
@@ -274,10 +277,17 @@ therefore means *cross-microarch native*, not "the platform floor in general". S
 = 0/138`: every admissible structured repair recovered, because each operator's admissible-repair
 space is effectively a single oracle-equivalent point (unset the leak key / reset
 `label_noise_fraction` / unset `eval_subset_fraction`) — any admissible repair reconstructs the
-clean run and clears tolerance. Proof (harness probe, free, no LLM; `docs/audits/sweep_stage2gate_2026-09-15.md`
-§0.1): the trusted `DegenerateAgent` — detect=True, **wrong class, no evidence**, blind admissible
-repair — scores **18/18 = 1.000** strict recovery across all three operators. So on these operators
-**strict recovery measures submission-format compliance + admissibility, not repair correctness**,
+clean run and clears tolerance. **The evidence is B2's 30/30** (native 50-case baseline; FINDINGS
+S15/L25): a config-reset baseline with **no fault diagnosis**, reading only the agent-visible surface
+plus the committed clean reference config (hidden reads are hard-blocked), recovers every case — so a
+policy that understands nothing about the fault still recovers. *(Corrected 2026-09-23, STAGE4 4.0.3:
+this paragraph previously cited the trusted `DegenerateAgent`'s **18/18** strict recovery
+(`docs/audits/sweep_stage2gate_2026-09-15.md` §0.1) as the proof. That was wrong: the `DegenerateAgent`
+reads `oracle_repair` from the case's **hidden** `verify.yaml` and submits it verbatim
+(`agents/degenerate_agent.py`), so its recovery is true **by construction** — it verifies that the oracle
+repair round-trips through verify_repair, and demonstrates nothing about whether a blind or
+no-diagnosis policy succeeds. B2 is the result that supports the degeneracy claim.)* So on these
+operators **strict recovery measures submission-format compliance + admissibility, not repair correctness**,
 and cannot discriminate diagnosis quality (this generalizes the 2026-09-07 lr_warmup note in
 DECISIONS). *Sweep-2 remedy:* operators with a genuinely **wide** admissible-repair space, where a
 *wrong-but-admissible* value fails to recover (a continuous knob with a broad admissible band whose
@@ -286,7 +296,8 @@ fault). Until then recovery is reported for completeness but is not a discrimina
 
 **L20 — Controls are under-powered: 3 unique healthy cases.** The gate has 3 control cases (one per
 control-seed); per anchor arm that is 12 trials from 3 clusters, so the case-clustered control
-false-positive CIs are enormous — off **[0.000, 0.000]**, numbers 0.500 **[0.000, 0.750]**, rule
+false-positive CIs are enormous — off 0/12 over 3 cases **[0, 0.708]** (exact two-sided Clopper–Pearson over the 3 unique cases; rendered
+`[0.000, 0.000]` before correction #6), numbers 0.500 **[0.000, 0.750]**, rule
 0.167 **[0.000, 0.500]**, numbers−rule +0.336 **[0.000, 0.750]**. No control-arm contrast is
 decidable and the control FPR is not a population rate. This extends L12/S3's under-powering from
 Sweep 1. *Remedy:* **≥20 unique control cases per workload** before any false-positive claim
@@ -375,9 +386,34 @@ alternatives:** re-selecting hidden_eval seeds (test-set selection bias, the cla
 removed) and decoupling the recovery tolerance from the detection band (one band, not two).
 **Caveat on the baseline recovery numbers:** B2 recovers 30/30 — but recovery is DEGENERATE on
 these operators (L19: any admissible repair reconstructs the clean run), so a config-reset
-matching the oracle is expected, not evidence of repair intelligence. B2's control-FPR is 0/20
-(no config delta on a clean control), so on specificity B2 dominates the band detector B1 (1/20,
-the case_0039 two-sided-band false positive) — the 0-FPR floor is B2, not B1.
+matching the oracle is expected, not evidence of repair intelligence (it is, instead, the evidence
+*for* L19). B2's control-FPR is **0/20** (no config delta on a clean control) — **a one-sided 95%
+ceiling of 0.139 over its 20 unique cases (exact two-sided [0, 0.168]), not a demonstrated zero**
+(correction #6). B1's is 1/20 (the case_0039
+two-sided-band false positive). B2 is observed lower, but 0/20 vs 1/20 is well within sampling noise
+at n = 20, so neither "B2 dominates B1 on specificity" nor "a 0-FPR floor" is supported *(both
+phrasings withdrawn 2026-09-23)*.
+
+**B2's identification score conflates LOCALIZATION with TERMINOLOGY (2026-09-23, STAGE4 4.0.3).**
+B2's output convention emits the changed key's **leaf name** as its fault class — so it *cannot* say
+"leakage" when the injected key is `include_aux_feature`, let alone `opt_c`. Its identification
+failures are therefore partly **built into the convention**, not a finding about capability. Reported
+separately:
+- **Localization — did it find the fault?** Yes, on every case of the native 50-case set: 30/30
+  recovered with an admissible repair, which on these operators means patching exactly the injected
+  key. On the neutral-key cases its submitted repair likewise targets the injected `opt_c` /
+  `opt_c_level` (`scripts/baseline_report.py`; that script shows the submitted repair, recovery is
+  verified by the known-answer gate).
+- **Terminology — did its class string name the concept?** 18/30: it scores only where the key's own
+  name happens to contain the concept token, and misses exactly `data_leakage` and `metric_inflation`
+  (0/6 each), whose knobs do not name the concept; on the neutral-key cases its class string is
+  `opt_c`, which cannot match.
+
+So the LLM's identification advantage over B2 on those two operators is a **terminology** advantage
+(it can produce the word "leakage"). That is **not by itself evidence of understanding** — mapping a
+derived-column pattern or a too-good validation metric to the word "leakage" is available to pattern
+recognition and general heuristics (cf. H8's competing explanations). A fair terminology comparison
+needs B2 given a declared key→concept mapping (STAGE4 4.0.6, "B2+").
 
 **L26 — The second provider (GPT-5.6 Luna) has NO dated snapshot to pin; the alias IS the
 snapshot.** Anthropic model ids are dated (e.g. `claude-haiku-4-5-20251001`), so a trial's model
@@ -435,3 +471,14 @@ whose H8 rows are already inconclusive, so it cannot be separated from that stru
 mildly under-powers that corner further. The fix (the submit tool returning a tool error the agent
 can recover from, instead of raising) landed after this sweep and therefore **applies only from the
 next sweep** — these 6 cells stay lost in the frozen h8_xprovider record.
+
+**L30 — The case-clustered percentile bootstrap understates uncertainty at 1–2 events (found
+2026-09-23).** Correction #6 fixed the extreme case (0 events ⇒ `[0, 0]`), but the same false-precision
+class persists just above it: with one or two events the bootstrap has too few distinct resampled
+values to reach its true tail. Example — one FP case out of 19: bootstrap interval `[0, 0.158]`, exact
+Clopper–Pearson `[0.001, 0.260]`. At case level the Sweep-3 control FPRs are 1/20 (numbers, off; exact
+[0.001, 0.249] vs bootstrap [0, 0.075]) and 3/20 (rule; exact [0.032, 0.379] vs bootstrap [0, 0.225]).
+Every such row with 1–2 events is flagged **‡** in the generated tables ("bootstrap interval unreliable
+at this count") and should be read as indicative only; narrative precision statements cite the exact
+case-level intervals. *Remedy (STAGE4, before the paper):* move the control-FP table to exact
+Clopper–Pearson on case-level counts for every row — one method throughout — disclosed as its own change.

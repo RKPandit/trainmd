@@ -89,8 +89,10 @@ below, either complete and sign off its row or remove the associated claim from 
 
 ## Unresolved or incomplete references
 
-None remain in the current `docs/` citation set after the tooling pass. This does **not** make the
-ledger submission-ready: every **Author verified on** cell is still `PENDING`. If an unresolved
+None remain in the current `docs/` citation set after the tooling pass. The author verified every
+row on **2026-09-15** (the date in each **Author verified on** cell). *(Corrected 2026-09-23: this
+paragraph previously said every cell was still `PENDING`, which was stale after that sign-off.)*
+Mutable preprints still need the pre-submission re-check described above. If an unresolved
 source is added later, record it here immediately and quarantine its manuscript claim until the
 metadata and claim are checked.
 
