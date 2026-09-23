@@ -136,3 +136,14 @@ def test_reconciliation_reports_per_provider_ratios(tmp_path):
     r = reconcile(tmp_path, "s")
     assert r["status"] == "PASS"
     assert r["ratio_by_provider"] == {"anthropic": 0.95, "openai": 1.1}
+
+
+def test_partial_provider_entry_is_reported_while_total_pending(tmp_path):
+    """One provider billed, the other not yet: the total stays PENDING (never a partial sum
+    compared against the full estimate), but the entered provider's ratio is reported."""
+    from scripts.check_cost_reconciliation import reconcile
+    _release(tmp_path, [("anthropic", 1.0), ("openai", 0.5)],
+             by_provider={"anthropic": 1.009, "openai": None})
+    r = reconcile(tmp_path, "s")
+    assert r["status"] == "PENDING"
+    assert r["ratio_by_provider"] == {"anthropic": 1.009}

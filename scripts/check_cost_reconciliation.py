@@ -55,16 +55,18 @@ def reconcile(root: Path, name: str) -> dict:
     actual = man.get("actual_spend_usd")
     out = {"sweep": name, "estimate_usd": round(est, 4), "actual_usd": actual,
            "estimate_by_provider": {k: round(v, 4) for k, v in sorted(by_prov.items())}}
+    # Per-provider ratios are reported whenever any provider's bill is entered — including while
+    # the sweep total is still PENDING on another provider's figure (a partial entry).
+    per = {p: v for p, v in (man.get("actual_spend_by_provider") or {}).items() if v is not None}
+    if per:
+        out["ratio_by_provider"] = {p: (round(per[p] / by_prov[p], 4) if by_prov.get(p) else None)
+                                    for p in sorted(per)}
     if actual is None:
         out["status"] = "PENDING"
         return out
     ratio = actual / est if est else float("inf")
     out["ratio"] = round(ratio, 4)
     out["status"] = "PASS" if abs(ratio - 1) <= TOLERANCE else "FAIL"
-    per = man.get("actual_spend_by_provider") or {}
-    if per:
-        out["ratio_by_provider"] = {p: (round(per[p] / by_prov[p], 4) if by_prov.get(p) else None)
-                                    for p in sorted(per)}
     return out
 
 
@@ -82,8 +84,8 @@ def main() -> int:
             line += " · actual_spend_usd not yet entered"
         else:
             line += f" · actual ${r['actual_usd']:.4f} · ratio {r['ratio']:.4f} (tolerance ±{TOLERANCE:.0%})"
-            if r.get("ratio_by_provider"):
-                line += f" · by provider (reported) {r['ratio_by_provider']}"
+        if r.get("ratio_by_provider"):
+            line += f" · by provider (reported) {r['ratio_by_provider']}"
         print(line)
         failed |= r["status"] == "FAIL"
     if failed:
