@@ -240,7 +240,12 @@ record **immediately after each model call**, so a crash preserves already-paid 
 `harness/llm/anthropic_client.py` implements the protocol via the Anthropic SDK with bounded retry
 (≤2 retries on transient errors, none on auth/400), reading the key from the environment only.
 The ReAct loop treats a `max_tokens` cut-off as a continuation (capped), and takes an `anchor`
-flag (`off` omits the reference-band line — the H1/H6 sweep factor; `prompt_version` records it).
+arm — prompt v2: `off` (no reference line) | `stats` (bare mean, SD and n reference runs from the
+public card) | `rule` (`stats` + one decision sentence, ±2 SD); `prompt_version` records it as
+`react-2-<arm>` / `static-2-<arm>`. Arm identity in analysis is (arm, prompt major version)
+(`harness/anchors.py`): v1 arms (`off` / `numbers` / `rule`, legacy `on`) are historical, keep their
+bare labels, and are never pooled with v2's (`off.v2` / `stats.v2` / `rule.v2`). *(Updated
+2026-09-23; previously described a binary on/off flag, stale since Stage 2.)*
 
 **The static baseline (H6 control):** `agents/static_agent.py` assembles the whole run into one
 prompt and makes ONE call — the control condition for tool-mediated investigation. It shares the

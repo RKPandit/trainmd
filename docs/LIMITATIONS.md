@@ -143,7 +143,13 @@ that a norm alone does. *Sweep-2 remedy:* a three-arm design — none / numbers-
 agents, with `rule` a strict superset of `numbers` (one appended sentence). Legacy Sweep-1 "on" maps
 to "rule" in analysis (never rewritten). Sweep-2 will run all three arms; the prediction shape is in
 HYPOTHESES.md (numbers-only closing the gap ⇒ baseline restoration; only rule ⇒ instruction
-following). DECISIONS 2026-09-13.
+following). DECISIONS 2026-09-13. *Residual (found in review; remedied 2026-09-23 for new runs only):*
+the v1 `numbers` arm was **not** bare — "Healthy runs achieve … (healthy range roughly lo–hi)"
+carries evaluative words AND the pre-computed ±2σ interval, which is itself a decision threshold —
+so the numbers-vs-rule contrast in Sweep 2 and H8 is a wording contrast between two thresholded
+framings, not "a norm alone vs a norm plus a rule". Prompt v2 replaces it with a bare `stats` arm
+(mean, SD, n; no interval, no evaluative words) and `rule` = `stats` + one sentence. The frozen
+sweeps keep their v1 arms and labels; v1 and v2 arms are keyed apart and never pooled.
 
 **L11 — Sweep 1's training ran with unpinned threading (the reference itself was canonical).**
 *Corrected 2026-09-13:* an earlier version of this limitation said Sweep 1 used a "non-canonical

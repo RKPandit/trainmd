@@ -38,9 +38,11 @@ DEFAULT_FAULTY_SEEDS = [42, 43]
 DEFAULT_CONTROL_SEEDS = [0, 1, 2]
 DEFAULT_REPEATS = 3
 AGENTS = ["react", "static"]
-# Three-arm anchor (L10): off (no band) | numbers (bare fact) | rule (numbers +
-# the explicit decision rule). Legacy Sweep-1 "on" == "rule".
-ANCHORS = ["off", "numbers", "rule"]
+# Three-arm anchor, prompt v2 (STAGE4 4.0.6; harness/anchors.py): off (no reference line) |
+# stats (mean, SD, n — bare) | rule (stats + one decision sentence). The v1 arms
+# (numbers / legacy on) are historical and cannot be scheduled.
+ANCHORS = ["off", "stats", "rule"]
+PROMPT_MAJOR = 2    # recorded in the plan header so analysis keys arms by version
 CONTROL_OPERATOR = "control.healthy.v1"
 WORKLOAD = "tabular_adult"
 
@@ -302,7 +304,8 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
         "factor_levels": {"providers": [p["provider"] for p in providers],
                           "models": [p["model"] for p in providers],
                           "variants": operators if operators else "all faulty operators",
-                          "agents": AGENTS, "anchors": ANCHORS, "repeats": repeats,
+                          "agents": AGENTS, "anchors": ANCHORS, "prompt_major": PROMPT_MAJOR,
+                          "repeats": repeats,
                           "strengths": strengths, "faulty_seeds": faulty_seeds,
                           "control_seeds": control_seeds},
         "scope": scope,

@@ -32,7 +32,7 @@ from harness.tools.tool_context import ToolContext
 
 # Prompt version — bump whenever the static prompt template text changes (the
 # drift guard in test_prompt_versioning asserts the template hash matches).
-STATIC_PROMPT_VERSION = "static-1"
+STATIC_PROMPT_VERSION = "static-2"   # 2: anchor arms off|stats|rule (STAGE4 4.0.6)
 
 # Static intro — the ONLY textual difference from the ReAct prompt (investigation
 # mode). Everything after it (case info, healthy runs, submit format) is shared.
@@ -61,7 +61,7 @@ class StaticContextAgent:
         max_response_tokens: int = 8192,
         max_log_chars: int = 20000,
         provider: str = "anthropic",
-        anchor: str = "on",
+        anchor: str = "rule",
     ) -> None:
         self._client = client
         self._model_id = model_id
@@ -69,7 +69,7 @@ class StaticContextAgent:
         self._max_response_tokens = max_response_tokens
         self._max_log_chars = max_log_chars
         self._provider = provider
-        self._anchor = anchor  # "on" includes the reference band; "off" omits it
+        self._anchor = _normalize_anchor(anchor)  # off | stats | rule (validated up front)
         self._record: dict | None = None
 
     @property

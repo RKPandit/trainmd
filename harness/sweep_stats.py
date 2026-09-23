@@ -20,7 +20,7 @@ import random
 
 import yaml
 
-from harness.anchors import normalize_anchor
+from harness.anchors import arm_key, arm_version, normalize_anchor
 
 N_RESAMPLES = 10_000
 SEED = 20260913
@@ -111,7 +111,10 @@ def attach_meta(rec: dict, meta: dict) -> dict:
     rec["_band_hid"] = meta.get("band_position_hidden")
     rec["_strength"] = meta.get("strength")   # H8 paired-bootstrap key
     rec["_seed"] = meta.get("seed")
-    rec["_anchor"] = normalize_anchor((rec.get("conditions") or {}).get("anchor"))
+    # Arm identity includes the prompt MAJOR version (harness/anchors.py): v1 and v2 arms get
+    # distinct keys, so they can never be pooled by any downstream grouping.
+    rec["_anchor"] = normalize_anchor((rec.get("conditions") or {}).get("anchor"),
+                                      (rec.get("prompt") or {}).get("prompt_version"))
     rec["_agent"] = (rec.get("conditions") or {}).get("agent_type")
     rec["_provider"] = (rec.get("conditions") or {}).get("provider")
     return rec
@@ -304,6 +307,18 @@ def control_ops(recs) -> list[str]:
 def arms_present(recs) -> list[str]:
     return sorted({r["_anchor"] for r in recs if r.get("_anchor") is not None})
 
+def prompt_majors_present(recs) -> list[int]:
+    return sorted({arm_version(a) for a in arms_present(recs)})
+
+def _single_major(recs) -> int | None:
+    """The one prompt major version the records span, or None if they mix versions (a contrast
+    across arms of different versions is never computed implicitly)."""
+    majors = prompt_majors_present(recs)
+    return majors[0] if len(majors) == 1 else None
+
+def _mid_arm(major: int) -> str:
+    return "numbers" if major == 1 else "stats"
+
 def agents_present(recs) -> list[str]:
     return sorted({r["_agent"] for r in recs if r.get("_agent") is not None})
 
@@ -413,7 +428,9 @@ def _detect_rate(trials):
 def h1_anchor_gap(recs):
     """Anchor-off: negative-symptom detection − positive-symptom detection (symptom-derived)."""
     pos_ops, neg_ops = positive_ops(recs), negative_ops(recs)
-    off = [r for r in recs if r["_anchor"] == "off" and r["_op"] in (pos_ops | neg_ops)]
+    major = _single_major(recs)
+    off_arm = arm_key("off", major) if major else None   # mixed versions: no implicit pooling
+    off = [r for r in recs if r["_anchor"] == off_arm and r["_op"] in (pos_ops | neg_ops)]
 
     def gap(trials):
         pos = [t for t in trials if t["_op"] in pos_ops]
@@ -439,7 +456,9 @@ def h1_matched_sigma(recs):
     """Nearest-|σ_hidden| pairing of each positive-symptom case to a negative-symptom case; mean
     paired detection gap (neg − pos) anchor-off. Does NOT touch the operator-identity confound."""
     pos_ops, neg_ops = positive_ops(recs), negative_ops(recs)
-    off = [r for r in recs if r["_anchor"] == "off"]
+    major = _single_major(recs)
+    off_arm = arm_key("off", major) if major else None   # mixed versions: no implicit pooling
+    off = [r for r in recs if r["_anchor"] == off_arm]
 
     def case_rate(op_set):
         out = {}
@@ -471,12 +490,24 @@ def detection_by_operator_arm(recs):
     return out
 
 
-def ratio_gap_closed(recs, low_arm="off", mid_arm="numbers", high_arm="rule"):
+def ratio_gap_closed(recs, low_arm=None, mid_arm=None, high_arm=None):
     """Pre-registered but never-computed statistic (STAGE3_PLAN §0.3.4): per operator, the
     FRACTION of the low->high detection gap closed by the mid arm = (mid-low)/(high-low),
     with a case-clustered bootstrap of the RATIO. Degenerate gap (high≈low) -> flagged.
+
+    Default arms are the records' own prompt version's off→mid→rule (v1 off/numbers/rule, v2
+    off.v2/stats.v2/rule.v2); records mixing prompt versions are not available (never pooled).
     """
     arms = set(arms_present(recs))
+    if low_arm is None or mid_arm is None or high_arm is None:
+        major = _single_major(recs)
+        if major is None:
+            return {"available": False,
+                    "reason": f"records mix prompt versions {prompt_majors_present(recs)}; "
+                              "arms of different versions are never pooled — analyze separately"}
+        low_arm = low_arm or arm_key("off", major)
+        mid_arm = mid_arm or arm_key(_mid_arm(major), major)
+        high_arm = high_arm or arm_key("rule", major)
     if not {low_arm, mid_arm, high_arm} <= arms:
         return {"available": False, "reason": f"needs arms {low_arm}/{mid_arm}/{high_arm}; present {sorted(arms)}"}
     out = {"available": True, "low_arm": low_arm, "mid_arm": mid_arm, "high_arm": high_arm,
@@ -594,19 +625,25 @@ def control_fpr(recs):
     else:
         out["stratified"] = False
 
-    # numbers − rule difference (the specificity contrast), if both arms present
-    if "numbers" in per_arm and "rule" in per_arm:
-        num = [r for r in ctrl_all if r["_anchor"] == "numbers"]
-        rul = [r for r in ctrl_all if r["_anchor"] == "rule"]
+    # mid − rule difference (the specificity contrast), WITHIN each prompt version present
+    # (v1 numbers − rule; v2 stats.v2 − rule.v2) — never across versions.
+    diffs = []
+    for major in prompt_majors_present(ctrl_all):
+        mid, high = arm_key(_mid_arm(major), major), arm_key("rule", major)
+        if mid not in per_arm or high not in per_arm:
+            continue
+        pair = [r for r in ctrl_all if r["_anchor"] in (mid, high)]
 
-        def diff(trials):
-            n = [t for t in trials if t["_anchor"] == "numbers"]
-            r = [t for t in trials if t["_anchor"] == "rule"]
+        def diff(trials, mid=mid, high=high):
+            n = [t for t in trials if t["_anchor"] == mid]
+            r = [t for t in trials if t["_anchor"] == high]
             if not n or not r:
                 return None
             return (sum(1 for t in n if _detected(t) is True) / len(n)
                     - sum(1 for t in r if _detected(t) is True) / len(r))
-        out["numbers_minus_rule"] = bootstrap_ci(num + rul, diff)
+        diffs.append({"mid_arm": mid, "high_arm": high, **bootstrap_ci(pair, diff)})
+    if diffs:
+        out["mid_minus_rule"] = diffs
     return out
 
 

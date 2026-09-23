@@ -72,6 +72,9 @@ def _tools(case_name):
     case_dir = CASES / case_name
     if not case_dir.exists():
         pytest.skip(f"{case_name} not built")
+    card = yaml.safe_load((case_dir / "card.public.yaml").read_text())
+    if "n" not in (card.get("reference_visible_metric") or {}):
+        pytest.skip(f"{case_name} built before reference_visible_metric.n (rebuild to run)")
     tools = ToolContext(case_dir)
     register_all_tools(tools)
     return case_dir, tools
@@ -206,7 +209,7 @@ class TestCaptureFields:
 
     def test_prompt_block_recorded(self):
         _, _, rec, _ = _run("case_0001", CapturingClient([_submit_response()]))
-        assert rec["prompt"]["prompt_version"] == "static-1-rule"  # default anchor "on"→rule
+        assert rec["prompt"]["prompt_version"] == "static-2-rule"  # default anchor rule (prompt v2)
         assert rec["prompt"]["system_prompt_text"]
         assert len(rec["prompt"]["prompt_hash"]) == 64
 

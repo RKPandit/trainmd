@@ -617,7 +617,7 @@ class TestTerminationReason:
 
     def test_prompt_block_and_transcript_fields(self, built_case):
         record = _run_llm_trial(built_case, FakeLLMClient([_submit_response()]))
-        assert record["prompt"]["prompt_version"] == "react-1-rule"  # default anchor "on"→rule
+        assert record["prompt"]["prompt_version"] == "react-2-rule"  # default anchor rule (prompt v2)
         assert len(record["prompt"]["prompt_hash"]) == 64
         entry = record["llm_transcript"][0]
         assert "api_model" in entry and isinstance(entry["latency_sec"], float)

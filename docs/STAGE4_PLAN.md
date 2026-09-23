@@ -79,6 +79,10 @@ expansion as before. Roughly 8–10 weeks to a submission-ready study. Target: N
 ### 4.0.6 Cheap instrument fixes that Part 1's plan file needs anyway
 - **Bare-stats anchor arm** (v3 Part 4, never built): mean/SD with no evaluative words. The
   current "numbers" arm says "healthy runs achieve…" and is not the treatment we claim.
+  **Built 2026-09-23** as prompt v2 (`react-2` / `static-2`; DECISIONS): `stats` = mean, SD, n
+  reference runs — no interval (a mean±2SD interval IS the decision threshold); `rule` = `stats` +
+  "Values more than 2 SD from this mean, above OR below, are anomalous." Arm identity includes the
+  prompt version, so v1 and v2 arms are never pooled.
 - **B2+ baseline:** B2 with a DECLARED key→concept mapping (one line per known knob),
   validated on held-out instances — a stronger, honest terminology baseline.
 - **Benign-configuration controls:** healthy runs with a legitimate non-default knob (e.g. a
@@ -96,6 +100,13 @@ Then and only then, paid runs.
 As v1: all six operators, both providers, now with the bare-stats arm, B2+, and benign
 controls. Pre-register H9 (model dependence generalizes beyond leakage) and H10 (band benefit
 tracks symptom type per model). Gate 1 decides whether Part 2 runs at full scope.
+**Declared in the Part 1 pre-registration — anchor arms are NEW treatments:** Part 1 runs prompt v2
+(`off` / `stats` / `rule`). Only the `off` arm is comparable across H8 and Stage 4 (no reference line
+in either version; the fixed template text is byte-identical). `stats` and `rule` are new treatments:
+v2 `rule` keeps v1's ±2σ decision boundary but not its wording, and v2 `stats` has no v1 counterpart
+(v1 `numbers` carried evaluative words and the interval). No v2 stats/rule result is compared with,
+or pooled with, an H8 numbers/rule result; analysis keys arms by (arm, prompt version) so this is
+enforced structurally (`harness/anchors.py`; `tests/test_analysis_generic.py`).
 **Declared in the Part 1 pre-registration — prompt caching (cost optimization, no expected effect
 on outputs):** Anthropic ReAct cells run with prompt caching (one top-level `cache_control`, 5-minute
 TTL); static cells and OpenAI cells are unchanged (OpenAI caches automatically). It is transport-only:

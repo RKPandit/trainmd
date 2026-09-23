@@ -283,9 +283,10 @@ def main() -> int:
         help="LLM agent mode: react (tool loop) or static (one-shot full context)",
     )
     parser.add_argument(
-        "--anchor", type=str, default="rule", choices=["off", "numbers", "rule", "on"],
-        help="Reference-band anchor arm: off (no band) | numbers (bare fact) | "
-             "rule (numbers + decision rule; default). Legacy 'on' == 'rule'.",
+        "--anchor", type=str, default="rule", choices=["off", "stats", "rule"],
+        help="Reference anchor arm (prompt v2): off (no reference line) | stats (mean, SD, n — "
+             "bare) | rule (stats + one decision sentence; default). The v1 arms (numbers / "
+             "legacy on) are historical and cannot be run.",
     )
     parser.add_argument(
         "--project-root", type=Path, default=None,
