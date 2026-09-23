@@ -46,6 +46,9 @@ _CASE_META = {  # hidden-card field -> release field
     "operator_id": "operator_id", "layer": "tier", "strength": "strength", "seed": "seed",
     "case_build_id": "build_id", "symptom_direction": "symptom_direction",
     "visible_sigma_distance": "visible_sigma_distance", "hidden_sigma_distance": "hidden_sigma_distance",
+    # §5.1 VISIBLE band label only — derivable from public data (the agent-visible metric vs the
+    # public band). The HIDDEN band label is never exported (it encodes the hidden test metric).
+    "band_position_visible": "band_position_visible",
 }
 
 _SECRET_RE = re.compile(r"sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|ANTHROPIC_API_KEY\s*[:=]\s*\S+", re.I)
@@ -123,10 +126,96 @@ def _flatten_strings(x):
             yield from _flatten_strings(i)
 
 
+# ---- provenance-scoped exemptions from the hidden-value wall ------------------------------------
+# A formatted hidden value can collide with an unrelated PUBLIC number. Accuracies are quantized on
+# a shared grid (n_val == n_hidden == 6783 rows, so both metrics are multiples of 1/6783 — only ~136
+# distinct 6-dp values in 0.84–0.86), and a trial's cost can equal a 6-dp hidden std. A match is
+# exempt ONLY when it sits in a field whose value derives entirely from PUBLIC inputs, identified
+# by PROVENANCE (where the value came from), never by the value itself. Every other occurrence —
+# including model free text, unless it echoes a value already public in the SAME record — still
+# blocks. Fail-closed: an unrecognised field is never exempt.
+_VISIBLE_SERIES = frozenset({"metric_visible_val_acc", "train_loss", "val_loss", "lr"})
+_USAGE_PUBLIC = frozenset({"input_tokens", "output_tokens", "cached_tokens", "total_tokens",
+                           "estimated_cost_usd"})      # tokens, and cost = tokens × published price
+_INDEX_PUBLIC_COLUMNS = frozenset({"cost_usd"})
+_PROGRESS_PUBLIC = frozenset({"cost_usd"})
+
+
+def _leaves(x, path=()):
+    if isinstance(x, dict):
+        for k, v in x.items():
+            yield from _leaves(v, path + (k,))
+    elif isinstance(x, list):
+        for i, v in enumerate(x):
+            yield from _leaves(v, path + (i,))
+    else:
+        yield path, x
+
+
+def _render(v) -> str:
+    return v if isinstance(v, str) else json.dumps(v)
+
+
+def _trial_path_is_public(rec: dict, path: tuple) -> bool:
+    """True iff `path` (into a sanitized trial record) is a public-derived value:
+    a usage token count / cost, or a value `query_metrics` returned for an agent-VISIBLE series."""
+    if len(path) == 2 and path[0] == "usage" and path[1] in _USAGE_PUBLIC:
+        return True
+    if (len(path) == 6 and path[0] == "tool_transcript" and isinstance(path[1], int)
+            and path[2] == "result" and path[3] == "values" and isinstance(path[4], int)
+            and path[5] == "value"):
+        entry = rec["tool_transcript"][path[1]]
+        return (entry.get("tool_name") == "query_metrics"
+                and (entry.get("result") or {}).get("series") in _VISIBLE_SERIES)
+    return False
+
+
+def _public_occurrences(rel: Path, text: str, needles) -> dict[str, int]:
+    """How many occurrences of each needle in this released file sit in public-derived fields."""
+    counts = {n: 0 for n in needles}
+
+    def add(value):
+        rendered = _render(value)
+        for n in needles:
+            counts[n] += rendered.count(n)
+
+    if rel.suffix == ".json" and rel.parent.name in ("trials", "probes"):
+        rec = json.loads(text)
+        public_rendered, free_text = [], []
+        for path, v in _leaves(rec):
+            if _trial_path_is_public(rec, path):
+                add(v)
+                public_rendered.append(_render(v))
+            elif isinstance(v, str):
+                free_text.append(v)
+        # IN-RECORD ECHO (an information argument, not a probability one): when the identical value
+        # already sits in a public-derived field of THIS record, repeating it in free text discloses
+        # nothing the release does not already disclose — whether it coincides with a hidden value
+        # is then irrelevant. Strictly per-record (never global), string leaves only; numeric fields
+        # and keys outside the allowlist still block.
+        for n in needles:
+            if any(n in pr for pr in public_rendered):
+                counts[n] += sum(ft.count(n) for ft in free_text)
+    elif rel.name == "index.csv":
+        for row in csv.DictReader(text.splitlines()):
+            for col in _INDEX_PUBLIC_COLUMNS:
+                add(row.get(col) or "")
+    elif rel.name.endswith("progress.jsonl"):
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            for path, v in _leaves(json.loads(line)):
+                if len(path) == 1 and path[0] in _PROGRESS_PUBLIC:
+                    add(v)
+    return counts
+
+
 def _scan_release(root: Path, out_dir: Path, case_ids: set[str]) -> list[str]:
     """PER-CASE scan (like W4): a case's files vs its OWN hidden values, so a visible metric value in
     one case cannot false-positive on another case's hidden value. Sweep-level files (plan/manifest/
-    index) are scanned against the union — they carry no per-case visible metric series."""
+    index/progress) are scanned against the union. An occurrence is exempt only if it lies in a
+    public-derived field (see _public_occurrences); if ANY occurrence of a needle in a file lies
+    elsewhere — a free-text field, a key, an unrecognised field — the export fails."""
     per_case = {cid: _case_needles(root, cid) for cid in case_ids}
     union = {n: lab for d in per_case.values() for n, lab in d.items()}
     hits = []
@@ -140,11 +229,15 @@ def _scan_release(root: Path, out_dir: Path, case_ids: set[str]) -> list[str]:
         rel = p.relative_to(out_dir)
         cid = _case_of(rel)
         needles = per_case.get(cid, {}) if cid else union
-        for needle, label in needles.items():
-            if needle and needle in text:
-                hits.append(f"{rel}: leaks {label} ({needle!r})")
         if _SECRET_RE.search(text):
             hits.append(f"{rel}: matches a secret pattern")
+        present = {n: lab for n, lab in needles.items() if n and n in text}
+        if not present:
+            continue
+        public = _public_occurrences(rel, text, present)
+        for needle, label in present.items():
+            if text.count(needle) > public[needle]:
+                hits.append(f"{rel}: leaks {label} ({needle!r}) outside any public-derived field")
     return hits
 
 

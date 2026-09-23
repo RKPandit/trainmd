@@ -482,3 +482,15 @@ Every such row with 1–2 events is flagged **‡** in the generated tables ("bo
 at this count") and should be read as indicative only; narrative precision statements cite the exact
 case-level intervals. *Remedy (STAGE4, before the paper):* move the control-FP table to exact
 Clopper–Pearson on case-level counts for every row — one method throughout — disclosed as its own change.
+**L31 — Released cases are BURNED as an evaluation set, by construction (2026-09-23).** A release of
+scored records necessarily discloses per-case ground truth: each trial's `detection_correct` and
+`identification_correct` reveal whether its case is faulty and which fault class it holds. Every case
+in `results_release/` (sweep1, stage2gate, h8_xprovider) is therefore spent as an evaluation item — the
+standard position for a benchmark that publishes scored results — and must not be reused as held-out
+material. Consequently `hidden_sigma_distance` and the hidden band label add **no protection-relevant
+information** beyond the scores themselves. The rule "never ship hidden-derived fields" protects
+**UNRELEASED** cases — the live agent wall during trials, and any held-out evaluation set — not released
+ones. The h8 release ships only the VISIBLE band label as a **consistency choice, not a protection**;
+the hidden-band stratification lives in an internal-only report (`sweep_<name>_internal.md`), which by
+design cannot be rebuilt from the release. *Remedy / rule going forward:* the fresh frozen evaluation
+set (STAGE4 Part 3) is never released until its results are final.

@@ -209,7 +209,11 @@ by this page, not edited):
   (the human narrative, which may not invent a number — checked by `check_analysis_numbers.py`).
 - `results_release/<sweep>/` — sanitized, committed records release (allowlist + scan + trusted
   exclusion; STAGE3_PLAN §0.3). `rebuild_tables.py` reproduces each generated report from it alone
-  (no `cases/`, `results/`, or registry) — the external-verification path.
+  (no `cases/`, `results/`, or registry) — the external-verification path. Released and CI-verified:
+  `sweep1`, `stage2gate`, `h8_xprovider` (h8 added 2026-09-23, STAGE4 4.0.4; export wall scoped by
+  provenance). Released cases are burned as an evaluation set (LIMITATIONS L31).
+- `docs/audits/sweep_<name>_internal.md` — INTERNAL-ONLY companion (hidden-band control-FPR
+  stratification), generated from local cases; by design NOT reproducible from the release.
 
 **NEEDS UPDATE** (stale content, purpose intact): `TrainMD_Codebase_Walkthrough.md` (last synced
 `0965f3a`; v4 sync scheduled).

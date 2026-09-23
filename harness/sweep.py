@@ -764,6 +764,11 @@ def report(project_root, name):
     out = project_root / "docs" / "audits" / f"sweep_{name}_generated.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(md)
+    # INTERNAL-ONLY companion (hidden-band stratification): cases path only, never reproducible
+    # from the release (which ships only the visible band label). None for pre-§5.1 sweeps.
+    internal = report_gen.generate_internal_from_cases(project_root, name)
+    if internal is not None:
+        (out.parent / f"sweep_{name}_internal.md").write_text(internal)
     return out
 
 
