@@ -104,6 +104,14 @@ Distributed, data-pipeline, and infrastructure faults are out of scope until Pha
 counts times list price, not the provider's console-billed total. The manifest's `actual_spend_usd`
 is filled from the console at sweep end; until then cost comparisons are estimates (accurate for
 *ratios*, e.g. the 5.5× ReAct:static multiple, which are unaffected by an overall price factor).
+*(Added 2026-09-23.)* **Luna cache writes were never priced through Sweep 3.** GPT-5.6 bills its
+automatic-cache writes at 1.25× input ($0.25/MTok, verified 2026-09-23), but the harness neither
+captured `usage.input_tokens_details.cache_write_tokens` nor priced writes, so H8's Luna cost
+estimates are a slight **undercount** — bounded above by ≈ $0.18 (only the 3.55M uncached Luna input
+tokens could have been written, at +$0.05/MTok), and not exactly recoverable because the field was
+not recorded. The billing statement settles it. From Stage 4 on, reads and writes are captured and
+priced on both providers, and every trial also records its **uncached-equivalent** cost so sweeps
+that use prompt caching remain comparable with Sweeps 1–3.
 
 **L7 — Confidence is too sparse to act on.** Only 52 of 324 trials supplied a confidence value, almost
 all in the top bin, and confidence does not separate the control false positives from true detections

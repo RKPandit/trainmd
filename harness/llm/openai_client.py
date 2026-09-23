@@ -209,6 +209,10 @@ def parse_responses(response) -> LLMResponse:
     usage = response.usage
     in_details = getattr(usage, "input_tokens_details", None)
     cached = (getattr(in_details, "cached_tokens", 0) or 0) if in_details is not None else 0
+    # GPT-5.6+ bills automatic-cache WRITES at 1.25x input; the Responses API reports them in
+    # usage.input_tokens_details.cache_write_tokens (verified 2026-09-23, OpenAI prompt-caching
+    # guide). Not captured before this change, so Luna costs through Sweep 3 omit the premium.
+    cache_write = (getattr(in_details, "cache_write_tokens", 0) or 0) if in_details is not None else 0
     # Reasoning tokens are billed as output and ALREADY included in output_tokens;
     # the Responses API also breaks them out. Surface the breakout in `raw` (not a
     # new Usage field) so cost accounting stays correct while reasoning volume is
@@ -221,9 +225,10 @@ def parse_responses(response) -> LLMResponse:
         tool_calls=tool_calls,
         stop_reason=stop_reason,
         usage=Usage(
-            input_tokens=usage.input_tokens,
+            input_tokens=usage.input_tokens,   # already the total (includes cached/written)
             output_tokens=usage.output_tokens,
             cached_tokens=cached,
+            cache_write_tokens=cache_write,
         ),
         raw={"model": response.model, "id": response.id,
              "reasoning_tokens": reasoning},

@@ -478,7 +478,8 @@ def _provider_smoke(providers) -> list[str]:
         try:
             if prov == "anthropic":
                 inspect.signature(client._client.messages.create).bind_partial(
-                    model=model, max_tokens=16, messages=[], tools=[], temperature=1.0)
+                    model=model, max_tokens=16, messages=[], tools=[], temperature=1.0,
+                    cache_control={"type": "ephemeral"})   # ReAct cells send it
             else:  # openai
                 inspect.signature(client._client.responses.create).bind_partial(
                     model=model, input=[], tools=[],
@@ -488,15 +489,17 @@ def _provider_smoke(providers) -> list[str]:
     return fails
 
 
-def _make_client(provider: str, model: str):
+def _make_client(provider: str, model: str, *, prompt_caching: bool = False):
     """Construct the LLM client for a provider. The SINGLE dispatch point — the
     factory and the precondition smoke both go through it, so a provider can never
     be silently routed to the wrong client (the bug that produced an all-Haiku
     'cross-provider' run). Study params are pinned here: Anthropic temperature=1.0;
-    OpenAI reasoning_effort=medium (Haiku has no effort knob), no temperature."""
+    OpenAI reasoning_effort=medium (Haiku has no effort knob), no temperature.
+    ``prompt_caching`` (Anthropic only; transport-only, no effect on prompt text) is set by the
+    agent factory for multi-turn agents. OpenAI caches automatically (no switch)."""
     if provider == "anthropic":
         from harness.llm.anthropic_client import AnthropicClient
-        return AnthropicClient(model=model, temperature=1.0)
+        return AnthropicClient(model=model, temperature=1.0, prompt_caching=prompt_caching)
     if provider == "openai":
         from harness.llm.openai_client import OpenAIClient
         return OpenAIClient(model=model, reasoning_effort="medium")
@@ -511,10 +514,49 @@ def _default_agent_factory(cell, model):
     # model, so the OpenAI arm never ran and its cells were mislabeled Haiku).
     provider = cell.get("provider", "anthropic")
     model = cell.get("model") or model
-    client = _make_client(provider, model)
+    # Prompt caching only for the multi-turn ReAct agent (H8: 84% of Haiku ReAct input was
+    # resent history); a single-call static agent would pay the 1.25x write with no reads.
+    client = _make_client(provider, model, prompt_caching=(cell["agent"] != "static"))
     if cell["agent"] == "static":
         return StaticContextAgent(client, model_id=model, anchor=cell["anchor"])
     return LLMAgent(client, model_id=model, anchor=cell["anchor"])
+
+
+# ---- live prompt-caching check (Stage 4 Part 1) ----------------------------------------------
+# The request-shape test proves cache_control is SENT; only a live call proves the cache HITS.
+# On H8, 216/221 (97.7%) Haiku ReAct trials would get >= 1 cache read with caching working (the
+# misses are one-call trials), so N multi-call trials with ZERO reads means caching is not hitting
+# (P(false alarm) at N=5 is ~6e-9). Such a run is still valid data but pays full price — stop it.
+CACHE_CHECK_TRIALS = 5
+
+
+def _expects_cache_hits(provider: str, agent: str) -> bool:
+    return provider == "anthropic" and agent != "static"   # mirrors _default_agent_factory
+
+
+def cache_check(records) -> dict:
+    """Did prompt caching actually hit? Over Anthropic ReAct records with >= 2 LLM calls (a cache
+    read is only possible from the second call on): ``passed`` iff at least one has
+    cached_tokens > 0; ``failed`` iff CACHE_CHECK_TRIALS or more exist and none read the cache;
+    ``pending`` if fewer than that have run; ``not_applicable`` if none are expected to cache."""
+    eligible = [r for r in records
+                if _expects_cache_hits(((r.get("conditions") or {}).get("provider")
+                                        or (r.get("model") or {}).get("provider") or "anthropic"),
+                                       (r.get("conditions") or {}).get("agent_type") or "react")
+                and ((r.get("usage") or {}).get("llm_calls") or 0) >= 2]
+    hits = [r for r in eligible if ((r.get("usage") or {}).get("cached_tokens") or 0) > 0]
+    if hits:
+        status = "passed"
+    elif not eligible:
+        status = "not_applicable"
+    elif len(eligible) >= CACHE_CHECK_TRIALS:
+        status = "failed"
+    else:
+        status = "pending"
+    return {"status": status, "eligible_trials": len(eligible), "trials_with_cache_reads": len(hits),
+            "first_hit_run_id": hits[0].get("run_id") if hits else None,
+            "cache_read_tokens": sum((r.get("usage") or {}).get("cached_tokens") or 0 for r in eligible),
+            "cache_write_tokens": sum((r.get("usage") or {}).get("cache_write_tokens") or 0 for r in eligible)}
 
 
 def _cost_from_record(rec) -> float:
@@ -563,6 +605,8 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
     stopped = None
     walls = []
     tok_in = tok_out = 0
+    cache_recs = []           # this invocation's records, for the live cache check
+    cache_status = None
 
     for cell in cells:
         # RESUME only skips a cell that COMPLETED successfully. A "failed" progress
@@ -616,11 +660,19 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
         _append_progress(prog_path, {"cell_id": cell["cell_id"], "run_id": rec.get("run_id"),
                                      "agent": cell["agent"], "cost_usd": cost, "status": "ok",
                                      "ts": datetime.now(timezone.utc).isoformat()})
+        cache_recs.append({**rec, "conditions": {**(rec.get("conditions") or {}), **conditions}})
+        cache_status = cache_check(cache_recs)
+        if cache_status["status"] == "failed":
+            stopped = (f"cache_check_failed ({cache_status['eligible_trials']} Anthropic ReAct trials, "
+                       f"0 cache reads) — prompt caching is not hitting; stopping before more full-price "
+                       f"spend. Check cache_control, the 4,096-token Haiku minimum, and prompt stability.")
+            break
         eta = (len(cells) - len(done)) * (sum(walls) / len(walls)) if walls else 0
         print(f"[sweep] {len(done)}/{len(cells)} | ${cumulative:.4f}/${max_cost_usd} | "
               f"fail={sum(1 for e in done.values() if e.get('status')=='failed')} | ETA {eta/60:.1f}m",
               file=sys.stderr)
 
+    manifest["agent_phase"]["cache_check"] = cache_status or cache_check([])
     manifest["agent_phase"].update({
         "trials": ran, "input_tokens": tok_in, "output_tokens": tok_out,
         "estimated_cost_usd": round(cumulative, 4),
@@ -808,6 +860,11 @@ def main() -> int:
     rp.add_argument("--max-consecutive-failures", type=int, default=3)
     rp.add_argument("--project-root", type=Path, default=None)
 
+    cc = sub.add_parser("check-cache", help="assert prompt caching hit on the sweep's records so far "
+                                           "(run after the pre-run slice, before the full run)")
+    cc.add_argument("--name", required=True)
+    cc.add_argument("--project-root", type=Path, default=None)
+
     rep = sub.add_parser("report")
     rep.add_argument("--name", required=True)
     rep.add_argument("--project-root", type=Path, default=None)
@@ -858,6 +915,16 @@ def main() -> int:
         r = run_verify(root, args.name)
         print(r)
         return 0
+
+    if args.cmd == "check-cache":
+        recs = []
+        for f in sorted((root / "results").glob("*/trials/*.yaml")):
+            r = yaml.safe_load(f.read_text())
+            if (r.get("conditions") or {}).get("sweep_name") == args.name and not r.get("trusted"):
+                recs.append(r)
+        res = cache_check(recs)
+        print(f"check-cache {args.name}: {res}")
+        return {"passed": 0, "not_applicable": 0, "pending": 2, "failed": 1}[res["status"]]
 
     if args.cmd == "report":
         out = report(root, args.name)

@@ -96,23 +96,43 @@ def _r7(rec):  # completed LLM trial with zero input tokens
     return (rec.get("usage") or {}).get("input_tokens", 0) == 0
 
 
-def _r8(rec):  # estimated cost inconsistent with tokens x price (when priced)
+def _r8_recompute(rec):
+    """(recorded_cost, recomputed_cost, table_source) for a priced trial, or None when there is
+    nothing to check (no recorded cost, or a model the table never priced). Recomputes the ESTIMATE
+    from the trial's recorded token counts and the price table it was priced with (see
+    harness.pricing.price_table_for_record). recomputed is None when that table is unavailable."""
     usage = rec.get("usage") or {}
     cost = usage.get("estimated_cost_usd")
-    if cost is None or usage.get("cost_is_estimate") is not False:
-        return False
-    try:
-        from harness.pricing import estimate_cost
-        est = estimate_cost(
-            (rec.get("model") or {}).get("model_id"),
-            usage.get("input_tokens", 0), usage.get("output_tokens", 0),
-            usage.get("cached_tokens", 0),
-        )
-    except Exception:
-        return False
-    if est is None or est.cost_usd == 0:
-        return False
-    return abs(cost - est.cost_usd) / est.cost_usd > 0.01
+    model = (rec.get("model") or {}).get("model_id")
+    if cost is None or model is None:
+        return None
+    from harness.pricing import estimate_cost, price_table_for_record
+    table, source = price_table_for_record(rec)
+    if table is None:
+        return cost, None, source
+    if model not in table:
+        return None
+    est = estimate_cost(model, usage.get("input_tokens", 0), usage.get("output_tokens", 0),
+                        usage.get("cached_tokens", 0), usage.get("cache_write_tokens", 0),
+                        table=table)
+    return cost, (est.cost_usd if est is not None else None), source
+
+
+def _r8(rec):  # recorded estimate != tokens x the price table it was priced with (> 1%)
+    """Runs on ESTIMATES (every record is one). Until 2026-09-23 this rule only examined records
+    with cost_is_estimate=False — of which there were none — so it passed vacuously."""
+    r = _r8_recompute(rec)
+    if r is None or r[1] is None:
+        return False            # nothing to check / unverifiable (reported by R8b, never silent)
+    cost, recomputed, _ = r
+    if recomputed == 0:
+        return cost != 0
+    return abs(cost - recomputed) / recomputed > 0.01
+
+
+def _r8b(rec):  # a priced trial whose price table could not be reconstructed (INFO, never a pass)
+    r = _r8_recompute(rec)
+    return r is not None and r[1] is None
 
 
 def _r9(rec):  # superseded trial (INFO)
@@ -179,7 +199,8 @@ RULES = [
     Rule("R5_not_detected_with_evidence", "FAIL", _r5, "detected=false but evidence refs were submitted"),
     Rule("R6_identified_not_detected", "INFO", _r6, "named a fault class but said detected=false"),
     Rule("R7_completed_zero_input_tokens", "FAIL", _r7, "completed LLM trial with input_tokens=0"),
-    Rule("R8_cost_price_mismatch", "FAIL", _r8, "estimated_cost != tokens x price within 1%"),
+    Rule("R8_cost_price_mismatch", "FAIL", _r8, "recorded cost estimate != recorded tokens x the price table it was priced with (>1%)"),
+    Rule("R8b_cost_unverifiable", "INFO", _r8b, "priced trial whose price table could not be reconstructed (R8 could not check it)"),
     Rule("R9_superseded_in_results", "INFO", _r9, "trial scored against a superseded build"),
     Rule("R10_recall_full_id_wrong_easy", "INFO", _r10, "full recall but wrong class on an easy operator"),
     Rule("R11_confidence_out_of_range", "INFO", _r11, "submission confidence stored raw and outside [0, 1]"),

@@ -467,3 +467,54 @@ def test_verify_totals_replace_not_accumulate():
     sweep._finalize_verify_totals(manifest, {"c1": {"cpu_sec": 3600.0, "wall_sec": 50.0, "peak_mb": 100.0}})
     assert manifest["verify_phase"]["reruns"] == 1
     assert manifest["verify_phase"]["cpu_core_hours"] == 1.0
+
+
+# ---------------------------------------------------------------------------
+# Live prompt-caching check (Stage 4 Part 1): stop if caching is not hitting
+# ---------------------------------------------------------------------------
+
+def _react_trial(cached):
+    def _fn(agent, case_dir, project_root, conditions=None):
+        return {"run_id": f"rid_{conditions['repeat_index']}", "case_id": "case_0001",
+                "conditions": dict(conditions),
+                "usage": {"estimated_cost_usd": 0.01, "input_tokens": 9000, "output_tokens": 50,
+                          "llm_calls": 4, "cached_tokens": cached, "cache_write_tokens": 0}}
+    return _fn
+
+
+def test_agents_phase_stops_when_cache_never_hits(tmp_path):
+    _mk_root(tmp_path)
+    _plan_with_cells(tmp_path, "s", 12)
+    r = sweep.run_agents(tmp_path, "s", max_cost_usd=1000, require_preconditions=False,
+                         agent_factory=lambda c: object(), trial_fn=_react_trial(0),
+                         cost_fn=lambda rec: 0.01, est_fn=lambda c: 0.01)
+    assert r["ran"] == sweep.CACHE_CHECK_TRIALS
+    assert r["stopped"].startswith("cache_check_failed")
+    m = yaml.safe_load((tmp_path / "sweeps" / "s_manifest.yaml").read_text())
+    assert m["agent_phase"]["cache_check"]["status"] == "failed"
+
+
+def test_agents_phase_continues_when_cache_hits(tmp_path):
+    _mk_root(tmp_path)
+    _plan_with_cells(tmp_path, "s", 8)
+    r = sweep.run_agents(tmp_path, "s", max_cost_usd=1000, require_preconditions=False,
+                         agent_factory=lambda c: object(), trial_fn=_react_trial(4000),
+                         cost_fn=lambda rec: 0.01, est_fn=lambda c: 0.01)
+    assert r["ran"] == 8 and not r["stopped"]
+    m = yaml.safe_load((tmp_path / "sweeps" / "s_manifest.yaml").read_text())
+    assert m["agent_phase"]["cache_check"]["status"] == "passed"
+
+
+def _rec(provider, agent, calls, cached):
+    return {"conditions": {"provider": provider, "agent_type": agent}, "run_id": "r",
+            "usage": {"llm_calls": calls, "cached_tokens": cached}}
+
+
+def test_cache_check_statuses():
+    cc = sweep.cache_check
+    assert cc([])["status"] == "not_applicable"
+    assert cc([_rec("openai", "react", 5, 0), _rec("anthropic", "static", 1, 0)])["status"] == "not_applicable"
+    assert cc([_rec("anthropic", "react", 1, 0)] * 9)["status"] == "not_applicable"   # 1-call: can't read
+    assert cc([_rec("anthropic", "react", 3, 0)] * (sweep.CACHE_CHECK_TRIALS - 1))["status"] == "pending"
+    assert cc([_rec("anthropic", "react", 3, 0)] * sweep.CACHE_CHECK_TRIALS)["status"] == "failed"
+    assert cc([_rec("anthropic", "react", 3, 0)] * 9 + [_rec("anthropic", "react", 3, 1)])["status"] == "passed"

@@ -106,7 +106,9 @@ def test_r8_cost_price_mismatch(tmp_path):
     rec["usage"].update({
         "input_tokens": 1000, "output_tokens": 1000, "cached_tokens": 0,
         "estimated_cost_usd": est.cost_usd * 5,  # 400% off
-        "cost_is_estimate": False,
+        # An ESTIMATE, as every record is: R8 used to skip estimates and so checked nothing.
+        "cost_is_estimate": True,
+        "price_table_version": __import__("harness.pricing", fromlist=["x"]).PRICE_TABLE_VERSION,
     })
     rec["scores"]["recovery"] = {"verdict": "not_recovered"}
     by_name, _ = _write_and_audit(tmp_path, rec)

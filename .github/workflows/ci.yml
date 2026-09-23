@@ -318,6 +318,8 @@ jobs:
         run: python scripts/check_analysis_numbers.py
       - name: Report scorer version matches the records (provenance)
         run: python scripts/check_scorer_versions.py
+      - name: Cost reconciliation (summed per-trial estimates vs billed actual_spend_usd, ±5%)
+        run: python scripts/check_cost_reconciliation.py
       - name: Rebuild each report FROM THE RELEASE and byte-match the committed report
         run: |
           python scripts/rebuild_tables.py --sweep sweep1

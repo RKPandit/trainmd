@@ -226,7 +226,8 @@ def _print_cost_summary(record: dict) -> None:
 
     # Compute cost estimate
     from harness.pricing import estimate_cost
-    est = estimate_cost(model_id, inp, out, usage.get("cached_tokens", 0))
+    est = estimate_cost(model_id, inp, out, usage.get("cached_tokens", 0),
+                        usage.get("cache_write_tokens", 0))
 
     trial_path = record.get("_trial_path", "")
     print(f"\nTrial:  {trial_path}")
@@ -308,6 +309,9 @@ def main() -> int:
             from harness.llm.anthropic_client import AnthropicClient
             client = AnthropicClient(
                 model=args.model, temperature=args.temperature,
+                # Transport-only: cache the growing multi-turn ReAct history; a single-call
+                # static agent would pay the write premium with nothing to read.
+                prompt_caching=(args.agent_type == "react"),
             )
         elif args.provider == "openai":
             from harness.llm.openai_client import OpenAIClient
