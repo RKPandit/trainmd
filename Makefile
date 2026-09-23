@@ -151,15 +151,15 @@ docker-audit-index:
 	$(DOCKER_RUN) python -m harness.audit_index
 
 docker-test:
-	$(DOCKER_RUN) python -m pytest tests/
+	$(DOCKER_RUN) python -m pytest --fail-on-all-skipped-file tests/
 
 # Fast lane (every push): all tests NOT marked slow_integration (no training).
 docker-test-fast:
-	$(DOCKER_RUN) python -m pytest -m "not slow_integration" tests/
+	$(DOCKER_RUN) python -m pytest --fail-on-all-skipped-file -m "not slow_integration" tests/
 
 # Slow lane (PR to main + nightly): the training tests (marked slow_integration).
 docker-test-slow:
-	$(DOCKER_RUN) python -m pytest -m "slow_integration" tests/
+	$(DOCKER_RUN) python -m pytest --fail-on-all-skipped-file -m "slow_integration" tests/
 
 # Sweep: pass args via SWEEP_ARGS, e.g. make docker-sweep SWEEP_ARGS="report --name sweep1".
 SWEEP_ARGS ?= report --name sweep1

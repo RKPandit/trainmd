@@ -24,7 +24,9 @@ from harness.llm.client import LLMResponse, ToolCallRequest, Usage
 from harness.tools.tool_context import ToolContext
 from harness.tools.tools import register_all_tools
 
-CASES = Path(__file__).resolve().parent.parent / "cases"
+# Public-only fixture cases (committed; no hidden/): these tests read only the agent-visible
+# surface, so they run in CI, which builds no cases (tests/fixtures/cases_public/README.md).
+CASES = Path(__file__).resolve().parent / "fixtures" / "cases_public"
 
 
 class CapturingClient:
@@ -243,7 +245,7 @@ class TestControlCase:
         client = CapturingClient([
             _submit_response(detected=False, cls="none", refs=[], repair=None),
         ])
-        _, tools, _, _ = _run("case_0005", client)
+        _, tools, _, _ = _run("case_0109", client)      # a control case (fixture)
         assert tools.submission is not None
         assert tools.submission["diagnosis"]["detected"] is False
         assert tools.submission["repair_spec"] is None
