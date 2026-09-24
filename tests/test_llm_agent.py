@@ -626,20 +626,21 @@ class TestTerminationReason:
 class TestSystemPromptAnchor:
 
     def test_prompt_includes_reference_band(self, built_case):
-        """The system prompt states the healthy-run visible-metric band."""
+        """The system prompt (prompt v2, default arm `rule`) states the reference statistics —
+        mean, SD, n — plus the one decision sentence; never the v1 evaluative wording or the
+        pre-computed ±2σ bounds (STAGE4 4.0.6; the v1 assertion here was missed in #36 because
+        this slow-lane test never ran on the PR)."""
         from agents.llm_agent import _build_instruction_prompt
 
         case_dir, _ = built_case
         prompt = _build_instruction_prompt(case_dir)
-        assert "Healthy runs achieve" in prompt
-        assert "metric_visible_val_acc" in prompt
-        assert "healthy range" in prompt
-        # Read the advertised band from the case's public card rather than
+        # Read the advertised statistics from the case's public card rather than
         # hardcoding a specific reference (band moves with §5.x adoptions).
         import yaml as _yaml
         _card = _yaml.safe_load((case_dir / "card.public.yaml").read_text())
         _rv = _card["reference_visible_metric"]
         _mean, _std = _rv["mean"], _rv["std"]
-        assert f"{_mean:.4f}" in prompt                    # mean
-        assert f"{_mean - 2 * _std:.4f}" in prompt         # mean - 2*std
-        assert f"{_mean + 2 * _std:.4f}" in prompt         # mean + 2*std
+        assert f"Reference runs (n={_rv['n']}): metric_visible_val_acc mean {_mean:.4f}, SD {_std:.4f}." in prompt
+        assert "more than 2 SD from this mean, above OR below" in prompt
+        assert "Healthy runs achieve" not in prompt and "healthy range" not in prompt
+        assert f"{_mean - 2 * _std:.4f}" not in prompt and f"{_mean + 2 * _std:.4f}" not in prompt
