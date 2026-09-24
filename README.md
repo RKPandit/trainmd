@@ -88,25 +88,59 @@ certify ground truth before merging. Dated gate/audit tables land in `docs/audit
 ## Running a sweep
 
 `harness/sweep.py` orchestrates a full experiment. The plan file is the committed
-pre-registration; the run is precondition-gated, resumable, and cost-capped.
+pre-registration; the run is precondition-gated, resumable, and cost-capped. The
+Make targets wrap each phase and check its preconditions **up front** with
+actionable errors:
 
 ```
-# 1. Plan (writes sweeps/<name>_plan.yaml). --build-missing generates absent cases.
-python -m harness.sweep plan --name sweep1 [--build-missing]
-# 2. Commit sweeps/sweep1_plan.yaml — it is the pre-registration.
-# 3. Paid agent phase (refuses unless gate/audit/validate green, plan committed,
-#    build_ids match, API key set). --max-cost-usd is REQUIRED.
-python -m harness.sweep run --name sweep1 --phase agents --max-cost-usd 20
-# 4. Free recovery phase (CPU only), after all agent trials.
-python -m harness.sweep run --name sweep1 --phase verify
-# 5. Report → docs/audits/sweep_<name>_<date>.md
-python -m harness.sweep report --name sweep1
+# 1. Plan (writes sweeps/<name>_plan.yaml); commit it — it is the pre-registration.
+python -m harness.sweep plan --name <name> [--build-missing]
+
+# 2. Paid agents phase. Checks BOTH provider API keys (naming any missing), wraps
+#    the run in caffeinate, and prints the plan's own cost estimate next to the cap.
+#    MAX_COST defaults to $5 (a safe value — every real sweep exceeds it, so pass it
+#    explicitly); it REFUSES to start if the cap is below the plan estimate rather
+#    than stopping partway (MAX_COST=<est> to raise it, or add CONFIRM=1 to run capped).
+make sweep-run NAME=<name> MAX_COST=25
+
+# 3. Free recovery/verify phase, in the canonical container.
+make sweep-verify NAME=<name>
+
+# 4. Report → docs/audits/sweep_<name>_<date>.md
+make sweep-report NAME=<name>
 ```
 
-Safety: a hard `--max-cost-usd` stops before exceeding the cap; `--max-consecutive-failures`
+Safety: a hard cap stops before exceeding it; `--max-consecutive-failures`
 (default 3) stops on a systemic failure; progress files make every phase resumable (a crash
 costs one trial). The tracked `sweeps/<name>_manifest.yaml` is the compute statement (hardware
 captured once + per-phase token/cost/CPU totals; `actual_spend_usd` entered manually at end).
+
+## Maintainer workflows
+
+Convenience targets for the recurring operator loops (scripts under `scripts/`,
+each idempotent with actionable, fail-closed errors):
+
+```
+make certify                    # dispatch build-and-certify on main; poll to PASS/FAIL
+make certify GATE_SCOPE=full    # same, but the exhaustive all-128 verify gate
+make restore-cases              # restore built cases locally from the latest green run
+make doctor                     # read-only health check — run when something feels wrong
+```
+
+- **`certify`** dispatches the manual `build-and-certify` run on `main`, prints the run id +
+  URL, and polls to a clear PASS/FAIL line. It fails **up front** if `SWEEP_BUNDLE_KEY` is not
+  a repo secret — the run fail-closes at packaging without it.
+- **`restore-cases`** finds the latest green certify run, downloads the encrypted `sweep_bundle`
+  artifact, decrypts it with `$SWEEP_BUNDLE_KEY`, extracts, then runs `docker-data` +
+  `link-neutral-workload` + `docker-validate-all`. The extract is staged and swapped in
+  **atomically** — a failed download/decrypt/extract never leaves a half-restored tree.
+  Preconditions (key set → a green run exists → decryption succeeds) are each reported with a
+  specific fix, naming the run on a passphrase mismatch.
+- **`doctor`** prints one line per check: working tree clean, `* 2` sync-duplicate files,
+  corrupted git refs, local case count vs design, whether cases are canonical (platform stamp,
+  read only via the evaluator container — `UNKNOWN` if Docker is down), `SWEEP_BUNDLE_KEY` + both
+  API keys set, `main` vs `origin`, and the last CI status. WARNs never fail it; a hard problem
+  (a FAIL) exits nonzero.
 
 ## Findings & limitations
 
