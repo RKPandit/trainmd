@@ -151,15 +151,21 @@ docker-audit-index:
 	$(DOCKER_RUN) python -m harness.audit_index
 
 docker-test:
-	$(DOCKER_RUN) python -m pytest tests/
+	$(DOCKER_RUN) python -m pytest --fail-on-all-skipped-file tests/
 
 # Fast lane (every push): all tests NOT marked slow_integration (no training).
 docker-test-fast:
-	$(DOCKER_RUN) python -m pytest -m "not slow_integration" tests/
+	$(DOCKER_RUN) python -m pytest --fail-on-all-skipped-file -m "not slow_integration" tests/
+
+# Real-case lane (build-and-certify, after ALL cases are built): the tests that need hidden ground
+# truth — skipped in the fast lane — must all RUN here (--fail-on-skip).
+REAL_CASE_TESTS := tests/test_control_scoring.py tests/test_gate_known_answer.py tests/test_trusted_agents.py
+docker-test-real-cases:
+	$(DOCKER_RUN) python -m pytest --fail-on-skip -p no:cacheprovider $(REAL_CASE_TESTS)
 
 # Slow lane (PR to main + nightly): the training tests (marked slow_integration).
 docker-test-slow:
-	$(DOCKER_RUN) python -m pytest -m "slow_integration" tests/
+	$(DOCKER_RUN) python -m pytest --fail-on-all-skipped-file -m "slow_integration" tests/
 
 # Sweep: pass args via SWEEP_ARGS, e.g. make docker-sweep SWEEP_ARGS="report --name sweep1".
 SWEEP_ARGS ?= report --name sweep1

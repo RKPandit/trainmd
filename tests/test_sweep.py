@@ -300,7 +300,7 @@ def test_three_arm_anchor_prompt_content():
         _build_instruction_prompt, reference_band_line, reference_band_stats,
     )
     from agents.static_agent import StaticContextAgent
-    case_dir = CASES / "case_0005"
+    case_dir = Path(__file__).resolve().parent / "fixtures" / "cases_public" / "case_0109"
     if not case_dir.exists():
         pytest.skip("case_0005 not built")
     card = yaml.safe_load((case_dir / "card.public.yaml").read_text())

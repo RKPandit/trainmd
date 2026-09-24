@@ -42,3 +42,65 @@ def pytest_collection_modifyitems(config, items):  # noqa: ARG001
             trains = any(p in src for p in _TRAIN_SOURCE_PATTERNS)
         if trains:
             item.add_marker(pytest.mark.slow_integration)
+
+
+# ---- No test FILE may skip every one of its tests (CI; DECISIONS 2026-09-23) -------------------
+# Three test groups were found silently skipping in CI (the gate tests 2026-09-20, R8's vacuous pass,
+# and tests/test_static_agent.py — 15/15 skipped because CI builds no cases). With
+# `--fail-on-all-skipped-file` (set by `make docker-test-fast` / `docker-test` / `docker-test-slow`),
+# the session FAILS if any test file that ran at least one test had all of them skipped, or was
+# skipped whole at collection. Deselected tests (markers) are not "run" and do not count.
+from collections import defaultdict as _defaultdict  # noqa: E402
+
+_FILE_OUTCOMES: dict[str, list[str]] = _defaultdict(list)
+_FILES_SKIPPED_AT_COLLECTION: set[str] = set()
+
+
+def pytest_addoption(parser):
+    parser.addoption("--fail-on-all-skipped-file", action="store_true", default=False,
+                     help="fail the session if any test file skips every one of its tests")
+    parser.addoption("--fail-on-skip", action="store_true", default=False,
+                     help="fail the session if ANY test is skipped (build-and-certify runs the "
+                          "real-case tests this way, confirming every test runs somewhere)")
+
+
+def pytest_collectreport(report):
+    if report.skipped and report.nodeid.endswith(".py"):
+        _FILES_SKIPPED_AT_COLLECTION.add(report.nodeid)
+
+
+def pytest_runtest_logreport(report):
+    path = report.nodeid.split("::", 1)[0]
+    if report.when == "setup" and report.skipped:
+        _FILE_OUTCOMES[path].append("skipped")
+    elif report.when == "call":
+        _FILE_OUTCOMES[path].append("skipped" if report.skipped else report.outcome)
+
+
+def all_skipped_files() -> list[str]:
+    files = {f for f, outs in _FILE_OUTCOMES.items() if outs and all(o == "skipped" for o in outs)}
+    return sorted(files | _FILES_SKIPPED_AT_COLLECTION)
+
+
+def skipped_tests() -> list[str]:
+    return sorted(f for f, outs in _FILE_OUTCOMES.items() if "skipped" in outs) + sorted(
+        _FILES_SKIPPED_AT_COLLECTION)
+
+
+def pytest_sessionfinish(session, exitstatus):  # noqa: ARG001
+    tr = session.config.pluginmanager.get_plugin("terminalreporter")
+    if session.config.getoption("--fail-on-skip") and skipped_tests():
+        msg = ("FAIL (--fail-on-skip): tests were SKIPPED in a run that must execute every test:\n  "
+               + "\n  ".join(skipped_tests()))
+        if tr is not None:
+            tr.write_line(msg, red=True)
+        session.exitstatus = 1
+    if not session.config.getoption("--fail-on-all-skipped-file"):
+        return
+    bad = all_skipped_files()
+    if bad:
+        msg = ("FAIL (--fail-on-all-skipped-file): every test in these files was SKIPPED — a test that "
+               "never runs proves nothing:\n  " + "\n  ".join(bad))
+        if tr is not None:
+            tr.write_line(msg, red=True)
+        session.exitstatus = 1

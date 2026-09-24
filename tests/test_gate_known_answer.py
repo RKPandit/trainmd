@@ -19,6 +19,15 @@ CASES = REPO / "cases"
 WL = REPO / "workloads" / "tabular_adult"
 
 
+def _leakage_case() -> str:
+    """A real built data-leakage case, selected BY OPERATOR (was hard-coded case_0004)."""
+    from tests._real_cases import real_case
+    c = real_case(operator_id="silent.data_leakage.v1")
+    if c is None:
+        pytest.skip("no data-leakage case built (runs in build-and-certify)")
+    return c.name
+
+
 def _setup(tmp: Path, case_name: str) -> Path:
     """Copy one real case into a tmp project root + symlink the workload."""
     src = CASES / case_name
@@ -45,7 +54,7 @@ def _fails(rows, case, axis):
 
 
 def test_clean_case_yields_no_fail(tmp_path):
-    _setup(tmp_path, "case_0004")
+    _setup(tmp_path, _leakage_case())
     rows = run_gate(tmp_path, fast=True)
     assert [r for r in rows if r.status == "FAIL"] == []
 
@@ -103,7 +112,8 @@ def test_corrupt_oracle_repair_is_caught(tmp_path):
 
     verify_repair rejects the inadmissible repair before any training, so this
     stays fast."""
-    case_dir = _setup(tmp_path, "case_0004")
+    name = _leakage_case()
+    case_dir = _setup(tmp_path, name)
     v_path = case_dir / "hidden" / "verify.yaml"
     v = yaml.safe_load(v_path.read_text())
     # batch_size is not an allowed repair key for data_leakage.
@@ -111,4 +121,4 @@ def test_corrupt_oracle_repair_is_caught(tmp_path):
     v_path.write_text(yaml.dump(v))
 
     rows = run_gate(tmp_path, fast=False)
-    assert _fails(rows, "case_0004", "recovery"), "gate did not flag the corrupt oracle_repair"
+    assert _fails(rows, name, "recovery"), "gate did not flag the corrupt oracle_repair"
