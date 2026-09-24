@@ -147,3 +147,13 @@ def test_partial_provider_entry_is_reported_while_total_pending(tmp_path):
     r = reconcile(tmp_path, "s")
     assert r["status"] == "PENDING"
     assert r["ratio_by_provider"] == {"anthropic": 1.009}
+
+
+def test_closed_without_billing_is_not_reconciled_not_pending(tmp_path):
+    from scripts.check_cost_reconciliation import reconcile
+    _release(tmp_path, [("anthropic", 1.0)])
+    man = tmp_path / "sweeps" / "s_manifest.yaml"
+    man.write_text(man.read_text() + "reconciliation_status: not_reconciled\n"
+                   "reconciliation_note: NOT RECONCILED — daily billing not isolated (closed)\n")
+    r = reconcile(tmp_path, "s")
+    assert r["status"] == "NOT RECONCILED" and "daily billing not isolated" in r["note"]

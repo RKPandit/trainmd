@@ -62,7 +62,11 @@ def reconcile(root: Path, name: str) -> dict:
         out["ratio_by_provider"] = {p: (round(per[p] / by_prov[p], 4) if by_prov.get(p) else None)
                                     for p in sorted(per)}
     if actual is None:
-        out["status"] = "PENDING"
+        # Explicitly closed without a billed figure (e.g. the day's billing could not be isolated):
+        # reported as NOT RECONCILED — neither a failure nor an open item.
+        out["status"] = "NOT RECONCILED" if man.get("reconciliation_status") == "not_reconciled" else "PENDING"
+        if out["status"] == "NOT RECONCILED":
+            out["note"] = (man.get("reconciliation_note") or "").split(" (")[0]
         return out
     ratio = actual / est if est else float("inf")
     out["ratio"] = round(ratio, 4)
@@ -80,7 +84,9 @@ def main() -> int:
     for name in sweeps:
         r = reconcile(a.project_root, name)
         line = f"{r['status']:7s} {name}: estimate ${r['estimate_usd']:.4f}"
-        if r["actual_usd"] is None:
+        if r["status"] == "NOT RECONCILED":
+            line += f" · {r.get('note') or 'closed without a billed figure'}"
+        elif r["actual_usd"] is None:
             line += " · actual_spend_usd not yet entered"
         else:
             line += f" · actual ${r['actual_usd']:.4f} · ratio {r['ratio']:.4f} (tolerance ±{TOLERANCE:.0%})"
@@ -92,8 +98,8 @@ def main() -> int:
         print("check_cost_reconciliation: FAIL — billed spend differs from the summed estimates "
               f"by more than ±{TOLERANCE:.0%}; investigate pricing/accounting.", file=sys.stderr)
         return 1
-    print(f"check_cost_reconciliation: OK — {len(sweeps)} released sweep(s) within ±{TOLERANCE:.0%} "
-          "or pending billed figures.")
+    print(f"check_cost_reconciliation: OK — {len(sweeps)} released sweep(s) within ±{TOLERANCE:.0%}, "
+          "pending, or closed as not reconciled.")
     return 0
 
 
