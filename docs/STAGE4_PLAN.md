@@ -75,6 +75,12 @@ expansion as before. Roughly 8–10 weeks to a submission-ready study. Target: N
   the scorer; inspect every disagreement; report how corrections change H8/F14.
 - If no annotator is available, an independent LLM judge with the same rubric, disclosed as
   weaker.
+- **Tooling built 2026-09-23 (awaiting the annotator):** `make audit-sheet NAME=h8_xprovider` writes
+  `audit/local/h8_xprovider/audit_sheet.xlsx` (60 shuffled rows, 15% healthy controls; ratings
+  named / located / evidence / explained as Yes / Partial / No / N/A dropdowns) and the sealed
+  `audit_key.csv` — both generated locally and NEVER committed (gitignored; the repo is public).
+  `scripts/audit_agreement.py --sheet <returned.xlsx> --key <audit_key.csv>` reports agreement with
+  the scorer (mapping declared in the script; DECISIONS 2026-09-23).
 
 ### 4.0.6 Cheap instrument fixes that Part 1's plan file needs anyway
 - **Bare-stats anchor arm** (v3 Part 4, never built): mean/SD with no evaluative words. The
