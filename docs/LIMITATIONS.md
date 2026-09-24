@@ -111,7 +111,9 @@ automatic-cache writes at 1.25× input ($0.25/MTok, verified 2026-09-23), but th
 captured `usage.input_tokens_details.cache_write_tokens` nor priced writes, so H8's Luna cost
 estimates are a slight **undercount** — bounded above by ≈ $0.18 (only the 3.55M uncached Luna input
 tokens could have been written, at +$0.05/MTok), and not exactly recoverable because the field was
-not recorded. The billing statement settles it. From Stage 4 on, reads and writes are captured and
+not recorded. *Billing (2026-09-23):* OpenAI billed $1.63 against the $1.454 Luna estimate — a $0.18 gap,
+consistent with this bound (the console window may also include the Sept 19 smoke test); the H8 sweep
+total reconciles at +1.6% (DECISIONS 2026-09-23). From Stage 4 on, reads and writes are captured and
 priced on both providers, and every trial also records its **uncached-equivalent** cost so sweeps
 that use prompt caching remain comparable with Sweeps 1–3.
 
