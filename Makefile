@@ -183,6 +183,10 @@ export-release:
 	python scripts/export_release.py --sweep $(NAME)
 rebuild-tables:
 	python scripts/rebuild_tables.py --sweep $(NAME)
+# Verify a release LOCALLY — new releases (Stage 4 on) are exported locally, never committed
+# (DECISIONS 2026-09-23): the same rebuild_tables byte-match CI runs for the committed releases.
+verify-release:
+	python scripts/rebuild_tables.py --sweep $(NAME)
 
 docker-shell:
 	docker run --rm -it --platform $(PLATFORM) -e TRAINMD_IN_CONTAINER=1 \

@@ -119,9 +119,13 @@ trial with `cache_read_tokens > 0` — before the full run. (The agents phase al
 multi-call Anthropic ReAct trials all miss the cache.) Measured on H8: Haiku ReAct resent
 84% of its input as history; caching would have cut that cell from $18.85 to ≈ $8.70 (DECISIONS
 2026-09-23).
-**Blocking prerequisite:** the release archive strategy must be decided before Part 1 runs — the
-in-repo releases already total ~68 MiB against the ~100 MB in-repo rule, so Part 1's release will not
-fit in the repository (DECISIONS 2026-09-23).
+**Release archive — decided at paper time (no longer a Part 1 prerequisite; DECISIONS 2026-09-23):**
+the archive platform (Zenodo / GitHub Releases / Hugging Face) is chosen at submission, once the venue's
+anonymity and hosting rules are known. Enforced now: new sweep releases (Stage 4 onward) are exported
+LOCALLY and NOT committed (`.gitignore` ignores `results_release/*` except the three committed releases —
+sweep1, stage2gate, h8_xprovider — which stay); verify one locally with `make verify-release NAME=<sweep>`
+(the same `rebuild_tables` byte-match CI runs); CI (`scripts/check_release_files.py`) fails if any other
+release directory is committed or any file under `results_release/` exceeds 10 MB.
 
 ## Part 2 — Model dimension (~2 weeks, ~$100–200)
 As v1, unchanged in substance: Sonnet 5, GPT-5.6 Terra, **Luna with reasoning.effort=none**
