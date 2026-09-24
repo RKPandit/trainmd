@@ -1,4 +1,4 @@
-.PHONY: data reference build-case verify-repair run-agent smoke score verify validate validate-all clean test \
+.PHONY: docker-b2plus-report data reference build-case verify-repair run-agent smoke score verify validate validate-all clean test \
 	image image-digest docker-data docker-reference docker-build-case docker-validate-all \
 	docker-gate-known-answer docker-audit-index docker-test docker-sweep docker-shell \
 	docker-build-all-cases docker-case-margins
@@ -215,6 +215,10 @@ docker-margin-report:
 # Native calibration sweep for data_leakage mild's p (authoritative on amd64).
 docker-calibrate-data-leakage:
 	$(DOCKER_RUN) python scripts/calibrate_data_leakage.py
+
+# B2+ = UPPER BOUND (config-diff with perfect knob semantics): fallback + control false positives.
+docker-b2plus-report:
+	$(DOCKER_RUN) python scripts/b2plus_report.py
 
 # B2 config-delta baseline on the neutral-key cases (detect+recover, identify 0/6).
 docker-baseline-report:

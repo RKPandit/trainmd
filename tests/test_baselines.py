@@ -199,3 +199,78 @@ def test_b2_derived_key_kept_when_sole_delta(tmp_path):
     assert sub["diagnosis"]["detected"] is True
     assert sub["repair_spec"]["patches"] == {"model.input_dim": 105}
     assert sub["diagnosis"]["operator_class"] == "input_dim"
+
+
+# ---- B2+ = UPPER BOUND: config-diff with perfect knob semantics (STAGE4 4.0.6) -------------
+import hashlib  # noqa: E402
+
+# Pinned: any edit to the answer-key map bumps its `version` + needs a DECISIONS row.
+_B2PLUS_MAP_SHA256 = "29872fab5260fbf33098b83bde7c51751762c11294d761bf446ea39f931bdc08"
+
+
+def test_b2plus_map_is_pinned():
+    assert hashlib.sha256(B.B2PLUS_MAP_PATH.read_bytes()).hexdigest() == _B2PLUS_MAP_SHA256, (
+        "b2plus_map.yaml changed: bump its `version`, record the change in DECISIONS, update the pin")
+
+
+def test_b2plus_map_is_exactly_the_answer_key():
+    """The map is exactly the knobs our faulty operators inject (their admissible-repair keys) —
+    which is why B2+ is an upper bound: for our operators it is an answer-key lookup."""
+    from operators.registry import all_operator_ids, get_operator
+    fault_knobs = set()
+    for op_id in all_operator_ids():
+        if op_id.startswith("control."):
+            continue
+        fault_knobs |= set(get_operator(op_id).admissible_repairs().allowed_keys)
+    assert set(B.load_b2plus_map()) == fault_knobs
+
+
+def test_b2plus_map_values_are_the_injecting_operators_own_classes():
+    """Each knob maps to one of ITS operator's accepted classes — the lookup is the answer key, so
+    B2+ identification on our operators is perfect by construction (never evidence of anything)."""
+    from operators.registry import all_operator_ids, get_operator
+    knob_map = B.load_b2plus_map()
+    for op_id in all_operator_ids():
+        if op_id.startswith("control."):
+            continue
+        op = get_operator(op_id)
+        for key in op.admissible_repairs().allowed_keys:
+            assert knob_map[key] in op.accepted_classes(), (op_id, key, knob_map[key])
+
+
+def test_b2plus_maps_a_fault_knob_to_its_concept(tmp_path):
+    cd = _visible_case(tmp_path, [0.857],
+                       resolved={"workload": {"name": "tabular_adult"}, "training": {"lr": 0.5}})
+    s2, s2p = B.b2(B.VisibleSurface(cd, REPO)), B.b2plus(B.VisibleSurface(cd, REPO))
+    assert s2["diagnosis"]["operator_class"] == "lr"
+    assert s2p["diagnosis"]["operator_class"] == "lr_warmup" and s2p["b2plus_map_hit"] is True
+    # everything except the class is B2's, unchanged
+    assert s2p["evidence_refs"] == s2["evidence_refs"] and s2p["repair_spec"] == s2["repair_spec"]
+
+
+def test_b2plus_falls_back_on_a_non_fault_knob(tmp_path):
+    """A legitimate setting (e.g. batch size) is not in the answer key: B2+ = B2's leaf name."""
+    cd = _visible_case(tmp_path, [0.857],
+                       resolved={"workload": {"name": "tabular_adult"}, "training": {"batch_size": 128}})
+    sub = B.b2plus(B.VisibleSurface(cd, REPO))
+    assert sub["diagnosis"]["detected"] is True                   # it still flags the change
+    assert sub["diagnosis"]["operator_class"] == "batch_size" and sub["b2plus_map_hit"] is False
+
+
+def test_b2plus_names_a_neutral_key_through_the_answer_key():
+    surface = type("S", (), {})()
+    orig = B.b2
+    try:
+        B.b2 = lambda s: {"diagnosis": {"detected": True, "operator_class": "opt_c"},
+                          "evidence_refs": [B._config_key("data.opt_c")], "repair_spec": None}
+        assert B.b2plus(surface)["diagnosis"]["operator_class"] == "data_leakage"
+    finally:
+        B.b2 = orig
+
+
+def test_b2plus_clean_not_flagged(tmp_path):
+    clean = yaml.safe_load((Path(__file__).resolve().parents[1] /
+                            "workloads/tabular_adult/config.yaml").read_text())
+    cd = _visible_case(tmp_path, [0.857], resolved=clean)
+    sub = B.b2plus(B.VisibleSurface(cd, REPO))
+    assert sub["diagnosis"]["detected"] is False and "b2plus_map_hit" not in sub

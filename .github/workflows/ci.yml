@@ -163,6 +163,12 @@ jobs:
         run: make docker-margin-report
       - name: Baselines on the neutral-key cases (B2 detect+recover, identify 0/6)
         run: make docker-baseline-report
+      - name: B2+ upper bound (config-diff with perfect knob semantics) — fallback + control FPs
+        run: make docker-b2plus-report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: b2plus_report
+          path: docs/audits/b2plus_report.md
       - name: H8 + cross-provider sweep plan (canonical cases → committable artifact)
         run: |
           # Generated against the just-built CANONICAL cases (registry present, so

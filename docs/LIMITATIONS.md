@@ -429,7 +429,13 @@ So the LLM's identification advantage over B2 on those two operators is a **term
 (it can produce the word "leakage"). That is **not by itself evidence of understanding** — mapping a
 derived-column pattern or a too-good validation metric to the word "leakage" is available to pattern
 recognition and general heuristics (cf. H8's competing explanations). A fair terminology comparison
-needs B2 given a declared key→concept mapping (STAGE4 4.0.6, "B2+").
+needs B2 given a declared key→concept mapping (STAGE4 4.0.6, "B2+"). *Built 2026-09-23 — as an UPPER BOUND, not a baseline:* `b2plus` in `harness/baselines.py` is
+**"config-diff with perfect knob semantics."** Its map (`harness/b2plus_map.yaml`, v2) is the ANSWER
+KEY — exactly the knobs our operators inject, each mapped to that operator's own class (test-enforced)
+— so on our operators its identification is perfect by construction and is **never** a baseline an LLM
+is compared against to claim value. What it measures is informative only off the answer key: how often
+it FALLS BACK to a bare leaf name on knobs not in the map (the benign-control knobs, future operators),
+and its false positives on healthy and benign controls (`scripts/b2plus_report.py`).
 
 **L26 — The second provider (GPT-5.6 Luna) has NO dated snapshot to pin; the alias IS the
 snapshot.** Anthropic model ids are dated (e.g. `claude-haiku-4-5-20251001`), so a trial's model
