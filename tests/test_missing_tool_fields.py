@@ -140,7 +140,8 @@ def test_present_fields_score_exactly_as_before():
 
 # ---- agents: the SAME slip is handled IDENTICALLY by ReAct and static ---------------------------
 
-CASES = Path(__file__).resolve().parent.parent / "cases"
+# Public-only fixture cases (no hidden/) — these agent-level tests run in CI, which builds no cases.
+CASES = Path(__file__).resolve().parent / "fixtures" / "cases_public"
 SLIPS = {
     "missing_evidence": ({"diagnosis": {"detected": True, "operator_class": "lr"}},
                          ["evidence_refs"], []),
@@ -153,8 +154,6 @@ SLIPS = {
 
 def _built(case_name="case_0001"):
     case_dir = CASES / case_name
-    if not (case_dir / "card.public.yaml").exists():
-        pytest.skip(f"{case_name} not built")
     tools = ToolContext(case_dir)
     register_all_tools(tools)
     return case_dir, tools
