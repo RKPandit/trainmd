@@ -26,6 +26,8 @@ and (5) recorded with a per-record audit trail so each score is reproducible.
 
 ## Limitations
 
+_Rule (2026-09-23): an entry that says a fix landed names the test that proves it; CI (`scripts/check_doc_test_refs.py`) fails if a test named here does not exist._
+
 **L1 — `lr_warmup`'s degradation is BIMODAL, not a graded ladder** *(rewritten 2026-09-14 — the
 earlier "ladder saturation" framing was a misdiagnosis).* On Adult/MLP a too-high learning rate does
 not degrade the model *gradually*: at lr ≤0.07 it trains normally (~0.84); from ~0.08 up each seed
@@ -477,7 +479,7 @@ controlled cross-model design (matched reasoning budget, more models) is require
 "models differ because X" claim.
 
 **L29 — Six cells are missing and they are concentrated in ONE condition; the crash class is fixed
-only going forward.** The agent phase completed 978/984 cells; the **6 unrun cells are all neutral ×
+only going forward (the fix was built 2026-09-23 — see the correction at the end of this entry).** The agent phase completed 978/984 cells; the **6 unrun cells are all neutral ×
 Luna × static**, lost to a `submit()`-without-`evidence_refs` harness crash (≈6% first-attempt rate
 on Luna static, ~80% recovered by retry — F15). Because the loss is entirely inside the
 neutral/Luna/static corner, it is **not missing-at-random**: it coincides with the exact cell type
@@ -485,6 +487,19 @@ whose H8 rows are already inconclusive, so it cannot be separated from that stru
 mildly under-powers that corner further. The fix (the submit tool returning a tool error the agent
 can recover from, instead of raising) landed after this sweep and therefore **applies only from the
 next sweep** — these 6 cells stay lost in the frozen h8_xprovider record.
+*Correction (2026-09-23):* until 2026-09-23 this entry, F15 and the STAGE4 plan described that fix
+as landed; it had **not** been built — `submit()` still required `evidence_refs` and raised. **What is
+built now** (STAGE4 4.0.6; DECISIONS 2026-09-23): a submit is ALWAYS ACCEPTED. A missing or malformed
+required field is stored EMPTY (`diagnosis` → `{}`, `evidence_refs` → `[]`; a missing `detected` /
+`operator_class` stays absent), and the axes are scored independently — no evidence scores evidence
+F1 = 0 while a correct diagnosis keeps its detection and identification credit; an empty `detected`
+scores detection incorrect; an empty class scores identification incorrect. Unknown extra arguments
+are ignored. The tool result is identical in every case (never an error to retry), and a malformed
+payload is handled the same way by the ReAct and static agents, so one slip costs both the same. Each
+trial records `compliance: {missing_fields, ignored_fields}`, reported separately from diagnosis.
+Proven by `tests/test_missing_tool_fields.py` (incl.
+`tests/test_missing_tool_fields.py::test_react_and_static_treat_the_same_slip_identically`). The
+frozen sweeps were run before this and are not re-scored.
 
 **L30 — The case-clustered percentile bootstrap understates uncertainty at 1–2 events (found
 2026-09-23).** Correction #6 fixed the extreme case (0 events ⇒ `[0, 0]`), but the same false-precision

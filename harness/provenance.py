@@ -179,6 +179,9 @@ def build_empty_record(
         },
 
         "submission": None,
+        # Submit-tool COMPLIANCE, reported separately from diagnosis quality (STAGE4 4.0.6):
+        # {"missing_fields": [...], "ignored_fields": [...]} once a submission exists, else None.
+        "compliance": None,
         "tool_transcript": [],
         "llm_transcript": [],
 
@@ -206,6 +209,11 @@ def finalize_record(
     """Fill in post-run fields: transcript, submission, scores, timing, cost."""
     record["environment"]["wall_clock_sec"] = wall_clock_sec
     record["submission"] = tools.submission
+    sub = tools.submission
+    record["compliance"] = None if sub is None else {
+        "missing_fields": list(sub.get("missing_fields") or []),
+        "ignored_fields": list(sub.get("ignored_fields") or []),
+    }
     record["tool_transcript"] = tools.transcript
 
     record["budget"]["tool_calls_used"] = tools.budget_total - tools.budget_remaining

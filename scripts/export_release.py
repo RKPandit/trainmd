@@ -36,7 +36,7 @@ from harness.sweep_stats import sweep_is_frozen  # noqa: E402  (needs sys.path a
 _TRIAL_ALLOW = {
     "case_id", "run_id", "conditions", "prompt", "submission", "submission_original",
     "tool_transcript", "llm_transcript", "scores", "usage", "termination_reason",
-    "environment", "model", "status", "schema_version", "agent_name",
+    "environment", "model", "status", "schema_version", "agent_name", "compliance",
 }
 # static_context = the static agent's assembled INPUT (public workspace + band); large and
 # reconstructible, not needed to verify a number -> dropped.

@@ -212,9 +212,13 @@ def list_files(ctx: ToolContext, *, pattern: str = "**/*") -> dict:
     return {"status": "ok", "files": files}
 
 
-def submit(ctx: ToolContext, *, diagnosis: dict,
-           evidence_refs: list, repair_spec: dict | None = None,
-           confidence: float | None = None, rationale: str | None = None) -> dict:
+_REQUIRED_DIAGNOSIS_KEYS = ("detected", "operator_class")
+
+
+def submit(ctx: ToolContext, *, diagnosis: dict | None = None,
+           evidence_refs: list | None = None, repair_spec: dict | None = None,
+           confidence: float | None = None, rationale: str | None = None,
+           **extra: Any) -> dict:
     """Record the agent's submission.
 
     ``repair_spec`` may be ``None`` (or ``{"repair_type": "none", "patches": {}}``)
@@ -222,12 +226,30 @@ def submit(ctx: ToolContext, *, diagnosis: dict,
     expects a ``config_patch`` repair.  ``confidence`` (0–1) and ``rationale``
     are optional and stored EXACTLY as given (no clamping) for later calibration;
     scoring ignores them.
+
+    A submit is ALWAYS ACCEPTED (STAGE4 4.0.6): a missing or malformed schema-required
+    field is stored EMPTY — ``diagnosis`` → ``{}``, ``evidence_refs`` → ``[]``; a missing
+    ``detected`` / ``operator_class`` stays absent — and the axes are scored independently
+    (an empty evidence list scores evidence F1 = 0 and nothing else). Unknown extra
+    arguments are IGNORED. Both are recorded (``missing_fields`` / ``ignored_fields`` →
+    the trial's ``compliance``) so compliance is reported separately from diagnosis. The
+    tool result is the same either way — it never tells the agent to retry — so the same
+    slip costs a ReAct agent and a single-shot static agent exactly the same.
     """
     if ctx.submission_count >= ctx.max_submissions:
         return _error(
             "SUBMISSION_LIMIT_REACHED",
             f"Maximum submissions ({ctx.max_submissions}) reached",
         )
+
+    missing = []
+    if not isinstance(diagnosis, dict):
+        missing.append("diagnosis")
+        diagnosis = {}
+    if not isinstance(evidence_refs, list):
+        missing.append("evidence_refs")
+        evidence_refs = []
+    missing += [f"diagnosis.{k}" for k in _REQUIRED_DIAGNOSIS_KEYS if diagnosis.get(k) is None]
 
     submission = {
         "diagnosis": diagnosis,
@@ -236,6 +258,10 @@ def submit(ctx: ToolContext, *, diagnosis: dict,
         "confidence": confidence,
         "rationale": rationale,
     }
+    if missing:
+        submission["missing_fields"] = missing
+    if extra:
+        submission["ignored_fields"] = sorted(extra)
 
     # Self-heal MODEL-SIDE output folding: some models emit the repair as text
     # inside a sibling string (rationale) instead of the structured repair_spec

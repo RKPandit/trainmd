@@ -778,8 +778,10 @@ Two Luna transport/robustness properties, reported descriptively (not diagnosis-
 class new to the cross-provider run — ~**6% of first-attempt Luna static trials** called `submit()`
 without the required `evidence_refs` (≈31 of ~492 Luna trials; `sweeps/h8_xprovider_progress.jsonl`).
 **~80% recovered on the built-in retry** (25/31 completed on the second attempt); **6 cells were
-lost**, all **neutral × Luna × static** (the crash fix — `submit()` returning a tool error instead of
-raising — applies only from the next sweep; DECISIONS/LIMITATIONS). A large per-provider compliance
+lost**, all **neutral × Luna × static** (the crash fix applies only from the next sweep; it was
+described here as landed but was not built until 2026-09-23 — a submit is now always accepted, a
+missing field scored empty and recorded as a compliance flag, identically for ReAct and static —
+LIMITATIONS L29 correction; DECISIONS 2026-09-23; proven by `tests/test_missing_tool_fields.py`). A large per-provider compliance
 gap is a **caveat on cross-provider score comparison**, not a finding about either model's diagnosis.
 
 **Status:** unplanned · Luna-specific · the crash class is fixed forward-only · pending replication.
@@ -793,3 +795,8 @@ After each sweep's diagnostics close: (1) add a **Sweep N** section in the shape
 justifies it; (3) move any answered open question into a finding; (4) add the corresponding
 RESEARCH_LOG entry the same day. Never edit a prior sweep's section except to add a
 "superseded by Sweep N" note.
+
+**Claims of a fix name their proof.** A finding (or LIMITATIONS entry) that says a fix landed must
+name the test that proves it (`tests/<file>.py` or `tests/<file>.py::<test>`); CI
+(`scripts/check_doc_test_refs.py`) fails if a named test does not exist. (Rule since 2026-09-23: L29 /
+F15 had described a fix that was never built.)
