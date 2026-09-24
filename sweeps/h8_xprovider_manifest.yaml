@@ -10,16 +10,19 @@ estimated_spend_note: >-
   not a point estimate, so none is entered here. The MEASURED token-based estimate is
   agent_phase.estimated_cost_usd (24.0336, cost_is_estimate: true); billed spend goes in
   actual_spend_usd.
-actual_spend_usd: null
+actual_spend_usd: 24.46
 actual_spend_note: >-
-  Intentionally null until BOTH providers' billed figures are entered (it is their sum; a partial
-  sum is never compared against the full estimate). Anthropic entered 2026-09-23 from the Sept 21
-  billing statement: $22.83 vs the summed Anthropic trial estimates $22.624 (+0.9%). OpenAI (Sept 21
-  only) pending from the author. Token-based estimates are in the per-phase totals below (agents
-  phase estimated_cost_usd, cost_is_estimate: true); they are not billing.
+  Billed spend, entered 2026-09-23 from the providers' consoles: Anthropic $22.83 (Sept 21
+  statement) + OpenAI $1.63 = $24.46, the sum of both providers. Reconciliation (tolerance applies to
+  the SWEEP TOTAL, ±5%): total $24.46 vs summed trial estimates $24.078 → +1.6%, PASS. Per provider
+  (reported, not gated): Anthropic $22.83 vs $22.624 → +0.9%; OpenAI $1.63 vs $1.454 → +12.1%. The
+  OpenAI gap ($0.18) is EXPLAINED, not an accounting error: it matches the bound on Luna's
+  unrecorded, unpriced cache writes through Sweep 3 (≤ ≈$0.18, LIMITATIONS L6), and the console
+  window may also include the Sept 19 Luna smoke test. Token-based estimates are in the per-phase
+  totals below (agents phase estimated_cost_usd, cost_is_estimate: true).
 actual_spend_by_provider:
   anthropic: 22.83
-  openai: null
+  openai: 1.63
 hardware:
   cpu_model: Darwin/arm64 (no /proc/cpuinfo)
   cpu_cores: 8
