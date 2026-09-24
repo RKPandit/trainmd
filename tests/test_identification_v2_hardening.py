@@ -87,8 +87,8 @@ class TestNegationAdversaries:
     def test_every_faulty_operator_rejects_negations(self):
         failures = []
         for op_id in all_operator_ids():
-            if op_id == "control.healthy.v1":
-                continue  # "none"/negations are the CORRECT answer on a control
+            if get_operator(op_id).layer == "control":
+                continue  # "none"/negations are the CORRECT answer on any control (healthy or benign)
             acc = list(get_operator(op_id).accepted_classes())
             for adv in _negation_adversaries(_CONCEPT_WORD[op_id]):
                 if _score(adv, op_id, acc):
