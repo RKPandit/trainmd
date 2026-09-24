@@ -1,4 +1,4 @@
-.PHONY: docker-b2plus-report data reference build-case verify-repair run-agent smoke score verify validate validate-all clean test \
+.PHONY: docker-qualify-benign docker-b2plus-report data reference build-case verify-repair run-agent smoke score verify validate validate-all clean test \
 	image image-digest docker-data docker-reference docker-build-case docker-validate-all \
 	docker-gate-known-answer docker-audit-index docker-test docker-sweep docker-shell \
 	docker-build-all-cases docker-case-margins
@@ -219,6 +219,10 @@ docker-calibrate-data-leakage:
 # B2+ = UPPER BOUND (config-diff with perfect knob semantics): fallback + control false positives.
 docker-b2plus-report:
 	$(DOCKER_RUN) python scripts/b2plus_report.py
+
+# Benign-configuration change qualification (STAGE4 4.0.6): native amd64 only (CI task=benign-qualify).
+docker-qualify-benign:
+	$(DOCKER_RUN) python scripts/qualify_benign.py
 
 # B2 config-delta baseline on the neutral-key cases (detect+recover, identify 0/6).
 docker-baseline-report:

@@ -14,6 +14,7 @@ fails on any reuse):
 - HIDDEN_EVAL    100–102  the evaluator's hidden test seeds
 - CONFIRMATORY_FAULTY  42–43   faulty cases used in sweeps
 - CONFIRMATORY_CONTROL 50–69   control cases used in sweeps (≥20; moved off {0,1,2})
+- CONFIRMATORY_BENIGN  70–93   benign-configuration control cases (STAGE4 4.0.6: 6 change types × 4)
 
 CONFIRMATORY = faulty ∪ control (the seeds a sweep's cases are built on).
 """
@@ -24,7 +25,8 @@ DEVELOPMENT: frozenset[int] = frozenset(range(0, 30))        # 0–29
 HIDDEN_EVAL: frozenset[int] = frozenset({100, 101, 102})     # 100–102
 CONFIRMATORY_FAULTY: frozenset[int] = frozenset({42, 43, 44, 45, 46, 47})  # 42–47 (H8 power: 6 seeds → MDD ~0.25)
 CONFIRMATORY_CONTROL: frozenset[int] = frozenset(range(50, 70))  # 50–69 (20 controls)
-CONFIRMATORY: frozenset[int] = CONFIRMATORY_FAULTY | CONFIRMATORY_CONTROL
+CONFIRMATORY_BENIGN: frozenset[int] = frozenset(range(70, 94))   # 70–93 (6 benign types × 4 seeds)
+CONFIRMATORY: frozenset[int] = CONFIRMATORY_FAULTY | CONFIRMATORY_CONTROL | CONFIRMATORY_BENIGN
 
 # Named sets in the order they are reported / checked.
 NAMED_SETS: dict[str, frozenset[int]] = {
@@ -33,6 +35,7 @@ NAMED_SETS: dict[str, frozenset[int]] = {
     "hidden_eval": HIDDEN_EVAL,
     "confirmatory_faulty": CONFIRMATORY_FAULTY,
     "confirmatory_control": CONFIRMATORY_CONTROL,
+    "confirmatory_benign": CONFIRMATORY_BENIGN,
 }
 
 

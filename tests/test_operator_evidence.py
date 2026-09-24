@@ -42,6 +42,11 @@ def test_mutated_config_keys_are_in_evidence(operator_id, tmp_path):
         if e.kind == "config_key"
     }
 
+    if op.layer == "control":
+        # A control (healthy, or benign with a LEGITIMATE edit) has nothing to cite: its correct
+        # evidence is empty even when it changed a key (STAGE4 4.0.6).
+        assert op.evidence() == [], f"{operator_id}: a control must cite no evidence"
+        return
     missing = mutated_config_keys - evidence_config_keys
     assert not missing, (
         f"{operator_id} mutates config key(s) {sorted(missing)} not cited in "

@@ -11,13 +11,13 @@ name: CI (canonical container)
 #     reference-change-guard detect-only). NO case-building, NO training on the PR
 #     gate — ~500 sequential training runs cannot fit a per-PR budget and rebuilding
 #     when the inputs rarely change is waste.
-#   workflow_dispatch (manual, ~45 min): `build-and-certify` — build all 128 cases +
+#   workflow_dispatch (manual, ~45 min): `build-and-certify` — build all 152 cases +
 #     validate-all + the FULL verify_repair gate on a REPRESENTATIVE SUBSET (one case
 #     per operator,strength = 19 cases, ~11 min, + a coverage assert) + margin/baseline
 #     reports. A maintainer triggers it after a reference/operator change to certify
-#     ground truth. `gate_scope=full` input forces the exhaustive all-128 gate.
+#     ground truth. `gate_scope=full` input forces the exhaustive all-152 gate.
 #   schedule (nightly): the fast set PLUS the slow (training) tests, the two-runner
-#     reference repro, AND build-and-certify with the exhaustive ALL-128 FULL gate
+#     reference repro, AND build-and-certify with the exhaustive ALL-152 FULL gate
 #     (it has all night) — the automated safety net, without burdening PRs.
 #   Merge guarantee: PR-time required checks are the fast ones (test-suite-fast,
 #     repro-guards, reference-change-guard); the heavy ground-truth guarantee is the
@@ -37,7 +37,12 @@ on:
         description: "FULL verify_repair gate scope"
         type: choice
         default: subset      # one case per (operator,strength) + coverage assert (~15 cases)
-        options: [subset, full]   # 'full' = all 128 cases (slow; nightly runs this too)
+        options: [subset, full]   # 'full' = all 152 cases (slow; nightly runs this too)
+      task:
+        description: "What the manual dispatch runs"
+        type: choice
+        default: certify
+        options: [certify, benign-qualify, reference-ab]   # benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone
 
 concurrency:
   # push/PR runs SHARE a per-ref group (rapid pushes cancel the stale one).
@@ -112,22 +117,22 @@ jobs:
 
   # ---- Fresh-clone BUILD-AND-CERTIFY — MANUAL (workflow_dispatch) ----------
   # Case-building is OFF the PR gate: ~500 sequential single-threaded training
-  # runs (128 case builds + the FULL verify_repair gate) cannot fit a per-PR
+  # runs (152 case builds + the FULL verify_repair gate) cannot fit a per-PR
   # budget, and rebuilding on every PR is wasteful when the inputs (reference,
   # operators, train.py) rarely change. This heavy certification runs ONLY when
   # a maintainer triggers it — after a reference or operator change — and asserts
-  # the ground truth: 128 cases build, validate-all green, FULL gate 0 FAIL,
+  # the ground truth: 152 cases build, validate-all green, FULL gate 0 FAIL,
   # margins + baselines. PRs run fast tests + repro guards only (docs/DECISIONS.md
   # 2026-09-19). 240-min budget = the honest wall for the serial build + FULL
   # gate (~2h), NOT a per-PR timeout.
   build-and-certify:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.task == 'certify') || github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     # 350 min (GitHub's per-job ceiling is 360). Deliberate MANUAL/nightly artifact
     # build, not a push/PR gate. On workflow_dispatch the FULL gate runs on a
     # REPRESENTATIVE SUBSET (one case per operator,strength + coverage assert, ~15
     # cases ~10 min) for fast certification; on the nightly schedule it runs the
-    # exhaustive all-128 FULL gate (which has all night). Override the dispatch
+    # exhaustive all-152 FULL gate (which has all night). Override the dispatch
     # scope with the `gate_scope=full` input.
     timeout-minutes: 350
     steps:
@@ -148,12 +153,12 @@ jobs:
           make docker-case-margins
           END=$(date +%s)
           echo "BUILD_ALL_CASES_WALL_SECONDS=$((END-START))"
-      - name: Known-answer gate (FULL — subset on dispatch, all-128 on nightly)
+      - name: Known-answer gate (FULL — subset on dispatch, all-152 on nightly)
         run: |
-          # nightly (schedule) OR explicit gate_scope=full -> exhaustive all 128;
+          # nightly (schedule) OR explicit gate_scope=full -> exhaustive all 152;
           # otherwise (manual dispatch, default) -> representative subset + coverage.
           if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.gate_scope }}" = "full" ]; then
-            echo "FULL gate: ALL 128 cases"
+            echo "FULL gate: ALL cases (152 in the current design)"
             make docker-gate-known-answer FULL=1
           else
             echo "FULL gate: representative subset (one per operator,strength) + coverage assert"
@@ -242,8 +247,78 @@ jobs:
           if [ -n "$CHANGED" ]; then echo "::error::a job modified committed reference file(s):"; echo "$CHANGED"; exit 1; fi
 
   # ---- Reproducibility gate: TWO INDEPENDENT RUNNERS (amendment 3) — NIGHTLY
+  # ---- Benign-configuration change QUALIFICATION — MANUAL (task=benign-qualify) ----
+  # STAGE4 4.0.6: design-time test that each candidate benign change leaves hidden accuracy
+  # unchanged on development seeds 0-29 (paired clean vs changed; declared test in
+  # scripts/qualify_benign.py + DECISIONS). Native amd64 only (training is platform-sensitive).
+  benign-qualify:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'benign-qualify' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - run: make docker-data
+      - name: Qualify candidate benign changes (7 x 30 runs)
+        run: make docker-qualify-benign
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benign_qualification
+          path: |
+            docs/audits/benign_qualification.md
+            docs/audits/benign_qualification.json
+      - name: Committed reference files unmodified (only reference generation may write them)
+        if: always()
+        run: |
+          CHANGED="$(git status --porcelain -- 'workloads/*/reference')"
+          if [ -n "$CHANGED" ]; then echo "::error::a job modified committed reference file(s):"; echo "$CHANGED"; exit 1; fi
+
+  # ---- Workload-change proof — MANUAL (task=benign-qualify) ----------------------
+  # STAGE4 4.0.6 adds an inert training.grad_clip_norm path to BOTH train.py files. Proof the
+  # CLEAN path is unchanged: on ONE runner (same microarchitecture — native training is
+  # byte-exact within a microarch, not across; scripts/verify_reference.py), generate each
+  # workload's 30-seed reference with the OLD train.py (origin/main) and the NEW one, and
+  # require every learned value to be IDENTICAL (scripts/compare_stats_exact.py). The new
+  # reference is also compared with the committed stats.yaml (exact: report-only, since the
+  # runner's microarch may differ from the one that generated it; tolerance: verify_reference).
+  reference-ab:
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.task == 'benign-qualify' || inputs.task == 'reference-ab') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - run: make docker-data
+      - run: make link-neutral-workload
+      - name: A/B the clean path, old vs new train.py, same runner, both workloads
+        run: |
+          # Both workloads SHARE one reference (tabular_adult_neutral/reference is a symlink to
+          # tabular_adult/reference), so each A/B runs in COPIED dirs (cp -rL) and never writes
+          # through the symlink; the committed reference is tabular_adult's.
+          RUN="docker run --rm --platform linux/amd64 --user $(id -u):$(id -g) -e HOME=/tmp -e TRAINMD_IN_CONTAINER=1 -v $PWD:/work -w /work trainmd:canonical"
+          git show HEAD:workloads/tabular_adult/reference/stats.yaml > committed.yaml
+          for W in tabular_adult tabular_adult_neutral; do
+            for V in old new; do
+              rm -rf ab_${W}_$V && cp -rL workloads/$W ab_${W}_$V && rm -rf ab_${W}_$V/reference/runs
+            done
+            git show origin/main:workloads/$W/train.py > ab_${W}_old/train.py
+            $RUN python -m harness.reference_run --workload-dir ab_${W}_old
+            $RUN python -m harness.reference_run --workload-dir ab_${W}_new
+            echo "== $W: old vs new train.py (same runner) — must be IDENTICAL"
+            $RUN python scripts/compare_stats_exact.py ab_${W}_old/reference/stats.yaml ab_${W}_new/reference/stats.yaml
+            echo "== $W: new vs committed (exact report-only; tolerance gate)"
+            $RUN python scripts/compare_stats_exact.py --report-only committed.yaml ab_${W}_new/reference/stats.yaml
+            $RUN python scripts/verify_reference.py committed.yaml ab_${W}_new/reference/stats.yaml
+          done
+      - name: Committed reference files unmodified (only reference generation may write them)
+        if: always()
+        run: |
+          CHANGED="$(git status --porcelain -- 'workloads/*/reference')"
+          if [ -n "$CHANGED" ]; then echo "::error::a job modified committed reference file(s):"; echo "$CHANGED"; exit 1; fi
+
   reference-repro:
-    if: ${{ github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.task == 'benign-qualify') }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
@@ -263,7 +338,7 @@ jobs:
 
   reference-repro-compare:
     needs: reference-repro
-    if: ${{ github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.task == 'benign-qualify') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -280,6 +355,11 @@ jobs:
           docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
             python scripts/verify_reference.py r1/stats.yaml r2/stats.yaml
           echo "REPRODUCIBLE: reference-run-1 == reference-run-2 across independent runners"
+          # exact (report-only: two runners may differ in microarch): run-1 vs run-2, run-1 vs committed
+          docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
+            python scripts/compare_stats_exact.py --report-only r1/stats.yaml r2/stats.yaml
+          docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
+            python scripts/compare_stats_exact.py --report-only workloads/tabular_adult/reference/stats.yaml r1/stats.yaml
 
   # ---- Standing guard: a committed-reference change must rebuild all cases ---
   # Runs on every event: on a normal push it detects "no reference change" and

@@ -17,8 +17,14 @@ The values below are checked against the repo by `scripts/check_current_state.py
 them out of sync with the registry / code.
 
 ```yaml
-operators_count: 7
+operators_count: 13
 operators:            # operator_id  (tier)
+  - control.benign_bs128.v1     # control (benign config: batch size 256 -> 128; STAGE4 4.0.6)
+  - control.benign_clip1.v1     # control (benign config: NEW key grad_clip_norm 1.0, non-binding)
+  - control.benign_do01.v1      # control (benign config: dropout 0.0 -> 0.1)
+  - control.benign_ep25.v1      # control (benign config: epochs 20 -> 25)
+  - control.benign_lr005.v1     # control (benign config: lr 0.01 -> 0.005, same knob as lr fault)
+  - control.benign_wd5e4.v1     # control (benign config: weight decay 1e-4 -> 5e-4)
   - control.healthy.v1          # control
   - crash.shape_mismatch.v1     # execution
   - silent.data_leakage.v1      # dynamics
@@ -26,7 +32,7 @@ operators:            # operator_id  (tier)
   - silent.label_corruption.v1  # dynamics
   - silent.lr_warmup.v1         # dynamics (bimodal-collapse; retired from the σ-ladder — L1/S12)
   - silent.metric_inflation.v1  # metric
-case_count: 128                 # v3 Part 2 (H8 power): 108 faulty (6 ops × 3 strengths × 6 seeds 42–47) + 20 controls (seeds 50–69)
+case_count: 152                 # 108 faulty (6 ops × 3 strengths × 6 seeds 42–47) + 20 healthy controls (seeds 50–69) + 24 benign-config controls (6 types × 4 seeds 70–93; STAGE4 4.0.6)
 evidence_scorer_primary: evidence_v2.1
 evidence_scorer_versions: [evidence_v1, evidence_v2, evidence_v2.1]
 canonical_image_digest: sha256:0354db57c29a5092ace862a0d8716dfe3729d4f8b893fe3079c66d947daeb25d

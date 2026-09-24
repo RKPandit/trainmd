@@ -57,7 +57,7 @@ def test_enumerate_cell_count():
 
     # The design's faulty operators come from operators/registry.py (code), so
     # build a registry for ALL of them (not just one) to reach missing == [].
-    faulty = tuple(op for op in all_operator_ids() if op != sweep.CONTROL_OPERATOR)
+    faulty = tuple(op for op in all_operator_ids() if sweep._tier_of(op) != "control")
     tmp = Path(tempfile.mkdtemp())
     _mk_root(tmp, faulty=faulty)
     cells, missing = sweep.enumerate_cells(tmp, ["moderate"], [42], [0], repeats=3)
@@ -404,7 +404,7 @@ def test_operators_filter_restricts_design_and_rejects_unknown():
     import pytest
     from operators.registry import all_operator_ids
 
-    faulty = tuple(op for op in all_operator_ids() if op != sweep.CONTROL_OPERATOR)
+    faulty = tuple(op for op in all_operator_ids() if sweep._tier_of(op) != "control")
     tmp = Path(tempfile.mkdtemp())
     _mk_root(tmp, faulty=faulty)
 
@@ -430,7 +430,7 @@ def test_operators_survive_build_missing(tmp_path, monkeypatch):
     import pytest
     from operators.registry import all_operator_ids
 
-    faulty = tuple(op for op in all_operator_ids() if op != sweep.CONTROL_OPERATOR)
+    faulty = tuple(op for op in all_operator_ids() if sweep._tier_of(op) != "control")
     _mk_root(tmp_path, faulty=faulty)  # default design leaves most tuples MISSING -> build_missing runs
     monkeypatch.setattr(sweep, "build_missing",
                         lambda root, missing: {"built": [], "skipped": missing, "failed": []})

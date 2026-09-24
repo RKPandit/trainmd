@@ -274,3 +274,15 @@ def test_b2plus_clean_not_flagged(tmp_path):
     cd = _visible_case(tmp_path, [0.857], resolved=clean)
     sub = B.b2plus(B.VisibleSurface(cd, REPO))
     assert sub["diagnosis"]["detected"] is False and "b2plus_map_hit" not in sub
+
+
+# ---- BF form-only comparator (STAGE4 4.0.6) --------------------------------
+def test_bform_flags_only_newly_present_keys(tmp_path):
+    base = {"workload": {"name": "tabular_adult"}}
+    new_key = _visible_case(tmp_path / "a", [0.857],
+                            resolved={**base, "training": {"grad_clip_norm": 1.0}})
+    changed = _visible_case(tmp_path / "b", [0.857], resolved={**base, "training": {"batch_size": 128}})
+    s1 = B.bform(B.VisibleSurface(new_key, REPO))
+    assert s1["diagnosis"]["detected"] is True
+    assert s1["evidence_refs"][0]["detail"]["key_path"] == "training.grad_clip_norm"
+    assert B.bform(B.VisibleSurface(changed, REPO))["diagnosis"]["detected"] is False

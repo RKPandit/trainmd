@@ -238,6 +238,8 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
         weight_decay=tcfg.get("weight_decay", 0.0),
     )
     criterion = nn.BCEWithLogitsLoss()
+    # Optional gradient-norm clipping; absent = no clipping.
+    grad_clip_norm = tcfg.get("grad_clip_norm")
 
     # ---- output dirs & logging -------------------------------------------
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -280,6 +282,8 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
                 logits = model(xb)
                 loss = criterion(logits, yb)
                 loss.backward()
+                if grad_clip_norm is not None:
+                    nn.utils.clip_grad_norm_(model.parameters(), grad_clip_norm)
                 optimizer.step()
 
                 bs = len(yb)
