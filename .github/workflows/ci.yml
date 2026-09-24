@@ -267,6 +267,11 @@ jobs:
           path: |
             docs/audits/benign_qualification.md
             docs/audits/benign_qualification.json
+      - name: Committed reference files unmodified (only reference generation may write them)
+        if: always()
+        run: |
+          CHANGED="$(git status --porcelain -- 'workloads/*/reference')"
+          if [ -n "$CHANGED" ]; then echo "::error::a job modified committed reference file(s):"; echo "$CHANGED"; exit 1; fi
 
   # ---- Workload-change proof — MANUAL (task=benign-qualify) ----------------------
   # STAGE4 4.0.6 adds an inert training.grad_clip_norm path to BOTH train.py files. Proof the
@@ -306,6 +311,11 @@ jobs:
             $RUN python scripts/compare_stats_exact.py --report-only committed.yaml ab_${W}_new/reference/stats.yaml
             $RUN python scripts/verify_reference.py committed.yaml ab_${W}_new/reference/stats.yaml
           done
+      - name: Committed reference files unmodified (only reference generation may write them)
+        if: always()
+        run: |
+          CHANGED="$(git status --porcelain -- 'workloads/*/reference')"
+          if [ -n "$CHANGED" ]; then echo "::error::a job modified committed reference file(s):"; echo "$CHANGED"; exit 1; fi
 
   reference-repro:
     if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.task == 'benign-qualify') }}
