@@ -749,6 +749,12 @@ refuting · Luna's rule arm shows a measurable (sub-refutation) decrease · upda
 identification on `data_leakage` does not depend on the two descriptive key names; it is **not** shown to
 be mechanism understanding (code-pattern recognition and general leakage heuristics are not ruled out).
 
+*Caveat (2026-09-24, LIMITATIONS L32):* H8's Luna ReAct trials ran with Luna's reasoning discarded
+between tool calls (an adapter bug, fixed before Part 1; proven by
+`tests/test_reasoning_preservation.py`). F13's within-cell renaming contrast shares the handicap; the
+provider-specific ReAct − static evidence contrast (Anthropic +0.057, OpenAI −0.051) is not
+interpreted as a model difference.
+
 ### F14 — Reference-context dependence is model-specific (H7 failed to replicate as a general effect) · headline
 
 The Sweep-1 / Stage-2 headline **F10/S13 — "agents need a numeric reference baseline to detect the

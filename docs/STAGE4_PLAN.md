@@ -137,6 +137,25 @@ contain an inert `training.grad_clip_norm` path (absent = no clipping; needed fo
 control — DECISIONS 2026-09-23). The clean path is numerically unchanged (A/B-proven), but agents that
 read `train.py` see four extra lines (a one-line comment and the clipping path), so even the `off` arm is
 comparable with H8 only approximately.
+**Declared in the Part 1 pre-registration — benign-configuration controls (24 cases, case_0129–0152):**
+the POOLED benign false-positive rate over all 24 benign cases is **confirmatory** (clustered by case:
+24 clusters). Per-type rates (6 types × **4 cases** each) and the edit-form split — new key: **4 cases,
+one knob** (`training.grad_clip_norm`); changed value: 20 cases, 5 knobs — are **EXPLORATORY** and
+reported with those cluster counts. The learning-rate change (0.01 → 0.005) is "**equivalent within the
+declared margin, with a small detectable decrease**" in hidden accuracy (−0.460 σ_ref, 90% CI
+[−0.907, −0.012] σ_ref; `docs/audits/benign_qualification.md`). What agents will SEE is the visible band
+position of the cases actually built (not the development-seed shares): **23 inside, 1 below
+(case_0144, dropout, −2.70σ), 0 above** — per type: bs128 0/4/0, ep25 0/4/0 (one at +1.99σ), wd5e4
+0/4/0, do01 1/3/0, lr005 0/4/0, clip1 0/4/0 (below/inside/above; from the build-and-certify case-margin
+table, run 35947111127).
+**Declared in the Part 1 pre-registration — Luna ReAct is NOT comparable with H8's:** H8's Luna ReAct ran
+with Luna's reasoning discarded between tool calls (LIMITATIONS L32; fixed — reasoning items are now
+replayed). Part 1 Luna ReAct therefore runs a different (corrected) protocol; no Part 1 Luna ReAct result
+is compared with or pooled with H8's. Luna static and all Haiku cells are unaffected. **Pre-run slice
+gate, extended:** besides `check-cache`, `python -m harness.sweep check-reasoning --name <part1>` must
+report `passed` on the slice (Luna ReAct produces reasoning items: prior items must be replayed on every
+later call, and reasoning must recur after the first tool call); the agents phase also stops by itself
+if any trial drops them.
 **Release archive — decided at paper time (no longer a Part 1 prerequisite; DECISIONS 2026-09-23):**
 the archive platform (Zenodo / GitHub Releases / Hugging Face) is chosen at submission, once the venue's
 anonymity and hosting rules are known. Enforced now: new sweep releases (Stage 4 onward) are exported

@@ -51,6 +51,16 @@ class LLMResponse:
     stop_reason: str                     # "end_turn", "tool_use", "max_tokens"
     usage: Usage
     raw: dict | None = None              # provider-specific raw response for llm_transcript
+    # The provider-NATIVE assistant turn, to be appended to history UNCHANGED (STAGE4, reasoning
+    # preservation): Anthropic content blocks (thinking + signature, text, tool_use) or one
+    # {"type": "openai_output_items", "items": [...]} block (reasoning incl. encrypted_content,
+    # message, function_call). Both providers require prior reasoning to be passed back with
+    # tool results; rebuilding the turn from text + tool calls DROPS it (the API then silently
+    # continues without it). None → the agent rebuilds the turn (fake/test clients).
+    assistant_blocks: list | None = None
+    # Thinking blocks (Anthropic) / reasoning items (OpenAI) in THIS response — for the live
+    # reasoning-preservation check.
+    reasoning_blocks: int = 0
 
 
 # ---------------------------------------------------------------------------

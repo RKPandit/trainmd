@@ -25,6 +25,8 @@ from agents.llm_agent import (
     SUBMIT_FORMAT_TEXT,
     SUBMIT_SCHEMA,
     _normalize_anchor,
+    assistant_turn,
+    count_reasoning_blocks,
     build_case_info,
 )
 from harness.llm.client import LLMClient
@@ -246,6 +248,7 @@ class StaticContextAgent:
         first_input_tokens: int | None = None
         termination = "no_submit_after_followup"  # default if neither call submits
         for attempt in range(2):
+            replayed = count_reasoning_blocks(messages)
             _t0 = time.monotonic()
             response = self._client.complete(
                 messages, [SUBMIT_SCHEMA], max_tokens=self._max_response_tokens,
@@ -253,7 +256,7 @@ class StaticContextAgent:
             _latency = time.monotonic() - _t0
             if first_input_tokens is None:
                 first_input_tokens = response.usage.input_tokens
-            self._capture(response, attempt, _latency)
+            self._capture(response, attempt, _latency, replayed)
 
             submit_calls = [tc for tc in response.tool_calls if tc.name == "submit"]
             if submit_calls:
@@ -267,14 +270,9 @@ class StaticContextAgent:
 
             # No submit yet. One bounded follow-up (also the max_tokens continuation).
             if attempt == 0:
-                assistant_content: list[dict] = []
-                if response.text:
-                    assistant_content.append({"type": "text", "text": response.text})
-                for tcall in response.tool_calls:
-                    assistant_content.append({
-                        "type": "tool_use", "id": tcall.id,
-                        "name": tcall.name, "input": tcall.arguments,
-                    })
+                # Native blocks passed back unchanged (reasoning preserved), as in the ReAct loop.
+                assistant_content = assistant_turn(response) if (response.text or response.tool_calls
+                                                                 or response.assistant_blocks) else []
                 if assistant_content:
                     messages.append({"role": "assistant", "content": assistant_content})
                 messages.append({"role": "user", "content": "You must call submit now."})
@@ -284,7 +282,7 @@ class StaticContextAgent:
             self._record["static_context"]["context_tokens_sent"] = first_input_tokens
             self._record["termination_reason"] = termination
 
-    def _capture(self, response, turn: int, latency_sec: float = 0.0) -> None:
+    def _capture(self, response, turn: int, latency_sec: float = 0.0, replayed: int = 0) -> None:
         if self._record is None:
             return
         u = self._record["usage"]
@@ -308,7 +306,10 @@ class StaticContextAgent:
                 "output_tokens": response.usage.output_tokens,
                 "cached_tokens": response.usage.cached_tokens,
                 "cache_write_tokens": response.usage.cache_write_tokens,
+                "reasoning_tokens": (response.raw or {}).get("reasoning_tokens"),
             },
+            "reasoning_blocks": response.reasoning_blocks,
+            "replayed_reasoning_blocks": replayed,
         }
         self._record["llm_transcript"].append(entry)
         if response.stop_reason == "max_tokens":
