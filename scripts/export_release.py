@@ -57,6 +57,8 @@ _CASE_META = {  # hidden-card field -> release field
     # released cases are burned (LIMITATIONS L31). The authority on release content is the
     # generated FIELD_INVENTORY.json, not this comment.
     "band_position_visible": "band_position_visible",
+    # benign-control edit form ("changed" / "added"; None otherwise) — reports split benign FPs by it
+    "benign_form": "benign_form",
 }
 
 _SECRET_RE = re.compile(r"sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|ANTHROPIC_API_KEY\s*[:=]\s*\S+", re.I)

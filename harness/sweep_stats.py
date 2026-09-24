@@ -48,6 +48,7 @@ def case_meta_from_cases(root: Path):
                 # back to the pooled table (byte-identical for frozen sweeps).
                 "band_position_visible": card.get("band_position_visible"),
                 "band_position_hidden": card.get("band_position_hidden"),
+                "benign_form": card.get("benign_form"),
                 # strength × seed — the H8 paired-bootstrap matching key.
                 "strength": card.get("strength"),
                 "seed": card.get("seed"),
@@ -109,6 +110,7 @@ def attach_meta(rec: dict, meta: dict) -> dict:
     rec["_sig_hid"] = meta.get("hidden_sigma_distance")
     rec["_band_vis"] = meta.get("band_position_visible")  # §5.1 (None pre-§5.1)
     rec["_band_hid"] = meta.get("band_position_hidden")
+    rec["_benign_form"] = meta.get("benign_form")      # None: not a benign-config control
     rec["_strength"] = meta.get("strength")   # H8 paired-bootstrap key
     rec["_seed"] = meta.get("seed")
     # Arm identity includes the prompt MAJOR version (harness/anchors.py): v1 and v2 arms get
@@ -246,7 +248,7 @@ def case_meta_from_release(release_dir: Path):
             cache[cid] = {k: d.get(k) for k in (
                 "operator_id", "tier", "symptom_direction",
                 "visible_sigma_distance", "hidden_sigma_distance",
-                "band_position_visible",
+                "band_position_visible", "benign_form",
                 "strength", "seed")}
         return cache[cid]
 
@@ -580,6 +582,26 @@ def control_fpr(recs):
         _mark_zero_event(ci)          # zero-event → exact CP over cases; 1–2 events flagged
         per_arm[arm] = ci
     out = {"available": True, "per_arm": per_arm}
+
+    # Benign-configuration controls (STAGE4 4.0.6): FP rate SEPARATELY by edit form — healthy
+    # (no edit), changed-value, new-key — per arm. Only when benign controls are present, so sweeps
+    # without them render byte-identically.
+    if any(r.get("_benign_form") for r in ctrl_all):
+        forms = {}
+        for form, keep in (("healthy (no edit)", lambda r: not r.get("_benign_form")),
+                           ("benign: changed value", lambda r: r.get("_benign_form") == "changed"),
+                           ("benign: new key", lambda r: r.get("_benign_form") == "added")):
+            forms[form] = {}
+            for arm in arms_present(ctrl_all):
+                sub = [r for r in ctrl_all if r["_anchor"] == arm and keep(r)]
+                if not sub:
+                    continue
+                ci = bootstrap_ci(sub, fp_pred)
+                fp = [r for r in sub if _detected(r) is True]
+                ci["n_fp"], ci["fp_cases"] = len(fp), sorted({r["case_id"] for r in fp})
+                _mark_zero_event(ci)
+                forms[form][arm] = ci
+        out["by_benign_form"] = forms
 
     # §5.1: stratify each arm into in_band vs out-of-band (below_band ∪ above_band).
     # A pooled control FPR must never stand alone; the out-of-band rate is the honest

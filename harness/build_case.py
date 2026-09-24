@@ -552,6 +552,10 @@ def build_case(
         # see validate_case._PUBLIC_CARD_FORBIDDEN_TOKENS, a wall requirement).
         "band_position_visible": band_position_visible,
         "band_position_hidden": band_position_hidden,
+        # Benign-configuration controls (STAGE4 4.0.6): the edit's FORM — "changed" (an existing
+        # key's value) or "added" (a new key); None for every other operator. Benign false
+        # positives are reported separately by form (four of five faults ADD a key).
+        "benign_form": getattr(op, "FORM", None) or None,
         # Metric tier's EXACT "model untouched" guarantee: the checkpoint is
         # bitwise-identical to a clean run at the same seed (verified at build,
         # above). The recorded model SHA lets the validator re-verify the shipped

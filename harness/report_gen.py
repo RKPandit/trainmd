@@ -260,6 +260,15 @@ def _metric_body(s: dict, records: list, meta: dict) -> list:
         for arm in sorted(c["per_arm"]):
             a = c["per_arm"][arm]
             B.append(f"| {arm} | {_ci(a)} | {a['n_fp']}/{a['n_trials']} | {len(a['fp_cases'])}/{a['n_cases']} |")
+        if c.get("by_benign_form"):
+            B += ["", "### Control FP rate by benign edit form (STAGE4 4.0.6 — reported SEPARATELY)", "",
+                  "| control type | arm | FP rate (95% CI) | n_fp / n_trials | unique FP cases / cases |",
+                  "|---|---|---|---|---|"]
+            for form, arms in c["by_benign_form"].items():
+                for arm in sorted(arms):
+                    a = arms[arm]
+                    B.append(f"| {form} | {arm} | {_ci(a)} | {a['n_fp']}/{a['n_trials']} | "
+                             f"{len(a['fp_cases'])}/{a['n_cases']} |")
         # §5.1: stratified breakdown (in-band vs out-of-band) when controls carry
         # band labels. Never present the pooled rate alone once we have this.
         if c.get("stratified"):

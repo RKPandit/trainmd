@@ -14,6 +14,7 @@ import hashlib
 import json
 
 from operators.base import IncidentOperator
+from operators.control.benign import BENIGN_OPERATORS
 from operators.control.healthy import HealthyControlOperator
 from operators.crash.shape_mismatch import ShapeMismatchOperator
 from operators.metric.metric_inflation import MetricInflationOperator
@@ -30,6 +31,8 @@ OPERATOR_REGISTRY: dict[str, type] = {
     "silent.metric_inflation.v1": MetricInflationOperator,
     "crash.shape_mismatch.v1": ShapeMismatchOperator,
     "control.healthy.v1": HealthyControlOperator,
+    # Benign-configuration controls (STAGE4 4.0.6): healthy runs with one qualified routine change.
+    **{cls.id: cls for cls in BENIGN_OPERATORS},
 }
 
 
