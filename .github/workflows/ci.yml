@@ -66,6 +66,11 @@ jobs:
         run: bash scripts/ci_fingerprint.sh
       - name: Fast test suite (no training; -m "not slow_integration")
         run: make docker-test-fast
+      - name: Committed reference files unmodified (only reference generation may write them)
+        if: always()
+        run: |
+          CHANGED="$(git status --porcelain -- 'workloads/*/reference')"
+          if [ -n "$CHANGED" ]; then echo "::error::a job modified committed reference file(s):"; echo "$CHANGED"; exit 1; fi
 
   # ---- SLOW test lane — NIGHTLY only (off the PR gate) ---------------------
   test-suite-slow:
@@ -99,6 +104,11 @@ jobs:
           git checkout -- workloads/tabular_adult/reference/stats.yaml
       - name: Slow test suite (training; -m slow_integration)
         run: make docker-test-slow
+      - name: Committed reference files unmodified (only reference generation may write them)
+        if: always()
+        run: |
+          CHANGED="$(git status --porcelain -- 'workloads/*/reference')"
+          if [ -n "$CHANGED" ]; then echo "::error::a job modified committed reference file(s):"; echo "$CHANGED"; exit 1; fi
 
   # ---- Fresh-clone BUILD-AND-CERTIFY — MANUAL (workflow_dispatch) ----------
   # Case-building is OFF the PR gate: ~500 sequential single-threaded training
@@ -219,6 +229,11 @@ jobs:
         run: |
           df -h / | tail -1
           du -sh cases workloads/tabular_adult/.data workloads/tabular_adult/.hidden_data 2>/dev/null || true
+      - name: Committed reference files unmodified (only reference generation may write them)
+        if: always()
+        run: |
+          CHANGED="$(git status --porcelain -- 'workloads/*/reference')"
+          if [ -n "$CHANGED" ]; then echo "::error::a job modified committed reference file(s):"; echo "$CHANGED"; exit 1; fi
 
   # ---- Reproducibility gate: TWO INDEPENDENT RUNNERS (amendment 3) — NIGHTLY
   reference-repro:
@@ -298,6 +313,11 @@ jobs:
       - name: Known-answer gate (FULL — verify_repair recovery)
         if: steps.refchg.outputs.changed == 'true'
         run: make docker-gate-known-answer FULL=1
+      - name: Committed reference files unmodified (only reference generation may write them)
+        if: always()
+        run: |
+          CHANGED="$(git status --porcelain -- 'workloads/*/reference')"
+          if [ -n "$CHANGED" ]; then echo "::error::a job modified committed reference file(s):"; echo "$CHANGED"; exit 1; fi
 
   # ---- Reproducible-analysis guards (STAGE3_PLAN §0.3): pure-Python, no container ----
   # Cheap (pip + fast checks); runs on every event. The committed records RELEASE lets
@@ -328,3 +348,8 @@ jobs:
           python scripts/rebuild_tables.py --sweep sweep1
           python scripts/rebuild_tables.py --sweep stage2gate
           python scripts/rebuild_tables.py --sweep h8_xprovider
+      - name: Committed reference files unmodified (only reference generation may write them)
+        if: always()
+        run: |
+          CHANGED="$(git status --porcelain -- 'workloads/*/reference')"
+          if [ -n "$CHANGED" ]; then echo "::error::a job modified committed reference file(s):"; echo "$CHANGED"; exit 1; fi

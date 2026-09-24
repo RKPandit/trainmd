@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -35,6 +36,23 @@ def _read_epoch_metrics(metrics_path: Path) -> list[dict]:
             if record.get("end_of_epoch"):
                 epochs.append(record)
     return epochs
+
+
+def refuse_symlinked_reference(reference_dir: Path) -> None:
+    """Refuse to generate a reference whose directory (or any parent) resolves through a SYMLINK.
+
+    tabular_adult_neutral/reference is a symlink to tabular_adult/reference (the two workloads share
+    one reference); a reference run pointed at the neutral workload once wrote THROUGH that link and
+    overwrote the shared committed stats.yaml (DECISIONS 2026-09-23). Generation must name the real
+    directory; to regenerate into a copy, copy with symlinks resolved (``cp -rL``).
+    """
+    lexical = Path(os.path.abspath(reference_dir))
+    real = Path(os.path.realpath(reference_dir))
+    if lexical != real:
+        raise SystemExit(
+            f"FATAL: refusing to generate a reference through a symlink: {lexical} -> {real}.\n"
+            "  The target is a SHARED committed reference; writing here would overwrite it for every "
+            "workload that links to it. Run against the real directory, or a copy made with `cp -rL`.")
 
 
 def run_reference(workload_dir: Path, num_seeds: int | None = None) -> dict:
@@ -61,6 +79,7 @@ def run_reference(workload_dir: Path, num_seeds: int | None = None) -> dict:
     hidden_data_dir = workload_dir / ".hidden_data"
     reference_dir = workload_dir / "reference"
     runs_dir = reference_dir / "runs"
+    refuse_symlinked_reference(reference_dir)
     reference_dir.mkdir(parents=True, exist_ok=True)
 
     seeds = config["reference"]["seeds"][:num_seeds]

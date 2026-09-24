@@ -16,6 +16,51 @@ import pytest
 
 def pytest_configure(config):  # noqa: ARG001
     os.environ.setdefault("TRAINMD_ALLOW_NONCANONICAL_BUILD", "1")
+    _REFERENCE_SNAPSHOT.update(_reference_hashes())
+
+
+# ---- Committed reference files must be UNCHANGED by any test (DECISIONS 2026-09-23) -------------
+# The only path that may write a committed reference is explicit reference generation
+# (`make docker-reference`, CI reference-repro). A job once wrote THROUGH the neutral workload's
+# symlinked reference; this session-level check fails the run if any test modified one.
+import hashlib  # noqa: E402
+from pathlib import Path as _Path  # noqa: E402
+
+_REPO = _Path(__file__).resolve().parent.parent
+_REFERENCE_SNAPSHOT: dict[str, str] = {}
+
+
+def _reference_hashes() -> dict[str, str]:
+    out = {}
+    if not (_REPO / "workloads").is_dir():       # e.g. a pytester sandbox copy of this conftest
+        return out
+    for wl in sorted((_REPO / "workloads").iterdir()):
+        ref = wl / "reference"
+        if not ref.is_dir():
+            continue
+        for f in sorted(ref.glob("*")):          # top level only: runs/ is regenerated, gitignored
+            if f.is_file():
+                out[os.path.realpath(f)] = hashlib.sha256(f.read_bytes()).hexdigest()
+    return out
+
+
+def changed_reference_files() -> list[str]:
+    now = _reference_hashes()
+    keys = set(_REFERENCE_SNAPSHOT) | set(now)
+    return sorted(str(_Path(k).relative_to(_REPO)) if k.startswith(str(_REPO)) else k
+                  for k in keys if _REFERENCE_SNAPSHOT.get(k) != now.get(k))
+
+
+def _fail_if_references_changed(session) -> None:
+    """Called from the single pytest_sessionfinish below (a second hook definition in this module
+    would silently REPLACE the first)."""
+    changed = changed_reference_files()
+    if changed:
+        tr = session.config.pluginmanager.get_plugin("terminalreporter")
+        if tr is not None:
+            tr.write_line("FAIL: the test session MODIFIED committed reference file(s) — only explicit "
+                          "reference generation may write them:\n  " + "\n  ".join(changed), red=True)
+        session.exitstatus = 1
 
 
 # A test is "slow" iff it TRAINS — builds a case, runs train.py, or verifies a
@@ -88,6 +133,8 @@ def skipped_tests() -> list[str]:
 
 
 def pytest_sessionfinish(session, exitstatus):  # noqa: ARG001
+    # ONE hook for every session-end guard (a duplicate def would silently disable the earlier one).
+    _fail_if_references_changed(session)
     tr = session.config.pluginmanager.get_plugin("terminalreporter")
     if session.config.getoption("--fail-on-skip") and skipped_tests():
         msg = ("FAIL (--fail-on-skip): tests were SKIPPED in a run that must execute every test:\n  "
