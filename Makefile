@@ -187,6 +187,9 @@ rebuild-tables:
 # (DECISIONS 2026-09-23): the same rebuild_tables byte-match CI runs for the committed releases.
 verify-release:
 	python scripts/rebuild_tables.py --sweep $(NAME)
+# Blind human-audit sheet + sealed key, LOCAL ONLY (gitignored; never commit): audit/local/$(NAME)/
+audit-sheet:
+	python scripts/build_audit_pack.py --sweep $(NAME)
 
 docker-shell:
 	docker run --rm -it --platform $(PLATFORM) -e TRAINMD_IN_CONTAINER=1 \
