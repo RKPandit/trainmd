@@ -48,10 +48,12 @@ def _has_flag(d, flag: str) -> bool:
 
 
 _HIDDEN_BAND_NOTE = (
-    "_Hidden-band stratification (a case-quality label, never the stratification key) is "
-    "internal-only by design and is not part of this report: the release never carries hidden "
-    "band labels, so that table cannot be rebuilt from the release. It is written to the sweep's "
-    "`_internal.md` report, generated from local cases only._")
+    "_Hidden-band stratification (a case-quality label, never the stratification key) is not "
+    "rendered in this report: the report reads band labels only from the release's per-case "
+    "metadata, which holds the visible label alone. That table is written to the sweep's "
+    "`_internal.md` report, generated from local cases. The fields a release does contain are "
+    "listed in its `FIELD_INVENTORY.json` (per-trial `scores` may include the hidden band "
+    "position)._")
 
 _LEGEND_ZERO = ("† zero-event rate: `[0, x]` is the exact two-sided 95% Clopper–Pearson interval "
                 "over the number of UNIQUE CASES (clusters), x = 1 − 0.025^(1/n_cases) — 0 observed "
@@ -267,9 +269,10 @@ def _metric_body(s: dict, records: list, meta: dict) -> list:
             B += _band_table("### Stratified by VISIBLE band position (§5.1 — the key, by mechanism)",
                              c["by_band"])
             # The HIDDEN-band breakdown (a case-quality label, never the key) is NOT rendered
-            # here: the release never carries hidden band labels, so it could not be rebuilt
-            # from the release, and this report must reproduce from the release byte-for-byte.
-            # It goes to the internal-only report instead (generate_internal).
+            # here: this report reads band labels only from the release's per-case metadata
+            # (visible label alone) and must reproduce from the release byte-for-byte. It goes
+            # to the internal-only report instead (generate_internal). What a release contains
+            # is recorded in its FIELD_INVENTORY.json — not described here by intent.
             B += ["", _HIDDEN_BAND_NOTE]
         for d in c.get("mid_minus_rule") or []:
             B += ["", f"- {d['mid_arm']} − {d['high_arm']} FP difference: {_ci(d)}"]
@@ -325,9 +328,11 @@ def generate_from_cases(root: Path, name: str, excluded: dict | None = None) -> 
 def generate_internal(records: list[dict], meta: dict) -> str | None:
     """INTERNAL-ONLY report: the control-FPR breakdown by HIDDEN band position.
 
-    Generated from local cases only (the hidden band label comes from the hidden card) and never
-    reproducible from the release, which by design ships only the VISIBLE band label. Returns None
-    when no record carries a hidden band label (pre-§5.1 sweeps), so nothing is written for them.
+    Generated from local cases only (the hidden band label is read from the hidden card); the
+    release-reproducible report does not render this table. Whether a release's per-trial scores
+    also hold the hidden band position is recorded in its FIELD_INVENTORY.json (h8: yes —
+    LIMITATIONS L31). Returns None when no record has a hidden band label (pre-§5.1 sweeps), so
+    nothing is written for them.
     """
     if not records or not all(r.get("_band_hid") is not None
                               for r in records if r.get("_tier") == "control"):
@@ -336,9 +341,10 @@ def generate_internal(records: list[dict], meta: dict) -> str | None:
     L = [f"# Sweep {name} — INTERNAL report (hidden-band stratification)", "",
          "> INTERNAL-ONLY by design. Generated from local cases by `harness/report_gen.py` "
          "(`make report NAME=%s`); do NOT hand-edit. The hidden band label is a case-quality "
-         "label — the agent never sees it and it is never the stratification key — and the public "
-         "release never carries it, so this table **cannot be rebuilt from the release**. The "
-         "release-reproducible report is `sweep_%s_generated.md`." % (name, name), ""]
+         "label — the agent never sees it and it is never the stratification key. This table is "
+         "not part of the release-reproducible report (`sweep_%s_generated.md`), which reads band "
+         "labels only from per-case metadata; the fields a release contains are listed in its "
+         "`FIELD_INVENTORY.json`." % (name, name), ""]
     facets = [("Pooled — all providers", records)]
     providers = ss.providers_present(records)
     if len(providers) > 1:

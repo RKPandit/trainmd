@@ -215,7 +215,9 @@ by this page, not edited):
   exclusion; STAGE3_PLAN §0.3). `rebuild_tables.py` reproduces each generated report from it alone
   (no `cases/`, `results/`, or registry) — the external-verification path. Released and CI-verified:
   `sweep1`, `stage2gate`, `h8_xprovider` (h8 added 2026-09-23, STAGE4 4.0.4; export wall scoped by
-  provenance). Released cases are burned as an evaluation set (LIMITATIONS L31).
+  provenance). Released cases are burned as an evaluation set (LIMITATIONS L31). **What a release
+  contains** is its generated `FIELD_INVENTORY.json` (every key path + file counts), kept current and
+  cross-checked against doc claims in CI (`scripts/check_release_claims.py`).
 - `docs/audits/sweep_<name>_internal.md` — INTERNAL-ONLY companion (hidden-band control-FPR
   stratification), generated from local cases; by design NOT reproducible from the release.
 

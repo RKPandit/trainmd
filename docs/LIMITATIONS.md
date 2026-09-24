@@ -507,7 +507,12 @@ standard position for a benchmark that publishes scored results — and must not
 material. Consequently `hidden_sigma_distance` and the hidden band label add **no protection-relevant
 information** beyond the scores themselves. The rule "never ship hidden-derived fields" protects
 **UNRELEASED** cases — the live agent wall during trials, and any held-out evaluation set — not released
-ones. The h8 release ships only the VISIBLE band label as a **consistency choice, not a protection**;
-the hidden-band stratification lives in an internal-only report (`sweep_<name>_internal.md`), which by
-design cannot be rebuilt from the release. *Remedy / rule going forward:* the fresh frozen evaluation
+ones. **What each release contains is recorded in its generated `FIELD_INVENTORY.json`** (every key
+path, with file counts), not described here by intent. Per that inventory, per-case metadata holds only
+the VISIBLE band label, but the h8 release's per-trial `scores` hold `band_position_hidden` as well
+(954 of 1021 trial files) — trial scores are exported whole. The public report does not render the
+hidden-band stratification (it reads band labels only from per-case metadata) — a **consistency
+choice, not a protection**; that table lives in the internal-only report (`sweep_<name>_internal.md`).
+*Correction (2026-09-23):* this entry previously said the h8 release "ships only the VISIBLE band
+label"; the inventory showed otherwise (DECISIONS 2026-09-23). *Remedy / rule going forward:* the fresh frozen evaluation
 set (STAGE4 Part 3) is never released until its results are final.

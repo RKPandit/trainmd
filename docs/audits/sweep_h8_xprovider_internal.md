@@ -1,6 +1,6 @@
 # Sweep h8_xprovider — INTERNAL report (hidden-band stratification)
 
-> INTERNAL-ONLY by design. Generated from local cases by `harness/report_gen.py` (`make report NAME=h8_xprovider`); do NOT hand-edit. The hidden band label is a case-quality label — the agent never sees it and it is never the stratification key — and the public release never carries it, so this table **cannot be rebuilt from the release**. The release-reproducible report is `sweep_h8_xprovider_generated.md`.
+> INTERNAL-ONLY by design. Generated from local cases by `harness/report_gen.py` (`make report NAME=h8_xprovider`); do NOT hand-edit. The hidden band label is a case-quality label — the agent never sees it and it is never the stratification key. This table is not part of the release-reproducible report (`sweep_h8_xprovider_generated.md`), which reads band labels only from per-case metadata; the fields a release contains are listed in its `FIELD_INVENTORY.json`.
 
 ## Pooled — all providers
 
