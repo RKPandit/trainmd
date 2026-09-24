@@ -164,11 +164,100 @@ sweep1, stage2gate, h8_xprovider — which stay); verify one locally with `make 
 (the same `rebuild_tables` byte-match CI runs); CI (`scripts/check_release_files.py`) fails if any other
 release directory is committed or any file under `results_release/` exceeds 10 MB.
 
-## Part 2 — Model dimension (~2 weeks, ~$100–200)
-As v1, unchanged in substance: Sonnet 5, GPT-5.6 Terra, **Luna with reasoning.effort=none**
-(the cleanest confound test; the review independently endorses distinguishing capability
-from reasoning budget), optional open-weight. Static agent as primary protocol. Per-model +
-hierarchical estimates.
+## Part 2 — Model dimension (~2 weeks) — contrasts that isolate ONE factor each (revised 2026-09-24)
+Planning only; no runs. Every model fact below was verified 2026-09-24 against the providers'
+OFFICIAL docs (platform.claude.com/docs; developers.openai.com/api/docs), not third-party sites; the
+OpenAI figures were re-read from the raw pages because a summarizer misread the pricing table.
+
+**Part 1 stays on its models** — `claude-haiku-4-5-20251001` and `gpt-5.6-luna` — so operator generality
+is not confounded with a model change. Lifecycle check: `gpt-5.6-luna` is NOT deprecated (OpenAI's
+deprecations page lists it only as a recommended REPLACEMENT for older models). `claude-haiku-4-5-20251001`
+is Active with retirement "not sooner than October 15, 2026" and ≥ 60 days' notice — so Part 1 is not
+at risk, but Part 2 must not rely on re-running Haiku after that date without re-checking.
+
+**Contrasts** (defer Fable 5.1 and GPT-6 Astra):
+1. Capability within Anthropic: Haiku 4.5 → Sonnet 5 → Opus 5.5.
+2. Capability within OpenAI: GPT-6 Luna → GPT-6 Sol.
+3. Generation within tier: GPT-5.6 Luna vs GPT-6 Luna.
+4. Cross-provider at matched price: Sonnet 5 vs GPT-6 Sol ($2 / $10 each).
+5. Reasoning within one model: effort low vs high (Sonnet 5 or Opus 5.5), plus GPT-5.6 Luna
+   reasoning none vs medium (H8 and Part 1 ran medium).
+
+**Verified model facts**
+
+| Model | API ID | Pinned snapshot? | $/MTok in · 5m cache write · cache read · out | Knowledge cutoff | Reasoning control | Temperature |
+|---|---|---|---|---|---|---|
+| Claude Haiku 4.5 | `claude-haiku-4-5-20251001` | yes (dated) | 1 · 1.25 · 0.10 · 5 | reliable Feb 2025 (training Jul 2025) | extended thinking only (budget_tokens); effort NOT supported | settable |
+| Claude Sonnet 5 | `claude-sonnet-5` | yes ("every Claude model ID is a pinned snapshot, including the dateless IDs") | 2 · 2.50 · 0.20 · 10 | Jan 2026 | adaptive thinking ON by default, can be disabled; effort low…max, default **high** | non-default → HTTP 400 (4.7+) |
+| Claude Opus 5.5 | `claude-opus-5-5` | yes | 4 · 5 · 0.20 (0.05×) · 20 | Jun 2026 | adaptive thinking ALWAYS on (disabling → 400); effort low…max, default **medium** | non-default → HTTP 400 |
+| GPT-5.6 Luna | `gpt-5.6-luna` | alias only (no dated snapshot) | 0.20 · 0.25 · 0.02 · 1.20 | Feb 16, 2026 | reasoning.effort none…max, default medium | not documented |
+| GPT-6 Luna | `gpt-6-luna` | alias only | 0.10 · 0.125 · 0.01 · 0.50 | May 18, 2026 | reasoning.effort none…max, default medium | not documented |
+| GPT-6 Sol | `gpt-6-sol` | alias only | 2.00 · 2.50 · 0.20 · 10.00 | Apr 20, 2026 | reasoning.effort none…max, default medium | not documented |
+
+OpenAI prices are short-context (≤ 272K input tokens; above that 2× input/cache and 1.5× output).
+Reasoning/thinking tokens are billed as OUTPUT on both providers. Claude 4.7+ models (Sonnet 5, Opus
+5.5) use a newer tokenizer (~30% more tokens for the same text than Haiku 4.5's), so token counts are
+not comparable across the Anthropic ladder — compare cost in dollars. Minimum cacheable prompt: Haiku
+4.5 4,096 tokens, Sonnet 5 1,024, Opus 5.5 512. No GPT-6 model or GPT-5.6 Luna has a dated snapshot:
+the alias is the snapshot (the LIMITATIONS L26 caveat extends to them). *Consistency check:* GPT-5.6
+Luna's $1.20 output rate is confirmed by H8's bill ($1.63 billed vs $1.454 estimated + ≤ $0.18
+unpriced writes; at $0.75 it could not exceed ≈ $1.39).
+
+**Anthropic adapter work required before any Part 2 run** (the pinned `anthropic` 0.125.0 SDK already
+accepts `output_config` and `thinking` — no dependency / image-digest change):
+1. **Temperature:** stop sending it for Sonnet 5 / Opus 5.5 (a non-default value returns 400; the 1.x
+   SDK removes the parameter); record "model default" in provenance.
+2. **Effort:** send `output_config={"effort": ...}` from a per-cell setting; record it; hold it constant
+   within a trial (changing it invalidates the prompt cache). Haiku 4.5 does not accept effort.
+3. **Preserve thinking blocks — a correctness fix, not an option.** With tool use the API requires the
+   assistant's thinking blocks to be passed back "complete and unmodified"; the ReAct loop (and the
+   static agent's one follow-up) currently rebuild assistant turns from text + tool calls, which DROPS
+   them — and the API then "silently disables thinking" for the continuation. On Sonnet 5 / Opus 5.5
+   that would silently turn thinking off after the first tool call: a hidden confound for the reasoning
+   contrast. Fix: carry the raw content blocks (thinking + signature + tool_use) back unchanged; test
+   that they round-trip.
+4. **Thinking-token accounting:** thinking is billed inside `usage.output_tokens` (no separate field;
+   with the default `display: "omitted"` the text is empty but still billed). Cost accounting is
+   therefore already correct; record effort + thinking mode per trial, count thinking blocks, and
+   (optionally, `display: "summarized"`) keep a summary for audit. Raise `max_tokens` (currently 8192;
+   it caps thinking + text together) for high effort, and report `max_tokens` truncations per condition.
+5. **Price table:** add `claude-opus-5-5` (4 / 5 / 0.20 / 20), `gpt-6-luna`, `gpt-6-sol`; bump the
+   table version and regenerate `harness/price_table_history.json`. OpenAI client: add knowledge
+   cutoffs for the GPT-6 models; its effort tiers already include none…max.
+6. **Design decisions to settle in the pre-registration:** (a) the Anthropic ladder at DEFAULT effort
+   mixes capability with effort (Sonnet 5 defaults to high, Opus 5.5 to medium) — run the ladder at one
+   explicit effort; (b) "matched price" Sonnet 5 vs GPT-6 Sol also needs a stated effort pairing
+   (provider effort scales are not commensurate — report as a limitation); (c) a Sonnet 5
+   `thinking: disabled` arm would be the Anthropic analogue of Luna `none`.
+
+**Cost estimate** (per condition, 780 static trials = 108 faulty cases × 3 arms × 2 repeats + 44
+controls × 3 arms × 1; ReAct shown for comparison). Built from H8's MEASURED per-trial token profiles
+(Anthropic static 9,172 in / 903 out; ReAct 76,167 in / 2,217 out over 10 calls; OpenAI static 6,978 in
+(1,132 cached) / 911 out; ReAct 26,639 in (18,220 cached) / 1,350 out), Anthropic ReAct prompt caching
+(84% of input read as history, the rest written at 1.25×), OpenAI measured caching with uncached input
+priced at the write rate (upper bound), and the +30% tokenizer factor for Sonnet 5 / Opus 5.5.
+**Assumed, to be replaced by a pilot:** thinking output multipliers vs H8's visible output — low 1.5×,
+medium 2.5×, high 4× — and Luna `none` = 0.5× H8's medium output.
+
+| Condition | $ / static trial | $ / ReAct trial | 780 static | 780 ReAct |
+|---|---|---|---|---|
+| Haiku 4.5, no thinking (reuse Part 1) | 0.0137 | 0.0327 | 10.68 | 25.52 |
+| Sonnet 5, effort low | 0.0415 | 0.0995 | 32.34 | 77.58 |
+| Sonnet 5, effort high (default) | 0.0708 | 0.1715 | 55.24 | 133.78 |
+| Opus 5.5, effort low | 0.0829 | 0.1823 | 64.68 | 142.19 |
+| Opus 5.5, effort medium (default) | 0.1064 | 0.2399 | 83.00 | 187.15 |
+| Opus 5.5, effort high | 0.1416 | 0.3264 | 110.49 | 254.58 |
+| GPT-5.6 Luna, medium (reuse Part 1) | 0.0026 | 0.0041 | 2.01 | 3.19 |
+| GPT-5.6 Luna, none | 0.0020 | 0.0033 | 1.58 | 2.56 |
+| GPT-6 Luna, medium (default) | 0.0012 | 0.0019 | 0.93 | 1.49 |
+| GPT-6 Sol, medium (default) | 0.0240 | 0.0382 | 18.68 | 29.79 |
+
+Static-primary Part 2 with the new conditions only (Sonnet 5 low + high, Opus 5.5 at one effort, GPT-6
+Luna, GPT-6 Sol, GPT-5.6 Luna none; Haiku 4.5 and GPT-5.6 Luna medium reused from Part 1): **≈ $190 at
+Opus medium** (≈ $170 at low, ≈ $220 at high). Adding ReAct for the same conditions roughly
+doubles-to-triples it. The Anthropic figures are dominated by the ASSUMED thinking multipliers:
+**pilot first** — ~10 static trials per Anthropic condition (< $3 total) to measure real output volume,
+then re-estimate before committing the budget.
 
 ## Part 3 — Second workload, frozen as the evaluation set (~2 weeks)
 As v1, with one change from the review: the second workload doubles as the **fresh frozen
