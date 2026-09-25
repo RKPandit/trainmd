@@ -141,9 +141,67 @@ def generate(records: list[dict], meta: dict) -> str:
     # H8 renders only when the neutral+descriptive pair is present (self-guarded),
     # so frozen single-variant sweeps are byte-identical.
     L += _h8_tables(s)
+    L += _prereg_part1_tables(records)
     if exploratory:
         L += _no_passback_tables(ss.exploratory_no_passback(all_records))
     return "\n".join(L) + "\n"
+
+
+def _prereg_part1_tables(records) -> list[str]:
+    """Stage 4 Part 1 pre-registered verdicts (harness/prereg_part1.py), rendered only for prompt-v2
+    sweeps with both providers and all three v2 arms — so every earlier report is byte-identical."""
+    from harness import prereg_part1 as pp
+    if not ({pp.OFF, pp.STATS, pp.RULE} <= set(ss.arms_present(records))
+            and {pp.REF_PROVIDER, pp.CMP_PROVIDER} <= set(ss.providers_present(records))):
+        return []
+    L = ["## Pre-registered verdicts (Stage 4 Part 1) — computed mechanically", ""]
+    h9 = pp.h9_verdict(records)
+    L += [f"### H9 — model dependence beyond leakage: **{h9['verdict']}**", "", f"- {h9['reason']}",
+          f"- multiplicity: {h9['multiplicity']}", "",
+          "| operator | Haiku off detect [95% CI] | status | Luna off detect | Δ Luna − Haiku [95% CI] |",
+          "|---|---|---|---|---|"]
+    for op, d in h9["operators"].items():
+        if d["status"] == "missing":
+            L.append(f"| {op} | — | missing | — | — |")
+            continue
+        r, dl = d["ref_detect"], d["delta"]
+        L.append(f"| {op} | {_f(r['point'])} [{_f(r['lo'])}, {_f(r['hi'])}] | {d['status']} | "
+                 f"{_f(d['cmp_detect'])} | {_f(dl['point'])} [{_f(dl['lo'])}, {_f(dl['hi'])}] |")
+    ld = h9["leakage_delta"]
+    if ld:
+        L.append(f"| leakage (pooled) | — | reference | — | {_f(ld['point'])} [{_f(ld['lo'])}, {_f(ld['hi'])}] |")
+    h10 = pp.h10_verdict(records)
+    L += ["", "### H10 — bare statistics close most of the off→rule gap (f = (stats − off)/(rule − off))", "",
+          f"- multiplicity: {h10['multiplicity']}", "",
+          "| model | eligible operators (rule − off ≥ 0.30) | f [95% CI] | bootstrap p (f = 0.5) | verdict |",
+          "|---|---|---|---|---|"]
+    for m, d in h10["models"].items():
+        if d["verdict"] == "UNTESTABLE":
+            L.append(f"| {m} | none | — | — | UNTESTABLE |")
+            continue
+        L.append(f"| {m} | {', '.join(d['eligible'])} | {_f(d['f']['point'])} [{_f(d['f']['lo'])}, "
+                 f"{_f(d['f']['hi'])}] | {_f(d['p_two_sided'], 4)} | {d['verdict']} |")
+    bb = pp.band_benefit_descriptive(records)
+    L += ["", "### Secondary (descriptive, no verdict) — band benefit by symptom type", "",
+          "| model | operator | symptom | arm | off | arm | benefit | headroom-normalised |",
+          "|---|---|---|---|---|---|---|---|"]
+    for (prov, op, arm), d in bb.items():
+        L.append(f"| {prov} | {op} | {d['symptom']} | {arm} | {_f(d['off'])} | {_f(d['arm'])} | "
+                 f"{_f(d['benefit'])} | {_f(d['normalised'])} |")
+    bv = pp.benign_verdict(records)
+    L += ["", "### Benign controls — paired arm contrast (two-sided)", "",
+          f"- multiplicity: {bv['multiplicity']}",
+          "- per provider: " + ", ".join(f"{k} **{v}**" for k, v in bv["per_provider"].items()), "",
+          "| contrast | pairs | FPR arm | FPR off | Δ [Newcombe 95% CI] | cells e/f/g/h | McNemar p | verdict |",
+          "|---|---|---|---|---|---|---|---|"]
+    for k, c in bv["contrasts"].items():
+        if not c.get("available"):
+            L.append(f"| {k} | 0 | — | — | — | — | — | unavailable |")
+            continue
+        L.append(f"| {k} | {c['n_pairs']} | {_f(c['fpr_arm'])} | {_f(c['fpr_off'])} | {_f(c['delta'])} "
+                 f"[{_f(c['lo'])}, {_f(c['hi'])}] | {'/'.join(map(str, c['cells']))} | "
+                 f"{_f(c['p_mcnemar'], 4)} | {c['verdict']} |")
+    return L + [""]
 
 
 def _no_passback_tables(x: dict) -> list[str]:

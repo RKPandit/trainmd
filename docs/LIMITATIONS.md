@@ -524,7 +524,9 @@ Every such row with 1–2 events is flagged **‡** in the generated tables ("bo
 at this count") and should be read as indicative only; narrative precision statements cite the exact
 case-level intervals. *Remedy (STAGE4, before the paper):* move the control-FP table to exact
 Clopper–Pearson on case-level counts for every row — one method throughout — disclosed as its own change.
-**L31 — Released cases are BURNED as an evaluation set, by construction (2026-09-23).** A release of
+**L31 — Released cases are BURNED as an evaluation set, by construction (2026-09-23).** *(2026-09-25: a
+committed sweep PLAN also reveals control status by inference — controls are scheduled static-only, so a
+case ID with no ReAct cells is a control; accepted and left as is, the same position as below.)* A release of
 scored records necessarily discloses per-case ground truth: each trial's `detection_correct` and
 `identification_correct` reveal whether its case is faulty and which fault class it holds — and every
 release since §0.3 also carries the operator's `accepted_classes` inside `scores.identification`,
