@@ -563,3 +563,11 @@ have silently disabled thinking on Sonnet 5 / Opus 5.5). Proven by
 `tests/test_reasoning_preservation.py::test_react_passes_thinking_block_back_unchanged`; checked live in
 every sweep by `reasoning_check` (the run stops if prior reasoning is not replayed).
 
+**L33 — The scorer validation (F16) rests on ONE annotator and a LEAKAGE-ONLY sample.** The blind audit
+(Stage 4.0.5) covered 60 H8 trials: descriptive and neutral data leakage plus healthy controls. It
+validates the scorer on that fault type only — not on lr, label-corruption, metric-inflation or
+shape-mismatch faults, nor on the benign-configuration controls — and with a single annotator there is
+no human–human agreement to calibrate the human–scorer figures against. *Remedy (STAGE4_PLAN Part 1):*
+a post-run second audit (~30 items) stratified across the un-audited operators, and optionally a second
+annotator on a 20-item overlap.
+

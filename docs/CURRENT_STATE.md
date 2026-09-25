@@ -151,10 +151,13 @@ ran (agent phase 978/984 cells, $24.03, 6 unrun — all neutral×Luna×static; v
   lost — L29). Verdict logic corrected mid-analysis to a CI equivalence test (was point-based;
   DECISIONS 2026-09-22, RESEARCH_LOG 35).
 
-**NEXT GATE: write the Stage-4 plan** (cross-model / cross-workload design that can identify the
-driver of the model difference — matched reasoning budget, ≥3 models, and/or a second workload;
-close the L28/L29 gaps and a one-sided H8 equivalence pre-registration for replication). Not yet
-written. Per the standing rule, no new instrument work starts until the Stage-4 plan lands.
+**NEXT GATE (updated 2026-09-25): Stage 4 Part 1 pre-registration review.** `docs/STAGE4_PLAN.md` is
+written; Gate 4.0 items are closed (4.0.1 matcher `root_token_v2`; 4.0.2 statistics; 4.0.3 framing;
+4.0.4 H8 released and reproducible; 4.0.5 blind audit — FINDINGS F16; 4.0.6 bare-stats arm, B2+ as an
+upper bound, benign controls certified, missing tool fields). The Part 1 pre-registration draft
+(`docs/PREREG_STAGE4_PART1_DRAFT.md`) awaits the author's review; before the paid run: schedule the
+benign controls in the sweep planner, commit the B2+ report over the certified benign cases, and pass
+the pre-run slice gates (`check-cache`, `check-reasoning`).
 
 ---
 

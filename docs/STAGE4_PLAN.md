@@ -69,7 +69,7 @@ expansion as before. Roughly 8–10 weeks to a submission-ready study. Target: N
   reproduce the report from the release. Report performance both among valid submissions and
   end-to-end under the fixed retry policy; separate model-malformed output from infrastructure.
 
-### 4.0.5 Blind human audit (the one item that needs a person)
+### 4.0.5 Blind human audit (the one item that needs a person) — **COMPLETE 2026-09-25** (FINDINGS F16)
 - Stratified sample ~60 trials (operator × provider × arm), blinded to score. An independent
   annotator judges: fault class named? localized? evidence sufficient? Compute agreement with
   the scorer; inspect every disagreement; report how corrections change H8/F14.
@@ -81,6 +81,10 @@ expansion as before. Roughly 8–10 weeks to a submission-ready study. Target: N
   `audit_key.csv` — both generated locally and NEVER committed (gitignored; the repo is public).
   `scripts/audit_agreement.py --sheet <returned.xlsx> --key <audit_key.csv>` reports agreement with
   the scorer (mapping declared in the script; DECISIONS 2026-09-23).
+- **Result (2026-09-25):** identification 60/60 [0.940, 1.000], localization 51/51, evidence 48/51
+  (50/51 counting Partial); no identification rate changes — H8 stands. One annotator, leakage-only
+  sample (LIMITATIONS L33); A33 shows an evidence path the operator's evidence sets miss (reported,
+  not acted on).
 
 ### 4.0.6 Cheap instrument fixes that Part 1's plan file needs anyway
 - **Bare-stats anchor arm** (v3 Part 4, never built): mean/SD with no evaluative words. The
@@ -156,6 +160,11 @@ gate, extended:** besides `check-cache`, `python -m harness.sweep check-reasonin
 report `passed` on the slice (Luna ReAct produces reasoning items: prior items must be replayed on every
 later call, and reasoning must recur after the first tool call); the agents phase also stops by itself
 if any trial drops them.
+**Post-run second audit (Part 1):** after the Part 1 run, a second blind audit of ~30 items stratified
+across the operators the first audit did not cover — lr, label-corruption, metric-inflation and
+shape-mismatch faults, plus the benign-configuration controls — with the same rubric, tooling and
+declared mapping; optionally a second annotator on a 20-item overlap to measure human–human
+agreement (LIMITATIONS L33).
 **Release archive — decided at paper time (no longer a Part 1 prerequisite; DECISIONS 2026-09-23):**
 the archive platform (Zenodo / GitHub Releases / Hugging Face) is chosen at submission, once the venue's
 anonymity and hosting rules are known. Enforced now: new sweep releases (Stage 4 onward) are exported
