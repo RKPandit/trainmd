@@ -9,6 +9,9 @@
 # The restored bundle's case count must equal the expected design count
 # (EXPECT_CASES=<n>; default: docs/CURRENT_STATE.md `case_count`), checked in STAGING before the
 # swap — a stale bundle (e.g. an older nightly on another branch) is refused, never restored.
+# The bundle must also have been BUILT on REQUIRE_VENDOR (default AuthenticAMD — the reference
+# platform, native AMD EPYC): its BUNDLE_META.txt and every case's hidden-card build_cpu are checked
+# in staging, before the swap. A bundle without provenance, or built on another CPU, is refused.
 #
 # Preconditions are checked UP FRONT with actionable errors. The extract is
 # staged and swapped in ATOMICALLY: a partial download/decrypt/extract never
@@ -112,6 +115,24 @@ note "Extracting ..."
 "$TAR" -xzf "$STAGING/cases.tar.gz" -C "$STAGING" \
   || die "extraction failed — the downloaded bundle from run $run_id is corrupt."
 [ -d "$STAGING/cases" ] || die "the bundle did not contain a cases/ directory (run $run_id)."
+REQUIRE_VENDOR="${REQUIRE_VENDOR:-AuthenticAMD}"
+meta="$STAGING/BUNDLE_META.txt"
+[ -f "$meta" ] || die \
+  "the bundle from run $run_id carries no BUNDLE_META.txt (build provenance), so its build CPU is" \
+  "unknown. Refusing to restore it; your existing cases/ is untouched. Use a certify run built with" \
+  "the provenance step (on an $REQUIRE_VENDOR runner)."
+bundle_vendor="$(awk -F= '/^build_cpu_vendor=/{print $2; exit}' "$meta")"
+bundle_model="$(awk -F= '/^build_cpu_model=/{print $2; exit}' "$meta")"
+note "Bundle from run $run_id was built on: ${bundle_vendor:-?} / ${bundle_model:-?}"
+[ "$bundle_vendor" = "$REQUIRE_VENDOR" ] || die \
+  "the bundle from run $run_id was built on '${bundle_vendor:-unknown}' (${bundle_model:-?}), not" \
+  "$REQUIRE_VENDOR — the reference platform. Refusing to restore it; your existing cases/ is untouched."
+off_cpu="$(for card in "$STAGING"/cases/case_*/hidden/card.hidden.yaml; do
+             grep -q "^build_cpu: $REQUIRE_VENDOR " "$card" || echo "$(basename "$(dirname "$(dirname "$card")")")"
+           done | head -5)"
+[ -z "$off_cpu" ] || die \
+  "cases in the bundle from run $run_id were not built on $REQUIRE_VENDOR (hidden-card build_cpu):" \
+  "  $(echo $off_cpu)" "Refusing to restore it; your existing cases/ is untouched."
 staged_count="$(find "$STAGING/cases" -maxdepth 1 -type d -name 'case_*' | wc -l | tr -d ' ')"
 note "Bundle from run $run_id holds $staged_count cases (expected $EXPECT_CASES)."
 [ "$staged_count" = "$EXPECT_CASES" ] || die \
@@ -174,5 +195,6 @@ note ""
 note "=== restore-cases summary ==="
 note "  source run:  $run_id ($run_url)"
 note "  case count:  $case_count (expected $EXPECT_CASES)"
+note "  build CPU:   $bundle_vendor / $bundle_model"
 note "  cases:       $case_count restored, validate-all PASSED"
 note "  data:        regenerated + neutral family linked"

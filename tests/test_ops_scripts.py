@@ -264,7 +264,8 @@ def test_platform_report_no_cases(tmp_path):
 # --------------------------------------------------------------------------
 
 def _restore_with_validation(tmp_path, classification: str | None, rc: int, *, n_cases=1,
-                             expected="1", run_id_env=None, run_view="", run_list=None):
+                             expected="1", run_id_env=None, run_view="", run_list=None,
+                             meta_vendor="AuthenticAMD", card_vendor="AuthenticAMD"):
     """Run a full (faked) restore whose validate-all step prints `classification` and exits `rc`.
     The fake bundle holds `n_cases` cases; `expected` is written as CURRENT_STATE's case_count."""
     bindir = tmp_path / "bin"; bindir.mkdir()
@@ -277,9 +278,13 @@ def _restore_with_validation(tmp_path, classification: str | None, rc: int, *, n
                   download_creates=cipher, run_view=run_view)
     gpg = _write_exec(bindir / "gpg", 'while [ $# -gt 0 ]; do [ "$1" = "-o" ] && out="$2"; shift; done\n'
                                       ': > "$out"\n')
-    # fake tar: "extract" n_cases cases into the staging dir given by -C
+    # fake tar: "extract" n_cases cases (+ hidden card with build_cpu, + BUNDLE_META) into -C's dir
+    meta = (f'printf "build_cpu_vendor={meta_vendor}\\nbuild_cpu_model=M\\n" > "$dest/BUNDLE_META.txt"\n'
+            if meta_vendor else "")
     tar = _write_exec(bindir / "tar", 'while [ $# -gt 0 ]; do [ "$1" = "-C" ] && dest="$2"; shift; done\n'
-                                      f'for i in $(seq 1 {n_cases}); do mkdir -p "$dest/cases/case_$i/workspace"; done\n')
+                                      f'for i in $(seq 1 {n_cases}); do mkdir -p "$dest/cases/case_$i/workspace" '
+                                      f'"$dest/cases/case_$i/hidden"; echo "build_cpu: {card_vendor} CPU" > '
+                                      '"$dest/cases/case_$i/hidden/card.hidden.yaml"; done\n' + meta)
     line = f'echo "{classification}"' if classification else ":"
     _write_exec(bindir / "make", 'case "$*" in *docker-validate-all*) echo "case_0001: 22/23"; '
                                  f'{line}; exit {rc};; esac\nexit 0\n')
@@ -341,4 +346,35 @@ def test_restore_run_id_must_be_a_successful_run(tmp_path):
 def test_restore_refuses_without_an_expected_count(tmp_path):
     r = _restore_with_validation(tmp_path, None, 0, expected=None)
     assert r.returncode == 1 and "no expected case count" in r.stderr
+
+
+# --------------------------------------------------------------------------
+# restore_cases.sh — only bundles BUILT ON THE REFERENCE PLATFORM (AuthenticAMD)
+# --------------------------------------------------------------------------
+
+def test_restore_refuses_a_bundle_built_on_intel(tmp_path):
+    (tmp_path / "cases" / "case_keep").mkdir(parents=True)
+    r = _restore_with_validation(tmp_path, None, 0, meta_vendor="GenuineIntel", card_vendor="GenuineIntel")
+    assert r.returncode == 1 and "not\nAuthenticAMD" not in r.stderr
+    assert "built on 'GenuineIntel'" in r.stderr and "untouched" in r.stderr
+    assert (tmp_path / "cases" / "case_keep").exists()
+    assert not list(tmp_path.glob(".restore_staging.*"))
+
+
+def test_restore_refuses_a_bundle_without_provenance(tmp_path):
+    (tmp_path / "cases" / "case_keep").mkdir(parents=True)
+    r = _restore_with_validation(tmp_path, None, 0, meta_vendor=None)
+    assert r.returncode == 1 and "no BUNDLE_META.txt" in r.stderr
+    assert (tmp_path / "cases" / "case_keep").exists()
+
+
+def test_restore_refuses_cases_whose_cards_were_built_elsewhere(tmp_path):
+    r = _restore_with_validation(tmp_path, None, 0, meta_vendor="AuthenticAMD", card_vendor="GenuineIntel")
+    assert r.returncode == 1 and "hidden-card build_cpu" in r.stderr and "case_1" in r.stderr
+
+
+def test_restore_prints_the_build_cpu(tmp_path):
+    r = _restore_with_validation(tmp_path, None, 0)
+    assert r.returncode == 0, r.stderr
+    assert "build CPU:   AuthenticAMD / M" in r.stdout
 

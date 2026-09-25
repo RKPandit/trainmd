@@ -50,6 +50,14 @@ and **retired from the H2 σ-ladder**; **`label_corruption` carries the σ-axis*
 (train-subset-fraction or excessive weight_decay) is a Sweep-2 candidate. DECISIONS 2026-09-14;
 FINDINGS (per-lr collapse table); RESEARCH_LOG.
 
+*Addendum (2026-09-25) — microarchitecture can change an lr_warmup case's fault SEVERITY.* Because its
+cases sit near the collapse threshold, the same (lr, seed) can collapse on one CPU and train normally on
+another: rebuilding the certified cases on an Intel runner instead of the reference's AMD EPYC moved one
+lr_warmup case's visible accuracy by 0.43 (a collapse flip), while every other operator moved ≤ 0.016.
+Cases are therefore built only on the reference platform (DECISIONS 2026-09-25), and this is one more
+reason lr_warmup cannot carry H9 — it is already excluded there by the headroom rule (Haiku detected it
+0.94 off-anchor in Sweep 1).
+
 **L2 — One model, one workload.** Every number is Claude Haiku 4.5 on the Adult dataset with an MLP.
 The standing findings are marked *pending replication* until a second provider's model and a second
 workload run the same cases. *Sweep-2 remedy:* add a second model (for H5) and a second workload.
