@@ -1096,6 +1096,24 @@ def validate_case(
     return ValidationReport(case_id, checks)
 
 
+# Checks that read LOCAL results/ (trial records, index.jsonl, recovery files) rather than the case
+# itself. A failure here is an inconsistency in this checkout's results/, NOT a defect in the case —
+# e.g. a freshly restored, certified case bundle can pass every case check while C7 fails on an
+# unindexed local trial record. (C10 also reads results/ but is informational and never fails.)
+LOCAL_RESULTS_CHECKS = frozenset({"C7_index_matches_record", "C8_recovery_files_linked"})
+
+
+def classify_failures(reports: list[ValidationReport]) -> dict[str, list[str]]:
+    """Failed checks split into ``case`` (defects in the case artifacts) and ``local_results``
+    (inconsistencies in local results/), as ``"<case_id>: <check>"`` strings."""
+    out: dict[str, list[str]] = {"case": [], "local_results": []}
+    for r in reports:
+        for c in r.failed:
+            kind = "local_results" if c.name in LOCAL_RESULTS_CHECKS else "case"
+            out[kind].append(f"{r.case_id}: {c.name}")
+    return out
+
+
 def validate_all(
     project_root: Path | None = None,
     deep: bool = False,
@@ -1139,6 +1157,11 @@ def main() -> int:
         "--project-root", type=Path, default=None,
         help="Project root directory (default: auto-detect)",
     )
+    parser.add_argument(
+        "--classify", action="store_true", default=False,
+        help="after the per-case output, say whether failures are in the CASES themselves or in "
+             "LOCAL results/ (restore-cases uses this to report that a bundle was fine)",
+    )
     args = parser.parse_args()
 
     if args.validate_all:
@@ -1165,6 +1188,23 @@ def main() -> int:
     if not reports:
         print("No cases found.")
         return 1
+
+    if args.classify and not all_passed:
+        kinds = classify_failures(reports)
+        print("\n=== failure classification ===")
+        if kinds["case"]:
+            print(f"CASE DEFECTS ({len(kinds['case'])}) — problems in the case artifacts themselves:")
+            for f in kinds["case"]:
+                print(f"  {f}")
+        else:
+            print("CASES OK — every case passes all of its own checks (the case bundle is fine).")
+        if kinds["local_results"]:
+            print(f"LOCAL RESULTS INCONSISTENT ({len(kinds['local_results'])}) — problems in this "
+                  "checkout's results/ (trial records / index.jsonl / recovery files), not in the cases:")
+            for f in kinds["local_results"]:
+                print(f"  {f}")
+        print(f"CLASSIFICATION: case={'FAIL' if kinds['case'] else 'OK'} "
+              f"local_results={'FAIL' if kinds['local_results'] else 'OK'}")
 
     return 0 if all_passed else 1
 

@@ -80,7 +80,8 @@ def run_trial(
     3. Run the agent in a try/finally block.
     4. Score free axes (detection, identification, evidence, safety)
        inline — no training cost.  Recovery is ``None`` (pending).
-    5. Finalize and persist the record; append to index.jsonl.
+    5. Finalize and persist the record; rewrite its index.jsonl row (the crash checkpoint in
+       step 2 already indexed it as "partial", so a killed process never leaves an unindexed record).
 
     Args:
         agent: An object satisfying the :class:`Agent` protocol.
@@ -137,9 +138,13 @@ def run_trial(
     tools = ToolContext(case_dir)
     register_all_tools(tools)
 
-    # 4. Write partial record (crash checkpoint)
+    # 4. Write partial record (crash checkpoint) AND its index row. The index must be a complete
+    #    ledger of every record on disk: a process killed after this point (no `finally`) leaves a
+    #    "partial" record that the index already knows about; step 9 rewrites the row from the final
+    #    record. (H8 left one unindexed checkpoint — case_0041 — that failed validate-all C7.)
     record["status"] = "partial"
     write_record(project_root, record)
+    update_index(project_root, record)
 
     # 4b. Give LLM agents access to the mutable record for incremental usage
     if hasattr(agent, "set_record"):

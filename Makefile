@@ -143,7 +143,7 @@ docker-build-case:
 		--workload $(WORKLOAD) --operator $(OPERATOR) --strength $(STRENGTH) --seed $(SEED)
 
 docker-validate-all:
-	$(DOCKER_RUN) python -m harness.validate_case --all
+	$(DOCKER_RUN) python -m harness.validate_case --all $(VALIDATE_ARGS)
 
 docker-gate-known-answer:
 	$(DOCKER_RUN) python -m harness.gate_known_answer $(if $(FULL),--full,--fast) $(if $(GATE_SUBSET),--subset)
