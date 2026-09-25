@@ -256,3 +256,45 @@ def test_platform_report_no_cases(tmp_path):
     assert report(project_root=tmp_path) == {
         "total": 0, "canonical": 0, "non_canonical": 0, "vendors": [],
     }
+
+
+# --------------------------------------------------------------------------
+# restore_cases.sh — WHICH kind of validation failure (bundle vs local results/)
+# --------------------------------------------------------------------------
+
+def _restore_with_validation(tmp_path, classification: str | None, rc: int):
+    """Run a full (faked) restore whose validate-all step prints `classification` and exits `rc`."""
+    bindir = tmp_path / "bin"; bindir.mkdir()
+    cipher = tmp_path / "sweep_bundle.tar.gz.gpg"
+    gh = _fake_gh(bindir, run_list="515151\thttps://gh/run/515151\n",
+                  artifacts_by_run={"515151": "sweep_bundle"}, download_creates=cipher)
+    gpg = _write_exec(bindir / "gpg", 'while [ $# -gt 0 ]; do [ "$1" = "-o" ] && out="$2"; shift; done\n'
+                                      ': > "$out"\n')
+    # fake tar: "extract" one case into the staging dir given by -C
+    tar = _write_exec(bindir / "tar", 'while [ $# -gt 0 ]; do [ "$1" = "-C" ] && dest="$2"; shift; done\n'
+                                      'mkdir -p "$dest/cases/case_0001/workspace"\n')
+    line = f'echo "{classification}"' if classification else ":"
+    _write_exec(bindir / "make", 'case "$*" in *docker-validate-all*) echo "case_0001: 22/23"; '
+                                 f'{line}; exit {rc};; esac\nexit 0\n')
+    env = {"GH": str(gh), "GPG": str(gpg), "TAR": str(tar), "SWEEP_BUNDLE_KEY": "k",
+           "PATH": f"{bindir}:{os.environ['PATH']}"}
+    return _run("restore_cases.sh", root=tmp_path, env=env)
+
+
+def test_restore_local_results_failure_says_the_bundle_was_fine(tmp_path):
+    r = _restore_with_validation(tmp_path, "CLASSIFICATION: case=OK local_results=FAIL", 1)
+    assert r.returncode == 1
+    assert "NOT because of the bundle" in r.stderr and "LOCAL results/" in r.stderr
+    assert "not valid" not in r.stderr
+
+
+def test_restore_case_defect_says_the_bundle_is_bad(tmp_path):
+    r = _restore_with_validation(tmp_path, "CLASSIFICATION: case=FAIL local_results=OK", 1)
+    assert r.returncode == 1
+    assert "RESTORED CASES themselves" in r.stderr and "515151" in r.stderr
+
+
+def test_restore_passes_when_validation_passes(tmp_path):
+    r = _restore_with_validation(tmp_path, None, 0)
+    assert r.returncode == 0, r.stderr
+    assert "validate-all PASSED" in r.stdout

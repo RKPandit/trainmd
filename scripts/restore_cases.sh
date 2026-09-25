@@ -112,8 +112,30 @@ note "Regenerating data (make docker-data) ..."
 make docker-data
 note "Linking the neutral workload family ..."
 make link-neutral-workload
-note "Validating every case (make docker-validate-all) ..."
-make docker-validate-all
+note "Validating every case (make docker-validate-all, with failure classification) ..."
+# Both kinds of failure still FAIL the restore, but the message says which it is: a defect in the
+# restored CASES (the bundle is bad) versus an inconsistency in LOCAL results/ (the bundle is fine —
+# fix results/, e.g. an unindexed trial record). See harness/validate_case.py LOCAL_RESULTS_CHECKS.
+set +e
+validate_out="$(make docker-validate-all VALIDATE_ARGS=--classify 2>&1)"
+validate_rc=$?
+set -e
+printf '%s\n' "$validate_out"
+if [ "$validate_rc" -ne 0 ]; then
+  classification="$(printf '%s\n' "$validate_out" | grep '^CLASSIFICATION:' | tail -1)"
+  case "$classification" in
+    *"case=FAIL"*)
+      die "validate-all FAILED on the RESTORED CASES themselves (see CASE DEFECTS above)." \
+          "The bundle from run $run_id ($run_url) is not valid: do not use these cases." \
+          "They are in cases/ for inspection; re-run restore-cases from a different green run." ;;
+    *"case=OK"*"local_results=FAIL"*)
+      die "validate-all FAILED, but NOT because of the bundle: all $case_count restored cases pass every" \
+          "case check. The failures are inconsistencies in your LOCAL results/ (see LOCAL RESULTS" \
+          "INCONSISTENT above) — fix results/ (e.g. index an unindexed trial record), not the cases." ;;
+    *)
+      die "validate-all FAILED and the failure could not be classified (see output above)." ;;
+  esac
+fi
 
 # --- Summary -----------------------------------------------------------------
 note ""
