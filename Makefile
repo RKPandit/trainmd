@@ -1,4 +1,4 @@
-.PHONY: docker-qualify-benign docker-b2plus-report data reference build-case verify-repair run-agent smoke score verify validate validate-all clean test \
+.PHONY: docker-verify-native docker-verify-export docker-qualify-benign docker-b2plus-report data reference build-case verify-repair run-agent smoke score verify validate validate-all clean test \
 	image image-digest docker-data docker-reference docker-build-case docker-validate-all \
 	docker-gate-known-answer docker-audit-index docker-test docker-sweep docker-shell \
 	docker-build-all-cases docker-case-margins \
@@ -261,8 +261,20 @@ sweep-run: require-name
 	bash scripts/sweep_agents.sh "$(NAME)" "$(MAX_COST)"
 
 # Free recovery/verify phase, in the canonical container. NAME=<name> required.
+# VERIFY_MEMO=require reads the NATIVE memo (scripts/verify_native.sh) and never trains locally.
+VERIFY_MEMO ?= off
 sweep-verify: require-name
-	$(DOCKER_RUN) python -m harness.sweep run --name "$(NAME)" --phase verify
+	docker run --rm --platform $(PLATFORM) --user $(DOCKER_USER) -e HOME=/tmp \
+	  -e TRAINMD_IN_CONTAINER=1 -e TRAINMD_IMAGE_DIGEST="$(IMAGE_DIGEST)" -e TRAINMD_VERIFY_MEMO=$(VERIFY_MEMO) \
+	  -v "$(PWD)":/work -w /work $(IMAGE) python -m harness.sweep run --name "$(NAME)" --phase verify
+
+# Native memoized verification (CI, AuthenticAMD): train each distinct config once + fresh spot-check.
+docker-verify-native:
+	$(DOCKER_RUN) python -m harness.verify_memo run --jobs "$(JOBS)" --out-dir "$(OUT)"
+
+# Local: the distinct repaired configurations of a finished agents phase (for scripts/verify_native.sh).
+docker-verify-export: require-name
+	$(DOCKER_RUN) python -m harness.verify_memo export --sweep "$(NAME)" --out "$(OUT)"
 
 # Report → docs/audits/sweep_<name>_<date>.md. NAME=<name> required.
 sweep-report: require-name
