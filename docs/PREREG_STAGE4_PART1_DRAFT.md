@@ -26,12 +26,12 @@
   agents now see four extra inert lines in `train.py` (the `grad_clip_norm` path).
 - **Agents:** ReAct and static. Faulty cases: both agents × 3 arms × 2 providers × 2 repeats. Controls
   (healthy + benign): static only × 3 arms × 2 providers × 1 repeat (the reduced control protocol).
-- **Cells:** 108 × 3 × 2 × 2 × 2 = **2,592 faulty** + 44 × 3 × 2 = **264 control** = **2,856
-  confirmatory**, + **72 exploratory** (the no-passback arm below) = **2,928** scheduled. Plan command:
+- **Cells:** 108 × 3 × 2 × 2 × 2 = **2,592 faulty** + 92 × 3 × 2 = **552 control** = **3,144
+  confirmatory**, + **72 exploratory** (the no-passback arm below) = **3,216** scheduled. Plan command:
   `python -m harness.sweep plan --name <part1> --seeds 42 43 44 45 46 47 --control-seeds 50 … 69
-  --benign-seeds 70 … 93 --repeats 2 --providers anthropic:claude-haiku-4-5-20251001
+  --benign-seeds 70 … 93 110 … 157 --repeats 2 --providers anthropic:claude-haiku-4-5-20251001
   openai:gpt-5.6-luna --exploratory-no-passback gpt-5.6-luna` (the planner schedules the benign
-  controls — `tests/test_part1_planner.py::test_part1_plan_schedules_all_24_benign_controls`).
+  controls — `tests/test_part1_planner.py::test_part1_plan_schedules_all_72_benign_controls`).
 - **Protocol changes vs H8, all declared:** prompt caching on Anthropic ReAct cells (transport-only;
   billed and uncached-equivalent cost both reported); reasoning preserved across tool calls on both
   providers (H8's Luna ReAct discarded it — LIMITATIONS L32 — so **Part 1 Luna ReAct is not comparable
@@ -49,7 +49,8 @@
   the evidence scorer.
 - **Cost estimate:** from H8's measured per-trial costs (Haiku static ≈ $0.014, Haiku ReAct with caching
   ≈ $0.040 [H8 simulation], Luna static ≈ $0.003, Luna ReAct ≈ $0.004 before the reasoning replay, which
-  adds replayed reasoning to Luna's input): ≈ **$41** confirmatory + ≈ **$0.3** exploratory (72 Luna
+  adds replayed reasoning to Luna's input): ≈ **$43.5** confirmatory (≈ $41 + ≈ $2.5 for the 48 added benign cases at 6 static trials ≈ $0.051
+  per case) + ≈ **$0.3** exploratory (72 Luna
   ReAct trials in H8's own condition; budgeted ≤ $1); cap **$60** (`--max-cost-usd`), with the agents
   phase's cost cap, circuit breaker, cache check and reasoning check active.
 
@@ -66,7 +67,7 @@ Holm → INCONCLUSIVE) — and the paired interval is checked against Newcombe's
 
 ## Pre-run gates (all must pass before the full run)
 
-1. Sweep preconditions: `validate-all` green on the 152 cases.
+1. Sweep preconditions: `validate-all` green on the 200 cases.
 2. A slice (`run --phase agents --max-trials N`, ≥ 5 Anthropic ReAct and ≥ 5 Luna ReAct multi-call
    trials): `python -m harness.sweep check-cache --name <part1>` → `passed`, and
    `python -m harness.sweep check-reasoning --name <part1>` → `passed` (prior Luna reasoning replayed on
@@ -162,11 +163,11 @@ positives); and the `rule` arm's **"anomalous" sentence may PRIME flagging** —
 arm's 4 control false positives were on IN-BAND controls (FINDINGS; HYPOTHESES H8 results), which the
 reassurance account does not predict. The claim is therefore **two-sided: increase or decrease**.
 
-**Estimand (paired arm contrast; no level threshold).** On the **24 benign cases**, per provider and
+**Estimand (paired arm contrast; no level threshold).** On the **72 benign cases**, per provider and
 for each anchored arm: Δ_arm = FPR(arm) − FPR(`off`), arm ∈ {`stats`, `rule`}, where a false positive is
 `detection.correct = false` on a benign case (the agent reports a fault). Under the reduced control
 protocol every benign case contributes exactly one static trial per arm per provider, so the contrast is
-**paired by case** — **24 clusters, one pair each**. Δ = (b − c) / 24, where b = cases flagged under the
+**paired by case** — **72 clusters, one pair each**. Δ = (b − c) / 72, where b = cases flagged under the
 anchored arm but not under `off`, c = the reverse. **Four confirmatory contrasts:** {Anthropic, OpenAI}
 × {`stats` − `off`, `rule` − `off`}.
 
@@ -181,21 +182,27 @@ anchored arm but not under `off`, c = the reverse. **Four confirmatory contrasts
   interval is reported beside every contrast; where it and the Holm-adjusted test disagree (e.g. b = 5,
   c = 0: interval excludes 0, p = 0.0625), **the test decides**.
 - **Multiplicity:** **Holm over the four contrasts** (exact two-sided McNemar p, family-wise α = 0.05).
-- **Power note:** with 24 pairs and no reverse discordance (c = 0), a lone effect must clear α/4 =
-  0.0125: **b ≥ 8** (p = 0.0078); at the last Holm step (α) b ≥ 6 suffices. With c = 1 it needs b ≥ 11
-  at α/4. Simulated with independent per-case outcomes at an `off` FPR of 0.05 (H8's healthy-control
-  `off` FPR: 1/40 = 0.025 pooled, i.e. 0 or 0.05 per provider), power for a lone contrast at α/4 is ≈
-  **0.11** at an anchored FPR of 0.25, **0.22** at 0.30, **0.53** at 0.40 and **0.80** at 0.50 (at α:
-  0.31 / 0.47 / 0.78 / 0.94). **A DECREASE is detectable only if the `off` FPR is itself high** (e.g.
-  off 0.30 → anchored 0.05: power 0.22 at α/4); from an `off` FPR near 0.05 there is no room to fall.
-  This contrast detects only LARGE effects; INCONCLUSIVE is the expected outcome for smaller ones and
-  is not evidence of no effect.
-- **Descriptive (not tested):** the pooled benign FPR per arm × provider over the 24 cases with an
-  **exact Clopper–Pearson** interval (clustered: one trial per case per arm × provider, so n = 24),
+- **Power (why 72).** A lone effect must clear α/4 = 0.0125 under Holm: with no reverse discordance
+  (c = 0) that takes **b ≥ 8** (p = 0.0078); at the last Holm step (α), b ≥ 6. Simulated (20,000 runs;
+  exact two-sided McNemar per contrast, Holm over the four; `off` FPR 0.05 — H8's healthy-control `off`
+  FPR was 1/40 = 0.025 pooled, i.e. 0 or 0.05 per provider; each arm's flags independent per case):
+
+  | benign cases | anchored FPR | power, one contrast elevated | power, all four elevated | P(≥ 1 INCREASE for that provider), all four elevated |
+  |---|---|---|---|---|
+  | 24 | 0.20 / 0.30 / 0.40 | 0.04 / 0.22 / 0.54 | 0.04 / 0.28 / 0.66 | 0.07 / 0.41 / 0.79 |
+  | 48 | 0.20 / 0.30 / 0.40 | 0.27 / 0.71 / 0.95 | 0.33 / 0.83 / 0.99 | 0.45 / 0.91 / 1.00 |
+  | **72 (adopted)** | 0.20 / 0.30 / 0.40 | **0.50 / 0.93 / 1.00** | **0.61 / 0.97 / 1.00** | **0.73 / 0.99 / 1.00** |
+
+  At 72 cases a DECREASE from an `off` FPR of 0.30 to 0.05 is detected with power ≈ 0.93 (from 0.20:
+  ≈ 0.49); from an `off` FPR near 0.05 there is no room to fall. INCONCLUSIVE remains the expected
+  outcome for effects below ≈ 0.20 and is not evidence of no effect. The expansion from 24 to 72 cases
+  was decided from this table before any Part 1 trial (DECISIONS 2026-09-25).
+- **Descriptive (not tested):** the pooled benign FPR per arm × provider over the 72 cases with an
+  **exact Clopper–Pearson** interval (clustered: one trial per case per arm × provider, so n = 72),
   reported beside the healthy-control FPR (20 cases) and the benign − healthy difference.
-- **EXPLORATORY (with cluster counts):** per-type rates (6 types × **4 cases** each); the edit-form split
-  — new key: **4 cases, one knob** (`training.grad_clip_norm`, non-binding: byte-identical to a clean run
-  except one config line); changed value: 20 cases, 5 knobs.
+- **EXPLORATORY (with cluster counts):** per-type rates (6 types × **12 cases** each); the edit-form split
+  — new key: **12 cases, one knob** (`training.grad_clip_norm`, non-binding: byte-identical to a clean run
+  except one config line); changed value: 60 cases, 5 knobs.
 - **Qualification facts (recorded before the run):** all six types qualified on development seeds; the
   learning-rate change is "**equivalent within the declared margin, with a small detectable decrease**"
   (−0.460 σ_ref, 90% CI [−0.907, −0.012] σ_ref). Visible band position of the cases actually built:
@@ -246,7 +253,7 @@ every primary table (`tests/test_part1_planner.py::test_exploratory_twin_is_a_se
 ## Known gaps to close before running (tooling, not science)
 
 - ~~The sweep planner does not yet schedule the benign controls.~~ **Closed** (2026-09-25):
-  `--benign-seeds 70 … 93` schedules the 24 benign cases static-only under the reduced control protocol,
+  `--benign-seeds 70 … 93 110 … 157` schedules the 72 benign cases static-only under the reduced control protocol,
   with the type ↔ seed pairing taken from the case builder's own function (`benign_design`).
 - ~~Analysis tooling.~~ **Closed** (2026-09-25): H9 (with the headroom rule), H10 and the benign
   contrast output their verdicts mechanically (`harness/prereg_part1.py`; see "Analysis fixed in code
