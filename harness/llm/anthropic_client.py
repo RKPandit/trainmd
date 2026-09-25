@@ -19,6 +19,46 @@ _MAX_RETRIES = 2
 _BASE_DELAY = 1.0  # seconds
 
 
+# Per-model request capabilities, verified 2026-09-24 against platform.claude.com (models overview,
+# effort, thinking, model-deprecations). temperature: Claude 4.7+ return 400 on a non-default value.
+# effort: output_config.effort levels. thinking: explicit thinking.type values accepted.
+_MODEL_CAPS = {
+    "claude-haiku-4-5-20251001": {"temperature": True, "effort": (), "thinking": (),
+                                  "default_effort": "not supported", "default_thinking": "off"},
+    "claude-sonnet-5": {"temperature": False, "effort": ("low", "medium", "high", "xhigh", "max"),
+                        "thinking": ("adaptive", "disabled"),
+                        "default_effort": "high", "default_thinking": "adaptive, on"},
+    "claude-opus-5-5": {"temperature": False, "effort": ("low", "medium", "high", "xhigh", "max"),
+                        "thinking": ("adaptive",),          # disabled -> 400: always on
+                        "default_effort": "medium", "default_thinking": "adaptive, always on"},
+}
+_LEGACY_CAPS = {"temperature": True, "effort": (), "thinking": (),
+                "default_effort": "not supported", "default_thinking": "off"}
+
+
+def model_caps(model: str) -> dict:
+    """Request capabilities for ``model`` (unknown models keep the legacy request shape)."""
+    return _MODEL_CAPS.get(model, _LEGACY_CAPS)
+
+
+def _to_plain(x):
+    """SDK model / namespace / container -> plain JSON-able structure, unchanged (None fields dropped)."""
+    if hasattr(x, "model_dump"):
+        return x.model_dump(exclude_none=True)
+    if isinstance(x, dict):
+        return {k: _to_plain(v) for k, v in x.items() if v is not None}
+    if isinstance(x, (list, tuple)):
+        return [_to_plain(v) for v in x]
+    if hasattr(x, "__dict__"):
+        return {k: _to_plain(v) for k, v in vars(x).items() if v is not None and not k.startswith("_")}
+    return x
+
+
+def _block_dict(block) -> dict:
+    """A response content block as a plain dict, unchanged."""
+    return _to_plain(block)
+
+
 class AnthropicClient:
     """LLMClient implementation backed by the Anthropic Messages API.
 
@@ -42,23 +82,52 @@ class AnthropicClient:
     _CACHE_CONTROL = {"type": "ephemeral"}
 
     def __init__(self, model: str, temperature: float = 1.0, *,
-                 prompt_caching: bool = False) -> None:
+                 prompt_caching: bool = False, effort: str | None = None,
+                 thinking: str | None = None) -> None:
         import anthropic
 
+        caps = model_caps(model)
+        if effort is not None and effort not in caps["effort"]:
+            raise ValueError(f"{model}: effort {effort!r} not supported (allowed: {caps['effort'] or 'none'})")
+        if thinking is not None and thinking not in caps["thinking"]:
+            raise ValueError(f"{model}: thinking {thinking!r} not supported (allowed: {caps['thinking']})")
         self._client = anthropic.Anthropic()  # ANTHROPIC_API_KEY from env
         self._model = model
         self._temperature = temperature
+        self._caps = caps
+        self.effort = effort
+        self.thinking = thinking
         self.prompt_caching = prompt_caching
 
     def request_kwargs(self, messages: list[dict], tools_schema: list[dict],
                        max_tokens: int) -> dict:
         """The exact ``messages.create`` kwargs. Caching adds ONLY the top-level
-        ``cache_control`` key; ``messages``/``tools`` are passed through untouched."""
+        ``cache_control`` key; ``messages``/``tools`` are passed through untouched.
+
+        ``temperature`` is sent only to models that accept it (Claude 4.7+ return 400 on a
+        non-default value); ``output_config.effort`` / ``thinking`` only when set explicitly."""
         kwargs = dict(model=self._model, max_tokens=max_tokens, messages=messages,
-                      tools=tools_schema, temperature=self._temperature)
+                      tools=tools_schema)
+        if self._caps["temperature"]:
+            kwargs["temperature"] = self._temperature
+        if self.effort is not None:
+            kwargs["output_config"] = {"effort": self.effort}
+        if self.thinking is not None:
+            kwargs["thinking"] = {"type": self.thinking}
         if self.prompt_caching:
             kwargs["cache_control"] = dict(self._CACHE_CONTROL)
         return kwargs
+
+    def describe(self) -> dict:
+        """Merged into the trial's model block by the agents: the generation settings actually
+        requested (temperature is 'model default (not settable)' on Claude 4.7+ models)."""
+        return {"provider": "anthropic", **self.generation_settings()}
+
+    def generation_settings(self) -> dict:
+        """What was actually requested — recorded in the trial's model block (provenance)."""
+        return {"temperature": self._temperature if self._caps["temperature"] else "model default (not settable)",
+                "effort": self.effort or f"model default ({self._caps['default_effort']})",
+                "thinking": self.thinking or f"model default ({self._caps['default_thinking']})"}
 
     def complete(
         self,
@@ -109,9 +178,16 @@ class AnthropicClient:
 
     @staticmethod
     def _parse_response(response) -> LLMResponse:
-        """Parse an Anthropic Messages API response into LLMResponse."""
+        """Parse an Anthropic Messages API response into LLMResponse.
+
+        ``assistant_blocks`` carries EVERY content block exactly as returned (thinking +
+        signature, redacted_thinking, text, tool_use): with tool use the API requires the
+        assistant's thinking blocks back "complete and unmodified", and silently drops thinking
+        for the continuation if they are missing."""
         text_parts: list[str] = []
         tool_calls: list[ToolCallRequest] = []
+        blocks = [_block_dict(b) for b in response.content]
+        n_thinking = sum(1 for b in blocks if b.get("type") in ("thinking", "redacted_thinking"))
 
         for block in response.content:
             if block.type == "text":
@@ -142,4 +218,6 @@ class AnthropicClient:
                 cache_write_tokens=write,
             ),
             raw={"model": response.model, "id": response.id},
+            assistant_blocks=blocks,
+            reasoning_blocks=n_thinking,
         )

@@ -492,20 +492,28 @@ def _provider_smoke(providers) -> list[str]:
     return fails
 
 
-def _make_client(provider: str, model: str, *, prompt_caching: bool = False):
+def _make_client(provider: str, model: str, *, prompt_caching: bool = False,
+                 effort: str | None = None, thinking: str | None = None):
     """Construct the LLM client for a provider. The SINGLE dispatch point — the
     factory and the precondition smoke both go through it, so a provider can never
     be silently routed to the wrong client (the bug that produced an all-Haiku
     'cross-provider' run). Study params are pinned here: Anthropic temperature=1.0;
     OpenAI reasoning_effort=medium (Haiku has no effort knob), no temperature.
     ``prompt_caching`` (Anthropic only; transport-only, no effect on prompt text) is set by the
-    agent factory for multi-turn agents. OpenAI caches automatically (no switch)."""
+    agent factory for multi-turn agents. OpenAI caches automatically (no switch).
+
+    ``effort`` / ``thinking`` come from the CELL (Stage 4 Part 2 reasoning contrasts); omitted, each
+    provider keeps the Part 1 settings (Anthropic: model default, temperature 1.0 where accepted;
+    OpenAI: reasoning_effort=medium). Invalid combinations fail loud in the client."""
     if provider == "anthropic":
         from harness.llm.anthropic_client import AnthropicClient
-        return AnthropicClient(model=model, temperature=1.0, prompt_caching=prompt_caching)
+        return AnthropicClient(model=model, temperature=1.0, prompt_caching=prompt_caching,
+                               effort=effort, thinking=thinking)
     if provider == "openai":
         from harness.llm.openai_client import OpenAIClient
-        return OpenAIClient(model=model, reasoning_effort="medium")
+        if thinking is not None:
+            raise ValueError("thinking is an Anthropic setting; use effort (reasoning_effort) for OpenAI")
+        return OpenAIClient(model=model, reasoning_effort=effort or "medium")
     raise ValueError(f"unknown provider {provider!r} (expected 'anthropic' or 'openai')")
 
 
@@ -519,10 +527,13 @@ def _default_agent_factory(cell, model):
     model = cell.get("model") or model
     # Prompt caching only for the multi-turn ReAct agent (H8: 84% of Haiku ReAct input was
     # resent history); a single-call static agent would pay the 1.25x write with no reads.
-    client = _make_client(provider, model, prompt_caching=(cell["agent"] != "static"))
+    client = _make_client(provider, model, prompt_caching=(cell["agent"] != "static"),
+                          effort=cell.get("effort"), thinking=cell.get("thinking"))
+    # max_tokens caps thinking + text together; thinking cells set a larger cap in the plan.
+    kw = {"max_response_tokens": cell["max_tokens"]} if cell.get("max_tokens") else {}
     if cell["agent"] == "static":
-        return StaticContextAgent(client, model_id=model, anchor=cell["anchor"])
-    return LLMAgent(client, model_id=model, anchor=cell["anchor"])
+        return StaticContextAgent(client, model_id=model, anchor=cell["anchor"], **kw)
+    return LLMAgent(client, model_id=model, anchor=cell["anchor"], **kw)
 
 
 # ---- live prompt-caching check (Stage 4 Part 1) ----------------------------------------------
@@ -560,6 +571,46 @@ def cache_check(records) -> dict:
             "first_hit_run_id": hits[0].get("run_id") if hits else None,
             "cache_read_tokens": sum((r.get("usage") or {}).get("cached_tokens") or 0 for r in eligible),
             "cache_write_tokens": sum((r.get("usage") or {}).get("cache_write_tokens") or 0 for r in eligible)}
+
+
+# ---- live reasoning-preservation check (Stage 4) ----------------------------------------------
+# Both providers require prior reasoning (Anthropic thinking blocks, OpenAI reasoning items) to be
+# passed back with tool results, and silently continue WITHOUT it otherwise. The unit tests prove
+# the blocks are replayed; this checks it on live records: over multi-call trials whose model
+# produced reasoning, ``failed`` if any later call replayed ZERO prior reasoning blocks although an
+# earlier response in that trial produced some (dropped); ``passed`` if none dropped and at least
+# one call AFTER the first tool call still produced reasoning; ``pending`` below
+# REASONING_CHECK_TRIALS eligible trials; ``not_applicable`` if no trial produced any reasoning.
+REASONING_CHECK_TRIALS = 5
+
+
+def reasoning_check(records) -> dict:
+    eligible, dropped, later_reasoning = [], [], []
+    for r in records:
+        calls = r.get("llm_transcript") or []
+        if len(calls) < 2 or not any((c.get("reasoning_blocks") or 0) > 0 for c in calls):
+            continue
+        eligible.append(r)
+        produced = 0
+        for i, c in enumerate(calls):
+            if i > 0 and produced > 0 and (c.get("replayed_reasoning_blocks") or 0) == 0:
+                dropped.append(r.get("run_id"))
+                break
+            produced += c.get("reasoning_blocks") or 0
+        if any((c.get("reasoning_blocks") or 0) > 0 for c in calls[1:]):
+            later_reasoning.append(r.get("run_id"))
+    if dropped:
+        status = "failed"
+    elif not eligible:
+        status = "not_applicable"
+    elif later_reasoning and len(eligible) >= REASONING_CHECK_TRIALS:
+        status = "passed"
+    elif len(eligible) >= REASONING_CHECK_TRIALS:
+        status = "failed"          # reasoning never appears after the first tool call
+    else:
+        status = "pending"
+    return {"status": status, "eligible_trials": len(eligible), "dropped_run_ids": dropped[:10],
+            "trials_with_reasoning_after_first_call": len(later_reasoning)}
 
 
 def _cost_from_record(rec) -> float:
@@ -630,6 +681,8 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
         conditions = {"sweep_name": name, "agent_type": cell["agent"],
                       "anchor": cell["anchor"], "repeat_index": cell["repeat_index"],
                       "provider": cell.get("provider", "anthropic")}
+        # Part 2 reasoning factors — recorded only when the cell sets them (Part 1 unchanged).
+        conditions.update({k: cell[k] for k in ("effort", "thinking") if cell.get(k) is not None})
         case_dir = project_root / "cases" / cell["case_id"]
         rec = None
         error = None
@@ -665,6 +718,12 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
                                      "ts": datetime.now(timezone.utc).isoformat()})
         cache_recs.append({**rec, "conditions": {**(rec.get("conditions") or {}), **conditions}})
         cache_status = cache_check(cache_recs)
+        reasoning_status = reasoning_check(cache_recs)
+        if reasoning_status["status"] == "failed":
+            stopped = (f"reasoning_check_failed ({reasoning_status}) — prior thinking/reasoning is not "
+                       f"being passed back across tool calls (or never recurs after the first call); "
+                       f"stopping: every further trial would run with reasoning silently degraded.")
+            break
         if cache_status["status"] == "failed":
             stopped = (f"cache_check_failed ({cache_status['eligible_trials']} Anthropic ReAct trials, "
                        f"0 cache reads) — prompt caching is not hitting; stopping before more full-price "
@@ -676,6 +735,7 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
               file=sys.stderr)
 
     manifest["agent_phase"]["cache_check"] = cache_status or cache_check([])
+    manifest["agent_phase"]["reasoning_check"] = reasoning_check(cache_recs)
     manifest["agent_phase"].update({
         "trials": ran, "input_tokens": tok_in, "output_tokens": tok_out,
         "estimated_cost_usd": round(cumulative, 4),
@@ -868,6 +928,11 @@ def main() -> int:
     cc.add_argument("--name", required=True)
     cc.add_argument("--project-root", type=Path, default=None)
 
+    rc = sub.add_parser("check-reasoning", help="assert prior thinking/reasoning is passed back across "
+                                               "tool calls on the sweep's records so far (pilot gate)")
+    rc.add_argument("--name", required=True)
+    rc.add_argument("--project-root", type=Path, default=None)
+
     rep = sub.add_parser("report")
     rep.add_argument("--name", required=True)
     rep.add_argument("--project-root", type=Path, default=None)
@@ -927,6 +992,16 @@ def main() -> int:
                 recs.append(r)
         res = cache_check(recs)
         print(f"check-cache {args.name}: {res}")
+        return {"passed": 0, "not_applicable": 0, "pending": 2, "failed": 1}[res["status"]]
+
+    if args.cmd == "check-reasoning":
+        recs = []
+        for f in sorted((root / "results").glob("*/trials/*.yaml")):
+            r = yaml.safe_load(f.read_text())
+            if (r.get("conditions") or {}).get("sweep_name") == args.name and not r.get("trusted"):
+                recs.append(r)
+        res = reasoning_check(recs)
+        print(f"check-reasoning {args.name}: {res}")
         return {"passed": 0, "not_applicable": 0, "pending": 2, "failed": 1}[res["status"]]
 
     if args.cmd == "report":

@@ -45,6 +45,12 @@ _PRICE_TABLE: dict[str, dict[str, float | None]] = {
         "cached_input": 0.50,    # confirmed: $0.50 in pricing table
         "cache_write": 6.25,     # verified 2026-09-23: 5m cache writes $6.25/MTok
     },
+    "claude-opus-5-5": {
+        "input": 4.00,
+        "output": 20.00,
+        "cached_input": 0.20,    # verified 2026-09-24: cache hits 0.05x on Opus 5.5 ($0.20/MTok)
+        "cache_write": 5.00,     # verified 2026-09-24: 5m cache writes $5/MTok (1.25x)
+    },
     # --- Second provider (OpenAI GPT-5.6 Luna, cost-efficient tier). Rates
     # verified from OpenAI's model docs 2026-09-19 (post-July-30 cut: Luna -80%);
     # is_estimate stays True per this file's rule (only a billing statement is
@@ -62,6 +68,10 @@ _PRICE_TABLE: dict[str, dict[str, float | None]] = {
         # GPT-5.6+ bills automatic-cache writes at 1.25x input — not priced before this change.
         "cache_write": 0.25,
     },
+    # GPT-6 (Stage 4 Part 2). Verified 2026-09-24 from the RAW model/pricing pages
+    # (developers.openai.com/api/docs/models/gpt-6-*; standard tier, short context <= 272K input).
+    "gpt-6-luna": {"input": 0.10, "output": 0.50, "cached_input": 0.01, "cache_write": 0.125},
+    "gpt-6-sol": {"input": 2.00, "output": 10.00, "cached_input": 0.20, "cache_write": 2.50},
 }
 
 

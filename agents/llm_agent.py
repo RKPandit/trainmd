@@ -390,6 +390,40 @@ def reference_band_line_v1(card: dict, arm: str) -> str | None:
     return numbers if arm == "numbers" else numbers + _V1_RULE_SENTENCE
 
 
+def assistant_turn(response: LLMResponse) -> list[dict]:
+    """The assistant turn to append to history.
+
+    The provider-NATIVE blocks when the client supplies them (``response.assistant_blocks``) —
+    passed back UNCHANGED, so Anthropic thinking blocks (with signatures) and OpenAI reasoning items
+    survive across tool calls, as both providers require. Only clients without native blocks (fake
+    / test clients) get the turn rebuilt from text + tool calls.
+    """
+    if response.assistant_blocks is not None:
+        return list(response.assistant_blocks)
+    content: list[dict] = []
+    if response.text:
+        content.append({"type": "text", "text": response.text})
+    for tc in response.tool_calls:
+        content.append({"type": "tool_use", "id": tc.id, "name": tc.name, "input": tc.arguments})
+    return content
+
+
+def count_reasoning_blocks(messages: list[dict]) -> int:
+    """Thinking / redacted_thinking blocks (Anthropic) and reasoning items (OpenAI native turns)
+    present in the assistant turns of ``messages`` — i.e. prior reasoning being replayed."""
+    n = 0
+    for m in messages:
+        if m.get("role") != "assistant" or not isinstance(m.get("content"), list):
+            continue
+        for b in m["content"]:
+            t = b.get("type") if isinstance(b, dict) else None
+            if t in ("thinking", "redacted_thinking"):
+                n += 1
+            elif t == "openai_output_items":
+                n += sum(1 for i in b.get("items") or [] if i.get("type") == "reasoning")
+    return n
+
+
 def build_case_info(card: dict, arm: str = "rule", include_band: bool | None = None) -> str:
     """The shared '## Case information' body (id, workload, description, band).
 
@@ -511,6 +545,7 @@ class LLMAgent:
                     break
 
             # Call LLM (timed for latency capture)
+            _replayed = count_reasoning_blocks(messages)
             _t0 = time.monotonic()
             response = self._client.complete(
                 messages, TOOLS_SCHEMA, max_tokens=self._max_response_tokens,
@@ -544,7 +579,12 @@ class LLMAgent:
                         "output_tokens": response.usage.output_tokens,
                         "cached_tokens": response.usage.cached_tokens,
                         "cache_write_tokens": response.usage.cache_write_tokens,
+                        "reasoning_tokens": (response.raw or {}).get("reasoning_tokens"),
                     },
+                    # Reasoning preservation (live-checked): blocks produced now, and prior
+                    # thinking/reasoning blocks REPLAYED in this request's history.
+                    "reasoning_blocks": response.reasoning_blocks,
+                    "replayed_reasoning_blocks": _replayed,
                 })
                 # Truncation is a per-model behavior worth reporting: count it
                 # and flag the affected entry, whether or not tool calls came
@@ -554,20 +594,10 @@ class LLMAgent:
                     self._record["llm_transcript"][-1]["truncated"] = True
 
             # Build assistant message for conversation history
-            assistant_content: list[dict] = []
-            if response.text:
-                assistant_content.append({"type": "text", "text": response.text})
-            for tc in response.tool_calls:
-                assistant_content.append({
-                    "type": "tool_use",
-                    "id": tc.id,
-                    "name": tc.name,
-                    "input": tc.arguments,
-                })
-            if not assistant_content:
+            if not response.text and not response.tool_calls:
                 termination = "ended_without_submit"  # model returned nothing
                 break
-            messages.append({"role": "assistant", "content": assistant_content})
+            messages.append({"role": "assistant", "content": assistant_turn(response)})
 
             # If no tool calls, the model is either done thinking (end_turn)
             # or was silenced mid-sentence by the output limit (max_tokens).

@@ -43,7 +43,12 @@ _EFFORT_TIERS = ("none", "low", "medium", "high", "xhigh", "max")
 # Per-model provider metadata (verified from OpenAI's model docs, 2026-09-19).
 # knowledge_cutoff is recorded because it bears on the "does the model already
 # know Adult's achievable accuracy" prior confound flagged for the frontier arm.
+_GPT6_COMMON = {"context_window_tokens": 1_050_000, "max_output_tokens": 128_000,
+                "long_context_threshold_tokens": 272_000}
 _MODEL_METADATA: dict[str, dict] = {
+    # Verified 2026-09-24 (developers.openai.com model pages, raw): alias-only (no dated snapshot).
+    "gpt-6-luna": {"knowledge_cutoff": "2026-05-18", **_GPT6_COMMON},
+    "gpt-6-sol": {"knowledge_cutoff": "2026-04-20", **_GPT6_COMMON},
     "gpt-5.6-luna": {
         "knowledge_cutoff": "2026-02-16",
         "context_window_tokens": 1_050_000,
@@ -116,8 +121,13 @@ def to_responses_input(messages: list[dict]) -> list[dict]:
       "user", "content": <same string>}``.
     - user with ``tool_result`` blocks -> one ``{"type": "function_call_output",
       "call_id", "output"}`` per block (content string unchanged).
-    - assistant blocks -> a ``{"role": "assistant", "content": <joined text>}``
-      item (when there is text) plus one ``{"type": "function_call", "call_id",
+    - assistant turns carrying an ``openai_output_items`` block (the provider-NATIVE turn,
+      from :func:`parse_responses`) -> those output items VERBATIM, reasoning items (with
+      ``encrypted_content``) included. OpenAI: "any reasoning items returned in model responses
+      with tool calls must also be passed back with tool call outputs" — rebuilding the turn from
+      text + calls drops them (H8's Luna ReAct ran that way; LIMITATIONS L32).
+    - other assistant blocks (fake/test clients) -> a ``{"role": "assistant", "content": <joined
+      text>}`` item (when there is text) plus one ``{"type": "function_call", "call_id",
       "name", "arguments"}`` per ``tool_use`` (arguments = ``json.dumps(input)``).
       Pairing is by ``call_id`` (== our tool_use id), symmetric with the
       ``function_call_output`` above.
@@ -145,6 +155,11 @@ def to_responses_input(messages: list[dict]) -> list[dict]:
                     elif block.get("type") == "text":
                         out.append({"role": "user", "content": block["text"]})
         elif role == "assistant":
+            native = [b for b in content if b.get("type") == "openai_output_items"]
+            if native:
+                for b in native:
+                    out.extend(b["items"])
+                continue
             text_parts: list[str] = []
             calls: list[dict] = []
             for block in content:
@@ -179,6 +194,8 @@ def parse_responses(response) -> LLMResponse:
     """
     text_parts: list[str] = []
     tool_calls: list[ToolCallRequest] = []
+    native_items = [_item_dict(i) for i in (getattr(response, "output", None) or [])]
+    n_reasoning = sum(1 for i in native_items if i.get("type") == "reasoning")
     for item in (getattr(response, "output", None) or []):
         itype = getattr(item, "type", None)
         if itype == "message":
@@ -232,7 +249,27 @@ def parse_responses(response) -> LLMResponse:
         ),
         raw={"model": response.model, "id": response.id,
              "reasoning_tokens": reasoning},
+        assistant_blocks=[{"type": "openai_output_items", "items": native_items}],
+        reasoning_blocks=n_reasoning,
     )
+
+
+def _to_plain(x):
+    """SDK model / namespace / container -> plain JSON-able structure, unchanged (None fields dropped)."""
+    if hasattr(x, "model_dump"):
+        return x.model_dump(exclude_none=True)
+    if isinstance(x, dict):
+        return {k: _to_plain(v) for k, v in x.items() if v is not None}
+    if isinstance(x, (list, tuple)):
+        return [_to_plain(v) for v in x]
+    if hasattr(x, "__dict__"):
+        return {k: _to_plain(v) for k, v in vars(x).items() if v is not None and not k.startswith("_")}
+    return x
+
+
+def _item_dict(item) -> dict:
+    """An output item as a plain dict, unchanged."""
+    return _to_plain(item)
 
 
 class OpenAIClient:
@@ -312,6 +349,11 @@ class OpenAIClient:
                     # we are on /v1/responses at all (see class docstring).
                     reasoning={"effort": self._reasoning_effort},
                     max_output_tokens=max_tokens,
+                    # Stateless: nothing is stored server-side; reasoning items come back with
+                    # encrypted_content and are REPLAYED verbatim in the next request's input
+                    # (to_responses_input), so reasoning survives across tool calls.
+                    store=False,
+                    include=["reasoning.encrypted_content"],
                 )
                 return parse_responses(response)
 

@@ -106,15 +106,31 @@ def test_sheet_and_key_are_gitignored():
     assert {"/audit/local/", "audit_sheet.xlsx", "audit_key.csv"} <= rules
 
 
+def _tracked_paths() -> list[str]:
+    """Tracked paths, read from ``.git/index`` directly (index v2/v3) — works in the canonical
+    container, which has the repo's .git but no git binary; falls back to ``git ls-files``."""
+    import struct
+    idx = ROOT / ".git" / "index"
+    if idx.exists():
+        data = idx.read_bytes()
+        sig, version, count = data[:4], *struct.unpack(">II", data[4:12])
+        if sig == b"DIRC" and version in (2, 3):
+            paths, off = [], 12
+            for _ in range(count):
+                flags = struct.unpack(">H", data[off + 60:off + 62])[0]
+                start = off + 62 + (2 if (version == 3 and flags & 0x4000) else 0)
+                end = data.index(b"\0", start)
+                paths.append(data[start:end].decode("utf-8", "replace"))
+                entry_len = end - off + 1
+                off += (entry_len + 7) // 8 * 8
+            return paths
+    return subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True,
+                          check=True).stdout.split()
+
+
 def test_no_sheet_or_key_is_tracked():
-    try:
-        tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True,
-                                 check=True).stdout.split()
-    except (FileNotFoundError, subprocess.CalledProcessError):
-        # No git (canonical container in CI): a fresh checkout holds ONLY tracked files, so any such
-        # file present would be a committed one.
-        tracked = [str(q.relative_to(ROOT)) for q in ROOT.rglob("*")
-                   if q.name in ("audit_sheet.xlsx", "audit_key.csv") or "audit/local" in str(q)]
+    tracked = _tracked_paths()
+    assert any(t == "scripts/build_audit_pack.py" for t in tracked)     # the reader works
     assert not [f for f in tracked if f.endswith(("audit_sheet.xlsx", "audit_key.csv"))
                 or f.startswith("audit/")]
 

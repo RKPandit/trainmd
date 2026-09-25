@@ -539,3 +539,27 @@ choice, not a protection**; that table lives in the internal-only report (`sweep
 *Correction (2026-09-23):* this entry previously said the h8 release "ships only the VISIBLE band
 label"; the inventory showed otherwise (DECISIONS 2026-09-23). *Remedy / rule going forward:* the fresh frozen evaluation
 set (STAGE4 Part 3) is never released until its results are final.
+
+**L32 — H8's Luna ReAct trials ran with Luna's reasoning DISCARDED between tool calls (found
+2026-09-24).** OpenAI's function-calling guide: "for reasoning models … any reasoning items returned in
+model responses with tool calls must also be passed back with tool call outputs"; the reasoning guide
+"highly recommend[s]" it so the model can "continue its reasoning process". The OpenAI adapter rebuilt
+each request from the harness's internal history (text + function calls) and ignored the `reasoning`
+output items, with no `previous_response_id` — so every H8 Luna ReAct call after the first started
+without the reasoning behind its previous tool call. The API accepted this silently. **Scope:** Luna
+ReAct only. Luna static is unaffected (one call); Anthropic trials are unaffected (Haiku 4.5 ran without
+thinking, so there was nothing to drop); Sweep 1 and the Stage 2 gate were Haiku-only. **Consequences:**
+(1) the H8 ReAct − static contrast by provider — Anthropic **+0.057 [0.023, 0.094]**, OpenAI **−0.051
+[−0.085, −0.015]** evidence F1 (`docs/audits/sweep_h8_xprovider_generated.md`) — may be partly produced by
+this handicap: it degrades exactly the cell that reversed. It cannot be separated with H8's data (no
+condition with reasoning preserved), so the reversal is **not** interpreted as a model difference in tool
+use; (2) the direction is **conservative for the headline**: Luna ReAct was handicapped, not helped, and
+H8's key-renaming contrast is computed within cells that share the handicap; (3) **Part 1's Luna ReAct is
+not comparable with H8's** Luna ReAct. **Fixed before Part 1:** the adapter requests stateless responses
+(`store: false`, encrypted reasoning included) and replays every output item — reasoning included —
+verbatim; the Anthropic path passes thinking blocks back unchanged (the same class of bug, which would
+have silently disabled thinking on Sonnet 5 / Opus 5.5). Proven by
+`tests/test_reasoning_preservation.py::test_openai_react_replays_reasoning_items_and_is_stateless` and
+`tests/test_reasoning_preservation.py::test_react_passes_thinking_block_back_unchanged`; checked live in
+every sweep by `reasoning_check` (the run stops if prior reasoning is not replayed).
+
