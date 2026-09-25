@@ -50,7 +50,7 @@ def _run(script: str, *, root: Path, env: dict, args=()) -> subprocess.Completed
 
 
 def _fake_gh(bindir: Path, *, secret_list="", secret_list_rc=0,
-             run_list="", artifacts_by_run=None, download_creates=None) -> Path:
+             run_list="", artifacts_by_run=None, download_creates=None, run_view="") -> Path:
     """A fake `gh` that dispatches on the subcommand and logs its argv to gh.log."""
     artifacts_by_run = artifacts_by_run or {}
     logf = bindir / "gh.log"
@@ -75,6 +75,7 @@ case "$sub" in
        *) : ;;
      esac
      ;;
+  "run view")     printf "%s" "{run_view}";;
   "run download") {dl or ':'} ;;
   "run watch")    exit 0 ;;
   "workflow run") : ;;
@@ -129,7 +130,7 @@ def test_restore_no_green_run(tmp_path):
     gh = _fake_gh(bindir, run_list="")  # no successful runs
     r = _run("restore_cases.sh", root=tmp_path,
              env={"GH": str(gh), "GPG": str(_stub(bindir, "gpg")),
-                  "TAR": str(_stub(bindir, "tar")), "SWEEP_BUNDLE_KEY": "x"})
+                  "TAR": str(_stub(bindir, "tar")), "SWEEP_BUNDLE_KEY": "x", "EXPECT_CASES": "1"})
     assert r.returncode == 1
     assert "no green build-and-certify run" in r.stderr
     assert "make certify" in r.stderr
@@ -155,7 +156,7 @@ def test_restore_decryption_failure_names_run_and_preserves_cases(tmp_path):
 
     r = _run("restore_cases.sh", root=tmp_path,
              env={"GH": str(gh), "GPG": str(gpg), "TAR": str(_stub(bindir, "tar")),
-                  "SWEEP_BUNDLE_KEY": "wrong"})
+                  "SWEEP_BUNDLE_KEY": "wrong", "EXPECT_CASES": "1"})
     assert r.returncode == 1
     assert "decryption failed" in r.stderr
     assert "424242" in r.stderr  # names the run
@@ -262,22 +263,35 @@ def test_platform_report_no_cases(tmp_path):
 # restore_cases.sh — WHICH kind of validation failure (bundle vs local results/)
 # --------------------------------------------------------------------------
 
-def _restore_with_validation(tmp_path, classification: str | None, rc: int):
-    """Run a full (faked) restore whose validate-all step prints `classification` and exits `rc`."""
+def _restore_with_validation(tmp_path, classification: str | None, rc: int, *, n_cases=1,
+                             expected="1", run_id_env=None, run_view="", run_list=None,
+                             meta_vendor="AuthenticAMD", card_vendor="AuthenticAMD"):
+    """Run a full (faked) restore whose validate-all step prints `classification` and exits `rc`.
+    The fake bundle holds `n_cases` cases; `expected` is written as CURRENT_STATE's case_count."""
     bindir = tmp_path / "bin"; bindir.mkdir()
+    if expected is not None:
+        (tmp_path / "docs").mkdir(exist_ok=True)
+        (tmp_path / "docs" / "CURRENT_STATE.md").write_text(f"case_count: {expected}   # design\n")
     cipher = tmp_path / "sweep_bundle.tar.gz.gpg"
-    gh = _fake_gh(bindir, run_list="515151\thttps://gh/run/515151\n",
-                  artifacts_by_run={"515151": "sweep_bundle"}, download_creates=cipher)
+    gh = _fake_gh(bindir, run_list="515151\thttps://gh/run/515151\n" if run_list is None else run_list,
+                  artifacts_by_run={"515151": "sweep_bundle", "363636": "sweep_bundle"},
+                  download_creates=cipher, run_view=run_view)
     gpg = _write_exec(bindir / "gpg", 'while [ $# -gt 0 ]; do [ "$1" = "-o" ] && out="$2"; shift; done\n'
                                       ': > "$out"\n')
-    # fake tar: "extract" one case into the staging dir given by -C
+    # fake tar: "extract" n_cases cases (+ hidden card with build_cpu, + BUNDLE_META) into -C's dir
+    meta = (f'printf "build_cpu_vendor={meta_vendor}\\nbuild_cpu_model=M\\n" > "$dest/BUNDLE_META.txt"\n'
+            if meta_vendor else "")
     tar = _write_exec(bindir / "tar", 'while [ $# -gt 0 ]; do [ "$1" = "-C" ] && dest="$2"; shift; done\n'
-                                      'mkdir -p "$dest/cases/case_0001/workspace"\n')
+                                      f'for i in $(seq 1 {n_cases}); do mkdir -p "$dest/cases/case_$i/workspace" '
+                                      f'"$dest/cases/case_$i/hidden"; echo "build_cpu: {card_vendor} CPU" > '
+                                      '"$dest/cases/case_$i/hidden/card.hidden.yaml"; done\n' + meta)
     line = f'echo "{classification}"' if classification else ":"
     _write_exec(bindir / "make", 'case "$*" in *docker-validate-all*) echo "case_0001: 22/23"; '
                                  f'{line}; exit {rc};; esac\nexit 0\n')
     env = {"GH": str(gh), "GPG": str(gpg), "TAR": str(tar), "SWEEP_BUNDLE_KEY": "k",
            "PATH": f"{bindir}:{os.environ['PATH']}"}
+    if run_id_env:
+        env["RUN_ID"] = run_id_env
     return _run("restore_cases.sh", root=tmp_path, env=env)
 
 
@@ -298,3 +312,69 @@ def test_restore_passes_when_validation_passes(tmp_path):
     r = _restore_with_validation(tmp_path, None, 0)
     assert r.returncode == 0, r.stderr
     assert "validate-all PASSED" in r.stdout
+
+
+# --------------------------------------------------------------------------
+# restore_cases.sh — never restore the WRONG bundle (2026-09-25)
+# --------------------------------------------------------------------------
+
+def test_restore_refuses_a_bundle_with_the_wrong_case_count(tmp_path):
+    """An older bundle (e.g. a 152-case nightly on main) must be refused before the swap."""
+    (tmp_path / "cases" / "case_keep").mkdir(parents=True)
+    r = _restore_with_validation(tmp_path, None, 0, n_cases=3, expected="5")
+    assert r.returncode == 1
+    assert "holds 3 cases, but 5 are expected" in r.stderr and "515151" in r.stderr
+    assert (tmp_path / "cases" / "case_keep").exists()          # existing cases/ untouched
+    assert not list(tmp_path.glob(".restore_staging.*"))
+
+
+def test_restore_run_id_targets_that_run_and_prints_id_and_count(tmp_path):
+    r = _restore_with_validation(tmp_path, None, 0, n_cases=4, expected="4", run_id_env="363636",
+                                 run_view="success\thttps://gh/run/363636")
+    assert r.returncode == 0, r.stderr
+    assert "Using run 363636" in r.stdout and "515151" not in r.stdout   # not the latest run
+    assert "source run:  363636" in r.stdout and "case count:  4 (expected 4)" in r.stdout
+    assert "gh.log" and "run list" not in (tmp_path / "bin" / "gh.log").read_text()
+
+
+def test_restore_run_id_must_be_a_successful_run(tmp_path):
+    r = _restore_with_validation(tmp_path, None, 0, run_id_env="363636",
+                                 run_view="failure\thttps://gh/run/363636")
+    assert r.returncode == 1 and "not a successful run" in r.stderr
+
+
+def test_restore_refuses_without_an_expected_count(tmp_path):
+    r = _restore_with_validation(tmp_path, None, 0, expected=None)
+    assert r.returncode == 1 and "no expected case count" in r.stderr
+
+
+# --------------------------------------------------------------------------
+# restore_cases.sh — only bundles BUILT ON THE REFERENCE PLATFORM (AuthenticAMD)
+# --------------------------------------------------------------------------
+
+def test_restore_refuses_a_bundle_built_on_intel(tmp_path):
+    (tmp_path / "cases" / "case_keep").mkdir(parents=True)
+    r = _restore_with_validation(tmp_path, None, 0, meta_vendor="GenuineIntel", card_vendor="GenuineIntel")
+    assert r.returncode == 1 and "not\nAuthenticAMD" not in r.stderr
+    assert "built on 'GenuineIntel'" in r.stderr and "untouched" in r.stderr
+    assert (tmp_path / "cases" / "case_keep").exists()
+    assert not list(tmp_path.glob(".restore_staging.*"))
+
+
+def test_restore_refuses_a_bundle_without_provenance(tmp_path):
+    (tmp_path / "cases" / "case_keep").mkdir(parents=True)
+    r = _restore_with_validation(tmp_path, None, 0, meta_vendor=None)
+    assert r.returncode == 1 and "no BUNDLE_META.txt" in r.stderr
+    assert (tmp_path / "cases" / "case_keep").exists()
+
+
+def test_restore_refuses_cases_whose_cards_were_built_elsewhere(tmp_path):
+    r = _restore_with_validation(tmp_path, None, 0, meta_vendor="AuthenticAMD", card_vendor="GenuineIntel")
+    assert r.returncode == 1 and "hidden-card build_cpu" in r.stderr and "case_1" in r.stderr
+
+
+def test_restore_prints_the_build_cpu(tmp_path):
+    r = _restore_with_validation(tmp_path, None, 0)
+    assert r.returncode == 0, r.stderr
+    assert "build CPU:   AuthenticAMD / M" in r.stdout
+

@@ -8,7 +8,7 @@ This guard fails loudly (exit 1), naming every mismatch, so drift can't land sil
 Checks:
   a. operator list + count      vs operators/registry.py
   b. case count                 vs cases/registry.hidden.yaml
-  c. evidence scorer versions   vs harness/scoring.py (+ v2 primary)
+  c. evidence scorer versions   vs harness/scoring.py (+ v2.2 primary)
   d. canonical image digest     vs docker/IMAGE_DIGEST
   e. latest sweep named         has a sweeps/<name>_manifest.yaml
   f. corrections count          equal in CURRENT_STATE, FINDINGS, LIMITATIONS
@@ -86,15 +86,15 @@ def check_facts(declared: dict, root: Path = ROOT) -> list[str]:
             errors.append(f"[case_count] built registry {len(reg)} != design {expected_cases} "
                           "(rebuild cases: make docker-build-all-cases)")
 
-    # c. scorer versions + v2.1 primary (STAGE3_PLAN §0.4)
+    # c. scorer versions + v2.2 primary (STAGE3_PLAN §0.4; correction #7, 2026-09-25)
     scoring = (root / "harness" / "scoring.py").read_text()
     for v in declared.get("evidence_scorer_versions", []):
         if f'"{v}"' not in scoring:
             errors.append(f"[scorer] version {v!r} declared but not defined in harness/scoring.py")
-    if declared.get("evidence_scorer_primary") != "evidence_v2.1":
-        errors.append(f"[scorer] CURRENT_STATE primary {declared.get('evidence_scorer_primary')!r} != 'evidence_v2.1'")
-    if '"evidence": _ev21' not in scoring:
-        errors.append("[scorer] harness/scoring.py no longer sets evidence_v2.1 as the primary evidence block")
+    if declared.get("evidence_scorer_primary") != "evidence_v2.2":
+        errors.append(f"[scorer] CURRENT_STATE primary {declared.get('evidence_scorer_primary')!r} != 'evidence_v2.2'")
+    if '"evidence": _ev22' not in scoring:
+        errors.append("[scorer] harness/scoring.py no longer sets evidence_v2.2 as the primary evidence block")
 
     # d. image digest
     dig = (root / "docker" / "IMAGE_DIGEST").read_text().splitlines()[0].strip()

@@ -9,7 +9,7 @@
 - control operators: control.healthy.v1
 - arms present: numbers, off, rule  ·  arms (plan): numbers, off, rule
 - agents: react, static
-- evidence scorer: evidence_v2.1
+- evidence scorer: evidence_v2.2
 - excluded: trusted=0, superseded=0
 - method: case-level nonparametric bootstrap, 10000 resamples, 95% percentile, seed 20260913
 
@@ -70,7 +70,7 @@ _Hidden-band stratification (a case-quality label, never the stratification key)
 
 ## ReAct − static evidence F1 (faulty operators, pooled)
 
-- 0.010 [-0.018, 0.039] (n_cases=36)
+- 0.022 [-0.007, 0.052] (n_cases=36)
 
 ## Recovery — strict vs semantic, with id-gap CIs
 
@@ -133,7 +133,7 @@ _Hidden-band stratification (a case-quality label, never the stratification key)
 
 ## ReAct − static evidence F1 (faulty operators, pooled)
 
-- 0.057 [0.023, 0.094] (n_cases=36)
+- 0.064 [0.028, 0.104] (n_cases=36)
 
 ## Recovery — strict vs semantic, with id-gap CIs
 
@@ -196,7 +196,7 @@ _Hidden-band stratification (a case-quality label, never the stratification key)
 
 ## ReAct − static evidence F1 (faulty operators, pooled)
 
-- -0.051 [-0.085, -0.015] (n_cases=36)
+- -0.035 [-0.069, 0.001] (n_cases=36)
 
 ## Recovery — strict vs semantic, with id-gap CIs
 

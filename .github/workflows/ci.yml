@@ -137,6 +137,19 @@ jobs:
     timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
+      # ENFORCES the adopted reference decision (DECISIONS 2026-09-17 "pin EPYC"; stats.yaml was
+      # generated on native AMD EPYC): cases are built on the reference's microarchitecture. Hosted
+      # runners are assigned Intel or AMD at random, and per-seed results differ across them
+      # (LIMITATIONS L18/L23), so a non-AMD runner fails FAST — re-dispatch until one lands on AMD.
+      - name: Require an AMD (EPYC) runner — the reference platform
+        run: |
+          vendor="$(awk -F: '/^vendor_id/{gsub(/[ \t]/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          model="$(awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          echo "runner CPU: $vendor / $model"
+          if [ "$vendor" != "AuthenticAMD" ]; then
+            echo "::error::runner CPU is '$vendor' ($model), not AuthenticAMD — cases must be built on the reference platform (native AMD EPYC). Re-dispatch until an AMD runner is assigned."
+            exit 1
+          fi
       - name: Disk before
         run: df -h / | tail -1
       - run: docker build --platform linux/amd64 -t trainmd:canonical .
@@ -224,7 +237,17 @@ jobs:
             [ -L "$link" ] || continue
             ln -sfn ../../../workloads/tabular_adult/.data "$link"
           done
-          tar -czf cases.tar.gz cases   # cases/ ONLY — no workloads data
+          # Bundle provenance, checked by restore-cases BEFORE it touches a local cases/: the build
+          # CPU (must be AuthenticAMD, the reference platform), commit, run and case count.
+          {
+            echo "build_cpu_vendor=$(awk -F: '/^vendor_id/{gsub(/[ \t]/,"",$2); print $2; exit}' /proc/cpuinfo)"
+            echo "build_cpu_model=$(awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo)"
+            echo "commit=${{ github.sha }}"
+            echo "run_id=${{ github.run_id }}"
+            echo "case_count=$(find cases -maxdepth 1 -type d -name 'case_*' | wc -l | tr -d ' ')"
+          } > BUNDLE_META.txt
+          cat BUNDLE_META.txt
+          tar -czf cases.tar.gz cases BUNDLE_META.txt   # cases/ + provenance ONLY — no workloads data
           gpg --batch --yes --symmetric --cipher-algo AES256 \
             --passphrase "$SWEEP_BUNDLE_KEY" -o sweep_bundle.tar.gz.gpg cases.tar.gz
           rm -f cases.tar.gz

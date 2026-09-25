@@ -116,7 +116,8 @@ def test_rebuild_from_release_in_isolated_dir_without_registry(tmp_path):
     (rev / "harness").mkdir(parents=True)
     (rev / "scripts").mkdir()
     (rev / "docs" / "audits").mkdir(parents=True)
-    for m in ("__init__.py", "anchors.py", "sweep_stats.py", "report_gen.py"):
+    # prereg_part1: the Part 1 verdicts are part of the reviewer path (imports only sweep_stats).
+    for m in ("__init__.py", "anchors.py", "sweep_stats.py", "report_gen.py", "prereg_part1.py"):
         shutil.copy2(ROOT / "harness" / m, rev / "harness" / m)
     shutil.copy2(ROOT / "scripts" / "rebuild_tables.py", rev / "scripts" / "rebuild_tables.py")
     shutil.copytree(root / "results_release" / "s", rev / "results_release" / "s")

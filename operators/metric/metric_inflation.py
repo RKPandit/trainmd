@@ -91,6 +91,11 @@ class MetricInflationOperator:
 
     id: str = "silent.metric_inflation.v1"
     layer: Literal["metric"] = "metric"
+    # Where the fault is IMPLEMENTED in the workload (harness/evidence_code.py): the read of
+    # metrics.eval_subset_fraction + the block it gates, and the subset-accuracy function that
+    # produces the inflated number. Code-path evidence set (v2.2).
+    CODE_PATH = (("train.py", "reads", "eval_subset_fraction"),
+                 ("train.py", "function", "_subset_reported_accuracy"))
 
     def apply(self, workspace: Path, rng: Random, strength: str) -> Manifest:
         """Set ``metrics.eval_subset_fraction`` to the strength's q.

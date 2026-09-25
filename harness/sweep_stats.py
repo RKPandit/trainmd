@@ -119,6 +119,8 @@ def attach_meta(rec: dict, meta: dict) -> dict:
                                       (rec.get("prompt") or {}).get("prompt_version"))
     rec["_agent"] = (rec.get("conditions") or {}).get("agent_type")
     rec["_provider"] = (rec.get("conditions") or {}).get("provider")
+    # The exploratory H8-defect arm (reasoning pass-back OFF) — excluded from every primary table.
+    rec["_exploratory"] = (rec.get("conditions") or {}).get("reasoning_passback") is False
     return rec
 
 
@@ -133,9 +135,14 @@ _DEDUP_EXCLUDE_STATUS = {"crashed", "partial", "failed"}
 
 
 def _cell_key(r: dict) -> tuple:
+    """A cell's identity. The MODEL and any per-cell generation factor (effort / thinking, and the
+    exploratory reasoning_passback=false arm) are part of it: two models on one provider (Stage 4
+    Part 2) or the exploratory arm beside its confirmatory twin are DIFFERENT cells, never retries
+    of one. Sweeps with one model per provider and no such factors get the same grouping as before."""
     c = r.get("conditions") or {}
+    extra = tuple((k, c[k]) for k in ("effort", "thinking", "reasoning_passback") if k in c)
     return (r.get("case_id"), c.get("agent_type"), c.get("anchor"),
-            c.get("repeat_index"), c.get("provider"))
+            c.get("repeat_index"), c.get("provider"), (r.get("model") or {}).get("model_id")) + extra
 
 
 def _rec_ts(r: dict) -> tuple:
@@ -883,6 +890,42 @@ METRICS = {
     "h8_identification_contrast_paired": h8_identification_contrast_paired,
     "h8_secondary_detection_recovery": h8_secondary_detection_recovery,
 }
+
+
+def exploratory_no_passback(recs):
+    """The exploratory H8-defect arm vs its confirmatory twin: per case, the pass-back-OFF records
+    (``_exploratory``) against the pass-back-ON records of the SAME case × agent × arm × provider ×
+    model; means and a case-clustered bootstrap CI of (ON − OFF) for detection, identification and
+    evidence F1, over cases that have both."""
+    off = [r for r in recs if r.get("_exploratory")]
+    if not off:
+        return {"available": False, "reason": "no exploratory no-passback records"}
+    sig = {(r["case_id"], r["_agent"], r["_anchor"], r["_provider"], (r.get("model") or {}).get("model_id"))
+           for r in off}
+    on = [r for r in recs if not r.get("_exploratory")
+          and (r["case_id"], r["_agent"], r["_anchor"], r["_provider"],
+               (r.get("model") or {}).get("model_id")) in sig]
+    both = {r["case_id"] for r in on} & {r["case_id"] for r in off}
+    if not both:
+        return {"available": False, "reason": "no case has both pass-back ON and OFF records"}
+    pool = [r for r in on + off if r["case_id"] in both]
+    out = {"available": True}
+    for name, fn in (("detection", lambda t: 1.0 if _detect_correct(t) else 0.0),
+                     ("identification", lambda t: 1.0 if _id_correct(t) else 0.0),
+                     ("evidence_f1", lambda t: _ev_f1(t))):
+        def mean(ts, fn=fn):
+            v = [fn(t) for t in ts if fn(t) is not None]
+            return sum(v) / len(v) if v else None
+
+        def diff(ts, mean=mean):
+            a = mean([t for t in ts if not t.get("_exploratory")])
+            b = mean([t for t in ts if t.get("_exploratory")])
+            return None if a is None or b is None else a - b
+
+        out[name] = {"on": mean([t for t in pool if not t.get("_exploratory")]),
+                     "off": mean([t for t in pool if t.get("_exploratory")]),
+                     "diff": bootstrap_ci(pool, diff)}
+    return out
 
 
 def compute_all(recs, metrics=None) -> dict:

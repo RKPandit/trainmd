@@ -72,18 +72,18 @@ def test_ground_truth_is_a_healthy_control(cls):
     assert op.core_tokens() == healthy.core_tokens()
 
 
-def test_design_is_152_with_benign_appended_on_disjoint_seeds():
+def test_design_is_200_with_benign_appended_on_disjoint_seeds():
     from scripts.build_all_cases import case_design_tuples
     t = case_design_tuples()
-    assert len(t) == 152
+    assert len(t) == 200
     assert all(get_operator(o).layer != "control" or o == "control.healthy.v1" for o, _, _ in t[:128])
     benign = t[128:]
     seeds = [s for _, _, s in benign]
-    assert sorted(seeds) == list(range(70, 94)) and len(set(seeds)) == 24
+    assert sorted(seeds) == list(range(70, 94)) + list(range(110, 158)) and len(set(seeds)) == 72
     per = {}
     for o, _, s in benign:
         per.setdefault(o, []).append(s)
-    assert all(len(v) == 4 for v in per.values()) and len(per) == 6
+    assert all(len(v) == 12 for v in per.values()) and len(per) == 6
 
 
 def test_scoring_a_benign_control():

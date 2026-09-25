@@ -302,6 +302,10 @@ def _compute_evidence_scores(
 EVIDENCE_SCORER_V1 = "evidence_v1"
 EVIDENCE_SCORER_V2 = "evidence_v2"
 EVIDENCE_SCORER_V2_1 = "evidence_v2.1"
+# v2.2 (2026-09-25; DECISIONS): v2.1's one-to-one matching + each operator's CODE-PATH evidence set
+# (config key → consuming workload code → mechanism function), resolved from the case's own workspace
+# (harness/evidence_code.py). Found missing by the blind audit (FINDINGS F16).
+EVIDENCE_SCORER_V2_2 = "evidence_v2.2"
 _IOU_THRESHOLD = 0.5      # min intersection-over-union for a span match
 _WIDTH_FACTOR = 3.0       # a submitted span wider than N× the GT span never matches
 
@@ -500,6 +504,30 @@ def compute_evidence_scores_v2_1(submitted_refs: list[dict], hidden_sets: list[l
             "scorer_version": EVIDENCE_SCORER_V2_1}
 
 
+def _code_path_set(hidden_card: dict, workspace) -> list[dict] | None:
+    """The operator's code-path evidence set for this case (its config-key refs + the code spans that
+    implement the fault, resolved against the case's workspace), or None if the operator declares no
+    CODE_PATH / an anchor does not resolve / no workspace."""
+    if workspace is None:
+        return None
+    import dataclasses
+    from pathlib import Path as _P
+    try:
+        from operators.registry import get_operator
+        from harness.evidence_code import code_path_refs
+        op = get_operator(hidden_card.get("operator_id", ""))
+    except Exception:
+        return None
+    code_path = getattr(op, "CODE_PATH", None)
+    if not code_path:
+        return None
+    code = code_path_refs(code_path, _P(workspace))
+    if code is None:
+        return None
+    keys = [dataclasses.asdict(e) for e in op.evidence() if e.kind == "config_key"]
+    return keys + code
+
+
 def _hidden_evidence_sets(hidden_card: dict, hidden_refs: list[dict]) -> list[list[dict]]:
     """Resolve alternative sufficient sets from the OPERATOR (single source of
     truth); fall back to a single set = the sealed evidence.yaml list."""
@@ -514,16 +542,20 @@ def _hidden_evidence_sets(hidden_card: dict, hidden_refs: list[dict]) -> list[li
         return [list(hidden_refs)] if hidden_refs else []
 
 
-def _evidence_triple(submitted_refs, hidden_refs, hidden_card):
-    """Return (v2_1, v2, v1): **v2.1 (bipartite one-to-one) is PRIMARY** (STAGE3_PLAN §0.4);
-    v2 and v1 are retained beside it for audit/disclosure (v2's union rule over-credited
-    duplicates/shotgun — corrected by v2.1; Sweep 1 was originally reported under v1)."""
+def _evidence_triple(submitted_refs, hidden_refs, hidden_card, workspace=None):
+    """Return (v2_2, v2_1, v2, v1): **v2.2 is PRIMARY** (v2.1 + the operator's code-path set, resolved
+    from ``workspace``; DECISIONS 2026-09-25); v2.1 (bipartite one-to-one, STAGE3_PLAN §0.4), v2 and v1
+    are retained beside it for audit/disclosure."""
     sets = _hidden_evidence_sets(hidden_card, hidden_refs)
     v1 = _compute_evidence_scores(submitted_refs, hidden_refs)
     v1["scorer_version"] = EVIDENCE_SCORER_V1
     v2 = compute_evidence_scores_v2(submitted_refs, sets)
     v2_1 = compute_evidence_scores_v2_1(submitted_refs, sets)
-    return v2_1, v2, v1
+    code_set = _code_path_set(hidden_card, workspace)
+    v2_2 = compute_evidence_scores_v2_1(submitted_refs, sets + ([code_set] if code_set else []))
+    v2_2["scorer_version"] = EVIDENCE_SCORER_V2_2
+    v2_2["code_path_set"] = code_set is not None
+    return v2_2, v2_1, v2, v1
 
 
 # ---------------------------------------------------------------------------
@@ -796,14 +828,16 @@ def score_diagnosis(trial_record: dict, case_dir: Path) -> dict:
             "safety": score_safety(trial_record),
         }
 
-    _ev21, _ev2, _ev1 = _evidence_triple(_evidence_refs(submission), hidden_refs, hidden_card)
+    _ev22, _ev21, _ev2, _ev1 = _evidence_triple(_evidence_refs(submission), hidden_refs, hidden_card,
+                                                workspace=Path(case_dir) / "workspace")
     return {
         "tier": tier,
         "band_position": band_position,                     # VISIBLE — the key (mechanism)
         "band_position_hidden": band_position_hidden,       # alongside: case-quality label
         "detection": score_detection(submission, hidden_card),
         "identification": score_identification(submission, hidden_card),
-        "evidence": _ev21,       # v2.1 (bipartite one-to-one) primary — STAGE3_PLAN §0.4
+        "evidence": _ev22,       # v2.2 primary: v2.1 + the operator's code-path set (DECISIONS 2026-09-25)
+        "evidence_v2_1": _ev21,  # retained for audit (the primary through Sweep 3 / H8)
         "evidence_v2": _ev2,     # retained for audit (v2 over-credited duplicates/shotgun)
         "evidence_v1": _ev1,     # retained for audit (Sweep 1 was originally reported under v1)
         # Control 'recovery' is the free no_unnecessary_repair axis; faulty
@@ -910,7 +944,8 @@ def score_trial(
         if is_control
         else score_recovery(submission, case_dir, project_root)
     )
-    _ev21, _ev2, _ev1 = _evidence_triple(_evidence_refs(submission), hidden_refs, hidden_card)
+    _ev22, _ev21, _ev2, _ev1 = _evidence_triple(_evidence_refs(submission), hidden_refs, hidden_card,
+                                                workspace=Path(case_dir) / "workspace")
     return {
         "case_id": trial_record["case_id"],
         "agent_name": trial_record["agent_name"],
@@ -918,7 +953,8 @@ def score_trial(
         "trusted": trusted,
         "detection": score_detection(submission, hidden_card),
         "identification": score_identification(submission, hidden_card),
-        "evidence": _ev21,       # v2.1 (bipartite one-to-one) primary — STAGE3_PLAN §0.4
+        "evidence": _ev22,       # v2.2 primary (DECISIONS 2026-09-25)
+        "evidence_v2_1": _ev21,  # retained for audit
         "evidence_v2": _ev2,     # retained for audit
         "evidence_v1": _ev1,     # retained for audit
         "recovery": recovery,

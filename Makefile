@@ -249,8 +249,10 @@ certify:
 
 # Full local restore of built cases from the latest green certify run
 # (download → decrypt with $$SWEEP_BUNDLE_KEY → extract → data → validate).
+# RUN_ID=<id> restores that run's bundle; EXPECT_CASES=<n> overrides the expected count
+# (default: CURRENT_STATE case_count). A bundle with the wrong count is refused before the swap.
 restore-cases:
-	bash scripts/restore_cases.sh
+	RUN_ID="$(RUN_ID)" EXPECT_CASES="$(EXPECT_CASES)" bash scripts/restore_cases.sh
 
 # Paid agents phase (both API keys + caffeinate). MAX_COST caps spend (default $5;
 # a real sweep exceeds it, so pass MAX_COST= explicitly). NAME=<name> required.

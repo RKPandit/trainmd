@@ -6,14 +6,19 @@ per-hypothesis verdicts live in `docs/HYPOTHESES.md` Results and the evidence in
 
 ## The corrections, stated plainly
 
-All six post-hoc corrections removed harness-imposed penalties or fixed a measurement/aggregation/
-reporting error; none inflated a score by changing ground truth. (The first three are the Sweep-1
+All seven post-hoc corrections removed harness-imposed penalties or fixed a measurement/aggregation/
+reporting error; the first six changed no ground truth, and the seventh changes it only by admitting an
+evidence path found valid by a blind human audit. (The first three are the Sweep-1
 scoring/schema + folded-repair corrections; the fourth, 2026-09-15, disaggregated the pooled H1
 negative-symptom comparator; the fifth, 2026-09-15, migrated Sweep-1 evidence from v1 — which the
 docs had mislabeled as v2 — to **v2.1** (bipartite one-to-one) primary; the sixth, 2026-09-23,
 replaced the false-precision `[0, 0]` interval on every zero-event rate with the exact two-sided
 95% Clopper–Pearson interval over the number of unique cases — it moves **no point estimate** and only **widens** intervals that had
-overstated precision — see FINDINGS "Post-hoc corrections" #4–#6.) Originals are kept beside
+overstated precision; the seventh, 2026-09-25, is evidence scorer **v2.2** on H8: each faulty
+operator's code path (derived from its own implementation, never from citations) became an accepted
+evidence set after the blind audit found the path valid (FINDINGS F16). That can only RAISE evidence F1
+(59 of 834 H8 faulty trials, all up; detection / identification / recovery byte-identical) — see
+FINDINGS "Post-hoc corrections" #4–#7.) Originals are kept beside
 corrected values throughout.
 
 ## Disclosure rule
@@ -44,6 +49,14 @@ and **retired from the H2 σ-ladder**; **`label_corruption` carries the σ-axis*
 ~0.825/0.818/0.800 mild/moderate/severe, tight per-seed spread; S7). A second stably-graded operator
 (train-subset-fraction or excessive weight_decay) is a Sweep-2 candidate. DECISIONS 2026-09-14;
 FINDINGS (per-lr collapse table); RESEARCH_LOG.
+
+*Addendum (2026-09-25) — microarchitecture can change an lr_warmup case's fault SEVERITY.* Because its
+cases sit near the collapse threshold, the same (lr, seed) can collapse on one CPU and train normally on
+another: rebuilding the certified cases on an Intel runner instead of the reference's AMD EPYC moved one
+lr_warmup case's visible accuracy by 0.43 (a collapse flip), while every other operator moved ≤ 0.016.
+Cases are therefore built only on the reference platform (DECISIONS 2026-09-25), and this is one more
+reason lr_warmup cannot carry H9 — it is already excluded there by the headroom rule (Haiku detected it
+0.94 off-anchor in Sweep 1).
 
 **L2 — One model, one workload.** Every number is Claude Haiku 4.5 on the Adult dataset with an MLP.
 The standing findings are marked *pending replication* until a second provider's model and a second
@@ -519,7 +532,9 @@ Every such row with 1–2 events is flagged **‡** in the generated tables ("bo
 at this count") and should be read as indicative only; narrative precision statements cite the exact
 case-level intervals. *Remedy (STAGE4, before the paper):* move the control-FP table to exact
 Clopper–Pearson on case-level counts for every row — one method throughout — disclosed as its own change.
-**L31 — Released cases are BURNED as an evaluation set, by construction (2026-09-23).** A release of
+**L31 — Released cases are BURNED as an evaluation set, by construction (2026-09-23).** *(2026-09-25: a
+committed sweep PLAN also reveals control status by inference — controls are scheduled static-only, so a
+case ID with no ReAct cells is a control; accepted and left as is, the same position as below.)* A release of
 scored records necessarily discloses per-case ground truth: each trial's `detection_correct` and
 `identification_correct` reveal whether its case is faulty and which fault class it holds — and every
 release since §0.3 also carries the operator's `accepted_classes` inside `scores.identification`,
@@ -550,7 +565,8 @@ without the reasoning behind its previous tool call. The API accepted this silen
 ReAct only. Luna static is unaffected (one call); Anthropic trials are unaffected (Haiku 4.5 ran without
 thinking, so there was nothing to drop); Sweep 1 and the Stage 2 gate were Haiku-only. **Consequences:**
 (1) the H8 ReAct − static contrast by provider — Anthropic **+0.057 [0.023, 0.094]**, OpenAI **−0.051
-[−0.085, −0.015]** evidence F1 (`docs/audits/sweep_h8_xprovider_generated.md`) — may be partly produced by
+[−0.085, −0.015]** evidence F1 under v2.1; **+0.064 [0.028, 0.104]** and **−0.035 [−0.069, 0.001]** under
+v2.2 (correction #7; `docs/audits/sweep_h8_xprovider_generated.md`) — may be partly produced by
 this handicap: it degrades exactly the cell that reversed. It cannot be separated with H8's data (no
 condition with reasoning preserved), so the reversal is **not** interpreted as a model difference in tool
 use; (2) the direction is **conservative for the headline**: Luna ReAct was handicapped, not helped, and
@@ -561,7 +577,10 @@ verbatim; the Anthropic path passes thinking blocks back unchanged (the same cla
 have silently disabled thinking on Sonnet 5 / Opus 5.5). Proven by
 `tests/test_reasoning_preservation.py::test_openai_react_replays_reasoning_items_and_is_stateless` and
 `tests/test_reasoning_preservation.py::test_react_passes_thinking_block_back_unchanged`; checked live in
-every sweep by `reasoning_check` (the run stops if prior reasoning is not replayed).
+every sweep by `reasoning_check` (the run stops if prior reasoning is not replayed). **Measured, not
+assumed:** Part 1 re-creates H8's condition in an exploratory arm (Luna ReAct, leakage × `off`,
+reasoning pass-back OFF; 72 cells, never pooled) beside the fixed one, so the handicap is quantified
+directly (`tests/test_part1_planner.py::test_exploratory_no_passback_cells`).
 
 **L33 — The scorer validation (F16) rests on ONE annotator and a LEAKAGE-ONLY sample.** The blind audit
 (Stage 4.0.5) covered 60 H8 trials: descriptive and neutral data leakage plus healthy controls. It

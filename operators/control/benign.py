@@ -121,3 +121,25 @@ BENIGN_OPERATORS = (BenignBatchSize, BenignEpochs, BenignWeightDecay, BenignDrop
 
 for _cls in BENIGN_OPERATORS:
     assert isinstance(_cls(), IncidentOperator), f"{_cls.__name__} does not satisfy IncidentOperator"
+
+
+SEEDS_PER_TYPE_PER_BLOCK = 4
+
+
+def benign_design(seeds) -> list[tuple[str, str, int]]:
+    """(operator_id, "mild", seed) for the benign-configuration controls, paired BLOCK BY BLOCK: the
+    sorted ``seeds`` are cut into consecutive blocks of 6 types × 4 seeds = 24, and within each block
+    type i (declaration order above) takes 4 consecutive seeds — so for 70–93 type i gets 70+4i .. 73+4i,
+    and adding blocks (110–133, 134–157) never moves an existing case's pairing. The ONE source of the
+    type↔seed pairing: the case builder (scripts/build_all_cases.py) and the sweep planner
+    (harness/sweep.py) both call it."""
+    seeds = sorted(seeds)
+    per, block = SEEDS_PER_TYPE_PER_BLOCK, SEEDS_PER_TYPE_PER_BLOCK * len(BENIGN_OPERATORS)
+    if not seeds or len(seeds) % block:
+        raise ValueError(f"benign seeds must come in whole blocks of {block} "
+                         f"({len(BENIGN_OPERATORS)} types × {per}); got {len(seeds)}")
+    out = []
+    for b in range(0, len(seeds), block):
+        blk = seeds[b:b + block]
+        out += [(cls.id, "mild", blk[i * per + j]) for i, cls in enumerate(BENIGN_OPERATORS) for j in range(per)]
+    return out

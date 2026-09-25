@@ -64,6 +64,12 @@ class DataLeakageOperator:
 
     id: str = "silent.data_leakage.v1"
     layer: Literal["dynamics"] = "dynamics"
+    # Where the fault is IMPLEMENTED in the workload (harness/evidence_code.py): the block that reads
+    # the enabling key and attaches the derived column, and the function that derives it from the
+    # LABEL. Code-path evidence set (v2.2). A property, so the neutral-key subclass uses its own key.
+    @property
+    def CODE_PATH(self):
+        return (("train.py", "reads", self.ENABLE_KEY), ("datautil.py", "function", "_derived_column"))
 
     # The two config keys this operator mutates, under ``data``.  Subclasses
     # (e.g. the neutral-key variant) override ONLY these two names + ``id`` +

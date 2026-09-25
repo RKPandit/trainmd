@@ -45,6 +45,12 @@ ANCHORS = ["off", "stats", "rule"]
 PROMPT_MAJOR = 2    # recorded in the plan header so analysis keys arms by version
 CONTROL_OPERATOR = "control.healthy.v1"
 WORKLOAD = "tabular_adult"
+# EXPLORATORY (STAGE4 Part 1 pre-registration): Luna ReAct with reasoning pass-back OFF, on the leakage
+# cases, `off` arm only — it exists ONLY to quantify the handicap H8's adapter defect imposed on Luna
+# ReAct (LIMITATIONS L32) by re-creating that condition beside Part 1's fixed one. Not confirmatory;
+# never pooled with any scheduled arm (records carry conditions.reasoning_passback = false).
+EXPLORATORY_NO_PASSBACK = {"operators": ("silent.data_leakage.v1", "silent.data_leakage_neutral.v1"),
+                           "agent": "react", "anchor": "off", "provider": "openai"}
 
 
 def _repo_root() -> Path:
@@ -91,12 +97,14 @@ def _lookup_case(registry: dict, operator: str, strength: str, seed: int) -> str
     return None
 
 
-def _cell_id(operator, strength, seed, agent, anchor, repeat, provider="anthropic") -> str:
+def _cell_id(operator, strength, seed, agent, anchor, repeat, provider="anthropic", variant="") -> str:
     key = f"{operator}:{strength}:{seed}:{agent}:{anchor}:{repeat}:{provider}"
+    if variant:                       # an exploratory variant of an otherwise identical cell
+        key += f":{variant}"
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 
-def _design_tuples(registry, strengths, faulty_seeds, control_seeds, operators=None):
+def _design_tuples(registry, strengths, faulty_seeds, control_seeds, operators=None, benign_seeds=()):
     """Yield (operator, strength, seed) for the intended design.
 
     Faulty operators come from operators/registry.py (code), NOT the case
@@ -126,10 +134,15 @@ def _design_tuples(registry, strengths, faulty_seeds, control_seeds, operators=N
                 yield op, st, sd
     for sd in control_seeds:
         yield CONTROL_OPERATOR, "mild", sd
+    # Benign-configuration controls (STAGE4 4.0.6): each type on its own seeds, split exactly as the
+    # cases were built (operators/control/benign.py benign_design — the one source of the pairing).
+    if benign_seeds:
+        from operators.control.benign import benign_design
+        yield from benign_design(benign_seeds)
 
 
 def enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeats,
-                    operators=None, providers=None):
+                    operators=None, providers=None, benign_seeds=(), no_passback_model=None):
     """Return (cells, missing) — cells cross the design with provider×agent×anchor×repeat.
 
     A case (operator, strength, seed) is provider-agnostic; the provider multiplies
@@ -138,7 +151,8 @@ def enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeat
     providers = providers or DEFAULT_PROVIDERS
     registry = _load_registry(project_root)
     cells, missing = [], []
-    for op, st, sd in _design_tuples(registry, strengths, faulty_seeds, control_seeds, operators):
+    for op, st, sd in _design_tuples(registry, strengths, faulty_seeds, control_seeds, operators,
+                                     benign_seeds):
         case_id = _lookup_case(registry, op, st, sd)
         tier = _tier_of(op)
         if case_id is None or not (project_root / "cases" / case_id).exists():
@@ -160,6 +174,18 @@ def enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeat
                             "provider": prov["provider"], "model": prov["model"],
                             "agent": agent, "anchor": anchor, "repeat_index": r,
                         })
+        # Exploratory H8-defect arm: the same case × off × Luna ReAct × repeats, pass-back OFF.
+        x = EXPLORATORY_NO_PASSBACK
+        if no_passback_model and op in x["operators"]:
+            for r in range(repeats):
+                cells.append({
+                    "cell_id": _cell_id(op, st, sd, x["agent"], x["anchor"], r, x["provider"],
+                                        variant="no_passback"),
+                    "case_id": case_id, "operator": op, "tier": tier, "strength": st, "seed": sd,
+                    "provider": x["provider"], "model": no_passback_model,
+                    "agent": x["agent"], "anchor": x["anchor"], "repeat_index": r,
+                    "reasoning_passback": False, "exploratory": True,
+                })
     return cells, missing
 
 
@@ -259,14 +285,20 @@ _EXCLUSION_REASONS = {
 
 def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=None,
          repeats=DEFAULT_REPEATS, order_seed=1234, model=DEFAULT_MODEL,
-         operators=None, providers=None) -> dict:
+         operators=None, providers=None, benign_seeds=None, no_passback_model=None) -> dict:
     strengths = strengths or DEFAULT_STRENGTHS
     faulty_seeds = faulty_seeds or DEFAULT_FAULTY_SEEDS
     # `is None` (not `or`) so an explicit empty list means NO controls (faulty-only sweep).
     control_seeds = DEFAULT_CONTROL_SEEDS if control_seeds is None else control_seeds
     providers = providers or DEFAULT_PROVIDERS
+    benign_seeds = sorted(benign_seeds or [])
+    if no_passback_model and not any(p["provider"] == "openai" and p["model"] == no_passback_model
+                                     for p in providers):
+        raise ValueError(f"--exploratory-no-passback {no_passback_model!r} must be one of the plan's "
+                         "openai provider models (it re-creates that model's H8 condition)")
     cells, missing = enumerate_cells(
-        project_root, strengths, faulty_seeds, control_seeds, repeats, operators, providers)
+        project_root, strengths, faulty_seeds, control_seeds, repeats, operators, providers,
+        benign_seeds, no_passback_model)
     random.Random(order_seed).shuffle(cells)
 
     from operators.registry import all_operator_ids
@@ -307,7 +339,14 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
                           "agents": AGENTS, "anchors": ANCHORS, "prompt_major": PROMPT_MAJOR,
                           "repeats": repeats,
                           "strengths": strengths, "faulty_seeds": faulty_seeds,
-                          "control_seeds": control_seeds},
+                          "control_seeds": control_seeds, "benign_seeds": benign_seeds},
+        "exploratory": ({"no_passback": {**{k: (list(v) if isinstance(v, tuple) else v)
+                                            for k, v in EXPLORATORY_NO_PASSBACK.items()},
+                                         "model": no_passback_model,
+                                         "n_cells": sum(1 for c in cells if c.get("exploratory")),
+                                         "purpose": "quantify H8's Luna ReAct reasoning-drop handicap "
+                                                    "(LIMITATIONS L32); not confirmatory, never pooled"}}
+                        if no_passback_model else {}),
         "scope": scope,
         "n_cells": len(cells), "n_missing": len(missing),
         "cost_estimate": cost_est,
@@ -493,7 +532,8 @@ def _provider_smoke(providers) -> list[str]:
 
 
 def _make_client(provider: str, model: str, *, prompt_caching: bool = False,
-                 effort: str | None = None, thinking: str | None = None):
+                 effort: str | None = None, thinking: str | None = None,
+                 reasoning_passback: bool = True):
     """Construct the LLM client for a provider. The SINGLE dispatch point — the
     factory and the precondition smoke both go through it, so a provider can never
     be silently routed to the wrong client (the bug that produced an all-Haiku
@@ -504,16 +544,22 @@ def _make_client(provider: str, model: str, *, prompt_caching: bool = False,
 
     ``effort`` / ``thinking`` come from the CELL (Stage 4 Part 2 reasoning contrasts); omitted, each
     provider keeps the Part 1 settings (Anthropic: model default, temperature 1.0 where accepted;
-    OpenAI: reasoning_effort=medium). Invalid combinations fail loud in the client."""
+    OpenAI: reasoning_effort=medium). Invalid combinations fail loud in the client.
+
+    ``reasoning_passback=False`` (OpenAI only) is the EXPLORATORY H8-defect arm — see
+    ``EXPLORATORY_NO_PASSBACK``; every scheduled confirmatory cell passes reasoning back."""
     if provider == "anthropic":
         from harness.llm.anthropic_client import AnthropicClient
+        if not reasoning_passback:
+            raise ValueError("reasoning_passback=False is defined only for OpenAI (the H8-defect arm)")
         return AnthropicClient(model=model, temperature=1.0, prompt_caching=prompt_caching,
                                effort=effort, thinking=thinking)
     if provider == "openai":
         from harness.llm.openai_client import OpenAIClient
         if thinking is not None:
             raise ValueError("thinking is an Anthropic setting; use effort (reasoning_effort) for OpenAI")
-        return OpenAIClient(model=model, reasoning_effort=effort or "medium")
+        return OpenAIClient(model=model, reasoning_effort=effort or "medium",
+                            reasoning_passback=reasoning_passback)
     raise ValueError(f"unknown provider {provider!r} (expected 'anthropic' or 'openai')")
 
 
@@ -528,7 +574,8 @@ def _default_agent_factory(cell, model):
     # Prompt caching only for the multi-turn ReAct agent (H8: 84% of Haiku ReAct input was
     # resent history); a single-call static agent would pay the 1.25x write with no reads.
     client = _make_client(provider, model, prompt_caching=(cell["agent"] != "static"),
-                          effort=cell.get("effort"), thinking=cell.get("thinking"))
+                          effort=cell.get("effort"), thinking=cell.get("thinking"),
+                          reasoning_passback=cell.get("reasoning_passback", True))
     # max_tokens caps thinking + text together; thinking cells set a larger cap in the plan.
     kw = {"max_response_tokens": cell["max_tokens"]} if cell.get("max_tokens") else {}
     if cell["agent"] == "static":
@@ -587,6 +634,8 @@ REASONING_CHECK_TRIALS = 5
 def reasoning_check(records) -> dict:
     eligible, dropped, later_reasoning = [], [], []
     for r in records:
+        if (r.get("conditions") or {}).get("reasoning_passback") is False:
+            continue   # the exploratory H8-defect arm drops reasoning BY DESIGN — exempt, not a failure
         calls = r.get("llm_transcript") or []
         if len(calls) < 2 or not any((c.get("reasoning_blocks") or 0) > 0 for c in calls):
             continue
@@ -683,6 +732,9 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
                       "provider": cell.get("provider", "anthropic")}
         # Part 2 reasoning factors — recorded only when the cell sets them (Part 1 unchanged).
         conditions.update({k: cell[k] for k in ("effort", "thinking") if cell.get(k) is not None})
+        # The exploratory H8-defect arm is marked on the record so analysis can never pool it.
+        if cell.get("reasoning_passback") is False:
+            conditions["reasoning_passback"] = False
         case_dir = project_root / "cases" / cell["case_id"]
         rec = None
         error = None
@@ -902,6 +954,12 @@ def main() -> int:
     pp.add_argument("--strengths", nargs="*", default=None)
     pp.add_argument("--seeds", nargs="*", type=int, default=None)
     pp.add_argument("--control-seeds", nargs="*", type=int, default=None)
+    pp.add_argument("--benign-seeds", nargs="*", type=int, default=None,
+                    help="schedule the benign-configuration controls on these seeds (Part 1: 70-93; "
+                         "static-only reduced control protocol, like healthy controls)")
+    pp.add_argument("--exploratory-no-passback", default=None, metavar="OPENAI_MODEL",
+                    help="add the EXPLORATORY H8-defect arm: leakage x off x ReAct on this openai model "
+                         "with reasoning pass-back OFF (quantifies LIMITATIONS L32 only)")
     pp.add_argument("--repeats", type=int, default=DEFAULT_REPEATS)
     pp.add_argument("--order-seed", type=int, default=1234)
     pp.add_argument("--operators", nargs="*", default=None,
@@ -949,7 +1007,8 @@ def main() -> int:
                 providers.append({"provider": prov, "model": mdl or DEFAULT_MODEL})
         result = plan(root, args.name, args.strengths, args.seeds, args.control_seeds,
                       args.repeats, args.order_seed, operators=args.operators,
-                      providers=providers)
+                      providers=providers, benign_seeds=args.benign_seeds,
+                      no_passback_model=args.exploratory_no_passback)
         if args.build_missing and result["missing"]:
             summary = build_missing(root, result["missing"])
             print(f"[build-missing] built={len(summary['built'])} skipped={len(summary['skipped'])} "
@@ -960,7 +1019,8 @@ def main() -> int:
                 return 1
             result = plan(root, args.name, args.strengths, args.seeds, args.control_seeds,
                           args.repeats, args.order_seed, operators=args.operators,
-                          providers=providers)
+                          providers=providers, benign_seeds=args.benign_seeds,
+                          no_passback_model=args.exploratory_no_passback)
         path = write_plan(result)
         est = result["plan"]["header"]["cost_estimate"]
         print(f"Plan: {path}\n  cells={result['plan']['header']['n_cells']} "

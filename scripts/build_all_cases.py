@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from harness.build_case import build_case
 from harness.seed_sets import CONFIRMATORY_BENIGN, CONFIRMATORY_CONTROL, CONFIRMATORY_FAULTY
 from operators.control.benign import BENIGN_OPERATORS
+from operators.control.benign import benign_design as _benign_design
 from operators.registry import all_operator_ids, get_operator
 
 WORKLOAD = os.environ.get("WORKLOAD", "tabular_adult")
@@ -33,16 +34,13 @@ STRENGTHS = ["mild", "moderate", "severe"]
 # disjoint from the reference band (200–229). Controls moved {0,1,2} → 50–69 (≥20).
 FAULTY_SEEDS = sorted(CONFIRMATORY_FAULTY)      # [42, 43]
 CONTROL_SEEDS = sorted(CONFIRMATORY_CONTROL)    # [50..69]
-BENIGN_SEEDS = sorted(CONFIRMATORY_BENIGN)      # [70..93]: 6 benign types x 4, each type its own seeds
+BENIGN_SEEDS = sorted(CONFIRMATORY_BENIGN)      # 70–93 ∪ 110–157: 3 blocks of 6 types × 4 seeds
 
 
 def benign_design() -> list[tuple[str, str, int]]:
-    """(operator_id, "mild", seed) for the benign-configuration controls: type i (declaration order in
-    operators/control/benign.py) gets seeds 70+4i .. 73+4i — equal per type, disjoint across types."""
-    per = len(BENIGN_SEEDS) // len(BENIGN_OPERATORS)
-    assert per * len(BENIGN_OPERATORS) == len(BENIGN_SEEDS), "benign seeds must split evenly by type"
-    return [(cls.id, "mild", BENIGN_SEEDS[i * per + j])
-            for i, cls in enumerate(BENIGN_OPERATORS) for j in range(per)]
+    """(operator_id, "mild", seed) for the benign-configuration controls — paired block by block (the
+    pairing lives in benign.benign_design; the first block, 70–93, is unchanged)."""
+    return _benign_design(BENIGN_SEEDS)
 
 
 def _faulty_ops() -> list[str]:

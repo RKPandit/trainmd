@@ -56,6 +56,9 @@ class ShapeMismatchOperator:
 
     id: str = "crash.shape_mismatch.v1"
     layer: Literal["execution"] = "execution"
+    # Where the fault is IMPLEMENTED in the workload (harness/evidence_code.py): the read of
+    # model.input_dim that overrides the data-derived dimension. Code-path evidence set (v2.2).
+    CODE_PATH = (("train.py", "reads", "input_dim"),)
 
     def apply(self, workspace: Path, rng: Random, strength: str) -> Manifest:
         """Set ``model.input_dim`` in workspace config.yaml to a wrong value.
