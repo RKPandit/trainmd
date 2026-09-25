@@ -794,6 +794,54 @@ gap is a **caveat on cross-provider score comparison**, not a finding about eith
 
 ---
 
+## Stage 4.0.5 (2026-09-25) — blind human audit of the scorer
+
+### F16 — The automated scorer agrees with a blind human annotator on H8 leakage · validated (leakage only, one annotator)
+
+**Claim.** On H8's leakage cases, the scorer's identification and localization verdicts match an
+independent blind annotator's on every item, and its evidence verdict on 48 of 51; no identification
+rate changes, so **H8 stands**.
+
+**Evidence.** 60 H8 trials (51 faulty — descriptive + neutral leakage — and 9 healthy controls;
+stratified operator × provider × arm; shuffled; scores, provider, model, agent, arm, case and seed
+withheld; `scripts/build_audit_pack.py`), rated against a one-page rubric; agreement by
+`scripts/audit_agreement.py` (mapping declared before annotation). Exact 95% Clopper–Pearson
+intervals on raw agreement (perfect agreement is never reported as [1, 1]):
+
+| rating (annotator) | scorer counterpart | agreement | exact 95% CI | Cohen's κ |
+|---|---|---|---|---|
+| named = Yes | identification correct | **60/60** | [0.940, 1.000] | 1.000 (bootstrap degenerate) |
+| named = Yes or Partial | identification correct | 59/60 | [0.911, 1.000] | 0.932 |
+| located = Yes | evidence matched ≥ 1 | **51/51** | [0.930, 1.000] | 1.000 (bootstrap degenerate) |
+| evidence = Yes | evidence F1 ≥ 0.5 | **48/51** | [0.838, 0.988] | 0.788 |
+| evidence = Yes or Partial | evidence F1 ≥ 0.5 | 50/51 | [0.896, 1.000] | 0.922 |
+
+**The three evidence disagreements split two ways.** *Human stricter* — A15 and A55 (Haiku; scorer
+F1 = 1.0 but identification wrong): right evidence, wrong conclusion ("aux feature overfit",
+"excessive aux feature strength" rather than label-derived leakage); the annotator rated evidence
+Partial because it was not tied to the correct conclusion. *Scorer stricter* — A33 (Haiku ReAct, off
+arm; identification correct; evidence F1 0.33, which the annotator found convincing). **A33
+inspected (report only; nothing changed on n = 1):** it cited `data.include_aux_feature` (matched),
+`train.py` 185–191 (the branch that attaches the derived column when that key is set) and `datautil.py`
+28–40 (`_derived_column`, which computes the column from the label `y` with per-row noise — the leak
+mechanism itself). That is a valid alternative evidence path — key → consuming code → label-derived
+column — which the operator's single evidence set ({the two config keys, the validation-accuracy
+window}; no code spans) does not admit; A33 missed `aux_feature_strength` and the symptom window.
+**Not an isolated shape:** 406 of 834 H8 leakage submissions (49%; Anthropic 174/428, OpenAI 232/406)
+cite `_derived_column` and 589 (71%) cite a `train.py` span, so the evidence scorer systematically
+counts this path against precision — more for Luna. Any change to the evidence sets is a separate,
+pre-declared decision with a disclosed rescore; none is made here.
+
+**Exploratory, human-only (no automated counterpart; one annotator, leakage only).** Among the 42
+correct faulty diagnoses, the annotator rated the mechanism explanation **fully explained in 25/25
+Luna items**; **Haiku 12 full / 5 partial (17)**. *(Recomputed from the returned sheet + sealed key;
+the author's summary read Luna 24/24 and Haiku 11 full / 7 partial — pending reconciliation.)*
+
+**Status:** scorer validated on H8 leakage · one annotator · leakage-only sample (LIMITATIONS L33) ·
+the evidence-set gap is reported, not acted on.
+
+---
+
 ## How to update this document
 
 After each sweep's diagnostics close: (1) add a **Sweep N** section in the shape above;

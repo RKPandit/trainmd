@@ -84,6 +84,35 @@ def kappa(pairs):
     return None if pe == 1 else (po - pe) / (1 - pe)
 
 
+def clopper_pearson(k: int, n: int, alpha: float = 0.05) -> tuple[float, float]:
+    """Exact two-sided Clopper-Pearson interval for k successes in n — never degenerate: k = n gives
+    [(alpha/2)^(1/n), 1] (60/60 → [0.940, 1]), k = 0 gives [0, 1-(alpha/2)^(1/n)] (correction #6's
+    rule). Solved by bisection on the exact binomial tails (no SciPy)."""
+    from math import comb
+    if n == 0:
+        return (0.0, 1.0)
+
+    def upper_tail(p):   # P(X >= k), increasing in p
+        return sum(comb(n, i) * p ** i * (1 - p) ** (n - i) for i in range(k, n + 1))
+
+    def lower_tail(p):   # P(X <= k), decreasing in p
+        return sum(comb(n, i) * p ** i * (1 - p) ** (n - i) for i in range(0, k + 1))
+
+    def solve(f, target, increasing):
+        lo, hi = 0.0, 1.0
+        for _ in range(200):
+            mid = (lo + hi) / 2
+            if (f(mid) < target) == increasing:
+                lo = mid
+            else:
+                hi = mid
+        return (lo + hi) / 2
+    a = alpha / 2
+    lower = 0.0 if k == 0 else solve(upper_tail, a, increasing=True)
+    upper = 1.0 if k == n else solve(lower_tail, a, increasing=False)
+    return (lower, upper)
+
+
 def kappa_ci(pairs, n_boot=N_BOOT, seed=SEED):
     if not pairs:
         return None, None
@@ -92,7 +121,12 @@ def kappa_ci(pairs, n_boot=N_BOOT, seed=SEED):
                 if k is not None)
     if not ks:
         return None, None
-    return ks[int(0.025 * len(ks))], ks[min(len(ks) - 1, int(0.975 * len(ks)))]
+    lo, hi = ks[int(0.025 * len(ks))], ks[min(len(ks) - 1, int(0.975 * len(ks)))]
+    if lo == hi:
+        # Every resample gives the same κ (e.g. perfect agreement): the bootstrap cannot express
+        # uncertainty here — report it as DEGENERATE, never as a zero-width [κ, κ] interval.
+        return "degenerate", "degenerate"
+    return lo, hi
 
 
 SCORER = {
@@ -111,9 +145,11 @@ def dimension(rows, col, sensitivity=False) -> dict:
     strata = defaultdict(list)
     for r, (s, a) in zip(sel, pairs):
         strata[(r["operator"], r["provider"], r["anchor"])].append(s == a)
+    agree = sum(s == a for s, a in pairs)
     return {"col": col, "scorer": label, "rule": "Yes or Partial" if sensitivity else "Yes",
-            "n": len(pairs), "excluded_na": len(rows) - len(sel),
-            "agreement": sum(s == a for s, a in pairs) / len(pairs) if pairs else None,
+            "n": len(pairs), "excluded_na": len(rows) - len(sel), "agree": agree,
+            "agreement": agree / len(pairs) if pairs else None,
+            "agreement_ci": clopper_pearson(agree, len(pairs)) if pairs else (None, None),
             "kappa": kappa(pairs), "kappa_ci": (lo, hi),
             "table": {(s, a): sum(1 for p in pairs if p == (s, a)) for s in (True, False) for a in (True, False)},
             "by_stratum": {k: (sum(v), len(v)) for k, v in sorted(strata.items())},
@@ -152,10 +188,14 @@ def render(res, n_items) -> str:
          "Mapping declared in the script before annotation. Do NOT hand-edit.", ""]
     for d in res["dims"]:
         lo, hi = d["kappa_ci"]
+        alo, ahi = d["agreement_ci"]
         t = d["table"]
+        kci = ("bootstrap CI degenerate — every resample agrees; use the exact agreement interval"
+               if lo == "degenerate" else f"95% item-bootstrap CI [{_f(lo)}, {_f(hi)}]")
         L += [f"## {d['col']} (annotator {d['rule']}) vs {d['scorer']}", "",
-              f"- n = {d['n']} (N/A excluded: {d['excluded_na']}); raw agreement = {_f(d['agreement'])}; "
-              f"Cohen's κ = {_f(d['kappa'])} (95% item-bootstrap CI [{_f(lo)}, {_f(hi)}])", "",
+              f"- n = {d['n']} (N/A excluded: {d['excluded_na']}); raw agreement = {d['agree']}/{d['n']} = "
+              f"{_f(d['agreement'])} (exact 95% Clopper-Pearson [{_f(alo)}, {_f(ahi)}]); "
+              f"Cohen's κ = {_f(d['kappa'])} ({kci})", "",
               "| | annotator: positive | annotator: negative |", "|---|---|---|",
               f"| scorer: positive | {t[(True, True)]} | {t[(True, False)]} |",
               f"| scorer: negative | {t[(False, True)]} | {t[(False, False)]} |", "",

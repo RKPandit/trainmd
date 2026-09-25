@@ -199,3 +199,19 @@ def test_invalid_or_blank_rating_rejected(pack, tmp_path):
     out, _ = pack
     with pytest.raises(SystemExit):
         aa.load(out / "audit_sheet.xlsx", out / "audit_key.csv")      # unannotated → blank ratings
+
+
+def test_perfect_agreement_gets_an_exact_interval_never_a_degenerate_one():
+    """Same rule as correction #6: a 100% (or 0%) rate gets an exact Clopper-Pearson interval."""
+    lo, hi = aa.clopper_pearson(60, 60)
+    assert hi == 1.0 and lo == pytest.approx(0.025 ** (1 / 60), abs=1e-6) and 0.939 < lo < 0.941
+    lo, hi = aa.clopper_pearson(0, 51)
+    assert lo == 0.0 and hi == pytest.approx(1 - 0.025 ** (1 / 51), abs=1e-6)
+    lo, hi = aa.clopper_pearson(48, 51)
+    assert 0.83 < lo < 0.84 and 0.98 < hi < 0.99
+    assert aa.kappa_ci([(True, True), (False, False)] * 30) == ("degenerate", "degenerate")
+    md = aa.render({"dims": [aa.dimension([{"operator": "o", "provider": "p", "anchor": "a", "named": "Yes",
+                                            "auto_identification_correct": "True", "auto_predicted_class": "x"}] * 60,
+                                          "named")],
+                    "explained": {}, "evidence_bins": {}, "corrections": {}}, 60)
+    assert "[1.000, 1.000]" not in md and "Clopper-Pearson [0.940, 1.000]" in md
