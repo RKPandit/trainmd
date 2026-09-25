@@ -1192,3 +1192,19 @@ of an existing measurement and changes no hypothesis, threshold, case or scoring
   count above reported); detection, identification and evidence — which do not involve retraining — are
   unaffected either way. The agents phase does not depend on this and may proceed first.
 
+*Implementation detail of the native verification (appended 2026-09-25, before any Part 1 trial; the
+recovery rule is unchanged).* Verification is **memoized** by a content hash of everything a run's
+per-seed results depend on — the resolved repaired config, `train.py`, `datautil.py`, the checkpoint
+evaluator, the visible and hidden data files, the hidden seeds, and the container environment (the
+declared canonical image digest, the Dockerfile and `uv.lock` hashes, and the Python and torch versions
+in the container) (`harness/verify_memo.py`). Training is byte-exact within AMD EPYC, so identical
+inputs give identical outputs, and CI trains each DISTINCT configuration once, natively on AuthenticAMD
+(fail-fast otherwise); only that encrypted list of configurations is shipped, not trial records. Each
+trial's verdict is then computed exactly as before — every seed ran and the mean hidden accuracy ≥ its
+case's tolerance (and, metric tier, the visible band) — from those per-seed results; memo entries are
+accepted only if produced on AuthenticAMD, and a trial with no native entry is a `verify_error`, never
+trained locally. **Safeguard:** in the same CI run, a spot-check sample of **20 trials — every distinct
+configuration at least once where feasible** (seed 20260925) — is re-verified FRESH through the full
+verify path from its case and repair spec; any key or per-seed difference fails the run and nothing is
+imported. Reported with recovery: the number of distinct configurations, and the spot-check result.
+

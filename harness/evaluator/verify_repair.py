@@ -170,6 +170,118 @@ def _make_result(
     return result
 
 
+def _absent_when_clean_keys(hidden_card: dict, verify: dict) -> list:
+    """Absent-when-clean keys resolved from the operator CODE (single source of truth), so existing
+    sealed cases gain "unset" support without a card edit; else the verify file's inline list."""
+    try:
+        from operators.registry import get_operator
+
+        return list(get_operator(hidden_card["operator_id"]).admissible_repairs().absent_when_clean_keys)
+    except Exception:
+        return verify.get("admissible_repairs", {}).get("absent_when_clean_keys", [])
+
+
+def resolved_config(workload_dir: Path, hidden_card: dict, submission, absent_when_clean_keys) -> dict:
+    """The config a verification trains: the CLEAN workload config (never the agent's workspace), with
+    the operator mutation replayed from card.hidden.yaml (4a) and the repair patch applied on top (4b).
+    A null value on an absent-when-clean key is an "unset": delete the injected key so the workload
+    derives its clean default (oracle-equivalent to the value)."""
+    with open(workload_dir / "config.yaml") as f:
+        config = yaml.safe_load(f)
+    for mutation in hidden_card["mutations"]:
+        _set_nested(config, mutation["key_path"], mutation["mutated_value"])
+    for key_path, new_value in submission.patches.items():
+        if new_value is None and key_path in set(absent_when_clean_keys):
+            _unset_nested(config, key_path)
+        else:
+            _set_nested(config, key_path, new_value)
+    return config
+
+
+def run_hidden_seeds(config: dict, workload_dir: Path, hidden_seeds) -> list[dict]:
+    """Train ``config`` FRESH on each hidden seed and evaluate on the hidden test set. The ONE training
+    path for verification — verify_repair and the native memo builder (harness/verify_memo.py) both call
+    it, so a memoized result is the same computation, not a re-implementation."""
+    hidden_data_dir = workload_dir / ".hidden_data"
+    per_seed_results: list[dict] = []
+    with tempfile.TemporaryDirectory(prefix="trainmd_verify_") as tmpdir:
+        verify_ws = Path(tmpdir) / "workspace"
+        verify_ws.mkdir()
+        # Clean workload source; datautil is the sibling module train.py imports.
+        for fname in ["train.py", "config.yaml", "datautil.py"]:
+            shutil.copy2(workload_dir / fname, verify_ws / fname)
+        (verify_ws / ".data").symlink_to((workload_dir / ".data").resolve())
+        config_path = verify_ws / "config.yaml"
+        with open(config_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+        for seed in hidden_seeds:
+            seed_output = Path(tmpdir) / f"seed_{seed}"
+            run_result = subprocess.run(
+                [
+                    sys.executable,
+                    str(verify_ws / "train.py"),
+                    "--config", str(config_path),
+                    "--data-dir", str(verify_ws / ".data"),
+                    "--output-dir", str(seed_output),
+                    "--seed", str(seed),
+                ],
+                capture_output=True,
+                text=True,
+                # Inject the five thread caps so train.py's require_pinned_threads
+                # guard is satisfied regardless of the parent environment. Without
+                # this the rerun exits 2 on any unpinned host and the verdict is a
+                # false not_recovered (the Stage-2 gate bug).
+                env=pinned_thread_env(),
+            )
+            exitcode = run_result.returncode
+            metric = None
+            visible = None
+            if exitcode == 0:
+                # Reported visible metric the repaired run produced (metric tier).
+                visible = _final_visible_val_acc(seed_output)
+                ckpt_path = seed_output / "checkpoints" / "ckpt_final.pt"
+                if ckpt_path.exists():
+                    with open(config_path) as f:
+                        run_config = yaml.safe_load(f)
+                    eval_result = evaluate_checkpoint(ckpt_path, hidden_data_dir, run_config)
+                    metric = eval_result["metric_hidden_test_acc"]
+            seed_entry = {
+                "seed": seed,
+                "metric_hidden_test_acc": metric,
+                "metric_visible_val_acc": visible,
+                "exitcode": exitcode,
+            }
+            if exitcode != 0:
+                # Surface WHY it failed — "training failed to start" must never
+                # silently collapse into a not_recovered verdict.
+                seed_entry["stderr_tail"] = (run_result.stderr or "")[-2000:]
+            per_seed_results.append(seed_entry)
+    return per_seed_results
+
+
+def resolve_for_memo(case_dir: Path, repair_spec, project_root: Path):
+    """(config, workload_dir, hidden_seeds) that ``verify_repair`` would train for this repair, or None
+    if the repair is rejected before training (malformed / inadmissible — no training, no memo)."""
+    case_dir = Path(case_dir).resolve()
+    with open(case_dir / "hidden" / "verify.yaml") as f:
+        verify = yaml.safe_load(f)
+    with open(case_dir / "hidden" / "card.hidden.yaml") as f:
+        hidden_card = yaml.safe_load(f)
+    workload_name = hidden_card["workload_name"]
+    if workload_name not in _KNOWN_WORKLOADS:
+        raise ValueError(f"Unknown workload {workload_name!r}")
+    workload_dir = Path(project_root) / "workloads" / workload_name
+    try:
+        submission = parse_repair_spec(repair_spec)
+    except ValueError:
+        return None
+    keys = _absent_when_clean_keys(hidden_card, verify)
+    if not validate_repair(submission, verify, keys).valid:
+        return None
+    return resolved_config(workload_dir, hidden_card, submission, keys), workload_dir, verify["hidden_eval_seeds"]
+
+
 # ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
@@ -311,19 +423,7 @@ def verify_repair(
             _write_result(project_root, result, trial_run_id=trial_run_id)
         return result
 
-    # Absent-when-clean keys resolved from the operator CODE (single source of
-    # truth), so existing sealed cases gain "unset" support without a card edit.
-    try:
-        from operators.registry import get_operator
-
-        absent_when_clean_keys = list(
-            get_operator(hidden_card["operator_id"]).admissible_repairs().absent_when_clean_keys
-        )
-    except Exception:
-        # Fall back to any inline declaration on the verify file.
-        absent_when_clean_keys = verify.get("admissible_repairs", {}).get(
-            "absent_when_clean_keys", []
-        )
+    absent_when_clean_keys = _absent_when_clean_keys(hidden_card, verify)
 
     validation = validate_repair(submission, verify, absent_when_clean_keys)
     if not validation.valid:
@@ -336,94 +436,43 @@ def verify_repair(
             _write_result(project_root, result, trial_run_id=trial_run_id)
         return result
 
-    # ---- Step 4: Build FRESH verification workspace ----------------------
+    # ---- Step 4: Resolve the repaired config (clean workload config + the
+    # operator mutation replayed from card.hidden.yaml + the repair patch) ------
     compute_start = time.monotonic()
+    config = resolved_config(workload_dir, hidden_card, submission, absent_when_clean_keys)
 
-    with tempfile.TemporaryDirectory(prefix="trainmd_verify_") as tmpdir:
-        verify_ws = Path(tmpdir) / "workspace"
-        verify_ws.mkdir()
-
-        # Copy clean workload source (NOT the agent's workspace).  datautil is
-        # the sibling module train.py imports for deterministic subselection.
-        for fname in ["train.py", "config.yaml", "datautil.py"]:
-            shutil.copy2(workload_dir / fname, verify_ws / fname)
-
-        # Symlink visible data
-        (verify_ws / ".data").symlink_to((workload_dir / ".data").resolve())
-
-        # Step 4a: Replay operator mutation from card.hidden.yaml
-        config_path = verify_ws / "config.yaml"
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
-
-        for mutation in hidden_card["mutations"]:
-            _set_nested(config, mutation["key_path"], mutation["mutated_value"])
-
-        # Step 4b: Apply the repair patch on top.  A null value on an
-        # absent-when-clean key is an "unset": delete the injected key so the
-        # workload derives its clean default (oracle-equivalent to the value).
-        for key_path, new_value in submission.patches.items():
-            if new_value is None and key_path in set(absent_when_clean_keys):
-                _unset_nested(config, key_path)
-            else:
-                _set_nested(config, key_path, new_value)
-
-        with open(config_path, "w") as f:
-            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
-
-        # ---- Step 5: Run training on each hidden seed --------------------
-        hidden_seeds = verify["hidden_eval_seeds"]
-        hidden_data_dir = workload_dir / ".hidden_data"
-        per_seed_results: list[dict] = []
-
-        for seed in hidden_seeds:
-            seed_output = Path(tmpdir) / f"seed_{seed}"
-
-            run_result = subprocess.run(
-                [
-                    sys.executable,
-                    str(verify_ws / "train.py"),
-                    "--config", str(config_path),
-                    "--data-dir", str(verify_ws / ".data"),
-                    "--output-dir", str(seed_output),
-                    "--seed", str(seed),
-                ],
-                capture_output=True,
-                text=True,
-                # Inject the five thread caps so train.py's require_pinned_threads
-                # guard is satisfied regardless of the parent environment. Without
-                # this the rerun exits 2 on any unpinned host and the verdict is a
-                # false not_recovered (the Stage-2 gate bug).
-                env=pinned_thread_env(),
-            )
-
-            exitcode = run_result.returncode
-            metric = None
-            visible = None
-
-            if exitcode == 0:
-                # Reported visible metric the repaired run produced (metric tier).
-                visible = _final_visible_val_acc(seed_output)
-                ckpt_path = seed_output / "checkpoints" / "ckpt_final.pt"
-                if ckpt_path.exists():
-                    with open(config_path) as f:
-                        run_config = yaml.safe_load(f)
-                    eval_result = evaluate_checkpoint(
-                        ckpt_path, hidden_data_dir, run_config,
-                    )
-                    metric = eval_result["metric_hidden_test_acc"]
-
-            seed_entry = {
-                "seed": seed,
-                "metric_hidden_test_acc": metric,
-                "metric_visible_val_acc": visible,
-                "exitcode": exitcode,
-            }
-            if exitcode != 0:
-                # Surface WHY it failed — "training failed to start" must never
-                # silently collapse into a not_recovered verdict.
-                seed_entry["stderr_tail"] = (run_result.stderr or "")[-2000:]
-            per_seed_results.append(seed_entry)
+    # ---- Step 5: Run training on each hidden seed, in a FRESH workspace (never
+    # the agent's) — or, when memoization is enabled (harness/verify_memo.py),
+    # reuse the stored per-seed results of the IDENTICAL computation (same config,
+    # code, data, seeds and container), produced natively on the reference platform.
+    hidden_seeds = verify["hidden_eval_seeds"]
+    from harness import verify_memo
+    policy = verify_memo.policy()
+    memo_info = None
+    if policy == "off":
+        per_seed_results = run_hidden_seeds(config, workload_dir, hidden_seeds)
+    else:
+        key, key_doc = verify_memo.memo_key(config, workload_dir, hidden_seeds, project_root)
+        entry = verify_memo.lookup(project_root, key) if policy in ("use", "require") else None
+        if entry is not None:
+            per_seed_results = [dict(r) for r in entry["per_seed_results"]]
+            memo_info = {"key": key, "hit": True, "platform": entry["platform"]}
+        elif policy == "require":
+            result = _make_result(
+                case_id, run_id, VERIFY_ERROR, reason_codes=[verify_memo.MEMO_MISS],
+                details=[f"no native (AuthenticAMD) memo entry for key {key}; this "
+                         "verification is not computed locally under TRAINMD_VERIFY_MEMO=require"],
+                repair_spec=raw, trial_run_id=trial_run_id)
+            result["verify_memo"] = {"key": key, "hit": False, "platform": None}
+            if trial_run_id is not None:
+                _write_result(project_root, result, trial_run_id=trial_run_id)
+            return result
+        else:
+            per_seed_results = run_hidden_seeds(config, workload_dir, hidden_seeds)
+            platform = verify_memo.current_platform()
+            if policy == "record":
+                verify_memo.store(project_root, key, key_doc, per_seed_results, platform)
+            memo_info = {"key": key, "hit": False, "platform": platform}
 
     compute_sec = time.monotonic() - compute_start
 
@@ -457,6 +506,8 @@ def verify_repair(
             },
             trial_run_id=trial_run_id,
         )
+        if memo_info is not None:
+            result["verify_memo"] = memo_info
         # Post-run integrity check still applies (immutable ground truth).
         for name, path in integrity_files.items():
             if hashes_before[name] != _hash_file(path):
@@ -519,6 +570,8 @@ def verify_repair(
                                       if mean_hidden is not None else None)
     result["per_seed_fail_count"] = per_seed_fail_count
     result["tolerance_lower"] = tolerance
+    if memo_info is not None:
+        result["verify_memo"] = memo_info
     if trial_run_id is not None:
         _write_result(project_root, result, trial_run_id=trial_run_id)
     return result

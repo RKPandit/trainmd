@@ -42,7 +42,15 @@ on:
         description: "What the manual dispatch runs"
         type: choice
         default: certify
-        options: [certify, benign-qualify, reference-ab]   # benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone
+        options: [certify, benign-qualify, reference-ab, verify-native]   # benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
+      sweep:
+        description: "verify-native: sweep name (its sweeps/<name>_verify_jobs.json.gpg must be on this ref)"
+        type: string
+        default: ""
+      cases_run:
+        description: "verify-native: the certify run whose sweep_bundle holds the cases (for the spot-check)"
+        type: string
+        default: ""
 
 concurrency:
   # push/PR runs SHARE a per-ref group (rapid pushes cancel the stale one).
@@ -274,6 +282,62 @@ jobs:
   # STAGE4 4.0.6: design-time test that each candidate benign change leaves hidden accuracy
   # unchanged on development seeds 0-29 (paired clean vs changed; declared test in
   # scripts/qualify_benign.py + DECISIONS). Native amd64 only (training is platform-sensitive).
+  # Memoized native recovery verification (HYPOTHESES, Stage 4 Part 1 pre-run addendum). Trains each
+  # DISTINCT repaired configuration once on the reference platform (AuthenticAMD, fail-fast like
+  # build-and-certify), then re-runs a spot-check sample FRESH through the full verify path and fails on
+  # any difference. Input: the encrypted distinct-config list (no trial records); output: encrypted memo.
+  verify-native:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'verify-native' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require an AMD (EPYC) runner — the reference platform
+        run: |
+          vendor="$(awk -F: '/^vendor_id/{gsub(/[ \t]/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          model="$(awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          echo "runner CPU: $vendor / $model"
+          if [ "$vendor" != "AuthenticAMD" ]; then
+            echo "::error::runner CPU is '$vendor' ($model), not AuthenticAMD — native verification must run on the reference platform. Re-dispatch."
+            exit 1
+          fi
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - name: Data, certified cases, distinct-config jobs
+        env:
+          SWEEP_BUNDLE_KEY: ${{ secrets.SWEEP_BUNDLE_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -n "${{ inputs.sweep }}" ] && [ -n "${{ inputs.cases_run }}" ] || { echo "::error::inputs sweep and cases_run are required"; exit 1; }
+          [ -n "$SWEEP_BUNDLE_KEY" ] || { echo "::error::SWEEP_BUNDLE_KEY secret is unset"; exit 1; }
+          make docker-data
+          make link-neutral-workload
+          gh run download "${{ inputs.cases_run }}" -n sweep_bundle -D .
+          gpg --batch --yes --quiet --decrypt --passphrase "$SWEEP_BUNDLE_KEY" -o cases.tar.gz sweep_bundle.tar.gz.gpg
+          tar -xzf cases.tar.gz && rm -f cases.tar.gz sweep_bundle.tar.gz.gpg
+          grep -qx "build_cpu_vendor=AuthenticAMD" BUNDLE_META.txt || { echo "::error::cases bundle not built on AuthenticAMD"; exit 1; }
+          for link in cases/*/workspace/.data; do [ -L "$link" ] && ln -sfn ../../../workloads/tabular_adult/.data "$link"; done
+          gpg --batch --yes --quiet --decrypt --passphrase "$SWEEP_BUNDLE_KEY" \
+            -o verify_jobs.json "sweeps/${{ inputs.sweep }}_verify_jobs.json.gpg"
+      - name: Train each distinct configuration once + FRESH spot-check (canonical container)
+        run: make docker-verify-native JOBS=verify_jobs.json OUT=verify_memo_out
+      - name: Package the memo (ENCRYPTED — it holds hidden-test accuracies)
+        env:
+          SWEEP_BUNDLE_KEY: ${{ secrets.SWEEP_BUNDLE_KEY }}
+        run: |
+          python3 -c "import json; s=json.load(open('verify_memo_out/SUMMARY.json')); print('platform', s['platform']); print('distinct', s['n_distinct'], 'trials', s['n_trials'], 'spot-check identical', s['spot_check_identical'], '/', len(s['spot_checks']))"
+          tar -czf verify_memo.tar.gz verify_memo_out
+          gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase "$SWEEP_BUNDLE_KEY" \
+            -o verify_memo.tar.gz.gpg verify_memo.tar.gz
+          rm -f verify_memo.tar.gz verify_jobs.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verify_memo
+          path: verify_memo.tar.gz.gpg
+          retention-days: 7
+
   benign-qualify:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'benign-qualify' }}
     runs-on: ubuntu-latest
