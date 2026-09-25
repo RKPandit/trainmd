@@ -1165,3 +1165,30 @@ every primary table (`tests/test_part1_planner.py::test_exploratory_twin_is_a_se
   36136154151 is kept as `docs/audits/b2plus_report_20260925.md`). B2+ flags **72/72 benign cases**
   (benign FPR 1.00; fallback to a bare leaf name 60/72, an answer-key fault concept 12/72 — every
   learning-rate change named `lr_warmup`) and 0/20 healthy controls.
+
+### Pre-run addendum (2026-09-25) — where recovery is verified
+
+*Appended after the lock and BEFORE any Part 1 trial, at the author's request; it fixes the platform
+of an existing measurement and changes no hypothesis, threshold, case or scoring rule.*
+
+- **Recovery is verified natively on AMD EPYC** — the platform the cases and the reference were built
+  on (DECISIONS 2026-09-25 "ENFORCING … native AMD EPYC") — in CI, sharded, each shard failing fast on a
+  non-AMD runner exactly like build-and-certify. The recovery rule is unchanged: every hidden seed
+  (100–102) runs and their MEAN hidden accuracy ≥ `tolerance_lower` (0.844655); for the metric tier the
+  mean visible metric also returns inside the healthy band. The verify platform is recorded per trial.
+- **Why:** H8's verify ran on a Mac inside the container (emulated amd64). Every exact repair reruns the
+  same clean configuration on the same three hidden seeds, so all of H8's 644 recovered verdicts (36
+  cases) rest on ONE 3-seed number: margin **+0.0050** over the tolerance. The measured cross-platform
+  drift of a 3-seed mean (Intel vs AMD, a proxy — emulation drift was not measured directly) has SD ≈
+  0.0017, so that margin is ≈ 3.0 SD (≈ 0.1% chance of a shift that large under a normal
+  approximation) — small, but ALL-OR-NOTHING: a shift would flip every exact-restore verdict at once.
+  Partial repairs (not an exact restore) have their own margins and are the verdicts most exposed.
+  A local verify of Part 1 (~3× H8) would also take ≈ 30 hours under emulation.
+- **Always reported with recovery:** the native margin of the clean-configuration triple, and the
+  number of recovery verdicts whose margin lies within the measured per-seed drift band (|margin| <
+  0.0055, the 95th percentile of per-seed |Δ|) — reported, never re-decided.
+- **Fallback, declared now:** if native verification cannot be completed, verification runs locally and
+  every recovery number is reported as **platform-caveated** (verify platform named, the drift-band
+  count above reported); detection, identification and evidence — which do not involve retraining — are
+  unaffected either way. The agents phase does not depend on this and may proceed first.
+

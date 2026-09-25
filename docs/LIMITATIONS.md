@@ -590,3 +590,13 @@ no human–human agreement to calibrate the human–scorer figures against. *Rem
 a post-run second audit (~30 items) stratified across the un-audited operators, and optionally a second
 annotator on a 20-item overlap.
 
+**L34 — H8's recovery verdicts were verified under emulation and rest on ONE shared 3-seed number
+(2026-09-25).** H8's verify phase retrained on a Mac inside the container (emulated amd64), not natively.
+Every exact repair reruns the clean configuration on the same hidden seeds (100–102), so all 644 H8
+recovered verdicts (36 cases) share one margin, **+0.0050** over the tolerance; the 7 not-recovered
+verdicts sit far below it (−0.087 to −0.333). Against the measured cross-platform drift of a 3-seed mean
+(SD ≈ 0.0017, from the Intel-vs-AMD certify comparison — a proxy; emulation drift itself was not
+measured) that margin is ≈ 3.0 SD, so a platform change is unlikely to move it (≈ 0.1% under a normal
+approximation) — but the risk is all-or-nothing: one shift would flip every exact-restore verdict
+together. Part 1 verifies natively on AMD EPYC and reports the native margin of the same clean triple
+(HYPOTHESES, Stage 4 Part 1 pre-run addendum), which also checks H8's value.
