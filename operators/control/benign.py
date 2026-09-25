@@ -121,3 +121,16 @@ BENIGN_OPERATORS = (BenignBatchSize, BenignEpochs, BenignWeightDecay, BenignDrop
 
 for _cls in BENIGN_OPERATORS:
     assert isinstance(_cls(), IncidentOperator), f"{_cls.__name__} does not satisfy IncidentOperator"
+
+
+def benign_design(seeds) -> list[tuple[str, str, int]]:
+    """(operator_id, "mild", seed) for the benign-configuration controls: the sorted ``seeds`` split
+    into equal consecutive blocks, type i (declaration order above) taking block i — for 70–93, type i
+    gets 70+4i .. 73+4i. The ONE source of the type↔seed pairing: the case builder
+    (scripts/build_all_cases.py) and the sweep planner (harness/sweep.py) both call it."""
+    seeds = sorted(seeds)
+    per = len(seeds) // len(BENIGN_OPERATORS)
+    if per == 0 or per * len(BENIGN_OPERATORS) != len(seeds):
+        raise ValueError(f"benign seeds must split evenly over {len(BENIGN_OPERATORS)} types; got {len(seeds)}")
+    return [(cls.id, "mild", seeds[i * per + j])
+            for i, cls in enumerate(BENIGN_OPERATORS) for j in range(per)]

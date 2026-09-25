@@ -267,6 +267,17 @@ def _to_plain(x):
     return x
 
 
+def drop_reasoning_items(resp: LLMResponse) -> LLMResponse:
+    """The exploratory no-passback arm: remove reasoning items from the assistant turn the agent
+    appends (message and function_call items kept unchanged), so the NEXT request carries no prior
+    reasoning. ``reasoning_blocks`` still counts what the model PRODUCED on this call."""
+    import dataclasses
+    blocks = [{**b, "items": [i for i in b.get("items", []) if i.get("type") != "reasoning"]}
+              if b.get("type") == "openai_output_items" else b
+              for b in (resp.assistant_blocks or [])]
+    return dataclasses.replace(resp, assistant_blocks=blocks)
+
+
 def _item_dict(item) -> dict:
     """An output item as a plain dict, unchanged."""
     return _to_plain(item)
@@ -291,6 +302,11 @@ class OpenAIClient:
             in the trial's model block via :meth:`describe`.
         temperature: Accepted for interface symmetry but NOT sent to a reasoning
             model; recorded as ``None`` in :meth:`describe`.
+        reasoning_passback: ``True`` (always, for every scheduled arm) replays prior reasoning
+            items. ``False`` exists ONLY for the exploratory H8-defect arm (STAGE4 Part 1
+            pre-registration; LIMITATIONS L32): reasoning items are dropped from the returned
+            assistant turn, so no later request carries them — reproducing H8's Luna ReAct
+            condition to quantify its handicap. Recorded in :meth:`describe` when off.
     """
 
     def __init__(
@@ -298,10 +314,12 @@ class OpenAIClient:
         model: str,
         temperature: float = 1.0,
         reasoning_effort: str = "medium",
+        reasoning_passback: bool = True,
     ) -> None:
         import openai
 
         self._reasoning_effort = check_effort(reasoning_effort)
+        self._reasoning_passback = bool(reasoning_passback)
         self._client = openai.OpenAI()  # OPENAI_API_KEY from env
         self._model = model
         # Reasoning models sample internally; temperature is not a supported
@@ -315,8 +333,10 @@ class OpenAIClient:
         knob — recording it makes the cross-provider difference stated, not
         hidden) and the model's ``knowledge_cutoff`` / context window.
         """
-        return describe_model(self._model, self._temperature,
-                              self._reasoning_effort)
+        d = describe_model(self._model, self._temperature, self._reasoning_effort)
+        if not self._reasoning_passback:
+            d["reasoning_passback"] = False
+        return d
 
     def complete(
         self,
@@ -355,7 +375,8 @@ class OpenAIClient:
                     store=False,
                     include=["reasoning.encrypted_content"],
                 )
-                return parse_responses(response)
+                parsed = parse_responses(response)
+                return parsed if self._reasoning_passback else drop_reasoning_items(parsed)
 
             except transient as e:
                 last_error = e

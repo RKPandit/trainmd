@@ -567,7 +567,10 @@ verbatim; the Anthropic path passes thinking blocks back unchanged (the same cla
 have silently disabled thinking on Sonnet 5 / Opus 5.5). Proven by
 `tests/test_reasoning_preservation.py::test_openai_react_replays_reasoning_items_and_is_stateless` and
 `tests/test_reasoning_preservation.py::test_react_passes_thinking_block_back_unchanged`; checked live in
-every sweep by `reasoning_check` (the run stops if prior reasoning is not replayed).
+every sweep by `reasoning_check` (the run stops if prior reasoning is not replayed). **Measured, not
+assumed:** Part 1 re-creates H8's condition in an exploratory arm (Luna ReAct, leakage × `off`,
+reasoning pass-back OFF; 72 cells, never pooled) beside the fixed one, so the handicap is quantified
+directly (`tests/test_part1_planner.py::test_exploratory_no_passback_cells`).
 
 **L33 — The scorer validation (F16) rests on ONE annotator and a LEAKAGE-ONLY sample.** The blind audit
 (Stage 4.0.5) covered 60 H8 trials: descriptive and neutral data leakage plus healthy controls. It

@@ -95,6 +95,12 @@ def generate(records: list[dict], meta: dict) -> str:
     meta: {name, date, model, plan_arms, n_cells, excluded}. All content is derived from the
     records; meta only supplies provenance strings (never numbers computed from the data).
     """
+    # The exploratory H8-defect arm never enters a primary table (pre-registered: not confirmatory,
+    # never pooled); it is rendered in its own section below only when present, so reports without it
+    # are byte-identical.
+    exploratory = [r for r in records if r.get("_exploratory")]
+    all_records = records
+    records = [r for r in records if not r.get("_exploratory")]
     s = ss.compute_all(records)
     name = meta["name"]
     # Evidence scorer version actually present on this sweep's records (guard-checked against the
@@ -135,7 +141,25 @@ def generate(records: list[dict], meta: dict) -> str:
     # H8 renders only when the neutral+descriptive pair is present (self-guarded),
     # so frozen single-variant sweeps are byte-identical.
     L += _h8_tables(s)
+    if exploratory:
+        L += _no_passback_tables(ss.exploratory_no_passback(all_records))
     return "\n".join(L) + "\n"
+
+
+def _no_passback_tables(x: dict) -> list[str]:
+    L = ["## EXPLORATORY — reasoning pass-back OFF (the H8 adapter defect, re-created)", "",
+         "> Not confirmatory; never pooled. Exists only to quantify the handicap H8's Luna ReAct ran with "
+         "(LIMITATIONS L32): the same leakage cases × `off` × ReAct on the same model, with prior reasoning "
+         "dropped between tool calls vs passed back (the Part 1 cell). Paired by case; case-clustered "
+         "bootstrap CI of (pass-back ON − OFF).", ""]
+    if not x.get("available"):
+        return L + [f"_{x.get('reason', 'unavailable')}_", ""]
+    L += ["| metric | pass-back ON | pass-back OFF | ON − OFF [95% CI] | n_cases |", "|---|---|---|---|---|"]
+    for m in ("detection", "identification", "evidence_f1"):
+        d = x[m]
+        L.append(f"| {m} | {_f(d['on'])} | {_f(d['off'])} | {_f(d['diff']['point'])} "
+                 f"[{_f(d['diff']['lo'])}, {_f(d['diff']['hi'])}] | {d['diff']['n_cases']} |")
+    return L + [""]
 
 
 def _h8_tables(s: dict) -> list:
