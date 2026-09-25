@@ -64,9 +64,10 @@ clean; validate-all 27/27; plan file git-clean and build_id-pinned.
 
 ### Post-hoc scoring corrections (disclosed; see HYPOTHESES.md Results and DECISIONS 2026-09-13)
 
-**Six** post-hoc corrections have been applied, disclosed, with originals kept beside corrected
-values in every table — five to Sweep-1 records (#1–#5, below) and a sixth (#6, 2026-09-23) to the
-interval renderer across every released sweep. The first two were **scoring/schema artifacts, not model behaviour**; the third
+**Seven** post-hoc corrections have been applied, disclosed, with originals kept beside corrected
+values in every table — five to Sweep-1 records (#1–#5, below), a sixth (#6, 2026-09-23) to the
+interval renderer across every released sweep, and a seventh (#7, 2026-09-25) to H8's evidence scores
+(evidence scorer v2.1 → v2.2; the only one that changes ground truth — see #7). The first two were **scoring/schema artifacts, not model behaviour**; the third
 (#3) is **model-side output folding, not a harness bug** — we recover a well-formed repair the
 model misplaced; the fourth (#4, added 2026-09-15) is an **analysis-aggregation correction** —
 a pooled comparator that averaged two unlike operators; the fifth (#5, 2026-09-15) is an
@@ -164,12 +165,41 @@ diagnostics and corrected by principle — never by copying observed outputs int
    LIMITATIONS L30 and not fixed here (STAGE4 plans exact CP on case-level counts for every row
    before the paper). Non-zero tiny-n strata (e.g. 1/1, 1/2) are additionally
    flagged in the narrative as single-control artifacts.
+7. **Evidence scorer v2.1 → v2.2 — the code path is an accepted evidence set (2026-09-25, H8 only;
+   DECISIONS 2026-09-25).** The blind audit (F16) found a valid evidence path the operators' evidence
+   sets did not admit: the fault's config key → the workload code that consumes it → the mechanism
+   function. Every faulty operator now declares, in its own module, where its fault is IMPLEMENTED
+   (`CODE_PATH`: the first read of its own key plus the block it gates, and the mechanism `def`);
+   `harness/evidence_code.py` resolves those anchors with `ast` against the source the agent read, and
+   v2.2 = v2.1's one-to-one matching with {the operator's config keys + those code spans} as one more
+   alternative sufficient set. The sets come from the implementation, **never from observed
+   citations** (`tests/test_evidence_code.py::test_code_path_is_derived_from_the_implementation`), and
+   were committed before the Part 1 plan. **Unlike #1–#6 this changes ground truth**; adding an
+   alternative set can only raise a trial's F1, never lower it (`test_v2_2_never_below_v2_1`).
+   **H8 before → after** (mean evidence F1 over submitted trials; spans resolved on H8's own source,
+   commit `ab4bd04`): `data_leakage` 0.6102 → 0.6219 (n = 428), `data_leakage_neutral` 0.5957 → 0.6076
+   (n = 406), healthy controls 0.9500 → 0.9500; **59 of 834 faulty trials move, all up**; by provider ×
+   agent: Anthropic ReAct 0.5419 → 0.5504 (9 moved), Anthropic static 0.4852 → 0.4866 (2), OpenAI ReAct
+   0.6736 → 0.7005 (36), OpenAI static 0.7246 → 0.7352 (12). ReAct − static evidence F1: pooled +0.010
+   [−0.018, 0.039] → **+0.022 [−0.007, 0.052]**; Anthropic +0.057 [0.023, 0.094] → **+0.064 [0.028,
+   0.104]**; OpenAI −0.051 [−0.085, −0.015] → **−0.035 [−0.069, 0.001]** (its interval now includes 0).
+   **Detection, identification and recovery are byte-identical** in all 1,021 released trials — only
+   the evidence blocks change; v2.1 is kept as `scores.evidence_v2_1`. Why so few move: of the 404 faulty
+   submissions whose `datautil.py` code span overlaps `_derived_column`, 53 move (the other 6 movers
+   gain through the `train.py` span); the remaining 351 already score at least as high on an existing
+   set — the code set must be cited as a whole to win — and in 129 of them the cited span also misses
+   the ≥ 0.5 overlap rule. Partial spans stay uncredited: e.g. A33's `train.py` 185–191 overlaps the
+   gated block 189–199 at 0.2. Also still uncredited: the 42 H8 code citations made as `line_range` rather than
+   `code_span` (v2.2 matches code by `code_span` only; disclosed, not changed). Sweep 1 and the Stage 2
+   gate are **not** rescored (older workload source; they remain on v2.1, each report declaring its own
+   scorer).
 
 **Unchanged by corrections #1–#4:** detection trial scores — therefore H2 and the controls finding
 stand as pre-registered. Recovery moves (Corrections 2–3), sharpening H3. **H1's headline is revised**
 by the analysis-aggregation correction #4 + Stage-2 G1 (below). **Correction #5 moves evidence and
 H6** (evidence scorer v1→v2.1; H6 0.135→0.134, verdict held) — see above. **Correction #6 moves no
-point estimate and no verdict** — only the upper edge of zero-event rate intervals.
+point estimate and no verdict** — only the upper edge of zero-event rate intervals. **Correction #7 moves H8
+evidence only** (upward; detection, identification and every H8 verdict unchanged).
 
 **Shipped-but-unexploited vulnerability (2026-09-22) — identification matcher hardened `root_token_v1`→
 `root_token_v2`** (a fifth change-taxonomy category, CURRENT_STATE §f; NOT a numbered correction — no
@@ -752,8 +782,8 @@ be mechanism understanding (code-pattern recognition and general leakage heurist
 *Caveat (2026-09-24, LIMITATIONS L32):* H8's Luna ReAct trials ran with Luna's reasoning discarded
 between tool calls (an adapter bug, fixed before Part 1; proven by
 `tests/test_reasoning_preservation.py`). F13's within-cell renaming contrast shares the handicap; the
-provider-specific ReAct − static evidence contrast (Anthropic +0.057, OpenAI −0.051) is not
-interpreted as a model difference.
+provider-specific ReAct − static evidence contrast (Anthropic +0.057, OpenAI −0.051 under v2.1;
++0.064 and −0.035 under v2.2, correction #7) is not interpreted as a model difference.
 
 ### F14 — Reference-context dependence is model-specific (H7 failed to replicate as a general effect) · headline
 
@@ -830,12 +860,18 @@ window}; no code spans) does not admit; A33 missed `aux_feature_strength` and th
 **Not an isolated shape:** 406 of 834 H8 leakage submissions (49%; Anthropic 174/428, OpenAI 232/406)
 cite `_derived_column` and 589 (71%) cite a `train.py` span, so the evidence scorer systematically
 counts this path against precision — more for Luna. Any change to the evidence sets is a separate,
-pre-declared decision with a disclosed rescore; none is made here.
+pre-declared decision with a disclosed rescore; none is made here. *(That decision was then taken, before Part 1:
+correction #7, evidence scorer v2.2 — operator-derived code-path sets. **Sanity re-run, reported and
+not tuned to:** with the key regenerated under v2.2, A33's F1 is 0.333 → 0.571 and it agrees; evidence
+agreement becomes **49/51** (exact 95% CI [0.865, 0.995], κ 0.852) and **51/51** with Partial
+([0.930, 1.000]). A02, A26 and A27 also move but stay on the same side of 0.5; the two
+human-stricter disagreements (A15, A55) are unchanged.)*
 
 **Exploratory, human-only (no automated counterpart; one annotator, leakage only).** Among the 42
 correct faulty diagnoses, the annotator rated the mechanism explanation **fully explained in 25/25
-Luna items**; **Haiku 12 full / 5 partial (17)**. *(Recomputed from the returned sheet + sealed key;
-the author's summary read Luna 24/24 and Haiku 11 full / 7 partial — pending reconciliation.)*
+Luna items**; **Haiku 12 full / 5 partial (17)**. *(Recomputed from the returned sheet + sealed key; the
+author confirmed these sheet counts on 2026-09-25 — an earlier summary's Luna 24/24 and Haiku
+11 full / 7 partial were a transcription error.)*
 
 **Status:** scorer validated on H8 leakage · one annotator · leakage-only sample (LIMITATIONS L33) ·
 the evidence-set gap is reported, not acted on.

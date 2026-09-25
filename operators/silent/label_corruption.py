@@ -75,6 +75,11 @@ class LabelCorruptionOperator:
 
     id: str = "silent.label_corruption.v1"
     layer: Literal["dynamics"] = "dynamics"
+    # Where the fault is IMPLEMENTED in the workload (harness/evidence_code.py): the read of
+    # data.label_noise_fraction + the block it gates, and the index-selection helper that picks the
+    # flipped labels. Code-path evidence set (v2.2).
+    CODE_PATH = (("train.py", "reads", "label_noise_fraction"),
+                 ("datautil.py", "function", "nested_prefix_indices"))
 
     def apply(self, workspace: Path, rng: Random, strength: str) -> Manifest:
         """Set ``data.label_noise_fraction`` in workspace config.yaml.

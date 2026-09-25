@@ -33,12 +33,12 @@ operators:            # operator_id  (tier)
   - silent.lr_warmup.v1         # dynamics (bimodal-collapse; retired from the σ-ladder — L1/S12)
   - silent.metric_inflation.v1  # metric
 case_count: 152                 # 108 faulty (6 ops × 3 strengths × 6 seeds 42–47) + 20 healthy controls (seeds 50–69) + 24 benign-config controls (6 types × 4 seeds 70–93; STAGE4 4.0.6)
-evidence_scorer_primary: evidence_v2.1
-evidence_scorer_versions: [evidence_v1, evidence_v2, evidence_v2.1]
+evidence_scorer_primary: evidence_v2.2
+evidence_scorer_versions: [evidence_v1, evidence_v2, evidence_v2.1, evidence_v2.2]
 canonical_image_digest: sha256:0354db57c29a5092ace862a0d8716dfe3729d4f8b893fe3079c66d947daeb25d
 reference_seeds: 30
 latest_sweep: stage2gate
-corrections_count: 6
+corrections_count: 7
 ```
 
 - **Workloads:** 1 — `tabular_adult` (Adult / MLP). (Second workload deferred to the full study.)
@@ -50,8 +50,11 @@ corrections_count: 6
   mean, SD and n reference runs; `rule` = `stats` + one decision sentence. v1 `off` / `numbers` /
   `rule` (legacy `on` → `rule`) are historical and cannot be run. v1 and v2 arms are never pooled;
   only `off` is comparable across versions.
-- **Scorer:** `evidence_v2.1` (bipartite one-to-one matching) is primary; `evidence_v2` + `evidence_v1`
-  retained beside it for audit (STAGE3_PLAN §0.4). **Provenance note:** Sweep-1 records were scored
+- **Scorer:** `evidence_v2.2` is primary (2026-09-25, correction #7): v2.1's bipartite one-to-one
+  matching plus each faulty operator's **code-path evidence set** (its own `CODE_PATH`, resolved by
+  `harness/evidence_code.py` against the source the agent read). H8 is rescored under it; Sweep 1 and the
+  Stage 2 gate stay on v2.1 (older source; each report declares its own scorer). `evidence_v2_1`,
+  `evidence_v2` and `evidence_v1` are retained beside it for audit (STAGE3_PLAN §0.4). **Provenance note:** Sweep-1 records were scored
   under **v1** until 2026-09-15 (the earlier "v2 primary" docs were a mislabel — the v1→v2 rescore was
   disclosed 2026-09-13 but never persisted); all records migrated to v2.1 primary in **correction #5**.
   A `check_scorer_versions.py` guard now asserts each report's declared scorer matches its records.
@@ -249,8 +252,9 @@ Five categories for a change to a committed fact, so the next classification is 
   v1→v2.1); correction #6 (2026-09-23, zero-event intervals: every rate with 0 observed events had
   rendered a false-precision `[0, 0]`, replaced by the exact two-sided 95% Clopper–Pearson interval
   over the number of unique cases — an
-  interval is a published number, so this counts even though no point estimate moved); the 6 tracked
-  in `corrections_count`.
+  interval is a published number, so this counts even though no point estimate moved); correction #7
+  (2026-09-25, H8 evidence v2.1→v2.2: operator-derived code-path sets after the blind audit, FINDINGS
+  F16); the 7 tracked in `corrections_count`.
 - **Latent-bug fix** — a defect caught BEFORE it published. No `corrections_count` change
   (nothing wrong was ever released). *e.g.* the §0.3 scorer/analysis fixes.
 - **Documentation error** — prose that was NEVER true as written. No number changes;

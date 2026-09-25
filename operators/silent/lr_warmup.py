@@ -70,6 +70,9 @@ class LrWarmupOperator:
 
     id: str = "silent.lr_warmup.v1"
     layer: Literal["dynamics"] = "dynamics"
+    # Where the fault is IMPLEMENTED in the workload (harness/evidence_code.py): the first read of the
+    # knob — the optimizer construction that consumes training.lr. Code-path evidence set (v2.2).
+    CODE_PATH = (("train.py", "reads", "lr"),)
 
     def apply(self, workspace: Path, rng: Random, strength: str) -> Manifest:
         """Overwrite ``training.lr`` in workspace config.yaml.

@@ -6,14 +6,19 @@ per-hypothesis verdicts live in `docs/HYPOTHESES.md` Results and the evidence in
 
 ## The corrections, stated plainly
 
-All six post-hoc corrections removed harness-imposed penalties or fixed a measurement/aggregation/
-reporting error; none inflated a score by changing ground truth. (The first three are the Sweep-1
+All seven post-hoc corrections removed harness-imposed penalties or fixed a measurement/aggregation/
+reporting error; the first six changed no ground truth, and the seventh changes it only by admitting an
+evidence path found valid by a blind human audit. (The first three are the Sweep-1
 scoring/schema + folded-repair corrections; the fourth, 2026-09-15, disaggregated the pooled H1
 negative-symptom comparator; the fifth, 2026-09-15, migrated Sweep-1 evidence from v1 — which the
 docs had mislabeled as v2 — to **v2.1** (bipartite one-to-one) primary; the sixth, 2026-09-23,
 replaced the false-precision `[0, 0]` interval on every zero-event rate with the exact two-sided
 95% Clopper–Pearson interval over the number of unique cases — it moves **no point estimate** and only **widens** intervals that had
-overstated precision — see FINDINGS "Post-hoc corrections" #4–#6.) Originals are kept beside
+overstated precision; the seventh, 2026-09-25, is evidence scorer **v2.2** on H8: each faulty
+operator's code path (derived from its own implementation, never from citations) became an accepted
+evidence set after the blind audit found the path valid (FINDINGS F16). That can only RAISE evidence F1
+(59 of 834 H8 faulty trials, all up; detection / identification / recovery byte-identical) — see
+FINDINGS "Post-hoc corrections" #4–#7.) Originals are kept beside
 corrected values throughout.
 
 ## Disclosure rule
@@ -550,7 +555,8 @@ without the reasoning behind its previous tool call. The API accepted this silen
 ReAct only. Luna static is unaffected (one call); Anthropic trials are unaffected (Haiku 4.5 ran without
 thinking, so there was nothing to drop); Sweep 1 and the Stage 2 gate were Haiku-only. **Consequences:**
 (1) the H8 ReAct − static contrast by provider — Anthropic **+0.057 [0.023, 0.094]**, OpenAI **−0.051
-[−0.085, −0.015]** evidence F1 (`docs/audits/sweep_h8_xprovider_generated.md`) — may be partly produced by
+[−0.085, −0.015]** evidence F1 under v2.1; **+0.064 [0.028, 0.104]** and **−0.035 [−0.069, 0.001]** under
+v2.2 (correction #7; `docs/audits/sweep_h8_xprovider_generated.md`) — may be partly produced by
 this handicap: it degrades exactly the cell that reversed. It cannot be separated with H8's data (no
 condition with reasoning preserved), so the reversal is **not** interpreted as a model difference in tool
 use; (2) the direction is **conservative for the headline**: Luna ReAct was handicapped, not helped, and

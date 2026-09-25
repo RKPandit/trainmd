@@ -889,3 +889,9 @@ supersedes the under-powered Sweep-1 (2 clusters) and Stage-2 (3 clusters, L20) 
   attempt) and **6 cells were lost** — all **neutral × Luna × static** (n = 6; the loss cannot be
   separated from that structural corner at this count). Reported alongside the pre-registered
   per-provider folding rate as a Luna transport/robustness property, not a diagnosis-quality axis.
+
+**Correction #7 (appended 2026-09-25; the text above is left as written).** H8's evidence numbers above
+are under evidence scorer v2.1. Under v2.2 (each operator's code path admitted as an evidence set;
+DECISIONS 2026-09-25, FINDINGS correction #7) ReAct − static evidence F1 is **−0.035 [−0.069, 0.001]
+for Luna** (interval now includes 0) and **+0.064 [0.028, 0.104] for Haiku**. No H8 detection or
+identification number, and no H8 verdict, changes.
