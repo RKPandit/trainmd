@@ -131,10 +131,13 @@ def h10_verdict(recs) -> dict:
     rejected = _holm({m: models[m]["p_two_sided"] for m in tested})
     for m in tested:
         d = models[m]
-        if rejected[m]:
-            d["verdict"] = "CONFIRMING" if d["f"]["point"] > H10_THRESHOLD else "REFUTING"
+        pt = d["f"]["point"]
+        if rejected[m] and pt is not None and pt > H10_THRESHOLD:
+            d["verdict"] = "CONFIRMING"
+        elif rejected[m] and pt is not None and pt < H10_THRESHOLD:
+            d["verdict"] = "REFUTING"
         else:
-            d["verdict"] = "INCONCLUSIVE"
+            d["verdict"] = "INCONCLUSIVE"         # not rejected, or f̂ exactly 0.5
     return {"models": models, "multiplicity": f"Holm over the {len(tested)} tested model(s), α = {ALPHA}"}
 
 

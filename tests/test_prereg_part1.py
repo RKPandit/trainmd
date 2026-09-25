@@ -216,3 +216,87 @@ def test_generated_report_renders_the_verdicts():
     h10 = sec[sec.index("### H10"):sec.index("### Benign")]           # verdict logic tested above;
     assert {ln.split("|")[1].strip() for ln in h10.splitlines()        # here: one row per model
             if ln.startswith(("| anthropic", "| openai"))} == {H, L}
+
+
+# --------------------------------------------------------------------------- H10: document == code
+def _doc_h10_rule(recs):
+    """H10's decision rule re-implemented from the PRE-REGISTRATION TEXT (steps 1–4), independently of
+    harness/prereg_part1.py — only the record accessors and the eligible-operator set are shared."""
+    import random
+    out = {}
+    for prov in (H, L):
+        trials = [r for r in recs if r["_provider"] == prov and r["_tier"] != "control"]
+
+        def rate(ts, arm):
+            xs = [t for t in ts if t["_anchor"] == arm]
+            return sum(1 for t in xs if t["scores"]["detection"]["correct"]) / len(xs) if xs else None
+
+        elig = [op for op in sorted({r["_op"] for r in trials})
+                if (lambda rs: rate(rs, pp.OFF) is not None and rate(rs, pp.RULE) is not None
+                    and rate(rs, pp.RULE) - rate(rs, pp.OFF) >= 0.30)([r for r in trials if r["_op"] == op])]
+        if not elig:
+            out[prov] = ("UNTESTABLE", None, None)
+            continue
+        pool = [r for r in trials if r["_op"] in elig]
+
+        def f(ts):
+            o, s, u = rate(ts, pp.OFF), rate(ts, pp.STATS), rate(ts, pp.RULE)
+            if o is None or s is None or u is None or abs(u - o) < 1e-9:
+                return None
+            return (s - o) / (u - o)
+
+        cases = sorted({r["case_id"] for r in pool})
+        by = {c: [r for r in pool if r["case_id"] == c] for c in cases}
+        rng = random.Random(20260913)                                    # step 1
+        kept = []
+        for _ in range(10_000):
+            v = f([t for c in [rng.choice(cases) for _ in cases] for t in by[c]])
+            if v is not None:
+                kept.append(v)
+        B, Lo = len(kept), sum(1 for v in kept if v < 0.5)
+        out[prov] = (None, min(1.0, 2 * min(Lo, B - Lo) / B), f(pool))   # step 2
+    tested = sorted((p, m) for m, (v, p, _) in out.items() if v is None)  # step 3: by p, then name
+    rejected, m = set(), len(tested)
+    for i, (p, name) in enumerate(tested, 1):
+        if p <= 0.05 / (m - i + 1):
+            rejected.add(name)
+        else:
+            break
+    verdicts = {}
+    for name, (v, p, fh) in out.items():                                  # step 4
+        verdicts[name] = v or ("CONFIRMING" if name in rejected and fh > 0.5 else
+                               "REFUTING" if name in rejected and fh < 0.5 else "INCONCLUSIVE")
+    return verdicts
+
+
+@pytest.mark.parametrize("haiku,luna,expected", [
+    ((15, 15), (15, 15), {H: "CONFIRMING", L: "CONFIRMING"}),
+    ((6, 5), (6, 5), {H: "REFUTING", L: "REFUTING"}),
+    ((11, 11), (10, 12), {H: "INCONCLUSIVE", L: "INCONCLUSIVE"}),
+    # Holm boundary: Haiku p ≈ 0.046 is rejected at α/1 only because Luna (p ≈ 0.001) went first …
+    ((13, 14), (15, 15), {H: "CONFIRMING", L: "CONFIRMING"}),
+    # … and is NOT rejected when it is the smaller p and must clear α/2 (unadjusted p < 0.05).
+    ((13, 14), (11, 11), {H: "INCONCLUSIVE", L: "INCONCLUSIVE"}),
+])
+def test_h10_document_rule_matches_code(haiku, luna, expected):
+    rates = {H: {LC: (4 / 18, haiku[0] / 18, 1.0), MI: (4 / 18, haiku[1] / 18, 1.0)},
+             L: {LC: (4 / 18, luna[0] / 18, 1.0), MI: (4 / 18, luna[1] / 18, 1.0)}}
+    recs = _h10_data(rates)
+    code = {m: d["verdict"] for m, d in pp.h10_verdict(recs)["models"].items()}
+    assert code == _doc_h10_rule(recs) == expected
+
+
+def test_h10_document_states_the_codes_rule():
+    from pathlib import Path
+    doc = (Path(__file__).resolve().parent.parent / "docs" / "PREREG_STAGE4_PART1_DRAFT.md").read_text()
+    h10 = doc[doc.index("## H10"):doc.index("## Benign-configuration controls")]
+    for phrase in ("B₀ = 10,000", "random.Random(20260913)", "p = min(1, 2 · min(L, B − L) / B)",
+                   "p ≤ α / (m − i + 1)", "rejected and f̂ > 0.5", "rejected and f̂ < 0.5", "≥ 0.30"):
+        assert phrase in h10, phrase
+    assert (pp.ALPHA, pp.H10_MIN_GAP, pp.H10_THRESHOLD, ss_seed()) == (0.05, 0.30, 0.5, 20260913)
+
+
+def ss_seed():
+    from harness import sweep_stats as ss
+    assert ss.N_RESAMPLES == 10_000
+    return ss.SEED

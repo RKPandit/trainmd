@@ -7,7 +7,7 @@
 > replaced, benign contrast two-sided, multiplicity per hypothesis, analysis built before the run).
 > **Not a pre-registration until the author approves it**; on approval it is appended to
 > `docs/HYPOTHESES.md` ("do not edit above this line"), dated on commit, before any Part 1 trial.
-> Thresholds marked *(proposed)* are for the author's final review; no **[DECIDE]** items remain.
+> Thresholds approved by the author 2026-09-25 (0.85, 0.20, 0.30, 0.5); no **[DECIDE]** items remain.
 
 ## Design (fixed before running)
 
@@ -90,7 +90,7 @@ operators are the candidates to carry the decision. **Excluded:** shape_mismatch
 from the exit code by both models (stated in advance; it cannot carry a model gap).
 
 **Headroom rule (decided before the run).** A non-leakage operator **carries the H9 decision only if
-Haiku's off-anchor detection has a 95% upper bound below 0.85** *(proposed)* in Part 1 (case-clustered
+Haiku's off-anchor detection has a 95% upper bound below 0.85** in Part 1 (case-clustered
 bootstrap upper bound; the exact Clopper–Pearson bound over cases if Haiku's rate is 0 or 1).
 Otherwise it is reported as **"no headroom — untestable"**, never as confirming or refuting — Luna
 cannot exceed a near-ceiling Haiku by a testable margin. **lr_warmup is expected to fail the rule**:
@@ -98,10 +98,10 @@ Haiku detected it 0.94 off-anchor in Sweep 1. The rule reads **Haiku's data only
 select operators on the size of the gap it is about to test. **At least 2 decision-carrying non-leakage
 operators are required**; with fewer, H9 is **INCONCLUSIVE**.
 
-- **CONFIRMING (proposed):** Δ_op's lower bound > 0 on **every** decision-carrying operator → model
+- **CONFIRMING:** Δ_op's lower bound > 0 on **every** decision-carrying operator → model
   dependence is a property of diagnosis; proceed to Part 2 at full scope.
-- **REFUTING (proposed):** the gap is shown SMALL, not merely non-significant — Δ_op's upper bound
-  **< 0.20** *(proposed)* on **every** decision-carrying operator, **while leakage's Δ lower bound is
+- **REFUTING:** the gap is shown SMALL, not merely non-significant — Δ_op's upper bound
+  **< 0.20** on **every** decision-carrying operator, **while leakage's Δ lower bound is
   > 0** (the H8 gap replicates on the same models and run) → the finding is leakage-specific; the
   paper's claim narrows; Part 2 reduced to leakage.
 - **INCONCLUSIVE:** everything else — including any Δ interval that merely includes 0 without an
@@ -127,20 +127,32 @@ over providers (`docs/audits/sweep_h8_xprovider_generated.md`); H10 tests whethe
 
 **Estimand.** Per model, f = (detect(`stats`) − detect(`off`)) / (detect(`rule`) − detect(`off`)),
 detection pooled over the **eligible operators** — faulty operators whose own rule − off detection gap
-for that model is **≥ 0.30** *(proposed)* (fixed from the full-sample point estimates; no gap, nothing
-to close) — and over agents, strengths and repeats. Case-level bootstrap 95% CI of the ratio (10k
-resamples; a resample whose denominator is 0 is dropped and the count reported). A model with no
-eligible operator is **UNTESTABLE**.
+for that model is **≥ 0.30** (fixed from the full-sample point estimates; no gap, nothing to close) —
+and over agents, strengths and repeats. f̂ is f on the full sample. A model with no eligible operator
+is **UNTESTABLE**.
 
-- **CONFIRMING (proposed):** f's lower bound ≥ 0.5.
-- **REFUTING (proposed):** f's upper bound < 0.5.
-- **INCONCLUSIVE:** otherwise.
-- **Multiplicity:** **Holm over the two models** (α = 0.05). Each model's two-sided bootstrap p-value
-  for f = 0.5 (twice the smaller tail share of resamples) is Holm-tested; a model is CONFIRMING or
-  REFUTING only if Holm rejects, with the direction given by f's side of 0.5. Unadjusted, this is the
-  same as the 95% CI excluding 0.5; Holm makes the first model tested face α/2.
+**Decision rule — exactly as `harness/prereg_part1.py::h10_verdict` computes it:**
 
-## Benign-configuration controls## Benign-configuration controls — does anchoring change benign false positives? (CONFIRMATORY, two-sided)
+1. *Bootstrap.* Take the eligible trials of the model and the sorted list of their case IDs (n cases).
+   For each of **B₀ = 10,000** resamples, draw n case IDs with replacement
+   (`random.Random(20260913).choice`, one generator per model, in resample order) and compute f on all
+   trials of the drawn cases. A resample in which an arm has no trials or rule − off = 0 is dropped;
+   **B** = the number kept (reported).
+2. *Two-sided bootstrap p-value for f = 0.5.* With L = the number of kept resamples with f* < 0.5
+   (f* = 0.5 counts in the upper tail): **p = min(1, 2 · min(L, B − L) / B)**.
+3. *Holm over the models tested* (m = 2, or 1 if one model is UNTESTABLE; α = 0.05). Sort the models by
+   p ascending (ties by provider name); the i-th smallest (i = 1 … m) is rejected if p ≤ α / (m − i + 1)
+   and every smaller one was rejected; testing stops at the first non-rejection.
+4. *Verdict.* **CONFIRMING** — rejected and f̂ > 0.5. **REFUTING** — rejected and f̂ < 0.5.
+   **INCONCLUSIVE** — not rejected (or f̂ = 0.5 exactly).
+5. *Reported, not deciding:* the 95% percentile interval of the kept f* (the ⌊0.025·B⌋-th and
+   (⌊0.975·B⌋ − 1)-th order statistics, 0-indexed), beside the verdict.
+
+- **Multiplicity:** Holm over the two models (step 3). A test that the rule stated here and the code
+  agree on synthetic confirm / refute / inconclusive / Holm-boundary data:
+  `tests/test_prereg_part1.py::test_h10_document_rule_matches_code`.
+
+## Benign-configuration controls — does anchoring change benign false positives? (CONFIRMATORY, two-sided)
 
 **Hypothesis (two-sided; both mechanisms stated).** Showing the agent a reference band changes how
 often it flags a legitimate, benign configuration change as a fault, relative to no reference (`off`).
@@ -163,7 +175,7 @@ anchored arm but not under `off`, c = the reverse. **Four confirmatory contrasts
   the paper's Table III (`tests/test_prereg_part1.py::test_newcombe_method10_matches_published_table`)
   and stays valid at the 0–2 discordant-pair counts expected here, where the percentile bootstrap is not
   (LIMITATIONS L30). The exact two-sided McNemar p on (b, c) is reported beside it. No resampling.
-- **Decision rule (proposed), per contrast:** **INCREASE** if the exact McNemar test rejects under
+- **Decision rule, per contrast:** **INCREASE** if the exact McNemar test rejects under
   Holm and b > c; **DECREASE** if it rejects and b < c; otherwise **INCONCLUSIVE**. Per provider:
   INCREASE or DECREASE if any of its two contrasts is; **MIXED** if one of each. The Newcombe
   interval is reported beside every contrast; where it and the Holm-adjusted test disagree (e.g. b = 5,
