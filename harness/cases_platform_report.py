@@ -13,7 +13,7 @@ platform guard accepts (harness/platform_guard.py). Emulated builds (Rosetta's
 ``VirtualApple``, qemu) are non-canonical.
 
 Output: one JSON object on stdout, e.g.
-    {"total": 152, "canonical": 152, "non_canonical": 0, "vendors": ["GenuineIntel"]}
+    {"total": 200, "canonical": 200, "non_canonical": 0, "vendors": ["GenuineIntel"]}
 """
 from __future__ import annotations
 

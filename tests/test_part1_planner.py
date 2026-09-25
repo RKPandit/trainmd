@@ -26,7 +26,7 @@ def _faulty_ops():
 
 
 def _mk_part1_root(tmp: Path) -> Path:
-    """A synthetic registry holding the full Part 1 case design (152 cases)."""
+    """A synthetic registry holding the full Part 1 case design (200 cases)."""
     from operators.registry import get_operator
     tuples = [(op, st, sd) for op in _faulty_ops() for st in sweep.DEFAULT_STRENGTHS
               for sd in sorted(CONFIRMATORY_FAULTY)]
@@ -60,26 +60,50 @@ def test_benign_design_is_the_builders_pairing():
     import build_all_cases
     assert build_all_cases.benign_design() == benign_design(CONFIRMATORY_BENIGN)
     d = benign_design(CONFIRMATORY_BENIGN)
-    assert len(d) == 24
-    for i, cls in enumerate(BENIGN_OPERATORS):         # type i -> seeds 70+4i .. 73+4i
-        assert [s for o, _, s in d if o == cls.id] == [70 + 4 * i + j for j in range(4)]
+    assert len(d) == 72
+    for i, cls in enumerate(BENIGN_OPERATORS):         # block by block: 4 consecutive seeds per type
+        assert [s for o, _, s in d if o == cls.id] == [base + 4 * i + j for base in (70, 110, 134)
+                                                       for j in range(4)]
     with pytest.raises(ValueError):
-        benign_design([70, 71, 72])                   # does not split over 6 types
+        benign_design([70, 71, 72])                   # not a whole 24-seed block
 
 
-def test_part1_plan_schedules_all_24_benign_controls(tmp_path):
+# The 24 benign cases CERTIFIED before the 72-case expansion (cases/registry.hidden.yaml, run
+# 35947111127): (operator, seed) pairs that must never move when blocks are added.
+CERTIFIED_24 = {("control.benign_bs128.v1", s) for s in range(70, 74)} | \
+               {("control.benign_ep25.v1", s) for s in range(74, 78)} | \
+               {("control.benign_wd5e4.v1", s) for s in range(78, 82)} | \
+               {("control.benign_do01.v1", s) for s in range(82, 86)} | \
+               {("control.benign_lr005.v1", s) for s in range(86, 90)} | \
+               {("control.benign_clip1.v1", s) for s in range(90, 94)}
+
+
+def test_existing_24_benign_pairings_unchanged_by_expansion():
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    import build_all_cases
+    t = build_all_cases.case_design_tuples()
+    assert len(t) == 200
+    # the first 24 benign tuples (case_0129–0152) are exactly the certified pairs, in the same order
+    assert {(o, s) for o, _, s in t[128:152]} == CERTIFIED_24
+    assert [s for _, _, s in t[128:152]] == list(range(70, 94))
+    # the new 48 are appended (case_0153–0200) on 110–157 only
+    assert sorted(s for _, _, s in t[152:]) == list(range(110, 158))
+
+
+def test_part1_plan_schedules_all_72_benign_controls(tmp_path):
     r = _part1_plan(_mk_part1_root(tmp_path), benign_seeds=sorted(CONFIRMATORY_BENIGN))
     cells = r["plan"]["cells"]
     assert r["missing"] == []
     benign = [c for c in cells if c["operator"].startswith("control.benign_")]
-    # 24 cases × static-only × 3 arms × 2 providers × 1 repeat (the reduced control protocol)
-    assert len(benign) == 24 * 3 * 2
-    assert {c["case_id"] for c in benign} and len({c["case_id"] for c in benign}) == 24
+    # 72 cases × static-only × 3 arms × 2 providers × 1 repeat (the reduced control protocol)
+    assert len(benign) == 72 * 3 * 2
+    assert len({c["case_id"] for c in benign}) == 72
     assert {c["agent"] for c in benign} == {"static"} and {c["repeat_index"] for c in benign} == {0}
     assert {c["anchor"] for c in benign} == set(sweep.ANCHORS)
     assert {c["tier"] for c in benign} == {"control"}
-    # The full Part 1 design: 108 faulty × 3 × 2 agents × 2 providers × 2 repeats + 44 controls × 3 × 2
-    assert len(cells) == 2592 + 264 == 2856
+    # The full Part 1 design: 108 faulty × 3 × 2 agents × 2 providers × 2 repeats + 92 controls × 3 × 2
+    assert len(cells) == 2592 + 552 == 3144
     assert r["plan"]["header"]["factor_levels"]["benign_seeds"] == sorted(CONFIRMATORY_BENIGN)
 
 
@@ -111,7 +135,7 @@ def test_exploratory_no_passback_cells(tmp_path):
     assert {(c["agent"], c["anchor"], c["provider"], c["model"]) for c in x} == {("react", "off", "openai", LUNA)}
     assert all(c["exploratory"] for c in x)
     assert len({c["cell_id"] for c in cells}) == len(cells)          # no id collides with its twin
-    assert len(cells) == 2856 + 72
+    assert len(cells) == 3144 + 72
     assert r["plan"]["header"]["exploratory"]["no_passback"]["n_cells"] == 72
 
 

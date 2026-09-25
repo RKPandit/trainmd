@@ -34,12 +34,12 @@ STRENGTHS = ["mild", "moderate", "severe"]
 # disjoint from the reference band (200–229). Controls moved {0,1,2} → 50–69 (≥20).
 FAULTY_SEEDS = sorted(CONFIRMATORY_FAULTY)      # [42, 43]
 CONTROL_SEEDS = sorted(CONFIRMATORY_CONTROL)    # [50..69]
-BENIGN_SEEDS = sorted(CONFIRMATORY_BENIGN)      # [70..93]: 6 benign types x 4, each type its own seeds
+BENIGN_SEEDS = sorted(CONFIRMATORY_BENIGN)      # 70–93 ∪ 110–157: 3 blocks of 6 types × 4 seeds
 
 
 def benign_design() -> list[tuple[str, str, int]]:
-    """(operator_id, "mild", seed) for the benign-configuration controls — type i (declaration order in
-    operators/control/benign.py) gets seeds 70+4i .. 73+4i (the pairing lives in benign.benign_design)."""
+    """(operator_id, "mild", seed) for the benign-configuration controls — paired block by block (the
+    pairing lives in benign.benign_design; the first block, 70–93, is unchanged)."""
     return _benign_design(BENIGN_SEEDS)
 
 

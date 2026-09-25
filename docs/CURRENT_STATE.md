@@ -32,7 +32,7 @@ operators:            # operator_id  (tier)
   - silent.label_corruption.v1  # dynamics
   - silent.lr_warmup.v1         # dynamics (bimodal-collapse; retired from the σ-ladder — L1/S12)
   - silent.metric_inflation.v1  # metric
-case_count: 152                 # 108 faulty (6 ops × 3 strengths × 6 seeds 42–47) + 20 healthy controls (seeds 50–69) + 24 benign-config controls (6 types × 4 seeds 70–93; STAGE4 4.0.6)
+case_count: 200                 # 108 faulty (6 ops × 3 strengths × 6 seeds 42–47) + 20 healthy controls (seeds 50–69) + 72 benign-config controls (6 types × 12 seeds: 70–93 ∪ 110–157; STAGE4 4.0.6, expanded 2026-09-25)
 evidence_scorer_primary: evidence_v2.2
 evidence_scorer_versions: [evidence_v1, evidence_v2, evidence_v2.1, evidence_v2.2]
 canonical_image_digest: sha256:0354db57c29a5092ace862a0d8716dfe3729d4f8b893fe3079c66d947daeb25d
