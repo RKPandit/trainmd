@@ -288,8 +288,10 @@ def test_h10_document_rule_matches_code(haiku, luna, expected):
 
 def test_h10_document_states_the_codes_rule():
     from pathlib import Path
-    doc = (Path(__file__).resolve().parent.parent / "docs" / "PREREG_STAGE4_PART1_DRAFT.md").read_text()
-    h10 = doc[doc.index("## H10"):doc.index("## Benign-configuration controls")]
+    # The LOCKED pre-registration (docs/HYPOTHESES.md, Stage 4 Part 1 section) is authoritative.
+    doc = (Path(__file__).resolve().parent.parent / "docs" / "HYPOTHESES.md").read_text()
+    doc = doc[doc.index("## Stage 4 Part 1 — PRE-REGISTRATION"):]
+    h10 = doc[doc.index("### H10"):doc.index("### Benign-configuration controls")]
     for phrase in ("B₀ = 10,000", "random.Random(20260913)", "p = min(1, 2 · min(L, B − L) / B)",
                    "p ≤ α / (m − i + 1)", "rejected and f̂ > 0.5", "rejected and f̂ < 0.5", "≥ 0.30"):
         assert phrase in h10, phrase

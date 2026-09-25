@@ -1,12 +1,12 @@
-# Stage 4 Part 1 — pre-registration (DRAFT for the author's review; NOT yet locked)
+# Stage 4 Part 1 — pre-registration DRAFT (SUPERSEDED — locked 2026-09-25 in `docs/HYPOTHESES.md`)
 
 > Finalized 2026-09-25 from the "Declared in the Part 1 pre-registration" paragraphs of
 > `docs/STAGE4_PLAN.md` Part 1, the v1 plan's H9/H10 wording, and H8's template; revised the same day
 > with the author's decisions (benign contrast, evidence scorer v2.2, H9 scope, planner, exploratory
 > arm), and again after the author's final review (H9 headroom rule and small-gap refutation, H10
 > replaced, benign contrast two-sided, multiplicity per hypothesis, analysis built before the run).
-> **Not a pre-registration until the author approves it**; on approval it is appended to
-> `docs/HYPOTHESES.md` ("do not edit above this line"), dated on commit, before any Part 1 trial.
+> **LOCKED:** approved and appended to `docs/HYPOTHESES.md` on 2026-09-25, before any Part 1 trial; that
+> section is authoritative and this file is kept only as the drafting history.
 > Thresholds approved by the author 2026-09-25 (0.85, 0.20, 0.30, 0.5); no **[DECIDE]** items remain.
 
 ## Design (fixed before running)
@@ -15,12 +15,16 @@
   `claude-haiku-4-5-20251001` (a dated snapshot; no thinking; temperature 1.0) and `gpt-5.6-luna`
   (effort fixed at medium; the model is an ALIAS, not a pinned snapshot — no dated Luna id exists, so
   provenance rests on the API-reported model string recorded per call; LIMITATIONS L26).
-- **Cases:** the certified 152-case design (build-and-certify run 35947111127; restored locally from run
-  36057507382, 152/152 pass all 23 checks): **108 faulty** = 6 operators (`silent.lr_warmup.v1`,
+- **Cases:** the certified **200-case** design — build-and-certify run **36177356265**, built on the
+  reference platform (AMD EPYC 7763; bundle `build_cpu_vendor=AuthenticAMD`; DECISIONS 2026-09-25
+  "ENFORCING … native AMD EPYC"); its original 152 cases reproduce the earlier AMD certify runs
+  35947111127 (EPYC 7763), 36057507382 (EPYC 9V74) and 36136154151 exactly on all 152 margin-table rows;
+  restored locally (`make restore-cases RUN_ID=36177356265`): 200/200 pass all 23 checks, every hidden
+  card `build_cpu: AuthenticAMD`. **108 faulty** = 6 operators (`silent.lr_warmup.v1`,
   `silent.label_corruption.v1`, `silent.data_leakage.v1`, `silent.data_leakage_neutral.v1`,
   `silent.metric_inflation.v1`, `crash.shape_mismatch.v1`) × 3 strengths × 6 confirmatory seeds
-  (42–47); **20 healthy controls** (seeds 50–69); **24 benign-configuration controls** (6 types × 4,
-  seeds 70–93).
+  (42–47); **20 healthy controls** (seeds 50–69); **72 benign-configuration controls** (6 types × 12;
+  seeds 70–93 ∪ 110–157, paired to types block by block; case_0129–0200).
 - **Arms:** prompt v2 — `off` / `stats` / `rule` (arm identity includes the prompt version; v1 and v2
   arms are never pooled). **Only `off` is comparable across H8 and Part 1, and only approximately**:
   agents now see four extra inert lines in `train.py` (the `grad_clip_norm` path).
@@ -205,9 +209,11 @@ anchored arm but not under `off`, c = the reverse. **Four confirmatory contrasts
   except one config line); changed value: 60 cases, 5 knobs.
 - **Qualification facts (recorded before the run):** all six types qualified on development seeds; the
   learning-rate change is "**equivalent within the declared margin, with a small detectable decrease**"
-  (−0.460 σ_ref, 90% CI [−0.907, −0.012] σ_ref). Visible band position of the cases actually built:
-  **23 inside, 1 below (case_0144, dropout, −2.70σ), 0 above** (bs128 0/4/0, ep25 0/4/0 with one at
-  +1.99σ, wd5e4 0/4/0, do01 1/3/0, lr005 0/4/0, clip1 0/4/0).
+  (−0.460 σ_ref, 90% CI [−0.907, −0.012] σ_ref). Visible band position of the 72 cases actually built
+  (run 36177356265, AMD): **68 inside, 2 below, 2 above** — original 24: 23 inside, 1 below (case_0144,
+  dropout, −2.70σ; ep25 case_0136 inside at +1.99σ); new 48: 45 inside, 1 below (case_0190, dropout,
+  −2.37σ), 2 above (case_0160, ep25, +2.06σ; case_0165, dropout, +2.53σ). Per type below/inside/above:
+  bs128 0/12/0, ep25 0/11/1, wd5e4 0/12/0, do01 2/9/1, lr005 0/12/0, clip1 0/12/0.
 - **Comparators:** B2 and the form-only comparator `bform` on every benign case; B2+ ("config-diff with
   perfect knob semantics") as an upper bound — its fallback rate on the benign knobs and its benign FPR.
 
@@ -258,7 +264,8 @@ every primary table (`tests/test_part1_planner.py::test_exploratory_twin_is_a_se
 - ~~Analysis tooling.~~ **Closed** (2026-09-25): H9 (with the headroom rule), H10 and the benign
   contrast output their verdicts mechanically (`harness/prereg_part1.py`; see "Analysis fixed in code
   BEFORE the run").
-- ~~B2+ report over the certified benign cases.~~ **Closed** (2026-09-25): nightly build-and-certify
-  run 36136154151 (all jobs green) produced it; committed as `docs/audits/b2plus_report_20260925.md`.
-  B2+ flags **24/24 benign cases** (benign FPR 1.00; fallback to a bare leaf name 20/24, an answer-key
-  fault concept 4/24 — the learning-rate change named `lr_warmup`) and 0/20 healthy controls.
+- ~~B2+ report over the certified benign cases.~~ **Closed** (2026-09-25): from the certified run
+  36177356265, committed as `docs/audits/b2plus_report_part1_200.md` (the 24-case version from run
+  36136154151 is kept as `docs/audits/b2plus_report_20260925.md`). B2+ flags **72/72 benign cases**
+  (benign FPR 1.00; fallback to a bare leaf name 60/72, an answer-key fault concept 12/72 — every
+  learning-rate change named `lr_warmup`) and 0/20 healthy controls.

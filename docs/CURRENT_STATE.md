@@ -154,13 +154,12 @@ ran (agent phase 978/984 cells, $24.03, 6 unrun — all neutral×Luna×static; v
   lost — L29). Verdict logic corrected mid-analysis to a CI equivalence test (was point-based;
   DECISIONS 2026-09-22, RESEARCH_LOG 35).
 
-**NEXT GATE (updated 2026-09-25): Stage 4 Part 1 pre-registration review.** `docs/STAGE4_PLAN.md` is
-written; Gate 4.0 items are closed (4.0.1 matcher `root_token_v2`; 4.0.2 statistics; 4.0.3 framing;
-4.0.4 H8 released and reproducible; 4.0.5 blind audit — FINDINGS F16; 4.0.6 bare-stats arm, B2+ as an
-upper bound, benign controls certified, missing tool fields). The Part 1 pre-registration draft
-(`docs/PREREG_STAGE4_PART1_DRAFT.md`) awaits the author's review; before the paid run: schedule the
-benign controls in the sweep planner, commit the B2+ report over the certified benign cases, and pass
-the pre-run slice gates (`check-cache`, `check-reasoning`).
+**NEXT GATE (updated 2026-09-25): Stage 4 Part 1 pre-run slice, then the full run.** The Part 1
+pre-registration is **LOCKED** (`docs/HYPOTHESES.md`, "Stage 4 Part 1 — PRE-REGISTRATION"; the design is
+FROZEN — post-lock findings go to LIMITATIONS unless they would make a result wrong). Cases: the
+200-case design certified on the reference platform (run 36177356265, AMD EPYC 7763; its 152 original
+cases reproduce the earlier AMD runs exactly). The plan `sweeps/stage4_part1_plan.yaml` is committed.
+Before the full run: the slice must pass `check-cache` and `check-reasoning`.
 
 ---
 
