@@ -674,8 +674,12 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
     ``agent_factory``/``trial_fn``/``cost_fn``/``est_fn`` are injectable so the
     orchestration (resume, cost cap, circuit breaker) is tested on stubs.
     """
+    # Freeze the RUNNING PROCESS's provenance (start commit, tracked-dirty state, loaded-source hash)
+    # before any trial — records and the manifest report the code this process runs, not the folder.
     from harness.run_agent import run_trial
     from harness.sweep_manifest import capture_hardware, new_manifest, write_manifest
+    from harness.process_provenance import start as _process_start
+    _process_start(project_root)      # after the agent-path imports, so they are in the start hash
 
     plan_path = project_root / "sweeps" / f"{name}_plan.yaml"
     plan_doc = yaml.safe_load(plan_path.read_text())

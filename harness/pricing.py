@@ -204,7 +204,9 @@ def price_table_for_record(rec: dict) -> tuple[dict | None, str]:
         if recorded in hist["tables"]:
             return hist["tables"][recorded], f"recorded_version={recorded}"
         return None, f"recorded price_table_version {recorded} not in the archive"
-    commit = (rec.get("environment") or {}).get("harness_git_commit")
+    env = rec.get("environment") or {}
+    # The code the process ran (schema 1.2+), else the checkout's HEAD at the trial.
+    commit = (env.get("process") or {}).get("start_commit") or env.get("harness_git_commit")
     if not commit:
         return None, "no harness_git_commit on record"
     v = hist["commits"].get(commit)

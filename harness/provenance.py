@@ -25,7 +25,7 @@ import yaml
 
 from harness.pricing import PRICE_TABLE_VERSION, estimate_cost, uncached_equivalent_cost
 
-SCHEMA_VERSION = "1.1"
+SCHEMA_VERSION = "1.2"   # 1.2 (2026-09-26): environment.process block; git_dirty = tracked changes only
 
 
 # ---------------------------------------------------------------------------
@@ -44,28 +44,15 @@ def _sha256_file(path: Path) -> str | None:
 
 
 def _git_info(project_root: Path) -> tuple[str, bool]:
-    """Return (commit_hash, is_dirty).
+    """Return (commit_hash, is_dirty) of the CHECKOUT at this moment.
 
-    Falls back to (``"unknown"``, ``False``) if git is unavailable or the
-    directory is not a repository.
+    ``is_dirty`` counts only TRACKED changes (untracked and gitignored files never count — they made the
+    flag true on every record). Falls back to (``"unknown"``, ``False``) without git. NOTE: this is the
+    working directory's state, not the running code's — see ``environment.process``
+    (harness/process_provenance.py) for what the process actually loaded.
     """
-    try:
-        commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, cwd=project_root,
-        )
-        commit_hash = commit.stdout.strip() if commit.returncode == 0 else "unknown"
-
-        status = subprocess.run(
-            ["git", "status", "--porcelain"],
-            capture_output=True, text=True, cwd=project_root,
-        )
-        is_dirty = bool(status.stdout.strip()) if status.returncode == 0 else False
-    except FileNotFoundError:
-        commit_hash = "unknown"
-        is_dirty = False
-
-    return commit_hash, is_dirty
+    from harness.process_provenance import git_dirty, git_head
+    return git_head(project_root), git_dirty(project_root)
 
 
 def capture_environment(project_root: Path, case_dir: Path) -> dict:
@@ -94,9 +81,13 @@ def capture_environment(project_root: Path, case_dir: Path) -> dict:
     )
     image_digest = os.environ.get("TRAINMD_IMAGE_DIGEST") or None
 
+    from harness.process_provenance import snapshot as _process_snapshot
     return {
+        # The CHECKOUT's HEAD / tracked-dirty state at this trial (kept for continuity; it follows branch
+        # switches in the folder). What the running process loaded is in ``process``.
         "harness_git_commit": commit_hash,
         "git_dirty": is_dirty,
+        "process": _process_snapshot(project_root),
         "case_card_hash": card_hash,
         "case_build_id": build_id,
         "python_version": sys.version,
