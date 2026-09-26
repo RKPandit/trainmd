@@ -28,13 +28,10 @@ def capture_hardware(project_root: Path) -> dict:
     uv_hash = (
         hashlib.sha256(uv_lock.read_bytes()).hexdigest() if uv_lock.exists() else None
     )
-    commit = None
-    try:
-        r = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True,
-                           text=True, cwd=project_root)
-        commit = r.stdout.strip() if r.returncode == 0 else None
-    except FileNotFoundError:
-        pass
+    # The RUNNING PROCESS's start commit (frozen at sweep start), not the checkout's current HEAD.
+    from harness.process_provenance import start as _process_start
+    proc = _process_start(project_root)
+    commit = None if proc["start_commit"] == "unknown" else proc["start_commit"]
     system = platform.system()  # "Linux" / "Darwin"
     # Canonical-container provenance (Stage 1): whether this sweep ran inside the
     # pinned image, and which one. Set by the Makefile docker-* targets.
@@ -56,6 +53,8 @@ def capture_hardware(project_root: Path) -> dict:
         "python": platform.python_version(),
         "uv_lock_hash": uv_hash,
         "git_commit": commit,
+        "git_dirty_at_start": proc["start_dirty"],
+        "loaded_source_hash_at_start": proc["start_loaded_source_hash"],
         "in_container": in_container,
         "image_digest": image_digest,
         "canonical_environment_note": (
