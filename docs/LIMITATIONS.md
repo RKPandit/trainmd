@@ -591,12 +591,20 @@ a post-run second audit (~30 items) stratified across the un-audited operators, 
 annotator on a 20-item overlap.
 
 **L34 — H8's recovery verdicts were verified under emulation and rest on ONE shared 3-seed number
-(2026-09-25).** H8's verify phase retrained on a Mac inside the container (emulated amd64), not natively.
-Every exact repair reruns the clean configuration on the same hidden seeds (100–102), so all 644 H8
-recovered verdicts (36 cases) share one margin, **+0.0050** over the tolerance; the 7 not-recovered
-verdicts sit far below it (−0.087 to −0.333). Against the measured cross-platform drift of a 3-seed mean
-(SD ≈ 0.0017, from the Intel-vs-AMD certify comparison — a proxy; emulation drift itself was not
-measured) that margin is ≈ 3.0 SD, so a platform change is unlikely to move it (≈ 0.1% under a normal
-approximation) — but the risk is all-or-nothing: one shift would flip every exact-restore verdict
-together. Part 1 verifies natively on AMD EPYC and reports the native margin of the same clean triple
-(HYPOTHESES, Stage 4 Part 1 pre-run addendum), which also checks H8's value.
+(2026-09-25; native value MEASURED 2026-09-26).** H8's verify phase retrained on a Mac inside the
+container (emulated amd64), not natively. Every exact repair reruns the clean configuration on the same
+hidden seeds (100–102), so all 644 H8 recovered verdicts (36 cases) share one 3-seed result; the 7
+not-recovered verdicts sit far below the tolerance. **Emulated (H8):** 0.849919 / 0.847708 / 0.851393 →
+mean margin **+0.0050** over `tolerance_lower` 0.844655. **Native (AMD EPYC 7763, CI run 36201148910 —
+the memoized verification dry run, spot-check 20/20 identical):** 0.847560 / 0.844317 / 0.847265 → mean
+margin **+0.0017** (seed 101 alone falls below the tolerance; the pre-registered mean rule passes).
+Emulation raised this 3-seed mean by **0.0033** — about 1.9× the SD the Intel-vs-AMD proxy predicted
+(≈ 0.0017), so the pre-run "≈ 3.0 SD / ≈ 0.1%" estimate understated emulation drift. **No H8 verdict
+changes natively:** all 8 exact-restore configurations (descriptive and neutral keys, every strength)
+give that same native result and recover; the 3 failing configurations stay far below (native −0.093 /
+−0.097 / −0.330 vs emulated −0.088 / −0.097 / −0.333). H8's records are NOT rewritten (it is a published
+release); these values are read from the native memo. The native clean margin is thin (+0.0017): a
+partial repair that trains close to, but not exactly, the clean configuration can fall on either side
+of the tolerance — Part 1 verifies natively (HYPOTHESES, pre-run addendum), so platform drift no longer
+enters, but such near-threshold verdicts are reported as counted there (|margin| < 0.0055).
+

@@ -84,4 +84,9 @@ print(f"  trials:        {s['n_trials']} to verify -> {s['n_distinct']} DISTINCT
 print(f"  spot-check:    {s['spot_check_identical']}/{len(s['spot_checks'])} fresh re-runs identical to the memo")
 PY
 rm -rf "$TMP"
-note "Next:  make sweep-verify NAME=$NAME VERIFY_MEMO=require"
+if [ -d "results_release/$NAME" ]; then
+  note "'$NAME' is a PUBLISHED sweep: its recovery verdicts are not rewritten (sweep-verify refuses);" \
+       "read native values from verify_memo/ instead."
+else
+  note "Next:  make sweep-verify NAME=$NAME VERIFY_MEMO=require"
+fi

@@ -211,3 +211,14 @@ def test_run_jobs_refuses_a_non_amd_runner_and_import_refuses_non_amd(env, monke
         {"schema": vm.SCHEMA, "key": "a" * 64, "per_seed_results": [], "platform": INTEL}))
     with pytest.raises(RuntimeError, match="refused"):
         vm.import_dir(root, tmp_path / "in")
+
+
+def test_run_verify_refuses_a_published_sweep(tmp_path):
+    from harness.sweep import run_verify
+    (tmp_path / "results_release" / "h8_xprovider").mkdir(parents=True)
+    (tmp_path / "sweeps").mkdir()
+    (tmp_path / "sweeps" / "h8_xprovider_manifest.yaml").write_text("sweep_name: h8_xprovider\n")
+    called = []
+    r = run_verify(tmp_path, "h8_xprovider", recovery_fn=lambda *a: called.append(a))
+    assert "committed release" in r["error"] and called == []
+
