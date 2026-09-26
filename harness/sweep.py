@@ -810,6 +810,12 @@ def _maxrss_to_mb(ru_maxrss: int) -> float:
 
 def run_verify(project_root, name, *, recovery_fn=None):
     """Free recovery phase over completed non-control agent trials."""
+    # A sweep with a committed release is PUBLISHED: its stored recovery verdicts are frozen evidence and
+    # must never be rewritten in place by a re-verification (e.g. H8 — LIMITATIONS L34 reads native values
+    # from the memo instead). Refuse rather than silently overwrite.
+    if (project_root / "results_release" / name).is_dir():
+        return {"error": f"refusing to re-verify {name!r}: it has a committed release "
+                         f"(results_release/{name}/) — its recovery verdicts are published and are not rewritten"}
     from harness.scoring import score_recovery_standalone
     from harness.sweep_manifest import write_manifest
     recovery_fn = recovery_fn or score_recovery_standalone

@@ -270,7 +270,9 @@ sweep-verify: require-name
 
 # Native memoized verification (CI, AuthenticAMD): train each distinct config once + fresh spot-check.
 docker-verify-native:
-	$(DOCKER_RUN) python -m harness.verify_memo run --jobs "$(JOBS)" --out-dir "$(OUT)"
+	docker run --rm --platform $(PLATFORM) --user $(DOCKER_USER) -e HOME=/tmp \
+	  -e TRAINMD_IN_CONTAINER=1 -e TRAINMD_IMAGE_DIGEST="$(IMAGE_DIGEST)" -e GITHUB_RUN_ID \
+	  -v "$(PWD)":/work -w /work $(IMAGE) python -m harness.verify_memo run --jobs "$(JOBS)" --out-dir "$(OUT)"
 
 # Local: the distinct repaired configurations of a finished agents phase (for scripts/verify_native.sh).
 docker-verify-export: require-name
