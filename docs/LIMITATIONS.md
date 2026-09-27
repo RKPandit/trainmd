@@ -624,8 +624,9 @@ prefix of the 90 truncated arguments (descriptive only, §1b) raises Luna static
 to 0.963–1.000 per arm. **Effect on the verdicts: none** — H9 remains CONFIRMING with the salvaged
 detections included or the empty diagnoses excluded (the gaps widen; the pre-registered gaps are
 conservative, F17/F23), and H10 is untested for Luna. Luna's evidence and recovery secondaries, and every
-Luna − Haiku evidence/recovery contrast, carry this caveat. Remedy proposed for Part 2 (strict schemas;
-Luna re-run — `docs/STAGE4_PLAN.md`).
+Luna − Haiku evidence/recovery contrast, carry this caveat. Remedy DECIDED for Part 2 (2026-09-27): strict
+schemas on every OpenAI cell and GPT-5.6 Luna re-run, never reused from Part 1 (`docs/STAGE4_PLAN.md`;
+`docs/PREREG_STAGE4_PART2_DRAFT.md`). The salvage parser is unit-tested (`tests/test_part1_followup.py`).
 
 **L36 — metric_inflation identification is likely under-credited by the matcher; the second human audit
 adjudicates (2026-09-26).** Of **264** metric_inflation trials whose label was scored wrong, **199** name a

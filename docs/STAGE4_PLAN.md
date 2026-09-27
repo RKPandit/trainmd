@@ -262,22 +262,27 @@ medium 2.5×, high 4× — and Luna `none` = 0.5× H8's medium output.
 | GPT-6 Sol, medium | 0.0240 | 0.0382 | 18.68 | 29.79 |
 
 Static-primary Part 2, new conditions only (Sonnet 5 off + medium, Opus 5.5 medium, GPT-6 Luna, GPT-6
-Sol, GPT-5.6 Luna none; Haiku 4.5 and GPT-5.6 Luna medium reused from Part 1): **≈ $173**; ReAct for the
+Sol, GPT-5.6 Luna none; Haiku 4.5 and GPT-5.6 Luna medium reused from Part 1): **≈ $173** — *superseded
+2026-09-27: GPT-5.6 Luna medium is now RE-RUN under strict schemas (decision below), ≈ $175*; ReAct for the
 same conditions ≈ $387. The Anthropic thinking-on figures rest on ASSUMED output multipliers (medium
 2.5× H8's visible output; off 1×) — the pilot replaces them.
 
-**PROPOSAL for Part 2 (2026-09-26; not yet decided) — strict function schemas on OpenAI, and therefore
-RE-RUN GPT-5.6 Luna rather than reuse Part 1.** Part 1 sent the Responses-API tools WITHOUT `strict: true`
-(0 of 6 tools; `harness/llm/openai_client.py::to_responses_tools`), so Luna's function-call arguments were
-unconstrained and degenerated in a measurable share of trials (`docs/audits/stage4_part1_followup.md`:
-118 of 1,296 faulty Luna trials with an empty diagnosis — 90 runaway-whitespace truncations — and 234 valid
-submissions whose garbled key swallowed evidence / repair; LIMITATIONS L35). Proposed: every OpenAI cell in
-Part 2 sends `strict: true` (schema made strict-compatible: `additionalProperties: false`, every property
-required, optional fields nullable), with a unit test on the request shape. **Consequence:** strict mode
-changes the condition, so **GPT-5.6 Luna medium must be RE-RUN in Part 2** under the same schema as every
-other OpenAI cell — not reused from Part 1 (a Part 1 vs Part 2 Luna contrast would confound the model with
-the tool schema). Cost: + ≈ $2.01 static / + ≈ $3.19 ReAct (table above). Haiku reuse is unaffected by this
-change (0 empty diagnoses on Haiku static; Anthropic tool calls showed none of these patterns).
+**DECISION for Part 2 (approved by the author 2026-09-27) — strict function schemas on every OpenAI
+cell, and GPT-5.6 Luna is RE-RUN in Part 2, not reused from Part 1.** Part 1 sent the Responses-API tools
+WITHOUT `strict: true` (0 of 6 tools; `harness/llm/openai_client.py::to_responses_tools`), so Luna's
+function-call arguments were unconstrained and degenerated in a measurable share of trials
+(`docs/audits/stage4_part1_followup.md`: 118 of 1,296 faulty Luna trials with an empty diagnosis — 90
+runaway-whitespace truncations, every one salvageable — and 234 valid submissions whose garbled key swallowed
+evidence / repair; LIMITATIONS L35). **Decided:** every OpenAI cell in Part 2 sends `strict: true`, with the
+tool schemas made strict-compatible (`additionalProperties: false`, every property required, optional fields
+nullable) and a unit test on the request shape. Because strict mode changes the condition, **GPT-5.6 Luna
+medium is RE-RUN in Part 2** under the same schema as every other OpenAI cell; its Part 1 results are not
+reused or pooled with Part 2 (a Part 1 vs Part 2 Luna contrast would confound the model with the tool schema).
+Cost: + ≈ $2.01 static / + ≈ $3.19 ReAct (table above), so the static-primary total above rises to ≈ $175.
+Haiku reuse is unaffected (0 empty diagnoses on Haiku static; Anthropic tool calls showed none of these
+patterns). **Declared in the Part 2 pre-registration** (`docs/PREREG_STAGE4_PART2_DRAFT.md`): Part 1's Luna
+numbers were produced under non-strict schemas and are affected by argument degeneration (L35) — end-to-end
+detection, identification, evidence and recovery under-state Luna — so no Part 2 contrast uses Part 1 Luna.
 
 ## Part 3 — Second workload, frozen as the evaluation set (~2 weeks)
 As v1, with one change from the review: the second workload doubles as the **fresh frozen
