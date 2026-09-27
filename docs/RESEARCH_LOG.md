@@ -409,3 +409,29 @@ the same exchange the rule's author misread their own spec against the table —
 docs/FINDINGS.md (F13, F14, F15; S13/S16 revised); docs/LIMITATIONS.md (L28, L29);
 `harness/sweep_stats.py::_h8_verdict` + `tests/test_h8_and_dedup.py`;
 `docs/audits/sweep_h8_xprovider_generated.md`.
+
+### 36. Thirty files read by hand found three things no aggregate had
+
+After Part 1's verdicts were computed, the author read a 30-trial spot-check sample by hand (19 targeted, 10
+random; seed 20260926). Every aggregate and guard had passed. The reading surfaced three issues none of them
+had caught:
+
+1. **Luna's submit arguments degenerate.** Many "empty diagnoses" were correct answers whose function-call
+   arguments ran into tabs and newlines until truncation, or grew a punctuation key (`"},":`) that swallowed
+   the evidence and repair into the diagnosis. Counted across the sweep: 90 truncations, 234 swallowing
+   keys (L35). The tools had been sent without strict mode.
+2. **The metric_inflation matcher misses its own mechanism.** `confidence_selected_validation_subset`
+   describes the operator exactly and scores wrong — 199 of 264 wrong labels name the mechanism (L36).
+   The matcher is not changed on this evidence; the blind audit adjudicates.
+3. **A learning-rate "red herring" — that turned out small.** Five sampled trials blamed an excessive
+   learning rate on non-lr faults; across the sweep it is 52 of 2,160 (2.4%), and 3 of 480 healthy/benign
+   controls — not enough to warrant a limitation. The hand-read sample over-represented it.
+
+None changes a pre-registered verdict (the sensitivity analyses were declared before computing and all
+hold). The lesson is not new but it is sharp: **aggregates and guards check what they were written to
+check; thirty files read by a person checked what nobody had thought to.** An empty diagnosis was, to every
+table, just a miss. Reading one showed what it was.
+
+**Lives in:** docs/audits/stage4_part1_followup.md (`scripts/part1_followup.py`); docs/LIMITATIONS.md (L35,
+L36); docs/HYPOTHESES.md (Part 1 sensitivity note); docs/FINDINGS.md (F17, F18, F23); docs/STAGE4_PLAN.md
+(Part 2 strict-mode proposal); DECISIONS 2026-09-26.
