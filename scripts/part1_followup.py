@@ -94,16 +94,27 @@ def hidden_card(cid, _cache={}):
     return _cache[cid]
 
 
+def salvage_args(args: str):
+    """(detected, operator_class) recovered from a raw submit-argument string, or None. Recovered ONLY
+    when the prefix contains BOTH a complete `"detected": true|false` and a complete, closed
+    `"operator_class": "<label>"` inside the diagnosis object (before anything else is parsed);
+    a prefix cut before the label closes, or text that is not a submit object, is not recovered."""
+    if not isinstance(args, str) or not args.lstrip().startswith("{"):
+        return None
+    d = re.search(r'"diagnosis"\s*:\s*\{', args)
+    if not d:
+        return None
+    body = args[d.end():]
+    m, c = SALV_DET.search(body), SALV_CLS.search(body)
+    if not (m and c):
+        return None
+    return m.group(1) == "true", c.group(1)
+
+
 def salvage(r):
     """(detected, operator_class) recovered from the final submit call's raw arguments, or None."""
     sc = submit_call(r)
-    if sc is None:
-        return None
-    m = SALV_DET.search(sc[0] or "")
-    if not m:
-        return None
-    c = SALV_CLS.search(sc[0] or "")
-    return m.group(1) == "true", (c.group(1) if c else None)
+    return None if sc is None else salvage_args(sc[0])
 
 
 def salvaged_scores(r):
