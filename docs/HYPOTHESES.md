@@ -1208,3 +1208,37 @@ configuration at least once where feasible** (seed 20260925) — is re-verified 
 verify path from its case and repair spec; any key or per-seed difference fails the run and nothing is
 imported. Reported with recovery: the number of distinct configurations, and the spot-check result.
 
+### Stage 4 Part 1 — RESULTS (appended 2026-09-26; verdicts computed mechanically by `harness/prereg_part1.py`)
+
+*Source: `docs/audits/sweep_stage4_part1_generated.md` ("Pre-registered verdicts" section). Run: 3,216/3,216
+cells (3,144 confirmatory + 72 exploratory), 0 failed cells (13 crash-then-retry pairs; one record per cell
+analysed), agents-phase estimate $43.42 (billed spend pending); recovery verified natively on AMD EPYC with
+memoization (CI 36271298571: 1,793 trained trials → 16 distinct configurations, spot-check 20/20 identical);
+the four recorded commits are one code version (manifest `provenance_note`; DECISIONS 2026-09-26).*
+
+- **H9 — CONFIRMING.** Both decision-carrying operators show Luna − Haiku off-anchor detection with the
+  lower bound above 0: **label_corruption +0.569 [0.444, 0.681]** (Haiku 0.264 [0.181, 0.361], Luna 0.833)
+  and **metric_inflation +0.500 [0.403, 0.597]** (Haiku 0.236 [0.153, 0.319], Luna 0.736). **lr_warmup:
+  no headroom — untestable, as pre-declared** (Haiku 0.792 [0.653, 0.917] in Part 1; the upper bound is above
+  0.85, so it does not carry the decision; Δ +0.083 [−0.069, 0.250] reported, not counted). Leakage
+  replicates within Part 1: +0.826 [0.771, 0.882]. Multiplicity: intersection–union (each carrier passed at
+  95%). *Caveat (not a re-analysis):* Luna's off-anchor detection counts empty-diagnosis submissions as
+  misses (label_corruption 4/72, metric_inflation 11/72; a submission-format artifact — compliance flags
+  `diagnosis` missing), so Luna is if anything under-credited and the confirmed gap is conservative.
+- **H10 — CONFIRMING for Haiku; UNTESTABLE for Luna.** Haiku: f = (stats − off)/(rule − off) = **0.909
+  [0.869, 0.947]** over the eligible operators (data_leakage, data_leakage_neutral, label_corruption,
+  metric_inflation; rule − off ≥ 0.30), two-sided bootstrap p < 0.0001 (none of the kept bootstrap resamples fell below
+  0.5). Luna: **no operator has rule − off ≥ 0.30** (its off-anchor detection is already high), so f is not
+  defined — UNTESTABLE, as the rule states. Holm therefore ran over the one tested model. Bare statistics,
+  without evaluative words, close ≈ 91% of Haiku's off→rule gap (H8's evaluative `numbers` arm: ≈ 0.95).
+- **Benign-configuration controls — INCONCLUSIVE (both providers; two-sided).** All four paired contrasts
+  fail Holm: Haiku rule − off **+0.097, Newcombe [0.005, 0.196], exact McNemar p = 0.065** (b = 9, c = 2) —
+  the interval excludes 0 but the pre-registered decision is the Holm-adjusted test, and p exceeds even the
+  last Holm step (0.05), so INCONCLUSIVE ("the test decides"); Haiku stats − off −0.028 (p = 0.50); Luna
+  rule − off +0.042 (p = 0.25); Luna stats − off 0.000 (p = 1.00). Descriptive pooled benign FPR (n = 72
+  each, exact CP): Haiku off 0.028 [0.003, 0.097], stats 0.000 [0.000, 0.050], rule 0.125 [0.059, 0.224];
+  Luna off 0.000 [0.000, 0.050], stats 0.000 [0.000, 0.050], rule 0.042 [0.009, 0.117].
+- **EXPLORATORY (not confirmatory) — reasoning pass-back.** Luna ReAct on the 36 leakage cases, `off` arm,
+  pass-back ON − OFF: detection **+0.153 [0.042, 0.264]**, identification +0.111 [−0.014, 0.236], evidence
+  F1 **+0.156 [0.053, 0.257]** — the measured size of H8's adapter handicap (LIMITATIONS L32).
+

@@ -577,10 +577,14 @@ verbatim; the Anthropic path passes thinking blocks back unchanged (the same cla
 have silently disabled thinking on Sonnet 5 / Opus 5.5). Proven by
 `tests/test_reasoning_preservation.py::test_openai_react_replays_reasoning_items_and_is_stateless` and
 `tests/test_reasoning_preservation.py::test_react_passes_thinking_block_back_unchanged`; checked live in
-every sweep by `reasoning_check` (the run stops if prior reasoning is not replayed). **Measured, not
-assumed:** Part 1 re-creates H8's condition in an exploratory arm (Luna ReAct, leakage × `off`,
-reasoning pass-back OFF; 72 cells, never pooled) beside the fixed one, so the handicap is quantified
-directly (`tests/test_part1_planner.py::test_exploratory_no_passback_cells`).
+every sweep by `reasoning_check` (the run stops if prior reasoning is not replayed). **MEASURED (Stage 4 Part 1,
+2026-09-26; FINDINGS F20):** an exploratory arm re-created H8's condition (Luna ReAct, the 36 leakage cases
+× `off`, reasoning pass-back OFF; 72 cells, never pooled) beside the fixed one
+(`tests/test_part1_planner.py::test_exploratory_no_passback_cells`). Pass-back ON − OFF: detection
+**+0.153 [0.042, 0.264]**, identification +0.111 [−0.014, 0.236], evidence F1 **+0.156 [0.053, 0.257]**.
+So H8's Luna ReAct ran about 15 points below its capability on detection and evidence — the direction
+stated above (conservative for the headline) is now a measured size. The limitation is closed for Part 1
+onward; H8's Luna ReAct numbers stand as published, with this handicap attached.
 
 **L33 — The scorer validation (F16) rests on ONE annotator and a LEAKAGE-ONLY sample.** The blind audit
 (Stage 4.0.5) covered 60 H8 trials: descriptive and neutral data leakage plus healthy controls. It

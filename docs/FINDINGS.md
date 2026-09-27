@@ -26,7 +26,7 @@ with a more precise mechanism than predicted) · `refuted` (pre-registered crite
 |---|---|---|---|
 | S1 | **Leakage-specific anchor-off blindness (the symptom-*direction* generalization is REFUTED).** `data_leakage` is missed anchor-off and a numeric baseline restores it — but a *second* positive-symptom mechanism (`metric_inflation`) is **not** harder than the subtle negative reference, so positive symptom direction is not what causes the blindness. | Stage-2 G1: `metric_inflation` off **0.250 [0.083, 0.417]** = `label_corruption` **0.250** (diff +0.001 [−0.281, +0.250]) ≫ `data_leakage` **0.042 [0.000, 0.125]**. Sweep-1 comparator was pooled (correction #4): lr_warmup **0.944** + label_corruption **0.333** → subtle gap ~25 pts, not 55. | **symptom-direction generalization REFUTED (Stage-2 G1)** · leakage-specific blindness retained · numeric-baseline effect → S13, now **model-specific** (Haiku; F14/S16) |
 | S2 | ~~Detection follows symptom sign first, then magnitude.~~ **H2 (a fitted σ threshold) is REFUTED** — no threshold fitted, pooled curve non-monotone. Exploratory successor (post-hoc, to pre-register): symptom *sign* moderates magnitude→detection. | Sweep 1 H2 per-case table. | refuted (prediction) · exploratory successor · pending prospective test |
-| S3 | **The reference band is a trade: it rescues true detection and induces false alarms on healthy runs.** | Sweep 1: anchor-on control FPR 0.222, 95% CI [0.0, 0.5] — 4/18 from just 2 unique healthy cases (not a population rate; the width argues for 20+ controls). | unplanned · under-powered · pending replication |
+| S3 | **The reference band is a trade: it rescues true detection and induces false alarms on healthy runs.** | Sweep 1: anchor-on control FPR 0.222, 95% CI [0.0, 0.5] — 4/18 from just 2 unique healthy cases (not a population rate; the width argues for 20+ controls). **Stage 4 Part 1 (F21, DESCRIPTIVE ONLY):** over 92 controls × 2 providers, the false alarms sit in the `rule` arm — **18/184** (17 of 92 cases; 12 of the 18 on in-band controls) vs **stats 0/184** [0, 0.039] and off 4/184; the pre-registered benign contrast itself is inconclusive (F19). | unplanned · descriptive · the trade appears tied to the rule arm's wording, not to showing the band (Part 1, not tested) |
 | S4 | **The ReAct−static gap is real but does not isolate tool use.** ReAct beats static +0.135 evidence F1 overall, 95% CI [0.075, 0.204], most on subtle noise; leakage sub-claim +0.006 (≤0 criterion **not** formally met). The arms also differ in calls, deliberation, tokens, and prompt text. | Sweep 1 H6 + cost table. | overall confirmed · sub-claim not formally confirmed · confounded (needs token-matched baseline) |
 | S5 | **On the strict endpoint, this model names faults somewhat more reliably than it autonomously repairs them.** id − *strict* recovery is 0.10–0.24 (CI excludes 0) on 3/4 operators; *semantic* recovery nearly closes it, so most of the gap is submission-format compliance + strict admissibility. Pre-registered direction (recovery > id) refuted. **The gap is "naming vs correctly-formatted admissible submission," not "naming vs fixing" — recovery is degenerate on these operators (L19).** | Sweep 1 H3; Stage-2: `not_recovered` 0/138; degeneracy evidence = **B2's 30/30** (a no-diagnosis config reset). *(Corrected 2026-09-23: the DegenerateAgent's 18/18 was cited here, but it reads the oracle repair from hidden material, so it is true by construction.)* | refuted (predicted direction) · modest id>strict dissociation · **recovery axis degenerate (L19)** · pending replication |
 | S6 | **Diagnostic outcomes are reproducible under nondeterminism; identification agreement drops on the hardest fault.** | Sweep 1 H4: mean agreement 0.82; leakage identification agreement 0.71 vs lr 0.96. | partially confirmed · pending replication |
@@ -36,8 +36,8 @@ with a more precise mechanism than predicted) · `refuted` (pre-registered crite
 | S10 | **The workload constrains which positive-symptom mechanisms are possible: row memorization cannot inflate a metric here.** A validation metric can be inflated by memorized training rows only up to *train* accuracy; Adult/MLP's train–val gap is ~0.010, so the memorization ceiling (~0.863) sits only ~0.003 above the visible band edge (0.860) — no headroom for a laddered positive symptom. The viable second positive-symptom mechanism on this substrate is metric-side (biased computation), not data-side (overlap). | Step-0 (in-container, thread-pinned): overlap augmented val_acc ≤ 0.857 (below edge) for p∈{0.05,0.15,0.30}×seeds{0,1,2}; train_acc 0.862–0.864; biased-metric mechanism (a) clears the band on a plausible→implausible ladder (reported ≈0.88/0.94/0.98) with the checkpoint unchanged. | unplanned · workload-specific |
 | S11 | **Adult contains duplicate records — 12 appear in both train and the hidden test by content hash — though the splits are index-disjoint.** A pre-existing dataset property, not an operator-induced leak; disjointness checks must therefore test *non-increase* of overlap, not absolute content-disjointness. | Step-0 row-hash intersection = 12 of ~30k; `data_prep` partitions one permutation (index-disjoint by construction). | unplanned · dataset property |
 | S12 | **`lr_warmup`'s failure on Adult/MLP is BIMODAL, not graded** — a per-seed collapse to the majority-class baseline whose probability rises with the learning rate (and is microarch-sensitive), with no stable partial-degradation regime. The operator yields *detection* data, not σ-magnitude; the H2 σ-axis rests on `label_corruption`. Corrects the earlier "ladder saturation" (L1). | Calibration sweep (5 seeds, emulated amd64; `scripts/calibrate_lr_warmup.py`): collapse-to-0.756008 rate 0.10→0/5, 0.12/0.15→2/5, 0.20→4/5, **0.50 & 1.00→5/5**; at lr 0.30 one seed fell to 0.684 (below the majority baseline — anti-learned). | unplanned · workload-specific |
-| S13 | **A numerical baseline restores detection — but this is MODEL-SPECIFIC (Haiku; small for Luna).** Supplying the healthy metric band flips *Haiku* from "looks fine → healthy" to detecting the fault, and the bare band (not the decision rule) does ~all of it. A second model (Luna) detects the silent fault off-anchor and gains only ~17 pts from the band. ~~The strongest-supported claim in the project.~~ | Stage-2 G2 (F10, Haiku): **numbers** arm closes **94–95%** of the off→rule gap on 3 operators; replicates S8/F8. **Sweep 3 (F14): off-anchor leakage detection Haiku 0.083 vs Luna 0.819 — band adds ~90 pts for Haiku, ~17 for Luna.** | **Haiku-specific** (Stage-2 G2) · **failed to replicate as a general effect on the 2nd model (F14)** · first ≥20-control FPR now measured (H8 controls) |
-| S16 | **Reference-context dependence is model-specific.** The Sweep-1/gate headline that agents need a numeric reference baseline to detect silent faults holds for Haiku and largely does not for Luna. Model dependence is established; its cause (capability / hidden reasoning tokens / training) is not, at n=2. | Sweep 3 (F14): anchor-off descriptive-leakage detection **Haiku 0.083, Luna 0.819**; band adds ~90 pts (Haiku) vs ~17 pts (Luna). Two models, one workload, one mechanism family. | **model dependence ESTABLISHED · driver NOT identified (n=2, L28)** · pending a controlled cross-model design |
+| S13 | **A numerical baseline restores detection — but this is MODEL-SPECIFIC (Haiku; small for Luna).** Supplying the healthy metric band flips *Haiku* from "looks fine → healthy" to detecting the fault, and the bare band (not the decision rule) does ~all of it. A second model (Luna) detects the silent fault off-anchor and gains only ~17 pts from the band. ~~The strongest-supported claim in the project.~~ | Stage-2 G2 (F10, Haiku): **numbers** arm closes **94–95%** of the off→rule gap on 3 operators; replicates S8/F8. **Sweep 3 (F14): off-anchor leakage detection Haiku 0.083 vs Luna 0.819 — band adds ~90 pts for Haiku, ~17 for Luna.** **Stage 4 Part 1 (F18, H10 CONFIRMING for Haiku):** the bare statistics — mean, SD, n, no evaluative words — close **0.909 [0.869, 0.947]** of Haiku's off→rule gap over four operators; for Luna H10 is untestable (no operator has a ≥ 0.30 gap to close). | **Haiku-specific** (Stage-2 G2; Part 1 H10) · holds **without evaluative words** (Part 1) · **failed to replicate as a general effect on the 2nd model (F14)** |
+| S16 | **Reference-context dependence is model-specific.** The Sweep-1/gate headline that agents need a numeric reference baseline to detect silent faults holds for Haiku and largely does not for Luna. Model dependence is established; its cause (capability / hidden reasoning tokens / training) is not, at n=2. | Sweep 3 (F14): anchor-off descriptive-leakage detection **Haiku 0.083, Luna 0.819**; band adds ~90 pts (Haiku) vs ~17 pts (Luna). **Stage 4 Part 1 (F17, H9 CONFIRMING): the gap generalizes beyond leakage** — Luna − Haiku off-anchor detection **+0.569 [0.444, 0.681]** on label_corruption and **+0.500 [0.403, 0.597]** on metric_inflation (lr_warmup untestable: Haiku near ceiling), leakage +0.826 within the same run. Two models, one workload, three non-crash mechanism families. | **model dependence ESTABLISHED beyond leakage (H9) · driver NOT identified (n=2, L28)** · pending a controlled cross-model design (Part 2) |
 | S14 | **Detection tracks symptom *obviousness*, not symptom sign** (candidate replacement for the refuted S1 sign-claim). Detection falls monotonically with how visible the fault's symptom is: catastrophic crash → collapse → subtle silent → inverted (leakage). | Sweep-1 + gate anchor-off detection: shape crash **1.000**, lr collapse **0.944**, subtle silent (label 0.333 / metric 0.250) **0.25–0.33**, leakage **0.042–0.083**. | **EXPLORATORY · post-hoc · must be pre-registered before it is tested** |
 | S15 | **On config-knob faults, a config-delta baseline (WITH clean-resolved-config + derived-key knowledge) matches the ref-anchored LLM on detection and recovery at better specificity; the agent's measured surviving value is identifying faults whose knob name ≠ the concept, and it is anchor-dependent.** NOT "the LLM adds nothing on detection/recovery" — that generalization is Sweep-3 / code-origin territory. | B2 (native 50-case): det **30/30**, FPR **0/20**, id **18/30**, ev 0.63, rec **30/30**. LLM ref-anchored (frozen, superseded set): det 1.00, id 0.96, rec 0.94, FPR 0.22. B2 id misses exactly `data_leakage` + `metric_inflation`; LLM off-anchor leakage id **0/30**. **Sweep 3 (F13): leakage identification often survives the tested key rename — equivalence unresolved in two anchored conditions, Luna's rule arm measurably lower, 0 refuting; this tests dependence on the two key names only, not mechanism understanding (code-pattern recognition / general leakage heuristics not ruled out).** | unplanned · per-operator DIRECTIONAL only (baselines native, LLM frozen-superseded — no cross-set gap CI) · **neutral-key test now DONE (H8/F13 — 4 of 6 cells meet the criterion as run; excluding floored Haiku-off, 3 of 5 answering cells confirm, 2 inconclusive)**; cross-set LLM−B2 gap CI still pending a matched-set run |
 
@@ -877,6 +877,81 @@ author confirmed these sheet counts on 2026-09-25 — an earlier summary's Luna 
 the evidence-set gap is reported, not acted on.
 
 ---
+
+## Stage 4 Part 1 (2026-09-26) — six operators, two models, prompt v2, 200 cases
+
+*Evidence: `docs/audits/sweep_stage4_part1_generated.md` (verdicts in its "Pre-registered verdicts" section,
+computed by `harness/prereg_part1.py`); pre-registration and results in HYPOTHESES ("Stage 4 Part 1").
+3,216/3,216 cells; recovery verified natively on AMD EPYC (memoized; CI 36271298571).*
+
+### F17 — Model dependence generalizes beyond leakage (H9) · confirmed
+
+**Claim.** The off-anchor detection gap between Luna and Haiku found on leakage (F14) also holds on two
+other non-crash faults. **Pre-registered:** CONFIRMING iff Δ = Luna − Haiku has its lower bound > 0 on every
+operator with Haiku headroom (off-anchor upper bound < 0.85), with ≥ 2 such operators. **Evidence:**
+label_corruption Δ **+0.569 [0.444, 0.681]** (Haiku 0.264, Luna 0.833); metric_inflation Δ **+0.500
+[0.403, 0.597]** (Haiku 0.236, Luna 0.736); leakage +0.826 [0.771, 0.882]; lr_warmup untestable as
+pre-declared (Haiku 0.792 [0.653, 0.917]). **Interpretation:** model dependence is a property of diagnosing
+silent and metric-layer faults on this workload, not of leakage. Luna is if anything under-credited: its
+empty-diagnosis submissions (a format artifact; label_corruption 4/72, metric_inflation 11/72 off-anchor)
+score as misses. **What would change our mind:** a different model pair or workload where the gap closes;
+the driver (capability, hidden reasoning, training) is still unidentified at n = 2 (L28). **Status:**
+confirmed · pending replication (one workload).
+
+### F18 — Bare statistics close most of Haiku's off→rule gap, without evaluative words (H10) · confirmed (Haiku) · untestable (Luna)
+
+**Claim.** Showing only the reference mean, SD and n recovers most of what the full `rule` arm (statistics +
+"anomalous" sentence) recovers. **Pre-registered:** f = (stats − off)/(rule − off) over operators with
+rule − off ≥ 0.30, two-sided bootstrap test of f = 0.5, Holm over models. **Evidence:** Haiku **f = 0.909
+[0.869, 0.947]**, p < 0.0001 (four eligible operators); Luna has no operator with a ≥ 0.30 gap — untestable.
+**Interpretation:** H8's ≈ 0.95 for the evaluative `numbers` arm holds, at ≈ 0.91, when the arm carries
+only numbers; for Haiku the value is in the reference statistics, not in being told what is anomalous.
+Luna's off-anchor detection is too high for the question to arise. **What would change our mind:** f below
+0.5 on another model with headroom. **Status:** confirmed for Haiku · untestable for Luna.
+
+### F19 — Anchoring's effect on benign-change false alarms is not established (pre-registered benign contrast) · inconclusive
+
+**Claim / pre-registered:** two-sided paired contrast (stats − off, rule − off) of benign-change false
+positives on 72 benign cases per provider; exact McNemar with Holm over four contrasts decides; the Newcombe
+interval is reported. **Evidence:** all four INCONCLUSIVE. Haiku rule − off **+0.097, Newcombe [0.005,
+0.196], p = 0.065** (9 benign cases flagged only under `rule`, 2 only under `off`) — the interval excludes 0
+but the test does not reject even at the last Holm step, and the pre-registration states the test decides.
+Haiku stats − off −0.028 (p = 0.50); Luna rule − off +0.042 (p = 0.25); Luna stats − off 0.000.
+**Interpretation:** a rule-arm increase for Haiku of roughly this size is plausible (see F21) but not
+established at 72 pairs; the pre-run power table put power at ≈ 0.5 for an anchored FPR of 0.20 from 0.05,
+and the observed Haiku rule FPR is 0.125. **Status:** inconclusive (not evidence of no effect).
+
+### F20 — H8's reasoning-drop handicap, measured (exploratory; closes L32) · unplanned-measured
+
+**Evidence (exploratory, pre-declared, never pooled):** Luna ReAct on the 36 leakage cases, `off` arm,
+reasoning pass-back ON − OFF: detection **+0.153 [0.042, 0.264]**, identification +0.111 [−0.014, 0.236],
+evidence F1 **+0.156 [0.053, 0.257]**. **Interpretation:** dropping prior reasoning between tool calls —
+H8's adapter defect — cost Luna ReAct about 15 points of detection and evidence F1 on leakage; H8's Luna
+ReAct numbers (and its ReAct − static reversal) were measurably handicapped, in the conservative direction
+for the headline. **Status:** measured (exploratory).
+
+### F21 — Control false alarms concentrate in the `rule` arm · DESCRIPTIVE ONLY (not a pre-registered test)
+
+**Evidence:** over 92 controls (20 healthy + 72 benign) × 2 providers: **rule 18/184** (0.098 [0.060,
+0.141]; 17 of 92 cases), **stats 0/184** ([0, 0.039]), off 4/184; stats − rule −0.098 [−0.141, −0.060].
+12 of the 18 rule-arm false alarms are on controls whose visible metric is inside the healthy band (the other
+6 on the 5 out-of-band controls). **Interpretation (not tested):** the same 30-run statistics produce no
+false alarms when shown bare and ~10% when followed by "values more than 2 SD from this mean … are
+anomalous" — as in H8, where 3 of the rule arm's 4 control false alarms were in-band, the sentence appears to
+prime flagging rather than the band itself. Descriptive only; the pre-registered benign test is F19.
+**Status:** unplanned · descriptive.
+
+### F22 — Luna's neutral-key identification dip, consistent with H8 (H8 re-check, secondary)
+
+**Evidence:** the H8 neutral − descriptive contrast re-run in Part 1 (paired): **3 of 6** provider cells
+confirming (Haiku off, Haiku rule, Luna rule), **3 inconclusive** (Haiku stats, Luna off, Luna stats),
+**0 refuting**; by the floor clause Haiku-off (0.014 / 0.000) does not answer, so **2 of 5**. Luna's
+inconclusive cells are small negative gaps — off **−0.097 [−0.194, 0.000]**, stats **−0.097 [−0.181,
+−0.014]** — as in H8 (Luna numbers −0.072, rule −0.115 [−0.197, −0.032]). **Interpretation:** across both
+sweeps Luna identifies the leakage slightly less often under the neutral key names in some anchored arms
+(≈ 0.07–0.12, never beyond the 0.30 refuting margin); Haiku shows no consistent dip. Consistent with H8's
+reading: identification mostly survives the renaming; a small key-name reliance for Luna cannot be
+excluded. **Status:** consistent with H8 · not a mechanism claim.
 
 ## How to update this document
 
