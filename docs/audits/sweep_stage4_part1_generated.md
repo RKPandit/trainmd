@@ -287,7 +287,7 @@ _Hidden-band stratification (a case-quality label, never the stratification key)
 
 **Counting rule:** the tally is over the **6 provider-specific cells only** (2 providers × 3 arms); the `pooled` rows reuse the same trials and are a summary, never counted. Provider-specific tally (paired): **3 of 6 confirming** (Haiku off, Haiku rule, Luna rule), **3 inconclusive** (Haiku stats, Luna off, Luna stats), **0 refuting**.
 
-**Floor clause (H8 pre-registration):** "the off arm may floor on both variants; if it floors, H8 is answered by the stats and rule arms" — an off-arm cell counts as floored when both variants' identification is ≤ 0.05 (operationalised from the clause's own example, 0.042). Excluding the floored cell(s) — Haiku off — **2 of 5 confirming**.
+**Floor clause (H8 pre-registration):** "the off arm may floor on both variants; if it floors, H8 is answered by the stats and rule arms" — an off-arm cell counts as floored when both variants' identification is ≤ 0.05 (operationalised from the clause's own example, 0.042). Excluding the floored cell(s) — Haiku off — **2 of 5 confirming**. The floored set, and so this tally, is the same for any threshold from 0.014 up to (not including) 0.861: the choice of 0.05 does not decide it.
 
 | provider | arm | neutral id | descriptive id | Δ (95% CI, PAIRED) | n pairs | verdict |
 |---|---|---|---|---|---|---|
@@ -337,6 +337,25 @@ _Hidden-band stratification (a case-quality label, never the stratification key)
 | openai | neutral | off.v2 | 0.847 | 0.639 | 72 | 18 |
 | openai | neutral | rule.v2 | 0.972 | 0.833 | 72 | 18 |
 | openai | neutral | stats.v2 | 0.903 | 0.722 | 72 | 18 |
+
+## DESCRIPTIVE — detection / identification among VALID submissions (no verdict changes)
+
+> Faulty trials only. *End-to-end* is how every metric and verdict in this report is scored: an empty diagnosis (no submission, or a submission without `diagnosis.detected` — a compliance / format failure) counts as a miss. *Among valid* restricts to submissions that carry a diagnosis. Shown only to separate submission format from diagnosis; nothing is re-scored.
+
+| provider | agent | arm | trials | empty diagnosis | detection end-to-end | detection among valid | identification end-to-end | identification among valid |
+|---|---|---|---|---|---|---|---|---|
+| anthropic | react | off.v2 | 216 | 13/216 (0.060) | 0.509 | 0.542 | 0.458 | 0.488 |
+| anthropic | react | rule.v2 | 216 | 1/216 (0.005) | 0.995 | 1.000 | 0.963 | 0.967 |
+| anthropic | react | stats.v2 | 216 | 1/216 (0.005) | 0.986 | 0.991 | 0.944 | 0.949 |
+| anthropic | static | off.v2 | 216 | 0/216 (0.000) | 0.282 | 0.282 | 0.245 | 0.245 |
+| anthropic | static | rule.v2 | 216 | 0/216 (0.000) | 0.981 | 0.981 | 0.852 | 0.852 |
+| anthropic | static | stats.v2 | 216 | 0/216 (0.000) | 0.880 | 0.880 | 0.759 | 0.759 |
+| openai | react | off.v2 | 216 | 19/216 (0.088) | 0.852 | 0.934 | 0.634 | 0.695 |
+| openai | react | rule.v2 | 216 | 11/216 (0.051) | 0.949 | 1.000 | 0.731 | 0.771 |
+| openai | react | stats.v2 | 216 | 13/216 (0.060) | 0.940 | 1.000 | 0.736 | 0.783 |
+| openai | static | off.v2 | 216 | 26/216 (0.120) | 0.843 | 0.958 | 0.713 | 0.811 |
+| openai | static | rule.v2 | 216 | 20/216 (0.093) | 0.907 | 1.000 | 0.750 | 0.827 |
+| openai | static | stats.v2 | 216 | 29/216 (0.134) | 0.866 | 1.000 | 0.731 | 0.845 |
 
 ## Pre-registered verdicts (Stage 4 Part 1) — computed mechanically
 

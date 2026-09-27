@@ -894,7 +894,7 @@ label_corruption Δ **+0.569 [0.444, 0.681]** (Haiku 0.264, Luna 0.833); metric_
 pre-declared (Haiku 0.792 [0.653, 0.917]). **Interpretation:** model dependence is a property of diagnosing
 silent and metric-layer faults on this workload, not of leakage. Luna is if anything under-credited: its
 empty-diagnosis submissions (a format artifact; label_corruption 4/72, metric_inflation 11/72 off-anchor)
-score as misses. **What would change our mind:** a different model pair or workload where the gap closes;
+score as misses, so the gaps are conservative (F23). **What would change our mind:** a different model pair or workload where the gap closes;
 the driver (capability, hidden reasoning, training) is still unidentified at n = 2 (L28). **Status:**
 confirmed · pending replication (one workload).
 
@@ -952,6 +952,21 @@ sweeps Luna identifies the leakage slightly less often under the neutral key nam
 (≈ 0.07–0.12, never beyond the 0.30 refuting margin); Haiku shows no consistent dip. Consistent with H8's
 reading: identification mostly survives the renaming; a small key-name reliance for Luna cannot be
 excluded. **Status:** consistent with H8 · not a mechanism claim.
+
+### F23 — Luna's static agent often submits without a diagnosis (compliance, not diagnosis) · unplanned
+
+**Evidence:** `docs/audits/sweep_stage4_part1_generated.md`, section "DESCRIPTIVE — detection / identification
+among VALID submissions" (no verdict changes). An *empty diagnosis* is a trial with no submission or a
+submission without `diagnosis.detected` (the compliance record lists `diagnosis` as missing). Luna static,
+pooled over arms: **13.9–19.4% of trials on the four non-leakage operators** (label_corruption 15/108,
+lr_warmup 15/108, metric_inflation 16/108, shape_mismatch 21/108) and 1.9–5.6% on the two leakage operators;
+per arm (all operators) 9.3–13.4%. Luna ReAct 5.1–8.8% per arm; Haiku static 0%, Haiku ReAct 0.5–6.0%. Among
+VALID submissions Luna's detection is 0.958–1.000 per static arm (end-to-end 0.843–0.907); every one of
+Luna's 25 shape_mismatch misses is an empty diagnosis (23 submissions without one, 2 never submitted) — Luna
+never answered "no incident" on a crash. **Interpretation:** a submission-format failure specific to Luna
+(its structured-output compliance, cf. F15), not a diagnosis failure. Everything is scored END-TO-END (an
+empty diagnosis is a miss), so Luna's rates are under-stated relative to its diagnoses — which makes **H9's
+Luna − Haiku gaps (F17) conservative**. **Status:** unplanned · descriptive · compliance.
 
 ## How to update this document
 

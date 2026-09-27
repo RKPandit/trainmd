@@ -141,10 +141,31 @@ def generate(records: list[dict], meta: dict) -> str:
     # H8 renders only when the neutral+descriptive pair is present (self-guarded),
     # so frozen single-variant sweeps are byte-identical.
     L += _h8_tables(s, records, name)
+    L += _valid_submission_tables(records)
     L += _prereg_part1_tables(records)
     if exploratory:
         L += _no_passback_tables(ss.exploratory_no_passback(all_records))
     return "\n".join(L) + "\n"
+
+
+def _valid_submission_tables(records) -> list[str]:
+    """DESCRIPTIVE view (no verdict changes): end-to-end vs valid-submission-only rates, per cell."""
+    rows = ss.valid_submission_view(records)
+    if not rows:
+        return []
+    L = ["## DESCRIPTIVE — detection / identification among VALID submissions (no verdict changes)", "",
+         "> Faulty trials only. *End-to-end* is how every metric and verdict in this report is scored: an "
+         "empty diagnosis (no submission, or a submission without `diagnosis.detected` — a compliance / "
+         "format failure) counts as a miss. *Among valid* restricts to submissions that carry a diagnosis. "
+         "Shown only to separate submission format from diagnosis; nothing is re-scored.", "",
+         "| provider | agent | arm | trials | empty diagnosis | detection end-to-end | detection among valid "
+         "| identification end-to-end | identification among valid |",
+         "|---|---|---|---|---|---|---|---|---|"]
+    for r in rows:
+        L.append(f"| {r['provider']} | {r['agent']} | {r['arm']} | {r['n']} | "
+                 f"{r['n_empty']}/{r['n']} ({_f(r['n_empty'] / r['n'] if r['n'] else None)}) | "
+                 f"{_f(r['det_e2e'])} | {_f(r['det_valid'])} | {_f(r['id_e2e'])} | {_f(r['id_valid'])} |")
+    return L + [""]
 
 
 def _prereg_part1_tables(records) -> list[str]:
@@ -264,6 +285,13 @@ def h8_tally(rows: list, labels: dict) -> dict:
                and r["neutral_id"] <= H8_FLOOR_MAX and r["descriptive_id"] <= H8_FLOOR_MAX]
     kept = [r for r in cells if r not in floored]
     out["floored"] = [name(r) for r in floored]
+    # Threshold robustness: the floored SET is unchanged for any threshold in [lo, hi) — lo = the highest
+    # identification among floored cells, hi = the level at which the next off-arm cell would floor.
+    off_cells = [r for r in cells if r["arm"].split(".")[0] == "off"
+                 and r.get("neutral_id") is not None and r.get("descriptive_id") is not None]
+    top = lambda r: max(r["neutral_id"], r["descriptive_id"])
+    out["floor_invariant"] = (max((top(r) for r in floored), default=0.0),
+                              min((top(r) for r in off_cells if r not in floored), default=None))
     out["n_excl_floor"] = len(kept)
     out["confirming_excl_floor"] = sum(1 for r in kept if cls(r) == "confirming")
     return out
@@ -324,9 +352,15 @@ def _h8_tables(s: dict, records: list | None = None, name: str | None = None) ->
                 "(Haiku off/numbers/rule, Luna off), **2 inconclusive** (Luna numbers, Luna rule), "
                 "**0 refuting**.", ""]
         else:
+            lo, hi = t["floor_invariant"]
+            span = (f"any threshold from {lo:.3f} up to (not including) {hi:.3f}" if hi is not None
+                    else f"any threshold from {lo:.3f} up")
             floor_line = (f"Excluding the floored cell(s) — {', '.join(t['floored'])} — "
-                          f"**{t['confirming_excl_floor']} of {t['n_excl_floor']} confirming**."
-                          if t["floored"] else "No off-arm cell floors; the tally above stands unchanged.")
+                          f"**{t['confirming_excl_floor']} of {t['n_excl_floor']} confirming**. The floored set, "
+                          f"and so this tally, is the same for {span}: the choice of {H8_FLOOR_MAX} does not "
+                          "decide it."
+                          if t["floored"] else
+                          f"No off-arm cell floors; the tally above stands unchanged (for {span}).")
             B += [
                 "**PRIMARY analysis: PAIRED bootstrap.** The neutral and descriptive variants are the "
                 "SAME injected fault built at matched (strength, seed) under two config-key namings, so "

@@ -2,7 +2,7 @@
 # CI diagnostic fingerprint — printed in EVERY job so the next reference/stats
 # divergence is immediately attributable: same DATA hashes + different numbers ⇒
 # cross-microarch float reduction; different DATA hashes ⇒ data-fetch/encode drift.
-set +e
+set -uo pipefail   # NOT -e: a diagnostic print — one missing file must not abort the fingerprint.
 echo "=== CI fingerprint ==="
 echo "CPU model : $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//')"
 echo "CPU flags : $(grep -m1 '^flags' /proc/cpuinfo | tr ' ' '\n' \
