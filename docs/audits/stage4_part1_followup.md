@@ -88,16 +88,16 @@ Pattern (declared): `subset|select|confiden|filter|cherry|top.?k|partial.{0,12}(
 
 *Blames the learning rate* (declared) = `operator_class` matches `learning.?rate|\blr\b|lr_|step.?size` OR the repair patches `training.lr`. The clean configuration is lr = 0.01 with Adam.
 
-**Non-lr FAULTY trials:** 52 of 2160 (0.024).
+**Non-lr FAULTY trials:** 52 of 2160 (0.024) from submitted diagnoses; **52 of 2160 (0.024) including the SALVAGED diagnoses** of empty-diagnosis trials (§1b). lr_warmup cases are excluded — naming the learning rate there is the correct answer (e.g. case_0074, lr_warmup, salvaged `excessive_adam_learning_rate`).
 
-| provider | arm | trials | lr blame | rate |
-|---|---|---|---|---|
-| anthropic | off | 360 | 3 | 0.008 |
-| anthropic | rule | 360 | 0 | 0.000 |
-| anthropic | stats | 360 | 4 | 0.011 |
-| openai | off | 360 | 24 | 0.067 |
-| openai | rule | 360 | 11 | 0.031 |
-| openai | stats | 360 | 10 | 0.028 |
+| provider | arm | trials | lr blame (submitted) | rate | incl. salvaged | rate |
+|---|---|---|---|---|---|---|
+| anthropic | off | 360 | 3 | 0.008 | 3 | 0.008 |
+| anthropic | rule | 360 | 0 | 0.000 | 0 | 0.000 |
+| anthropic | stats | 360 | 4 | 0.011 | 4 | 0.011 |
+| openai | off | 360 | 24 | 0.067 | 24 | 0.067 |
+| openai | rule | 360 | 11 | 0.031 | 11 | 0.031 |
+| openai | stats | 360 | 10 | 0.028 | 10 | 0.028 |
 
 ## 4. Sensitivity analyses (DECLARED BEFORE COMPUTING — the pre-registered verdicts stand)
 
@@ -119,7 +119,7 @@ Pattern (declared): `subset|select|confiden|filter|cherry|top.?k|partial.{0,12}(
 
 *Flags or patches the lr* = reports an incident whose class names the learning rate, OR patches `training.lr`. If agents flagged runs because lr = 0.01 looks wrong, it would show up here.
 
-Healthy controls: 1 of 120; benign controls (lr unchanged): 2 of 360; benign lr 0.01 → 0.005 (the lr legitimately changed): 0 of 72.
+Healthy controls: 1 of 120; benign controls (lr unchanged): 2 of 360; benign lr 0.01 → 0.005 (the lr legitimately changed): 0 of 72. Including salvaged diagnoses of empty-diagnosis controls: healthy 1 of 120, benign 2 of 360.
 
 Healthy + benign (lr unchanged):
 
