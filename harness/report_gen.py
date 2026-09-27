@@ -140,7 +140,7 @@ def generate(records: list[dict], meta: dict) -> str:
         L += _metric_body(s, records, meta)
     # H8 renders only when the neutral+descriptive pair is present (self-guarded),
     # so frozen single-variant sweeps are byte-identical.
-    L += _h8_tables(s)
+    L += _h8_tables(s, records, name)
     L += _prereg_part1_tables(records)
     if exploratory:
         L += _no_passback_tables(ss.exploratory_no_passback(all_records))
@@ -220,9 +220,70 @@ def _no_passback_tables(x: dict) -> list[str]:
     return L + [""]
 
 
-def _h8_tables(s: dict) -> list:
+# The H8 pre-registration's floor clause ("the off arm may floor on both variants (Sweep-1 leakage
+# detection 0.042 off-anchor); if it floors, H8 is answered by the stats and rule arms") gives no number;
+# operationalised from its own example (0.042 floors): an off-arm cell floors when BOTH variants'
+# identification is at or below this.
+H8_FLOOR_MAX = 0.05
+_MODEL_FAMILIES = ("haiku", "sonnet", "opus", "luna", "sol")
+
+
+def _model_label(model_id: str | None, provider: str) -> str:
+    mid = (model_id or "").lower()
+    for fam in _MODEL_FAMILIES:
+        if fam in mid.replace(".", "-").split("-"):
+            return fam.capitalize()
+    return model_id or provider
+
+
+def _arm_order(arm: str) -> int:
+    base = arm.split(".")[0]
+    return {"off": 0, "numbers": 1, "stats": 1, "rule": 2}.get(base, 9)
+
+
+def h8_tally(rows: list, labels: dict) -> dict:
+    """Provider-specific tally of the H8 verdicts (pooled rows are summaries, never counted), with each
+    cell named "<model> <arm>", and the floor clause applied to the off arm."""
+    cells = sorted((r for r in rows if r["provider"] != "pooled"),
+                   key=lambda r: (r["provider"], _arm_order(r["arm"])))
+
+    def cls(r):
+        v = r["verdict"]
+        return "confirming" if v.startswith("confirming") else "refuting" if v.startswith("refuting") \
+            else "inconclusive"
+
+    def name(r):
+        return f"{labels.get(r['provider'], r['provider'])} {r['arm'].split('.')[0]}"
+
+    out = {"n": len(cells), "providers": len({r["provider"] for r in cells}),
+           "arms": len({r["arm"] for r in cells})}
+    for k in ("confirming", "inconclusive", "refuting"):
+        out[k] = [name(r) for r in cells if cls(r) == k]
+    floored = [r for r in cells if r["arm"].split(".")[0] == "off"
+               and r.get("neutral_id") is not None and r.get("descriptive_id") is not None
+               and r["neutral_id"] <= H8_FLOOR_MAX and r["descriptive_id"] <= H8_FLOOR_MAX]
+    kept = [r for r in cells if r not in floored]
+    out["floored"] = [name(r) for r in floored]
+    out["n_excl_floor"] = len(kept)
+    out["confirming_excl_floor"] = sum(1 for r in kept if cls(r) == "confirming")
+    return out
+
+
+def _h8_tally_sentence(t: dict) -> str:
+    def lst(xs):
+        return f" ({', '.join(xs)})" if xs else ""
+    return (f"Provider-specific tally (paired): **{len(t['confirming'])} of {t['n']} confirming**"
+            f"{lst(t['confirming'])}, **{len(t['inconclusive'])} inconclusive**{lst(t['inconclusive'])}, "
+            f"**{len(t['refuting'])} refuting**{lst(t['refuting'])}.")
+
+
+def _h8_tables(s: dict, records: list | None = None, name: str | None = None) -> list:
     """H8 primary — PAIRED (strength×seed) neutral − descriptive identification Δ, per
-    arm × provider — with the UNPAIRED contrast alongside, plus secondary detection/recovery."""
+    arm × provider — with the UNPAIRED contrast alongside, plus secondary detection/recovery.
+
+    The tally and its wording are COMPUTED from the rows for every sweep. Only the H8 sweep itself keeps
+    its published prose (the post-hoc paired-promotion disclosure describes a decision made on H8's own
+    results), and that prose is checked against the computed tally."""
     hp = s.get("h8_identification_contrast_paired", {})
     hu = s.get("h8_identification_contrast", {})
     if not hu.get("available"):
@@ -235,23 +296,52 @@ def _h8_tables(s: dict) -> list:
          f"−{thr['refuting_bound']} and the CI excludes 0 (hi < 0); otherwise inconclusive.", ""]
 
     if hp.get("available"):
+        labels = {}
+        for r in records or []:
+            prov = r.get("_provider")
+            if prov and prov not in labels:
+                labels[prov] = _model_label((r.get("model") or {}).get("model_id"), prov)
+        t = h8_tally(hp["rows"], labels)
+        if name == "h8_xprovider":
+            # H8's PUBLISHED wording (its report is released and byte-reproduced) — scoped to H8 and
+            # asserted against the computed tally so it can never drift from the data.
+            assert (len(t["confirming"]), len(t["inconclusive"]), len(t["refuting"]), t["n"]) == (4, 2, 0, 6), t
+            B += [
+                "**PRIMARY analysis: PAIRED bootstrap.** The neutral and descriptive variants are the "
+                "SAME injected fault built at matched (strength, seed) under two config-key namings, so "
+                "the pre-registered design pairs them; the primary CI therefore resamples matched "
+                "(strength, seed) PAIRS together, cancelling shared case difficulty. The **point estimate "
+                "is identical** to the unpaired contrast (shown below) — only the interval differs. "
+                "*Disclosure:* promoting the paired bootstrap to PRIMARY is an analysis change made AFTER "
+                "seeing results (it moves the anthropic/numbers arm from inconclusive to confirming); it is "
+                "justified by the matched-pair design, not by the outcome, and the unpaired contrast is "
+                "retained in full immediately below so the effect of the switch is visible. "
+                f"Method: {hp.get('method','')}.", "",
+                "**Counting rule:** the headline tally is over the **6 provider-specific cells only** "
+                "(2 providers × 3 arms). The `pooled` rows REUSE the same trials as the provider-specific "
+                "rows, so they are a cross-provider **summary**, NOT independent confirmations, and are "
+                "never added to the count. Provider-specific tally (paired): **4 of 6 confirming** "
+                "(Haiku off/numbers/rule, Luna off), **2 inconclusive** (Luna numbers, Luna rule), "
+                "**0 refuting**.", ""]
+        else:
+            floor_line = (f"Excluding the floored cell(s) — {', '.join(t['floored'])} — "
+                          f"**{t['confirming_excl_floor']} of {t['n_excl_floor']} confirming**."
+                          if t["floored"] else "No off-arm cell floors; the tally above stands unchanged.")
+            B += [
+                "**PRIMARY analysis: PAIRED bootstrap.** The neutral and descriptive variants are the "
+                "SAME injected fault built at matched (strength, seed) under two config-key namings, so "
+                "the primary CI resamples matched (strength, seed) PAIRS together; the point estimate is "
+                "identical to the unpaired contrast (shown below), only the interval differs. (Pairing "
+                "was adopted as primary in H8, whose report discloses that that choice followed its "
+                f"results.) Method: {hp.get('method','')}.", "",
+                f"**Counting rule:** the tally is over the **{t['n']} provider-specific cells only** "
+                f"({t['providers']} providers × {t['arms']} arms); the `pooled` rows reuse the same trials "
+                "and are a summary, never counted. " + _h8_tally_sentence(t), "",
+                "**Floor clause (H8 pre-registration):** \"the off arm may floor on both variants; if it "
+                "floors, H8 is answered by the stats and rule arms\" — an off-arm cell counts as floored "
+                f"when both variants' identification is ≤ {H8_FLOOR_MAX} (operationalised from the "
+                "clause's own example, 0.042). " + floor_line, ""]
         B += [
-            "**PRIMARY analysis: PAIRED bootstrap.** The neutral and descriptive variants are the "
-            "SAME injected fault built at matched (strength, seed) under two config-key namings, so "
-            "the pre-registered design pairs them; the primary CI therefore resamples matched "
-            "(strength, seed) PAIRS together, cancelling shared case difficulty. The **point estimate "
-            "is identical** to the unpaired contrast (shown below) — only the interval differs. "
-            "*Disclosure:* promoting the paired bootstrap to PRIMARY is an analysis change made AFTER "
-            "seeing results (it moves the anthropic/numbers arm from inconclusive to confirming); it is "
-            "justified by the matched-pair design, not by the outcome, and the unpaired contrast is "
-            "retained in full immediately below so the effect of the switch is visible. "
-            f"Method: {hp.get('method','')}.", "",
-            "**Counting rule:** the headline tally is over the **6 provider-specific cells only** "
-            "(2 providers × 3 arms). The `pooled` rows REUSE the same trials as the provider-specific "
-            "rows, so they are a cross-provider **summary**, NOT independent confirmations, and are "
-            "never added to the count. Provider-specific tally (paired): **4 of 6 confirming** "
-            "(Haiku off/numbers/rule, Luna off), **2 inconclusive** (Luna numbers, Luna rule), "
-            "**0 refuting**.", "",
             "| provider | arm | neutral id | descriptive id | Δ (95% CI, PAIRED) | n pairs | verdict |",
             "|---|---|---|---|---|---|---|"]
         for row in hp["rows"]:
@@ -314,7 +404,10 @@ def _metric_body(s: dict, records: list, meta: dict) -> list:
 
     # Ratio of the off→rule gap closed by the mid arm (the pre-registered, previously-uncomputed stat)
     r = s["ratio_gap_closed"]
-    B += ["## Fraction of the off→rule detection gap closed by the numbers/stats arm", ""]
+    # v1 sweeps keep their published heading byte-for-byte; a v2 sweep names its own mid arm.
+    _mid = (r.get("mid_arm") or "").split(".")[0]
+    B += [f"## Fraction of the off→rule detection gap closed by the "
+          f"{'stats' if _mid == 'stats' else 'numbers/stats'} arm", ""]
     if not r.get("available"):
         B += [f"_not available: {r.get('reason')}_", ""]
     else:
