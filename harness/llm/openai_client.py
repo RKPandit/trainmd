@@ -28,6 +28,7 @@ import json
 import time
 
 from harness.llm.client import LLMResponse, ToolCallRequest, Usage
+from harness.llm.strict_schema import from_strict_args
 
 _MODELS_DOC_URL = "https://developers.openai.com/api/docs/models"
 
@@ -95,13 +96,18 @@ def describe_model(model: str, temperature: float, reasoning_effort: str) -> dic
     }
 
 
-def to_responses_tools(tools_schema: list[dict]) -> list[dict]:
+def to_responses_tools(tools_schema: list[dict], strict: bool = False) -> list[dict]:
     """Anthropic tool schema -> OpenAI Responses ``tools`` (function) schema.
 
-    Responses function tools are FLAT (no nested ``function`` key). ``input_schema``
-    (a JSON Schema) is carried through verbatim as ``parameters`` — the tool
-    contract the model sees is unchanged.
+    Responses function tools are FLAT (no nested ``function`` key). Non-strict (Part 1): ``input_schema``
+    is carried through verbatim as ``parameters``. ``strict=True`` (Stage 4 Part 2 onward; LIMITATIONS L35):
+    ``parameters`` is the CLOSED schema derived from the same canonical schema
+    (``harness/llm/strict_schema.py``) and ``strict: true`` constrains the call's arguments to it.
     """
+    if strict:
+        from harness.llm.strict_schema import to_strict
+        return [{"type": "function", "name": t["name"], "description": t.get("description", ""),
+                 "parameters": to_strict(t), "strict": True} for t in tools_schema]
     return [
         {
             "type": "function",
@@ -181,7 +187,7 @@ def to_responses_input(messages: list[dict]) -> list[dict]:
     return out
 
 
-def parse_responses(response) -> LLMResponse:
+def parse_responses(response, strict: bool = False) -> LLMResponse:
     """Parse an OpenAI Responses API response into :class:`LLMResponse`.
 
     Walks ``response.output``: ``message`` items contribute assistant text
@@ -212,7 +218,9 @@ def parse_responses(response) -> LLMResponse:
             else:
                 args = raw_args
             tool_calls.append(
-                ToolCallRequest(id=item.call_id, name=item.name, arguments=args)
+                ToolCallRequest(id=item.call_id, name=item.name,
+                                # strict-shaped arguments back to the canonical (Anthropic) shape
+                                arguments=(from_strict_args(item.name, args) if strict else args))
             )
 
     # stop_reason from the response status, not a per-choice finish_reason.
@@ -315,11 +323,13 @@ class OpenAIClient:
         temperature: float = 1.0,
         reasoning_effort: str = "medium",
         reasoning_passback: bool = True,
+        strict_tools: bool = False,
     ) -> None:
         import openai
 
         self._reasoning_effort = check_effort(reasoning_effort)
         self._reasoning_passback = bool(reasoning_passback)
+        self._strict_tools = bool(strict_tools)
         self._client = openai.OpenAI()  # OPENAI_API_KEY from env
         self._model = model
         # Reasoning models sample internally; temperature is not a supported
@@ -336,6 +346,8 @@ class OpenAIClient:
         d = describe_model(self._model, self._temperature, self._reasoning_effort)
         if not self._reasoning_passback:
             d["reasoning_passback"] = False
+        if self._strict_tools:
+            d["strict_tools"] = True
         return d
 
     def complete(
@@ -356,7 +368,7 @@ class OpenAIClient:
         )
 
         req_input = to_responses_input(messages)
-        req_tools = to_responses_tools(tools_schema)
+        req_tools = to_responses_tools(tools_schema, strict=self._strict_tools)
 
         last_error: Exception | None = None
         for attempt in range(_MAX_RETRIES + 1):
@@ -375,7 +387,7 @@ class OpenAIClient:
                     store=False,
                     include=["reasoning.encrypted_content"],
                 )
-                parsed = parse_responses(response)
+                parsed = parse_responses(response, strict=self._strict_tools)
                 return parsed if self._reasoning_passback else drop_reasoning_items(parsed)
 
             except transient as e:

@@ -156,13 +156,13 @@ ran (agent phase 978/984 cells, $24.03, 6 unrun — all neutral×Luna×static; v
   lost — L29). Verdict logic corrected mid-analysis to a CI equivalence test (was point-based;
   DECISIONS 2026-09-22, RESEARCH_LOG 35).
 
-**NEXT GATE (updated 2026-09-26): Stage 4 Part 1 post-run audit, billing, then the Part 2 decision.**
-Part 1 is RUN and ANALYSED (3,216/3,216 cells; verdicts mechanical — HYPOTHESES "Stage 4 Part 1 — RESULTS":
-**H9 CONFIRMING** (lr untestable as pre-declared), **H10 CONFIRMING for Haiku / UNTESTABLE for Luna**, **benign
-contrast INCONCLUSIVE**; the exploratory pass-back arm closes L32 with a measured value). Remaining: the
-post-run second audit (~30 items across the four newly audited fault operators + benign controls, same rubric
-and blinding — LIMITATIONS L33); billed spend into the manifest's `actual_spend_usd`; then the Part 2 pilot
-decision (`docs/STAGE4_PLAN.md`).
+**NEXT GATE (updated 2026-09-27): Stage 4 Part 2 prep — pilot, then the second human audit + matcher decision,
+then the Part 2 pre-registration lock.** Part 1 is CLOSED (verdicts mechanical and robust to the declared
+sensitivity analyses — HYPOTHESES "Stage 4 Part 1"). Part 2: strict OpenAI tool schemas implemented (every
+OpenAI cell; GPT-5.6 Luna re-run, not reused — L35); the ~$3.75 pilot (`sweeps/stage4_part2_pilot_plan.yaml`)
+is ready and reports only cost / tokens / reasoning presence / compliance — never scores. The Part 2
+pre-registration (`docs/PREREG_STAGE4_PART2_DRAFT.md`) is NOT locked until the second human audit returns and
+the metric_inflation matcher decision (L36) is made. Billed Part 1 spend still to enter.
 
 ---
 
