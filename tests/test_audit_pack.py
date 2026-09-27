@@ -215,3 +215,41 @@ def test_perfect_agreement_gets_an_exact_interval_never_a_degenerate_one():
                                           "named")],
                     "explained": {}, "evidence_bins": {}, "corrections": {}}, 60)
     assert "[1.000, 1.000]" not in md and "Clopper-Pearson [0.940, 1.000]" in md
+
+
+# --------------------------------------------------------------------------- Stage 4 Part 1 design
+def _synthetic(op, prov, arm, i, passback=True):
+    cond = {"provider": prov, "agent_type": "static"}
+    if not passback:
+        cond["reasoning_passback"] = False
+    return {"run_id": f"{op}-{prov}-{arm}-{i}-{passback}", "case_id": "c", "_op": op, "_anchor": arm,
+            "status": "completed", "submission": {"diagnosis": {}}, "conditions": cond}
+
+
+def test_part1_design_stratifies_30_items_over_four_operators_and_benign_controls():
+    from scripts.build_audit_pack import PART1_CONTROL_OPS, PART1_FAULT_OPS, sample
+    arms, provs = ("off.v2", "stats.v2", "rule.v2"), ("anthropic", "openai")
+    recs = []
+    for op in PART1_FAULT_OPS + ("silent.data_leakage.v1",) + PART1_CONTROL_OPS + ("control.healthy.v1",):
+        for p in provs:
+            for a in arms:
+                recs += [_synthetic(op, p, a, i) for i in range(3)]
+                recs.append(_synthetic(op, p, a, 9, passback=False))       # exploratory: never sampled
+    picked = sample(recs, 30, 0.2, 20260923, PART1_FAULT_OPS, PART1_CONTROL_OPS)
+    assert len(picked) == 30
+    assert not any((r["conditions"].get("reasoning_passback") is False) for r in picked)
+    ops = [r["_op"] for r in picked]
+    assert "silent.data_leakage.v1" not in ops and "control.healthy.v1" not in ops
+    cells = {(r["_op"], r["conditions"]["provider"], r["_anchor"]) for r in picked if r["_op"] in PART1_FAULT_OPS}
+    assert len(cells) == 24                                              # one per operator × provider × arm
+    ctrl = [r for r in picked if r["_op"] in PART1_CONTROL_OPS]
+    assert len(ctrl) == 6 and len({(r["conditions"]["provider"], r["_anchor"]) for r in ctrl}) == 6
+
+
+def test_part1_rounds_exact_metric_values_but_keeps_config_values():
+    from scripts.build_audit_pack import redact
+    out = redact("val acc 0.85634 (85.63%) at seed 44; loss 3.563266; lr 0.005, weight decay 0.0005, "
+                 "dropout 0.1, 0.05% of rows", [], rounding=True)
+    assert out == ("val acc 0.86 (86%) at seed [redacted]; loss 3.56; lr 0.005, weight decay 0.0005, "
+                   "dropout 0.1, 0.05% of rows")                        # config-scale values untouched
+    assert redact("val acc 0.85634", []) == "val acc 0.85634"               # H8 pack unchanged

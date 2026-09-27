@@ -175,9 +175,15 @@ def _trial_path_is_public(rec: dict, path: tuple) -> bool:
     a usage token count / cost, or a value `query_metrics` returned for an agent-VISIBLE series."""
     if len(path) == 2 and path[0] == "usage" and path[1] in _USAGE_PUBLIC:
         return True
-    if (len(path) == 6 and path[0] == "tool_transcript" and isinstance(path[1], int)
-            and path[2] == "result" and path[3] == "values" and isinstance(path[4], int)
-            and path[5] == "value"):
+    per_epoch = (len(path) == 6 and path[0] == "tool_transcript" and isinstance(path[1], int)
+                 and path[2] == "result" and path[3] == "values" and isinstance(path[4], int)
+                 and path[5] == "value")
+    # The AGGREGATE form (query_metrics with agg=min/max/mean/last) returns one value at result.value —
+    # equally a value the agent saw for a visible series (found 2026-09-26: a collapsed lr_warmup run whose
+    # visible max accuracy is the majority-class rate, identical to the hidden value, was refused).
+    aggregate = (len(path) == 4 and path[0] == "tool_transcript" and isinstance(path[1], int)
+                 and path[2] == "result" and path[3] == "value")
+    if per_epoch or aggregate:
         entry = rec["tool_transcript"][path[1]]
         return (entry.get("tool_name") == "query_metrics"
                 and (entry.get("result") or {}).get("series") in _VISIBLE_SERIES)

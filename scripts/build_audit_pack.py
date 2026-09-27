@@ -22,6 +22,13 @@ items are stratified operator (descriptive / neutral leakage) × provider × arm
 arm; items spread evenly within each group, remainders assigned in a seeded order, then shuffled.
 Reference-band values and seed numbers are redacted from agent text (the band hints at the prompt
 condition; a seed, with the planted fault and cited keys, can identify the case in the public release).
+
+Stage 4 Part 1 post-run audit (``--design part1``; LIMITATIONS L33): ~30 items over the four newly audited
+fault operators (lr_warmup, label_corruption, metric_inflation, shape_mismatch; one item per operator ×
+provider × arm) plus the benign-configuration controls (one per provider × arm), exploratory trials
+excluded, and — beyond the band and seeds — every exact metric value in agent text rounded to 2 decimals
+(a precise value, with the planted fault, could identify the case once the sweep is released). Input is
+the LOCAL export ``results_release/stage4_part1/`` (``make export-release NAME=stage4_part1``; gitignored).
 """
 from __future__ import annotations
 
@@ -60,7 +67,29 @@ PLANTED = {
     "silent.data_leakage_neutral.v1": "Data leakage — the config switches on an extra input feature "
                                       "derived from the label, so validation accuracy overstates real "
                                       "performance.",
+    "silent.lr_warmup.v1": "Learning rate set far too high — training is unstable and the model can "
+                           "collapse to predicting the majority class, so accuracy drops.",
+    "silent.label_corruption.v1": "Label noise — the config flips a large fraction of the training labels, "
+                                  "so the model learns from partly wrong targets and accuracy drops.",
+    "silent.metric_inflation.v1": "Inflated metric — the reported validation accuracy is computed on only the "
+                                  "most-confident subset of validation rows, so it reads far better than the "
+                                  "model's real accuracy (the model itself is fine).",
+    "crash.shape_mismatch.v1": "Shape mismatch — the config sets the model's input dimension to the wrong "
+                               "number of features, so training crashes on the first forward pass.",
 }
+BENIGN_CHANGE = {
+    "control.benign_bs128.v1": "mini-batch size 256 → 128",
+    "control.benign_ep25.v1": "25 training epochs instead of 20",
+    "control.benign_wd5e4.v1": "weight decay 1e-4 → 5e-4",
+    "control.benign_do01.v1": "dropout 0.0 → 0.1",
+    "control.benign_lr005.v1": "learning rate 0.01 → 0.005 (within the normal range)",
+    "control.benign_clip1.v1": "gradient-norm clipping at 1.0 added",
+}
+for _op, _chg in BENIGN_CHANGE.items():
+    PLANTED[_op] = f"None — a legitimate configuration change was made ({_chg}); the run is healthy"
+PART1_FAULT_OPS = ("silent.lr_warmup.v1", "silent.label_corruption.v1", "silent.metric_inflation.v1",
+                   "crash.shape_mismatch.v1")
+PART1_CONTROL_OPS = tuple(BENIGN_CHANGE)
 
 
 def planted_fault(operator_id: str) -> str:
@@ -81,14 +110,34 @@ def band_values(card: dict) -> list[str]:
 _SEED_RE = re.compile(r"(\bseed\b\W{0,6})\d+", re.I)
 
 
-def redact(text, values) -> str:
+_EXACT_NUM_RE = re.compile(r"(?<![\w.])(\d+\.\d{3,})(?![\w.])")
+_EXACT_PCT_RE = re.compile(r"(?<![\w.])(\d+\.\d+)\s*%")
+
+
+def round_metrics(text: str) -> str:
+    """Round exact METRIC values only: a decimal with 3+ places and magnitude ≥ 0.1 (accuracies, losses,
+    σ distances) → 2 places (0.85634 → 0.86); a decimal percentage ≥ 1 → whole percent (85.63% → 86%).
+    Config-scale values below 0.1 (learning rate 0.005, weight decay 0.0005, …) are left exactly as
+    written — rounding them would misstate the configuration the annotator is judging."""
+    def pct(m):
+        v = float(m.group(1))
+        return f"{v:.0f}%" if v >= 1 else m.group(0)
+
+    def num(m):
+        v = float(m.group(1))
+        return f"{v:.2f}" if v >= 0.1 else m.group(0)
+    return _EXACT_NUM_RE.sub(num, _EXACT_PCT_RE.sub(pct, text))
+
+
+def redact(text, values, rounding: bool = False) -> str:
     """Remove what could un-blind an item: the reference-band values (hint at the prompt condition)
     and any seed number (seed + planted fault + cited keys can identify the case in the public release,
-    hence its automated scores)."""
+    hence its automated scores); with ``rounding``, exact metric values are rounded too."""
     text = "" if text is None else str(text)
     for v in values:
         text = text.replace(v, "[band value redacted]")
-    return _SEED_RE.sub(lambda m: m.group(1) + "[redacted]", text)
+    text = _SEED_RE.sub(lambda m: m.group(1) + "[redacted]", text)
+    return round_metrics(text) if rounding else text
 
 
 def evidence_text(refs) -> str:
@@ -136,14 +185,16 @@ def _spread(groups: dict, n: int, rng: random.Random) -> dict:
     return alloc
 
 
-def sample(recs: list[dict], n: int, control_share: float, seed: int) -> list[dict]:
+def sample(recs: list[dict], n: int, control_share: float, seed: int,
+           fault_ops=None, control_ops=(CONTROL,)) -> list[dict]:
     rng = random.Random(seed)
-    eligible = [r for r in recs if r.get("status") == "completed" and r.get("submission")]
+    eligible = [r for r in recs if r.get("status") == "completed" and r.get("submission")
+                and (r.get("conditions") or {}).get("reasoning_passback") is not False]   # never exploratory
     faulty, ctrl = {}, {}
     for r in eligible:
-        if r["_op"] == CONTROL:
+        if r["_op"] in control_ops:
             ctrl.setdefault((_provider(r), r["_anchor"]), []).append(r)
-        else:
+        elif r["_op"] != CONTROL and not r["_op"].startswith("control.") and (fault_ops is None or r["_op"] in fault_ops):
             faulty.setdefault((r["_op"], _provider(r), r["_anchor"]), []).append(r)
     n_ctrl = round(n * control_share)
     picked = []
@@ -157,9 +208,9 @@ def sample(recs: list[dict], n: int, control_share: float, seed: int) -> list[di
 
 
 def build(release_dir: Path, out_dir: Path, n: int = 60, control_share: float = 0.15,
-          seed: int = DEFAULT_SEED) -> dict:
+          seed: int = DEFAULT_SEED, fault_ops=None, control_ops=(CONTROL,), rounding: bool = False) -> dict:
     recs = load_from_release(release_dir)
-    picked = sample(recs, n, control_share, seed)
+    picked = sample(recs, n, control_share, seed, fault_ops, control_ops)
     cases = {p.stem: json.loads(p.read_text()) for p in (release_dir / "cases").glob("*.json")}
     rows, key = [], []
     for i, r in enumerate(picked, 1):
@@ -171,8 +222,8 @@ def build(release_dir: Path, out_dir: Path, n: int = 60, control_share: float = 
         detected = diag.get("detected")
         rows.append([item, planted_fault(r["_op"]),
                      "yes" if detected is True else "no" if detected is False else "(not stated)",
-                     redact(diag.get("operator_class"), vals) or "(none)",
-                     redact(explanation(r), vals), evidence_text(sub.get("evidence_refs")),
+                     redact(diag.get("operator_class"), vals, rounding) or "(none)",
+                     redact(explanation(r), vals, rounding), evidence_text(sub.get("evidence_refs")),
                      "", "", "", "", ""])
         sc = r.get("scores") or {}
         ev, ident = sc.get("evidence") or {}, sc.get("identification") or {}
@@ -197,7 +248,7 @@ def build(release_dir: Path, out_dir: Path, n: int = 60, control_share: float = 
         w = csv.DictWriter(fh, fieldnames=KEY_COLS)
         w.writeheader()
         w.writerows(key)
-    return {"items": len(rows), "controls": sum(k["operator"] == CONTROL for k in key)}
+    return {"items": len(rows), "controls": sum(k["operator"] in control_ops for k in key)}
 
 
 def main() -> int:
@@ -207,10 +258,17 @@ def main() -> int:
     ap.add_argument("--control-share", type=float, default=0.15)
     ap.add_argument("--seed", type=int, default=DEFAULT_SEED)
     ap.add_argument("--project-root", type=Path, default=ROOT)
+    ap.add_argument("--design", choices=["h8", "part1"], default="h8",
+                    help="part1: 4 newly audited fault operators × provider × arm + benign controls "
+                         "(provider × arm), n=30, exact metric values rounded")
     a = ap.parse_args()
     out = a.project_root / "audit" / "local" / a.sweep
-    res = build(a.project_root / "results_release" / a.sweep, out, a.n, a.control_share, a.seed)
-    print(f"build_audit_pack: {res['items']} items ({res['controls']} healthy controls)\n"
+    if a.design == "part1":
+        res = build(a.project_root / "results_release" / a.sweep, out, n=30, control_share=0.2, seed=a.seed,
+                    fault_ops=PART1_FAULT_OPS, control_ops=PART1_CONTROL_OPS, rounding=True)
+    else:
+        res = build(a.project_root / "results_release" / a.sweep, out, a.n, a.control_share, a.seed)
+    print(f"build_audit_pack: {res['items']} items ({res['controls']} controls)\n"
           f"  sheet (send to the annotator): {out / 'audit_sheet.xlsx'}\n"
           f"  key   (keep; NEVER send/commit): {out / 'audit_key.csv'}")
     return 0
