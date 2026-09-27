@@ -85,7 +85,19 @@ def patches_lr(r) -> bool:
 
 
 def lr_blame(r) -> bool:
+    """Declared definition (sensitivity (a)): the SUBMITTED operator_class names the lr, or the repair
+    patches training.lr."""
     return bool(LR_CLASS.search(diag_class(r))) or patches_lr(r)
+
+
+def lr_blame_salv(r) -> bool:
+    """Descriptive count (§3): as lr_blame, plus the SALVAGED operator_class of an empty-diagnosis trial."""
+    if lr_blame(r):
+        return True
+    if not ss.valid_submission(r):
+        sv = salvage(r)
+        return bool(sv and sv[1] and LR_CLASS.search(sv[1]))
+    return False
 
 
 def hidden_card(cid, _cache={}):
@@ -252,7 +264,8 @@ def main() -> int:
         g = defaultdict(list)
         for r in pool:
             g[(prov(r), arm(r))].append(r)
-        return [[p, a, len(ts), sum(1 for t in ts if lr_blame(t)), f(rate(ts, lr_blame))]
+        return [[p, a, len(ts), sum(1 for t in ts if lr_blame(t)), f(rate(ts, lr_blame)),
+                 sum(1 for t in ts if lr_blame_salv(t)), f(rate(ts, lr_blame_salv))]
                 for (p, a), ts in sorted(g.items())]
     nonlr = [r for r in fault if r.get("_op") != LR_OP]
     healthy = [r for r in conf if r.get("_op") == "control.healthy.v1"]
@@ -262,8 +275,12 @@ def main() -> int:
           f"*Blames the learning rate* (declared) = `operator_class` matches `{LR_CLASS.pattern}` OR the repair "
           "patches `training.lr`. The clean configuration is lr = 0.01 with Adam.", "",
           f"**Non-lr FAULTY trials:** {sum(1 for r in nonlr if lr_blame(r))} of {len(nonlr)} "
-          f"({f(rate(nonlr, lr_blame))}).", ""]
-    L += table(["provider", "arm", "trials", "lr blame", "rate"], lr_rows(nonlr)) + [""]
+          f"({f(rate(nonlr, lr_blame))}) from submitted diagnoses; **{sum(1 for r in nonlr if lr_blame_salv(r))} "
+          f"of {len(nonlr)} ({f(rate(nonlr, lr_blame_salv))}) including the SALVAGED diagnoses** of empty-diagnosis "
+          "trials (§1b). lr_warmup cases are excluded — naming the learning rate there is the correct answer "
+          "(e.g. case_0074, lr_warmup, salvaged `excessive_adam_learning_rate`).", ""]
+    L += table(["provider", "arm", "trials", "lr blame (submitted)", "rate", "incl. salvaged", "rate"],
+               lr_rows(nonlr)) + [""]
 
     # ---- 4. sensitivity ----------------------------------------------------------------------------
     def with_det(pool, fn):
@@ -313,6 +330,13 @@ def main() -> int:
     flag_lr = lambda r: (((r.get("submission") or {}).get("diagnosis") or {}).get("detected") is True
                          and bool(LR_CLASS.search(diag_class(r)))) or patches_lr(r)
 
+    def flag_lr_salv(r):
+        """flag_lr, plus an empty-diagnosis control whose SALVAGED diagnosis flags an lr incident."""
+        if flag_lr(r):
+            return True
+        sv = None if ss.valid_submission(r) else salvage(r)
+        return bool(sv and sv[0] is True and sv[1] and LR_CLASS.search(sv[1]))
+
     def ctrl_rows(pool):
         g = defaultdict(list)
         for r in pool:
@@ -323,7 +347,9 @@ def main() -> int:
           "`training.lr`. If agents flagged runs because lr = 0.01 looks wrong, it would show up here.", "",
           f"Healthy controls: {sum(1 for r in healthy if flag_lr(r))} of {len(healthy)}; benign controls (lr "
           f"unchanged): {sum(1 for r in benign if flag_lr(r))} of {len(benign)}; benign lr 0.01 → 0.005 (the lr "
-          f"legitimately changed): {sum(1 for r in benign_lr if flag_lr(r))} of {len(benign_lr)}.", ""]
+          f"legitimately changed): {sum(1 for r in benign_lr if flag_lr(r))} of {len(benign_lr)}. Including salvaged "
+          f"diagnoses of empty-diagnosis controls: healthy {sum(1 for r in healthy if flag_lr_salv(r))} of "
+          f"{len(healthy)}, benign {sum(1 for r in benign if flag_lr_salv(r))} of {len(benign)}.", ""]
     L += ["Healthy + benign (lr unchanged):", ""] + table(["provider", "arm", "trials", "flags/patches lr", "rate"],
                                                            ctrl_rows(healthy + benign)) + [""]
     OUT.write_text("\n".join(L) + "\n")
