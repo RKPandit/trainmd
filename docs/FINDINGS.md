@@ -894,7 +894,9 @@ label_corruption Δ **+0.569 [0.444, 0.681]** (Haiku 0.264, Luna 0.833); metric_
 pre-declared (Haiku 0.792 [0.653, 0.917]). **Interpretation:** model dependence is a property of diagnosing
 silent and metric-layer faults on this workload, not of leakage. Luna is if anything under-credited: its
 empty-diagnosis submissions (a format artifact; label_corruption 4/72, metric_inflation 11/72 off-anchor)
-score as misses, so the gaps are conservative (F23). **What would change our mind:** a different model pair or workload where the gap closes;
+score as misses, so the gaps are conservative (F23). *Declared sensitivity analyses (`docs/audits/stage4_part1_followup.md` §4):*
+the verdict holds counting learning-rate blame on non-lr faults as a miss (+0.417 / +0.458) and with Luna's
+salvaged detections included (+0.639 / +0.653) or its empty diagnoses excluded (+0.632 / +0.694). **What would change our mind:** a different model pair or workload where the gap closes;
 the driver (capability, hidden reasoning, training) is still unidentified at n = 2 (L28). **Status:**
 confirmed · pending replication (one workload).
 
@@ -906,7 +908,8 @@ rule − off ≥ 0.30, two-sided bootstrap test of f = 0.5, Holm over models. **
 [0.869, 0.947]**, p < 0.0001 (four eligible operators); Luna has no operator with a ≥ 0.30 gap — untestable.
 **Interpretation:** H8's ≈ 0.95 for the evaluative `numbers` arm holds, at ≈ 0.91, when the arm carries
 only numbers; for Haiku the value is in the reference statistics, not in being told what is anomalous.
-Luna's off-anchor detection is too high for the question to arise. **What would change our mind:** f below
+Luna's off-anchor detection is too high for the question to arise. Declared sensitivity analysis: counting learning-rate blame on
+non-lr faults as a miss leaves f = 0.894 [0.849, 0.937]. **What would change our mind:** f below
 0.5 on another model with headroom. **Status:** confirmed for Haiku · untestable for Luna.
 
 ### F19 — Anchoring's effect on benign-change false alarms is not established (pre-registered benign contrast) · inconclusive

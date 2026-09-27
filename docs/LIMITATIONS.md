@@ -612,3 +612,26 @@ partial repair that trains close to, but not exactly, the clean configuration ca
 of the tolerance — Part 1 verifies natively (HYPOTHESES, pre-run addendum), so platform drift no longer
 enters, but such near-threshold verdicts are reported as counted there (|margin| < 0.0055).
 
+**L35 — Luna's function-call arguments were unconstrained and degenerated in a measurable share of Part 1
+trials; end-to-end scoring under-states Luna (2026-09-26; found by the hand-read spot check).** Part 1 sent
+OpenAI tools without strict mode, and Luna's submit arguments sometimes (i) ran into whitespace until
+`max_tokens` — **90** trials, every one truncated and unparseable, so an empty diagnosis — or (ii) contained a
+punctuation-only key (`"},":`) that swallows later fields into `diagnosis` — **234** otherwise valid
+submissions, of which **218** lost their top-level `evidence_refs` and **216** (faulty) their `repair_spec`
+(`docs/audits/stage4_part1_followup.md` §1a). Everything is scored END-TO-END, so Luna's detection,
+identification, evidence F1 and recovery are under-stated relative to its diagnoses. Salvaging the valid
+prefix of the 90 truncated arguments (descriptive only, §1b) raises Luna static detection from 0.843–0.907
+to 0.963–1.000 per arm. **Effect on the verdicts: none** — H9 remains CONFIRMING with the salvaged
+detections included or the empty diagnoses excluded (the gaps widen; the pre-registered gaps are
+conservative, F17/F23), and H10 is untested for Luna. Luna's evidence and recovery secondaries, and every
+Luna − Haiku evidence/recovery contrast, carry this caveat. Remedy proposed for Part 2 (strict schemas;
+Luna re-run — `docs/STAGE4_PLAN.md`).
+
+**L36 — metric_inflation identification is likely under-credited by the matcher; the second human audit
+adjudicates (2026-09-26).** Of **264** metric_inflation trials whose label was scored wrong, **199** name a
+selected / subset / confidence-filtered evaluation — the operator's mechanism (e.g.
+`confidence_selected_validation_subset` ×63) — Luna 178 of 185, Haiku 21 of 79
+(`docs/audits/stage4_part1_followup.md` §2). The matcher is NOT changed after seeing these labels: the
+post-run audit rates them blind; any fix will be derived from the operator's mechanism, then applied with a
+disclosed rescore. Until then, metric_inflation identification (0.322 pooled end-to-end) is a lower bound,
+and Luna's more so. Detection — and so H9 and H10 — does not depend on identification.

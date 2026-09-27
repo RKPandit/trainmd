@@ -1242,3 +1242,11 @@ the four recorded commits are one code version (manifest `provenance_note`; DECI
   pass-back ON − OFF: detection **+0.153 [0.042, 0.264]**, identification +0.111 [−0.014, 0.236], evidence
   F1 **+0.156 [0.053, 0.257]** — the measured size of H8's adapter handicap (LIMITATIONS L32).
 
+*Sensitivity analyses (appended 2026-09-26; declared before computing — DECISIONS 2026-09-26, commit
+5e2123e; the verdicts above STAND as computed; `docs/audits/stage4_part1_followup.md` §4).* **H9 stays
+CONFIRMING under every reading:** (a) counting the 52 non-lr faulty trials whose diagnosis blames the
+learning rate as misses — label_corruption +0.417 [0.319, 0.514], metric_inflation +0.458 [0.361, 0.556];
+(b) with Luna's salvaged detections included — +0.639 [0.528, 0.750] / +0.653 [0.556, 0.750]; with Luna's
+empty diagnoses excluded — +0.632 [0.512, 0.747] / +0.694 [0.591, 0.792]. **H10 stays CONFIRMING for Haiku**
+under (a): f = 0.894 [0.849, 0.937] (Luna untestable). Control check: agents flag or patch the learning rate
+on 1 of 120 healthy and 2 of 360 benign (lr-unchanged) control trials.
