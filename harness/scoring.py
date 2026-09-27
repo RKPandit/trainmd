@@ -890,6 +890,8 @@ def score_recovery_standalone(
     mark_card_superseded(record, case_dir)
 
     # Overwrite the record file
+    from harness.results_lock import assert_can_write
+    assert_can_write(project_root, "rewrite a trial record (recovery re-score)")
     with open(record_path, "w") as f:
         yaml.dump(record, f, default_flow_style=False, sort_keys=False)
 

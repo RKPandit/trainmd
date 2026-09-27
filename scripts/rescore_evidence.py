@@ -69,6 +69,9 @@ def _workload_name(root: Path, cid: str) -> str:
 def rescore(root: Path, apply: bool, sweeps: set[str] | None = None, source_rev: str | None = None) -> dict:
     from harness.scoring import _evidence_triple
     from harness.provenance import update_index
+    if apply:
+        from harness.results_lock import assert_can_write
+        assert_can_write(root, "re-score trial records")
 
     src_cache: dict = {}
 

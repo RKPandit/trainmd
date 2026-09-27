@@ -435,3 +435,27 @@ table, just a miss. Reading one showed what it was.
 **Lives in:** docs/audits/stage4_part1_followup.md (`scripts/part1_followup.py`); docs/LIMITATIONS.md (L35,
 L36); docs/HYPOTHESES.md (Part 1 sensitivity note); docs/FINDINGS.md (F17, F18, F23); docs/STAGE4_PLAN.md
 (Part 2 strict-mode proposal); DECISIONS 2026-09-26.
+
+### 37. A rule written down the day before, broken by the one who wrote it
+
+On 2026-09-26 a branch switch during the Part 1 agents phase produced a rule: never switch branches or edit
+files in the checkout a sweep is running from. The next day the coding agent (me) ran an uncommitted
+re-score over Part 1's records in exactly that checkout while the Part 2 pilot was writing to it. Both
+rewrote `results/index.jsonl` in place; the index lost half its rows and gained a NUL line, the pilot's
+next three trials failed on it, and the circuit breaker stopped the pilot at 45/91 ($0.82). The re-score
+itself stopped part-way through, having rewritten 1,279 records with code nobody had reviewed. A `grep` on
+its output hid the traceback, so the partial state was found only when the index was checked.
+
+Nothing published was affected. The records are the source of truth and a backup had been taken minutes
+before; the index was rebuilt from the records, the 1,279 were restored byte-for-byte, and six orphan
+pilot records went to quarantine. It still cost a stopped pilot and an afternoon, and it could have
+touched published evidence.
+
+**The lesson: a rule that depends on someone remembering it is only a note.** The 2026-09-26 rule was
+correct and I had written it myself. Now the code enforces it: a sweep holds a lock on `results/`, every
+writer refuses while another live process holds it, and every index write is locked and atomic. Two
+smaller lessons: an `--apply` step on shared evidence needs committed, reviewed code first; and never pipe
+a writer's output through a filter that can hide its failure.
+
+**Lives in:** DECISIONS 2026-09-27 (incident row); `harness/results_lock.py`; `scripts/rebuild_index.py`;
+`tests/test_results_lock.py`; `results/_quarantine/incident_20260927/README.txt` (local).
