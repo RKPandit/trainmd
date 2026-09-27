@@ -140,7 +140,7 @@ def _cell_key(r: dict) -> tuple:
     Part 2) or the exploratory arm beside its confirmatory twin are DIFFERENT cells, never retries
     of one. Sweeps with one model per provider and no such factors get the same grouping as before."""
     c = r.get("conditions") or {}
-    extra = tuple((k, c[k]) for k in ("effort", "thinking", "reasoning_passback") if k in c)
+    extra = tuple((k, c[k]) for k in ("effort", "thinking", "reasoning_passback", "strict_tools") if k in c)
     return (r.get("case_id"), c.get("agent_type"), c.get("anchor"),
             c.get("repeat_index"), c.get("provider"), (r.get("model") or {}).get("model_id")) + extra
 
@@ -230,6 +230,8 @@ def load_from_cases(root: Path, sweep_name: str, include_trusted: bool = False) 
             continue
         if d.get("trusted") and not include_trusted:
             continue
+        if c.get("pilot"):
+            continue   # PILOT trials are never scored and excluded from every analysis (Stage 4 Part 2)
         # Scored against a stale build → excluded from aggregation, UNLESS this is a frozen
         # historical sweep (whose records are legitimately all-superseded by a later reference era).
         if d.get("card_superseded") and not frozen:
@@ -269,6 +271,8 @@ def load_from_release(release_dir: Path) -> list[dict]:
     recs = []
     for f in sorted((release_dir / "trials").glob("*.json")):
         d = json.loads(f.read_text())
+        if (d.get("conditions") or {}).get("pilot"):
+            continue   # PILOT trials are excluded from every analysis
         recs.append(attach_meta(d, meta(d["case_id"])))
     return dedup_one_per_cell(recs)
 

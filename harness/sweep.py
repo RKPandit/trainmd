@@ -97,6 +97,40 @@ def _lookup_case(registry: dict, operator: str, strength: str, seed: int) -> str
     return None
 
 
+_CELL_SETTINGS = ("effort", "thinking", "max_tokens")
+
+
+def parse_provider_spec(spec: str) -> dict:
+    """``provider:model[:key=value[,key=value]]`` → a provider entry. Keys: effort, thinking, max_tokens
+    (the Part 2 per-condition generation settings; validated per model by the clients)."""
+    parts = spec.split(":", 2)
+    prov = {"provider": parts[0], "model": (parts[1] if len(parts) > 1 and parts[1] else DEFAULT_MODEL)}
+    if len(parts) == 3 and parts[2]:
+        for kv in parts[2].split(","):
+            k, _, v = kv.partition("=")
+            if k not in _CELL_SETTINGS or not v:
+                raise ValueError(f"provider spec {spec!r}: bad setting {kv!r} (allowed: {_CELL_SETTINGS})")
+            prov[k] = int(v) if k == "max_tokens" else v
+    return prov
+
+
+def condition_label(prov: dict) -> str:
+    """The provider-condition identity: provider (+ model-independent settings), e.g.
+    ``anthropic|thinking=disabled``. Equal to the bare provider when no settings are given, so existing
+    cell ids are unchanged."""
+    extra = [f"{k}={prov[k]}" for k in _CELL_SETTINGS if prov.get(k) is not None]
+    return "|".join([prov["provider"]] + extra)
+
+
+def _cell_provider_key(prov: dict, providers: list) -> str:
+    """The provider part of a cell id: the bare provider for a single-model, settings-free provider (so
+    existing plans' ids are unchanged), else condition + model (Part 2 runs several models / settings per
+    provider, whose cells must never share an id)."""
+    same = sum(1 for p in providers if p["provider"] == prov["provider"])
+    label = condition_label(prov)
+    return prov["provider"] if (same == 1 and label == prov["provider"]) else f"{label}|{prov['model']}"
+
+
 def _cell_id(operator, strength, seed, agent, anchor, repeat, provider="anthropic", variant="") -> str:
     key = f"{operator}:{strength}:{seed}:{agent}:{anchor}:{repeat}:{provider}"
     if variant:                       # an exploratory variant of an otherwise identical cell
@@ -167,13 +201,15 @@ def enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeat
             for agent in cell_agents:
                 for anchor in ANCHORS:
                     for r in range(cell_repeats):
-                        cells.append({
-                            "cell_id": _cell_id(op, st, sd, agent, anchor, r, prov["provider"]),
+                        cell = {
+                            "cell_id": _cell_id(op, st, sd, agent, anchor, r, _cell_provider_key(prov, providers)),
                             "case_id": case_id,
                             "operator": op, "tier": tier, "strength": st, "seed": sd,
                             "provider": prov["provider"], "model": prov["model"],
                             "agent": agent, "anchor": anchor, "repeat_index": r,
-                        })
+                        }
+                        cell.update({k: prov[k] for k in _CELL_SETTINGS if prov.get(k) is not None})
+                        cells.append(cell)
         # Exploratory H8-defect arm: the same case × off × Luna ReAct × repeats, pass-back OFF.
         x = EXPLORATORY_NO_PASSBACK
         if no_passback_model and op in x["operators"]:
@@ -285,7 +321,8 @@ _EXCLUSION_REASONS = {
 
 def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=None,
          repeats=DEFAULT_REPEATS, order_seed=1234, model=DEFAULT_MODEL,
-         operators=None, providers=None, benign_seeds=None, no_passback_model=None) -> dict:
+         operators=None, providers=None, benign_seeds=None, no_passback_model=None,
+         openai_strict_tools=False, pilot_static=None, pilot_react=None, pilot_seed=20260927) -> dict:
     strengths = strengths or DEFAULT_STRENGTHS
     faulty_seeds = faulty_seeds or DEFAULT_FAULTY_SEEDS
     # `is None` (not `or`) so an explicit empty list means NO controls (faulty-only sweep).
@@ -299,6 +336,29 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
     cells, missing = enumerate_cells(
         project_root, strengths, faulty_seeds, control_seeds, repeats, operators, providers,
         benign_seeds, no_passback_model)
+    # Stage 4 Part 2 DECISION (2026-09-27): strict tool schemas on EVERY OpenAI cell (LIMITATIONS L35).
+    if openai_strict_tools:
+        for c in cells:
+            if c.get("provider") == "openai":
+                c["strict_tools"] = True
+    # PILOT (Stage 4 Part 2): a small uniform sample per provider-condition — pilot_static static + pilot_react
+    # ReAct cells each (seeded) — run WITHOUT scoring; its trials are excluded from every analysis.
+    pilot = None
+    if pilot_static is not None or pilot_react is not None:
+        prng = random.Random(pilot_seed)
+        groups: dict = {}
+        for c in cells:
+            if not c.get("exploratory"):
+                groups.setdefault((c["provider"], c["model"]) + tuple(c.get(k) for k in _CELL_SETTINGS), []).append(c)
+        kept = []
+        for key in sorted(groups, key=lambda k: tuple(map(str, k))):
+            for agent, k in (("static", pilot_static or 0), ("react", pilot_react or 0)):
+                pool = sorted((c for c in groups[key] if c["agent"] == agent), key=lambda c: c["cell_id"])
+                kept += prng.sample(pool, min(k, len(pool)))
+        cells = kept
+        pilot = {"static_per_condition": pilot_static or 0, "react_per_condition": pilot_react or 0,
+                 "seed": pilot_seed, "scores": "NOT computed (run_trial score=False); pilot trials are "
+                                               "excluded from every analysis (harness/sweep_stats loaders)"}
     random.Random(order_seed).shuffle(cells)
 
     from operators.registry import all_operator_ids
@@ -339,7 +399,8 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
                           "agents": AGENTS, "anchors": ANCHORS, "prompt_major": PROMPT_MAJOR,
                           "repeats": repeats,
                           "strengths": strengths, "faulty_seeds": faulty_seeds,
-                          "control_seeds": control_seeds, "benign_seeds": benign_seeds},
+                          "control_seeds": control_seeds, "benign_seeds": benign_seeds,
+                          **({"openai_strict_tools": True} if openai_strict_tools else {})},
         "exploratory": ({"no_passback": {**{k: (list(v) if isinstance(v, tuple) else v)
                                             for k, v in EXPLORATORY_NO_PASSBACK.items()},
                                          "model": no_passback_model,
@@ -353,6 +414,8 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
         "verify_estimate": {"reruns": n_verify},
         "case_set": case_set,
     }
+    if pilot is not None:
+        manifest["pilot"] = pilot
     out = {"header": manifest, "cells": cells}
     return {"plan": out, "missing": missing, "path": project_root / "sweeps" / f"{name}_plan.yaml"}
 
@@ -533,7 +596,7 @@ def _provider_smoke(providers) -> list[str]:
 
 def _make_client(provider: str, model: str, *, prompt_caching: bool = False,
                  effort: str | None = None, thinking: str | None = None,
-                 reasoning_passback: bool = True):
+                 reasoning_passback: bool = True, strict_tools: bool = False):
     """Construct the LLM client for a provider. The SINGLE dispatch point — the
     factory and the precondition smoke both go through it, so a provider can never
     be silently routed to the wrong client (the bug that produced an all-Haiku
@@ -552,6 +615,8 @@ def _make_client(provider: str, model: str, *, prompt_caching: bool = False,
         from harness.llm.anthropic_client import AnthropicClient
         if not reasoning_passback:
             raise ValueError("reasoning_passback=False is defined only for OpenAI (the H8-defect arm)")
+        if strict_tools:
+            raise ValueError("strict_tools is an OpenAI setting (Anthropic requests are never changed)")
         return AnthropicClient(model=model, temperature=1.0, prompt_caching=prompt_caching,
                                effort=effort, thinking=thinking)
     if provider == "openai":
@@ -559,7 +624,7 @@ def _make_client(provider: str, model: str, *, prompt_caching: bool = False,
         if thinking is not None:
             raise ValueError("thinking is an Anthropic setting; use effort (reasoning_effort) for OpenAI")
         return OpenAIClient(model=model, reasoning_effort=effort or "medium",
-                            reasoning_passback=reasoning_passback)
+                            reasoning_passback=reasoning_passback, strict_tools=strict_tools)
     raise ValueError(f"unknown provider {provider!r} (expected 'anthropic' or 'openai')")
 
 
@@ -575,7 +640,8 @@ def _default_agent_factory(cell, model):
     # resent history); a single-call static agent would pay the 1.25x write with no reads.
     client = _make_client(provider, model, prompt_caching=(cell["agent"] != "static"),
                           effort=cell.get("effort"), thinking=cell.get("thinking"),
-                          reasoning_passback=cell.get("reasoning_passback", True))
+                          reasoning_passback=cell.get("reasoning_passback", True),
+                          strict_tools=bool(cell.get("strict_tools", False)))
     # max_tokens caps thinking + text together; thinking cells set a larger cap in the plan.
     kw = {"max_response_tokens": cell["max_tokens"]} if cell.get("max_tokens") else {}
     if cell["agent"] == "static":
@@ -683,6 +749,7 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
 
     plan_path = project_root / "sweeps" / f"{name}_plan.yaml"
     plan_doc = yaml.safe_load(plan_path.read_text())
+    is_pilot = bool((plan_doc.get("header") or {}).get("pilot"))
     cells = plan_doc["cells"]
     model = plan_doc["header"].get("model", DEFAULT_MODEL)
     agent_factory = agent_factory or (lambda c: _default_agent_factory(c, model))
@@ -736,9 +803,13 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
                       "provider": cell.get("provider", "anthropic")}
         # Part 2 reasoning factors — recorded only when the cell sets them (Part 1 unchanged).
         conditions.update({k: cell[k] for k in ("effort", "thinking") if cell.get(k) is not None})
+        if is_pilot:
+            conditions["pilot"] = True           # excluded from every analysis; never scored
         # The exploratory H8-defect arm is marked on the record so analysis can never pool it.
         if cell.get("reasoning_passback") is False:
             conditions["reasoning_passback"] = False
+        if cell.get("strict_tools"):
+            conditions["strict_tools"] = True
         case_dir = project_root / "cases" / cell["case_id"]
         rec = None
         error = None
@@ -746,7 +817,7 @@ def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=
             try:
                 t0 = time.monotonic()
                 rec = trial_fn(agent_factory(cell), case_dir, project_root,
-                               conditions=conditions)
+                               conditions=conditions, **({"score": False} if is_pilot else {}))
                 walls.append(time.monotonic() - t0)
                 error = None
                 break
@@ -814,6 +885,8 @@ def _maxrss_to_mb(ru_maxrss: int) -> float:
 
 def run_verify(project_root, name, *, recovery_fn=None):
     """Free recovery phase over completed non-control agent trials."""
+    if is_pilot_sweep(project_root, name):
+        return {"error": f"refusing to verify {name!r}: a PILOT is never scored (recovery is a score)"}
     # A sweep with a committed release is PUBLISHED: its stored recovery verdicts are frozen evidence and
     # must never be rewritten in place by a re-verification (e.g. H8 — LIMITATIONS L34 reads native values
     # from the memo instead). Refuse rather than silently overwrite.
@@ -911,6 +984,56 @@ def _find_record(project_root, run_id):
 # report
 # ---------------------------------------------------------------------------
 
+def is_pilot_sweep(project_root, name) -> bool:
+    p = Path(project_root) / "sweeps" / f"{name}_plan.yaml"
+    return p.is_file() and bool(((yaml.safe_load(p.read_text()) or {}).get("header") or {}).get("pilot"))
+
+
+def pilot_report(records: list[dict]) -> str:
+    """The ONLY output of a pilot (Stage 4 Part 2): per provider-condition — cost, token volume (incl.
+    thinking / reasoning tokens), reasoning presence past the first tool call, and structured-output /
+    strict-mode compliance. It reads NO scores (a pilot's records carry none) so it cannot inform any
+    threshold."""
+    groups: dict = {}
+    for r in records:
+        c = r.get("conditions") or {}
+        m = (r.get("model") or {}).get("model_id")
+        key = (c.get("provider"), m, c.get("effort"), c.get("thinking"), bool(c.get("strict_tools")))
+        groups.setdefault(key, []).append(r)
+    L = ["# PILOT report — cost, tokens, reasoning presence, compliance (NO scores)", "",
+         "| provider | model | effort | thinking | strict tools | agent | trials | completed | cost $ | $ / trial "
+         "| input tok | output tok | reasoning tok | truncations | reasoning past 1st tool call | submit parsed | "
+         "empty diagnosis |", "|" + "---|" * 17]
+    from harness.sweep_stats import valid_submission
+    for key in sorted(groups, key=lambda k: tuple(map(str, k))):
+        for agent in ("static", "react"):
+            rs = [r for r in groups[key] if (r.get("conditions") or {}).get("agent_type") == agent]
+            if not rs:
+                continue
+            done = [r for r in rs if r.get("status") == "completed"]
+            u = [r.get("usage") or {} for r in rs]
+            cost = sum(x.get("estimated_cost_usd") or 0.0 for x in u)
+            rtok = sum((t.get("reasoning_tokens") or 0) for r in rs for t in (r.get("llm_transcript") or []))
+            multi = [r for r in done if len(r.get("llm_transcript") or []) >= 2]
+            past = sum(1 for r in multi if any((t.get("reasoning_blocks") or 0) > 0
+                                               for t in (r.get("llm_transcript") or [])[1:]))
+            parsed = sum(1 for r in done if any(isinstance(tc.get("arguments"), dict)
+                                                for t in (r.get("llm_transcript") or [])
+                                                for tc in (t.get("tool_calls") or []) if tc.get("name") == "submit"))
+            empty = sum(1 for r in done if not valid_submission(r))
+            L.append(f"| {key[0]} | {key[1]} | {key[2] or '—'} | {key[3] or '—'} | {'yes' if key[4] else 'no'} | "
+                     f"{agent} | {len(rs)} | {len(done)} | {cost:.4f} | {cost / len(rs):.4f} | "
+                     f"{sum(x.get('input_tokens') or 0 for x in u):,} | {sum(x.get('output_tokens') or 0 for x in u):,} | "
+                     f"{rtok:,} | {sum(x.get('max_tokens_truncations') or 0 for x in u)} | "
+                     f"{past}/{len(multi) if multi else 0} | {parsed}/{len(done)} | {empty}/{len(done)} |")
+    tot = sum((r.get("usage") or {}).get("estimated_cost_usd") or 0.0 for r in records)
+    L += ["", f"Total estimated cost: ${tot:.4f} over {len(records)} trials. *Reasoning past 1st tool call* = "
+          "multi-call trials with a reasoning block on a turn after the first; *submit parsed* = the final submit "
+          "call's arguments parsed as an object; *empty diagnosis* = no usable `diagnosis.detected`. No detection, "
+          "identification, evidence or recovery score is computed or shown."]
+    return "\n".join(L) + "\n"
+
+
 def report(project_root, name):
     """Regenerate a sweep's deterministic machine report from records (STAGE3_PLAN §0.3).
 
@@ -921,6 +1044,9 @@ def report(project_root, name):
     from harness.audit_index import assert_clean_for_aggregation
     from harness import report_gen
 
+    if is_pilot_sweep(project_root, name):
+        raise SystemExit(f"report: {name!r} is a PILOT — its trials are never scored or analysed; "
+                         f"use `python -m harness.sweep pilot-report --name {name}`")
     assert_clean_for_aggregation(project_root)
     project_root = Path(project_root)
     # Exclusion counts (trusted / superseded) for the report header; the analysis loader drops both.
@@ -967,6 +1093,12 @@ def main() -> int:
     pp.add_argument("--benign-seeds", nargs="*", type=int, default=None,
                     help="schedule the benign-configuration controls on these seeds (Part 1: 70-93; "
                          "static-only reduced control protocol, like healthy controls)")
+    pp.add_argument("--pilot-static", type=int, default=None,
+                    help="PILOT: keep this many static cells per provider-condition (no scoring)")
+    pp.add_argument("--pilot-react", type=int, default=None,
+                    help="PILOT: keep this many ReAct cells per provider-condition (no scoring)")
+    pp.add_argument("--openai-strict-tools", action="store_true",
+                    help="send strict tool schemas on EVERY OpenAI cell (Stage 4 Part 2 decision; L35)")
     pp.add_argument("--exploratory-no-passback", default=None, metavar="OPENAI_MODEL",
                     help="add the EXPLORATORY H8-defect arm: leakage x off x ReAct on this openai model "
                          "with reasoning pass-back OFF (quantifies LIMITATIONS L32 only)")
@@ -1001,6 +1133,10 @@ def main() -> int:
     rc.add_argument("--name", required=True)
     rc.add_argument("--project-root", type=Path, default=None)
 
+    pr = sub.add_parser("pilot-report", help="a PILOT's only output: cost, tokens, reasoning, compliance")
+    pr.add_argument("--name", required=True)
+    pr.add_argument("--project-root", type=Path, default=None)
+
     rep = sub.add_parser("report")
     rep.add_argument("--name", required=True)
     rep.add_argument("--project-root", type=Path, default=None)
@@ -1013,12 +1149,13 @@ def main() -> int:
         if args.providers:
             providers = []
             for spec in args.providers:
-                prov, _, mdl = spec.partition(":")
-                providers.append({"provider": prov, "model": mdl or DEFAULT_MODEL})
+                providers.append(parse_provider_spec(spec))
         result = plan(root, args.name, args.strengths, args.seeds, args.control_seeds,
                       args.repeats, args.order_seed, operators=args.operators,
                       providers=providers, benign_seeds=args.benign_seeds,
-                      no_passback_model=args.exploratory_no_passback)
+                      no_passback_model=args.exploratory_no_passback,
+                      openai_strict_tools=args.openai_strict_tools,
+                      pilot_static=args.pilot_static, pilot_react=args.pilot_react)
         if args.build_missing and result["missing"]:
             summary = build_missing(root, result["missing"])
             print(f"[build-missing] built={len(summary['built'])} skipped={len(summary['skipped'])} "
@@ -1030,7 +1167,9 @@ def main() -> int:
             result = plan(root, args.name, args.strengths, args.seeds, args.control_seeds,
                           args.repeats, args.order_seed, operators=args.operators,
                           providers=providers, benign_seeds=args.benign_seeds,
-                          no_passback_model=args.exploratory_no_passback)
+                          no_passback_model=args.exploratory_no_passback,
+                          openai_strict_tools=args.openai_strict_tools,
+                          pilot_static=args.pilot_static, pilot_react=args.pilot_react)
         path = write_plan(result)
         est = result["plan"]["header"]["cost_estimate"]
         print(f"Plan: {path}\n  cells={result['plan']['header']['n_cells']} "
@@ -1073,6 +1212,18 @@ def main() -> int:
         res = reasoning_check(recs)
         print(f"check-reasoning {args.name}: {res}")
         return {"passed": 0, "not_applicable": 0, "pending": 2, "failed": 1}[res["status"]]
+
+    if args.cmd == "pilot-report":
+        if not is_pilot_sweep(root, args.name):
+            print(f"pilot-report: {args.name!r} is not a pilot plan", file=sys.stderr)
+            return 1
+        recs = [r for f in sorted((root / "results").glob("*/trials/*.yaml"))
+                for r in [yaml.safe_load(f.read_text())]
+                if (r.get("conditions") or {}).get("sweep_name") == args.name and not r.get("trusted")]
+        out = root / "sweeps" / f"{args.name}_pilot_report.md"
+        out.write_text(pilot_report(recs))
+        print(out.read_text())
+        return 0
 
     if args.cmd == "report":
         out = report(root, args.name)

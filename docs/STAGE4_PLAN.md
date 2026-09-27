@@ -239,7 +239,16 @@ measure real thinking volume (replaces the assumed multipliers below) and to ass
 **thinking is still present on turns AFTER the first tool call** — `python -m harness.sweep
 check-reasoning --name <pilot>` must report `passed` (prior thinking replayed on every later call AND
 reasoning recurring after the first tool call; the agents phase also stops by itself on a drop), as
-`check-cache` must for caching. Re-estimate the budget from the pilot before committing.
+`check-cache` must for caching. Re-estimate the budget from the pilot before committing. **Pilot as built
+(2026-09-27):** `sweeps/stage4_part2_pilot_plan.yaml` — 10 static + 3 ReAct cells per new condition (Sonnet 5
+off; Sonnet 5 medium and Opus 5.5 medium with `max_tokens` 16,384; GPT-5.6 Luna medium and none, GPT-6 Luna
+medium, GPT-6 Sol medium — every OpenAI cell with strict tool schemas), 91 cells, ≈ $3.75 at the table's
+assumed multipliers (the plan header's machine estimate is Haiku-prior-based and understates it). **Pilot rule
+(author's):** it reports ONLY cost, token volume incl. thinking, reasoning presence past the first tool call and
+strict-mode compliance (`python -m harness.sweep pilot-report`); no score is computed or shown, and pilot
+trials are excluded from every analysis. **Lock dependency:** the Part 2 pre-registration is not locked until
+the second human audit returns and the metric_inflation matcher decision (L36) is made, so Part 2 is scored
+with the final matcher from the start.
 
 **Cost estimate** (per condition, 780 static trials = 108 faulty cases × 3 arms × 2 repeats + 44
 controls × 3 arms × 1; ReAct shown for comparison). Built from H8's MEASURED per-trial token profiles
