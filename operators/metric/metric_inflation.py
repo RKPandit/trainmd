@@ -233,6 +233,21 @@ class MetricInflationOperator:
             "misreport", "misleading", "unrepresentative", "skew",
         })]
 
+    def core_token_alternatives(self) -> list[list[frozenset[str]]]:
+        """A SECOND, mechanism-level concept (root_token_v3; DECISIONS 2026-09-27), derived from this
+        operator's mechanism as documented above — "the REPORTED validation accuracy is measured on the
+        most-confident fraction q of validation rows rather than on the full split" — i.e. EVALUATION ON A
+        SELECTED SUBSET of the validation data. A label satisfies it iff it names BOTH a subset-selection
+        term AND an evaluation/metric context term; a bare "subset" / "selection" / "filter" without
+        evaluation context (training-set subsets, feature selection, data filtering) does not. The
+        second human audit (Stage 4 Part 1) rated such labels correct; the stems are fixed from the
+        mechanism, not from the observed labels, and the veto / negation / uniqueness rules still apply.
+        """
+        return [[
+            frozenset({"subset", "select", "filter"}),
+            frozenset({"eval", "evaluat", "validat", "val", "metric", "accurac", "report", "scor"}),
+        ]]
+
     def off_concept_vetoes(self) -> frozenset[str]:
         """Off-concept uses of the token ``bias`` that are NOT metric inflation.
 

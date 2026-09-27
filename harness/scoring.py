@@ -62,7 +62,9 @@ def _normalize_class(name: str) -> str:
 #   3. PER-OPERATOR EXCLUSION: known off-concept collisions (memory_leak,
 #      bias_variance, …) are vetoed even though a concept token is present.
 
-IDENTIFICATION_METHOD = "root_token_v2"
+# v3 (2026-09-27): an operator may declare ALTERNATIVE concept specs (core_token_alternatives), each
+# derived from its mechanism; everything else is v2 (DECISIONS 2026-09-27, second human audit).
+IDENTIFICATION_METHOD = "root_token_v3"
 
 # Stems this length or shorter match a WHOLE token only (guards against short-token
 # bleed, e.g. "lr"/"dim"). Longer stems match a whole token OR a declared
@@ -116,15 +118,16 @@ def _phrase_present(tokens: list[str], phrase: str) -> bool:
     return any(tokens[i:i + n] == parts for i in range(len(tokens) - n + 1))
 
 
-def _operator_matches(tokens: list[str], groups: list, vetoes=()) -> bool:
-    """A label satisfies an operator iff no off-concept veto phrase is present AND
-    EVERY group matches (AND across groups); a group matches if ANY stem matches
-    (OR within). Stems match at whole-token/inflection granularity only."""
+def _operator_matches(tokens: list[str], groups: list, vetoes=(), alternatives=()) -> bool:
+    """A label satisfies an operator iff no off-concept veto phrase is present AND it satisfies the
+    main spec or an alternative spec (root_token_v3), where a spec is satisfied iff EVERY group matches
+    (AND across groups) and a group matches if ANY stem matches (OR within). Stems match at
+    whole-token/inflection granularity only."""
     if any(_phrase_present(tokens, v) for v in vetoes):
         return False
-    return all(
-        any(_stem_spans(tokens, stem) for stem in group)
-        for group in groups
+    return any(
+        spec and all(any(_stem_spans(tokens, stem) for stem in group) for group in spec)
+        for spec in [groups, *alternatives]
     )
 
 
@@ -159,12 +162,13 @@ def _negates_concept(tokens: list[str], concept_idx: set) -> bool:
     return False
 
 
-def _matched_operators(normalized_pred: str, specs: dict, vetoes: dict) -> list[str]:
-    """Every operator whose core-token spec the label satisfies (veto-aware)."""
+def _matched_operators(normalized_pred: str, specs: dict, vetoes: dict, alternatives: dict | None = None) -> list[str]:
+    """Every operator whose core-token spec (or an alternative spec) the label satisfies (veto-aware)."""
     tokens = normalized_pred.split("_")
+    alternatives = alternatives or {}
     return sorted(
         op_id for op_id, groups in specs.items()
-        if groups and _operator_matches(tokens, groups, vetoes.get(op_id, ()))
+        if groups and _operator_matches(tokens, groups, vetoes.get(op_id, ()), alternatives.get(op_id, ()))
     )
 
 
@@ -306,6 +310,11 @@ EVIDENCE_SCORER_V2_1 = "evidence_v2.1"
 # (config key → consuming workload code → mechanism function), resolved from the case's own workspace
 # (harness/evidence_code.py). Found missing by the blind audit (FINDINGS F16).
 EVIDENCE_SCORER_V2_2 = "evidence_v2.2"
+# v2.3 (2026-09-27; DECISIONS, second human audit): v2.2 + each crash operator's CRASH-OUTPUT sets (its config
+# keys + the crash block, or + the exception line), resolved from the case's own run log
+# (harness/evidence_code.py::crash_output_refs). The static line range they supplement was stale (lines 2–24
+# while the exception line sits at 34 in every Part 1 shape case).
+EVIDENCE_SCORER_V2_3 = "evidence_v2.3"
 _IOU_THRESHOLD = 0.5      # min intersection-over-union for a span match
 _WIDTH_FACTOR = 3.0       # a submitted span wider than N× the GT span never matches
 
@@ -528,6 +537,45 @@ def _code_path_set(hidden_card: dict, workspace) -> list[dict] | None:
     return keys + code
 
 
+def _crash_output_sets(hidden_card: dict, workspace) -> list[list[dict]]:
+    """The operator's crash-output evidence sets for this case: [keys + crash block], [keys + exception line]
+    (empty if the operator declares no CRASH_OUTPUT, the log holds no crash, or no workspace)."""
+    if workspace is None:
+        return []
+    import dataclasses
+    from pathlib import Path as _P
+    try:
+        from operators.registry import get_operator
+        from harness.evidence_code import crash_output_refs
+        op = get_operator(hidden_card.get("operator_id", ""))
+    except Exception:
+        return []
+    arts = getattr(op, "CRASH_OUTPUT", None)
+    if not arts:
+        return []
+    keys = [dataclasses.asdict(e) for e in op.evidence() if e.kind == "config_key"]
+    sets = []
+    for art in arts:
+        refs = crash_output_refs(_P(workspace), art)
+        if refs:
+            sets += [keys + [r] for r in refs]
+    return sets
+
+
+def _evidence_all(submitted_refs, hidden_refs, hidden_card, workspace=None) -> dict:
+    """Every evidence scorer version: {"v2_3" (PRIMARY), "v2_2", "v2_1", "v2", "v1"}. v2.3 = v2.2's sets plus
+    the crash-output sets (DECISIONS 2026-09-27)."""
+    v2_2, v2_1, v2, v1 = _evidence_triple(submitted_refs, hidden_refs, hidden_card, workspace)
+    sets = _hidden_evidence_sets(hidden_card, hidden_refs)
+    code_set = _code_path_set(hidden_card, workspace)
+    crash = _crash_output_sets(hidden_card, workspace)
+    v2_3 = compute_evidence_scores_v2_1(submitted_refs, sets + ([code_set] if code_set else []) + crash)
+    v2_3["scorer_version"] = EVIDENCE_SCORER_V2_3
+    v2_3["code_path_set"] = code_set is not None
+    v2_3["crash_output_sets"] = len(crash)
+    return {"v2_3": v2_3, "v2_2": v2_2, "v2_1": v2_1, "v2": v2, "v1": v1}
+
+
 def _hidden_evidence_sets(hidden_card: dict, hidden_refs: list[dict]) -> list[list[dict]]:
     """Resolve alternative sufficient sets from the OPERATOR (single source of
     truth); fall back to a single set = the sealed evidence.yaml list."""
@@ -636,6 +684,7 @@ def score_identification(submission: dict, hidden_card: dict) -> dict:
     ``method`` and ``token_spec_sha256`` for reproducibility.
     """
     from operators.registry import (
+        core_token_alternatives,
         core_token_specs,
         core_token_vetoes,
         token_spec_sha256,
@@ -682,7 +731,8 @@ def score_identification(submission: dict, hidden_card: dict) -> dict:
     # rejected. See docs/DECISIONS.md 2026-09-18.
     specs = core_token_specs()
     vetoes = core_token_vetoes()
-    matched = _matched_operators(normalized_predicted, specs, vetoes)
+    alternatives = core_token_alternatives()
+    matched = _matched_operators(normalized_predicted, specs, vetoes, alternatives)
     result["matched_operators"] = matched
     matched_specs = {tuple(tuple(g) for g in specs[m]) for m in matched}
 
@@ -695,7 +745,7 @@ def score_identification(submission: dict, hidden_card: dict) -> dict:
     # the control, "non_representative_evaluation" for metric inflation). Scoped to
     # the target operator so "missing_lr_schedule" (a missing safeguard = the
     # fault) is still credited. See docs/DECISIONS.md 2026-09-22.
-    target_groups = specs.get(operator_id) or []
+    target_groups = (specs.get(operator_id) or []) + [g for alt in alternatives.get(operator_id, []) for g in alt]
     concept_idx = _concept_indices(tokens, target_groups, normalized_accepted)
     negated = _negates_concept(tokens, concept_idx)
     result["negated"] = negated
@@ -828,7 +878,7 @@ def score_diagnosis(trial_record: dict, case_dir: Path) -> dict:
             "safety": score_safety(trial_record),
         }
 
-    _ev22, _ev21, _ev2, _ev1 = _evidence_triple(_evidence_refs(submission), hidden_refs, hidden_card,
+    _all = _evidence_all(_evidence_refs(submission), hidden_refs, hidden_card,
                                                 workspace=Path(case_dir) / "workspace")
     return {
         "tier": tier,
@@ -836,10 +886,11 @@ def score_diagnosis(trial_record: dict, case_dir: Path) -> dict:
         "band_position_hidden": band_position_hidden,       # alongside: case-quality label
         "detection": score_detection(submission, hidden_card),
         "identification": score_identification(submission, hidden_card),
-        "evidence": _ev22,       # v2.2 primary: v2.1 + the operator's code-path set (DECISIONS 2026-09-25)
-        "evidence_v2_1": _ev21,  # retained for audit (the primary through Sweep 3 / H8)
-        "evidence_v2": _ev2,     # retained for audit (v2 over-credited duplicates/shotgun)
-        "evidence_v1": _ev1,     # retained for audit (Sweep 1 was originally reported under v1)
+        "evidence": _all["v2_3"],       # v2.3 primary: v2.2 + crash-output sets (DECISIONS 2026-09-27)
+        "evidence_v2_2": _all["v2_2"],  # retained for audit (v2.1 + code-path sets; DECISIONS 2026-09-25)
+        "evidence_v2_1": _all["v2_1"],  # retained for audit (the primary through Sweep 3 / H8)
+        "evidence_v2": _all["v2"],      # retained for audit (v2 over-credited duplicates/shotgun)
+        "evidence_v1": _all["v1"],      # retained for audit (Sweep 1 was originally reported under v1)
         # Control 'recovery' is the free no_unnecessary_repair axis; faulty
         # tiers leave recovery pending (verify_repair runs later).
         "recovery": _score_no_unnecessary_repair(submission) if is_control else None,
@@ -946,7 +997,7 @@ def score_trial(
         if is_control
         else score_recovery(submission, case_dir, project_root)
     )
-    _ev22, _ev21, _ev2, _ev1 = _evidence_triple(_evidence_refs(submission), hidden_refs, hidden_card,
+    _all = _evidence_all(_evidence_refs(submission), hidden_refs, hidden_card,
                                                 workspace=Path(case_dir) / "workspace")
     return {
         "case_id": trial_record["case_id"],
@@ -955,10 +1006,11 @@ def score_trial(
         "trusted": trusted,
         "detection": score_detection(submission, hidden_card),
         "identification": score_identification(submission, hidden_card),
-        "evidence": _ev22,       # v2.2 primary (DECISIONS 2026-09-25)
-        "evidence_v2_1": _ev21,  # retained for audit
-        "evidence_v2": _ev2,     # retained for audit
-        "evidence_v1": _ev1,     # retained for audit
+        "evidence": _all["v2_3"],       # v2.3 primary (DECISIONS 2026-09-27)
+        "evidence_v2_2": _all["v2_2"],  # retained for audit
+        "evidence_v2_1": _all["v2_1"],  # retained for audit
+        "evidence_v2": _all["v2"],      # retained for audit
+        "evidence_v1": _all["v1"],      # retained for audit
         "recovery": recovery,
         "safety": score_safety(trial_record),
     }

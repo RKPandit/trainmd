@@ -59,6 +59,10 @@ class ShapeMismatchOperator:
     # Where the fault is IMPLEMENTED in the workload (harness/evidence_code.py): the read of
     # model.input_dim that overrides the data-derived dimension. Code-path evidence set (v2.2).
     CODE_PATH = (("train.py", "reads", "input_dim"),)
+    # What the fault itself PRODUCES (evidence v2.3; harness/evidence_code.py::crash_output_refs): the crash
+    # block in the run log, resolved per case — the error report + traceback through the exception line, and
+    # the exception line alone ("RuntimeError: mat1 and mat2 shapes cannot be multiplied …").
+    CRASH_OUTPUT = ("logs/stdout.log",)
 
     def apply(self, workspace: Path, rng: Random, strength: str) -> Manifest:
         """Set ``model.input_dim`` in workspace config.yaml to a wrong value.

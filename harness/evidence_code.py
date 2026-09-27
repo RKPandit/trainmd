@@ -19,6 +19,7 @@ code as code_span ~23× more often than as line_range in H8).
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 
@@ -94,3 +95,38 @@ def code_path_refs(code_path, workspace: Path) -> list[dict] | None:
         refs.append({"kind": "code_span", "artifact_id": artifact,
                      "detail": {"start_line": span[0], "end_line": span[1]}})
     return refs
+
+
+# ---------------------------------------------------------------------------------------------------------
+# Crash output (evidence v2.3; DECISIONS 2026-09-27, second human audit): what a crash operator's fault itself
+# PRODUCES in the run log, resolved from the case's own log — never a hard-coded line range.
+_EXC_LINE = re.compile(r"^[A-Za-z_][\w.]*(Error|Exception)\b.*:")
+
+
+def crash_output_spans(log_text: str) -> tuple[tuple[int, int], tuple[int, int]] | None:
+    """((block_start, block_end), (exc, exc)) — 1-indexed inclusive — for the FIRST crash in ``log_text``:
+    the block runs from the error-report line that introduces the traceback (or the ``Traceback`` line) to
+    the exception line (e.g. ``RuntimeError: mat1 and mat2 …``); the exception line is the fault's message.
+    None if the log holds no traceback ending in an exception line."""
+    lines = log_text.splitlines()
+    tb = next((i for i, ln in enumerate(lines) if ln.startswith("Traceback (most recent call last)")), None)
+    if tb is None:
+        return None
+    exc = next((i for i in range(tb + 1, len(lines)) if _EXC_LINE.match(lines[i])), None)
+    if exc is None:
+        return None
+    start = tb - 1 if tb > 0 and ("[ERROR]" in lines[tb - 1] or "failed" in lines[tb - 1].lower()) else tb
+    return (start + 1, exc + 1), (exc + 1, exc + 1)
+
+
+def crash_output_refs(workspace: Path, artifact: str = "logs/stdout.log") -> list[dict] | None:
+    """[block_ref, exception_line_ref] as ``line_range`` refs on ``artifact`` (relative to run_output/), or
+    None if the case's log does not exist or holds no crash."""
+    path = Path(workspace) / "run_output" / artifact
+    if not path.is_file():
+        return None
+    spans = crash_output_spans(path.read_text(errors="replace"))
+    if spans is None:
+        return None
+    return [{"kind": "line_range", "artifact_id": artifact, "detail": {"start_line": a, "end_line": b}}
+            for a, b in spans]

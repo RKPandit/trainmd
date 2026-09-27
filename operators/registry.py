@@ -65,6 +65,18 @@ def core_token_specs() -> dict[str, list[list[str]]]:
     return spec
 
 
+def core_token_alternatives() -> dict[str, list[list[list[str]]]]:
+    """Every operator's ALTERNATIVE concept specs (root_token_v3), canonicalized. Shape:
+    ``{operator_id: [[group, ...], ...]}`` — the label satisfies the operator if it satisfies the main
+    ``core_tokens`` spec OR any alternative (each AND-across-groups). Operators without alternatives map
+    to ``[]``."""
+    out: dict = {}
+    for op_id in all_operator_ids():
+        alts = getattr(get_operator(op_id), "core_token_alternatives", lambda: [])()
+        out[op_id] = [[sorted(g) for g in alt] for alt in alts]
+    return out
+
+
 def core_token_vetoes() -> dict[str, list[str]]:
     """Every operator's OFF-CONCEPT veto phrases, canonicalized (sorted).
 
@@ -90,7 +102,8 @@ def token_spec_sha256() -> str:
     (the two inputs to the root_token_v2 token path).
     """
     blob = json.dumps(
-        {"tokens": core_token_specs(), "vetoes": core_token_vetoes()},
+        {"tokens": core_token_specs(), "vetoes": core_token_vetoes(),
+         **({"alternatives": core_token_alternatives()} if any(core_token_alternatives().values()) else {})},
         sort_keys=True,
     ).encode()
     return hashlib.sha256(blob).hexdigest()
