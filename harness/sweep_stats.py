@@ -892,6 +892,40 @@ METRICS = {
 }
 
 
+def valid_submission(r) -> bool:
+    """A submission that carries a diagnosis: submitted, `diagnosis.detected` stated, and the compliance
+    record does not list `diagnosis` as missing. (An empty diagnosis is scored end-to-end as a miss.)"""
+    sub = r.get("submission")
+    if not sub:
+        return False
+    if ((sub.get("diagnosis") or {}).get("detected")) is None:
+        return False
+    return "diagnosis" not in (((r.get("compliance") or {}).get("missing_fields")) or [])
+
+
+def valid_submission_view(recs):
+    """DESCRIPTIVE ONLY (no verdict uses it): per provider × agent × arm over FAULTY trials — detection and
+    identification end-to-end (every trial; empty diagnoses count as misses, as scored) beside the same
+    among VALID submissions only, with the empty-diagnosis rate. Empty when the records carry no compliance
+    data (pre-Stage-4 sweeps)."""
+    if not any("compliance" in r for r in recs):
+        return []
+    faulty = [r for r in recs if r.get("_tier") != "control"]
+    groups = defaultdict(list)
+    for r in faulty:
+        groups[(r.get("_provider"), r.get("_agent"), r.get("_anchor"))].append(r)
+    rows = []
+    for key in sorted(groups, key=lambda k: tuple(str(x) for x in k)):
+        ts = groups[key]
+        val = [t for t in ts if valid_submission(t)]
+        rate = lambda xs, f: (sum(1 for t in xs if f(t)) / len(xs)) if xs else None
+        rows.append({"provider": key[0], "agent": key[1], "arm": key[2], "n": len(ts),
+                     "n_empty": len(ts) - len(val), "n_valid": len(val),
+                     "det_e2e": rate(ts, _detect_correct), "det_valid": rate(val, _detect_correct),
+                     "id_e2e": rate(ts, _id_correct), "id_valid": rate(val, _id_correct)})
+    return rows
+
+
 def exploratory_no_passback(recs):
     """The exploratory H8-defect arm vs its confirmatory twin: per case, the pass-back-OFF records
     (``_exploratory``) against the pass-back-ON records of the SAME case × agent × arm × provider ×

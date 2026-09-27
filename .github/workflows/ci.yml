@@ -52,6 +52,12 @@ on:
         type: string
         default: ""
 
+# Every `run:` block uses `bash --noprofile --norc -eo pipefail` (GitHub's behaviour for an explicit
+# `shell: bash`): a failure anywhere in a pipeline fails the step (DECISIONS 2026-09-26, strict shell).
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   # push/PR runs SHARE a per-ref group (rapid pushes cancel the stale one).
   # workflow_dispatch (build-and-certify) and schedule (nightly) get a UNIQUE
@@ -465,7 +471,10 @@ jobs:
           BASE="${{ github.event.pull_request.base.sha }}"
           [ -z "$BASE" ] && BASE="${{ github.event.before }}"
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then BASE="HEAD~1"; fi
-          if git diff --name-only "$BASE" HEAD | grep -qE "workloads/tabular_adult/reference/(stats|data_manifest)\.yaml"; then
+          # Captured first: under pipefail, `git diff | grep -q` can report a MATCH as failure when grep
+          # exits early and git diff takes SIGPIPE.
+          changed_files="$(git diff --name-only "$BASE" HEAD)"
+          if grep -qE "workloads/tabular_adult/reference/(stats|data_manifest)\.yaml" <<<"$changed_files"; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "Committed reference / data pin CHANGED — full rebuild-against-committed required."
           else
