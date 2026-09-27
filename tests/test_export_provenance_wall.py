@@ -212,3 +212,22 @@ def test_frozen_sweep_with_matching_build_ids_exports(tmp_path):
     root = _project(tmp_path, {})
     _freeze(root, record_build_id="b1")
     assert export(root, SWEEP)["n_trials"] == 1
+
+
+def _agg_query(series, value, agg="max"):
+    return [{"tool_name": "query_metrics", "arguments": {"series": series, "agg": agg},
+             "result": {"status": "ok", "series": series, "agg": agg, "value": value}}]
+
+
+def test_aggregate_query_of_a_visible_series_is_public(tmp_path):
+    """Observed 2026-09-26 (stage4_part1, case_0090): a collapsed lr_warmup run's visible max accuracy is
+    the majority-class rate, identical to the hidden faulty value; the agent received it from
+    query_metrics(agg=max) at result.value. The aggregate form is as public as the per-epoch form."""
+    root = _project(tmp_path, {"tool_transcript": _agg_query("metric_visible_val_acc", HIDDEN_FAULTY)})
+    assert export(root, SWEEP)["n_trials"] == 1
+
+
+def test_aggregate_query_of_a_hidden_series_still_blocks(tmp_path):
+    root = _project(tmp_path, {"tool_transcript": _agg_query("metric_hidden_test_acc", HIDDEN_FAULTY)})
+    with pytest.raises(SystemExit, match="outside any public-derived field"):
+        export(root, SWEEP)
