@@ -322,7 +322,8 @@ _EXCLUSION_REASONS = {
 def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=None,
          repeats=DEFAULT_REPEATS, order_seed=1234, model=DEFAULT_MODEL,
          operators=None, providers=None, benign_seeds=None, no_passback_model=None,
-         openai_strict_tools=False, pilot_static=None, pilot_react=None, pilot_seed=20260927) -> dict:
+         openai_strict_tools=False, pilot_static=None, pilot_react=None, pilot_seed=20260927,
+         pilot_match=None) -> dict:
     strengths = strengths or DEFAULT_STRENGTHS
     faulty_seeds = faulty_seeds or DEFAULT_FAULTY_SEEDS
     # `is None` (not `or`) so an explicit empty list means NO controls (faulty-only sweep).
@@ -344,7 +345,27 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
     # PILOT (Stage 4 Part 2): a small uniform sample per provider-condition — pilot_static static + pilot_react
     # ReAct cells each (seeded) — run WITHOUT scoring; its trials are excluded from every analysis.
     pilot = None
-    if pilot_static is not None or pilot_react is not None:
+    if pilot_match is not None:
+        # PROBE (Stage 4 Part 2, item A): reuse EXACTLY the cells a previous pilot ran for one condition —
+        # same (case, agent, arm, repeat) — for every condition of this plan, so volumes compare on the same
+        # cases. Deterministic (no sampling). `pilot_match` = {"plan": path, "condition": provider entry}.
+        prev = yaml.safe_load(Path(pilot_match["plan"]).read_text())
+        want = pilot_match["condition"]
+        slots = {(c["case_id"], c["agent"], c["anchor"], c.get("repeat_index"))
+                 for c in prev["cells"]
+                 if c["provider"] == want["provider"] and c["model"] == want["model"]
+                 and all(c.get(k) == want.get(k) for k in _CELL_SETTINGS if k != "max_tokens")
+                 and (pilot_match.get("agent") is None or c["agent"] == pilot_match["agent"])}
+        if not slots:
+            raise ValueError(f"pilot_match: no cells for {want} in {pilot_match['plan']}")
+        cells = [c for c in cells if not c.get("exploratory")
+                 and (c["case_id"], c["agent"], c["anchor"], c.get("repeat_index")) in slots]
+        pilot = {"matched_from": {"plan": str(pilot_match["plan"]), "condition": condition_label(want),
+                                  "model": want["model"], "agent": pilot_match.get("agent") or "all",
+                                  "slots": len(slots)},
+                 "scores": "NOT computed (run_trial score=False); pilot trials are "
+                           "excluded from every analysis (harness/sweep_stats loaders)"}
+    elif pilot_static is not None or pilot_react is not None:
         prng = random.Random(pilot_seed)
         groups: dict = {}
         for c in cells:
@@ -1122,6 +1143,14 @@ def main() -> int:
                     help="PILOT: keep this many static cells per provider-condition (no scoring)")
     pp.add_argument("--pilot-react", type=int, default=None,
                     help="PILOT: keep this many ReAct cells per provider-condition (no scoring)")
+    pp.add_argument("--pilot-match-plan", type=Path, default=None,
+                    help="PROBE: reuse the (case, agent, arm, repeat) cells a previous pilot plan ran for "
+                         "--pilot-match-condition, for every condition of this plan (no scoring)")
+    pp.add_argument("--pilot-match-condition", default=None, metavar="PROVIDER_SPEC",
+                    help="the condition in --pilot-match-plan to copy cells from, e.g. "
+                         "anthropic:claude-sonnet-5:effort=medium")
+    pp.add_argument("--pilot-match-agent", choices=["static", "react"], default=None,
+                    help="with --pilot-match-plan: copy only this agent's cells")
     pp.add_argument("--openai-strict-tools", action="store_true",
                     help="send strict tool schemas on EVERY OpenAI cell (Stage 4 Part 2 decision; L35)")
     pp.add_argument("--exploratory-no-passback", default=None, metavar="OPENAI_MODEL",
@@ -1175,12 +1204,19 @@ def main() -> int:
             providers = []
             for spec in args.providers:
                 providers.append(parse_provider_spec(spec))
+        pilot_match = None
+        if (args.pilot_match_plan is None) != (args.pilot_match_condition is None):
+            print("--pilot-match-plan and --pilot-match-condition go together", file=sys.stderr)
+            return 2
+        if args.pilot_match_plan is not None:
+            pilot_match = {"plan": args.pilot_match_plan, "agent": args.pilot_match_agent,
+                           "condition": parse_provider_spec(args.pilot_match_condition)}
         result = plan(root, args.name, args.strengths, args.seeds, args.control_seeds,
                       args.repeats, args.order_seed, operators=args.operators,
                       providers=providers, benign_seeds=args.benign_seeds,
                       no_passback_model=args.exploratory_no_passback,
                       openai_strict_tools=args.openai_strict_tools,
-                      pilot_static=args.pilot_static, pilot_react=args.pilot_react)
+                      pilot_static=args.pilot_static, pilot_react=args.pilot_react, pilot_match=pilot_match)
         if args.build_missing and result["missing"]:
             summary = build_missing(root, result["missing"])
             print(f"[build-missing] built={len(summary['built'])} skipped={len(summary['skipped'])} "
@@ -1194,7 +1230,7 @@ def main() -> int:
                           providers=providers, benign_seeds=args.benign_seeds,
                           no_passback_model=args.exploratory_no_passback,
                           openai_strict_tools=args.openai_strict_tools,
-                          pilot_static=args.pilot_static, pilot_react=args.pilot_react)
+                          pilot_static=args.pilot_static, pilot_react=args.pilot_react, pilot_match=pilot_match)
         path = write_plan(result)
         est = result["plan"]["header"]["cost_estimate"]
         print(f"Plan: {path}\n  cells={result['plan']['header']['n_cells']} "

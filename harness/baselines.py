@@ -4,7 +4,9 @@ Each baseline is scored by the SAME path as an agent (``harness.scoring``), read
 ONLY the agent-visible surface (never the hidden card). They test whether the LLM's
 value clears a trivial floor on detection, and expose where it does not.
 
-- **B1 band detector** — flags if the visible metric leaves the supplied band. CRASH-AWARE:
+- **B1 band detector** — flags if the run's FINAL-EPOCH visible metric leaves the supplied band (the
+  band describes the reference runs' final accuracy; declared 2026-09-27 — until then B1 tested EVERY
+  epoch, kept as ``b1_any`` / ``b3_any`` for an appendix; DECISIONS 2026-09-27). CRASH-AWARE:
   a run with no metrics has nothing out of band, so ``detected=False`` is the correct answer
   to "is a monitored metric out of band," not a miss. A band monitor is structurally blind to
   crashes; report B1 detection split crash / non-crash.
@@ -209,15 +211,38 @@ def _config_deltas(resolved: dict, clean: dict) -> list[tuple[str, object]]:
 # The baselines
 # --------------------------------------------------------------------------- #
 
-def b1(surface: VisibleSurface, band: tuple[float, float] | None = None) -> dict:
-    """Band detector. `band` overrides the public-card band (arm-conditional variant)."""
-    series = surface.val_acc_series()
-    if not series:                               # crash: no metric -> correctly not detected
-        return _sub(False)
+def _band(surface: VisibleSurface, band):
     if band is None:
         mean, std = surface.public_band()
         band = (mean - 2 * std, mean + 2 * std)
-    lo, hi = band
+    return band
+
+
+def b1(surface: VisibleSurface, band: tuple[float, float] | None = None) -> dict:
+    """Band detector — FINAL EPOCH (declared 2026-09-27, author's decision, before the Part 2 lock).
+
+    The reference band (public card: mean ± 2σ of the reference runs' FINAL visible accuracy) describes
+    FINAL accuracy, so the matching comparison is the run's final-epoch value. `band` overrides the
+    public-card band (arm-conditional variant). The every-epoch rule is kept as ``b1_any`` (appendix)."""
+    series = surface.val_acc_series()
+    if not series:                               # crash: no metric -> correctly not detected
+        return _sub(False)
+    lo, hi = _band(surface, band)
+    ep, v = series[-1]
+    if lo <= v <= hi:
+        return _sub(False)
+    return _sub(True, evidence=[_metric_window("metric_visible_val_acc", ep, ep)])
+
+
+def b1_any(surface: VisibleSurface, band: tuple[float, float] | None = None) -> dict:
+    """Band detector — EVERY EPOCH (B1's definition 2026-09-17 → 2026-09-27; reported in an appendix only).
+
+    Flags if ANY epoch's visible value leaves the final-accuracy band, so ordinary epoch-to-epoch
+    fluctuation of a healthy run triggers it (16/20 healthy controls on the current build)."""
+    series = surface.val_acc_series()
+    if not series:
+        return _sub(False)
+    lo, hi = _band(surface, band)
     oob = [(ep, v) for ep, v in series if not (lo <= v <= hi)]
     if not oob:
         return _sub(False)
@@ -289,13 +314,18 @@ def b0(surface: VisibleSurface) -> dict:
     return _sub(ec is not None and ec != 0)
 
 
-def b3(surface: VisibleSurface, band: tuple[float, float] | None = None) -> dict:
+def b3(surface: VisibleSurface, band: tuple[float, float] | None = None, *, _b1=None) -> dict:
     """Union: detected if B1 or B2; identification/evidence/repair from B2 when it fires."""
     s2 = b2(surface)
     if s2["diagnosis"]["detected"]:
         return s2
-    s1 = b1(surface, band)
+    s1 = (_b1 or b1)(surface, band)
     return s1                                    # detected iff B1 fired; evidence only, no id/repair
+
+
+def b3_any(surface: VisibleSurface, band: tuple[float, float] | None = None) -> dict:
+    """B3 with the every-epoch B1 (appendix only)."""
+    return b3(surface, band, _b1=b1_any)
 
 
 def b4_max_z(surface: VisibleSurface) -> float | None:
@@ -350,7 +380,8 @@ def operating_point_for_rate(roc: list[dict], target_tpr: float) -> dict | None:
 # Scoring — the SAME scorer as an agent (baseline reads visible; scorer reads hidden)
 # --------------------------------------------------------------------------- #
 
-_BASELINES = {"b0": b0, "b1": b1, "b2": b2, "b2plus": b2plus, "b3": b3, "bform": bform}
+_BASELINES = {"b0": b0, "b1": b1, "b1_any": b1_any, "b2": b2, "b2plus": b2plus, "b3": b3, "b3_any": b3_any,
+              "bform": bform}
 
 
 def score_baseline(case_dir, name, band=None, project_root=None) -> tuple[dict, dict]:
@@ -359,7 +390,7 @@ def score_baseline(case_dir, name, band=None, project_root=None) -> tuple[dict, 
     from harness.scoring import score_diagnosis
     surface = VisibleSurface(case_dir, project_root)
     fn = _BASELINES[name]
-    submission = fn(surface, band) if name in ("b1", "b3") else fn(surface)
+    submission = fn(surface, band) if name in ("b1", "b1_any", "b3", "b3_any") else fn(surface)
     scores = score_diagnosis({"submission": submission, "tool_transcript": []}, Path(case_dir))
     return submission, scores
 
@@ -370,7 +401,7 @@ def score_baseline(case_dir, name, band=None, project_root=None) -> tuple[dict, 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Non-LLM baselines (STAGE3_PLAN Part 1)")
-    ap.add_argument("--baseline", choices=["b0", "b1", "b2", "b2plus", "b3", "b4", "bform"],
+    ap.add_argument("--baseline", choices=["b0", "b1", "b1_any", "b2", "b2plus", "b3", "b3_any", "b4", "bform"],
                     required=True)
     ap.add_argument("--cases", default="cases/case_*", help="glob for case dirs")
     ap.add_argument("--project-root", type=Path, default=None)

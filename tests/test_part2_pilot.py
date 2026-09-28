@@ -166,3 +166,38 @@ def test_openai_parse_records_none_when_no_reasoning_breakout():
     details = SimpleNamespace(input_tokens=5, output_tokens=2, input_tokens_details=None,
                               output_tokens_details=SimpleNamespace(reasoning_tokens=7))
     assert parse_responses(SimpleNamespace(usage=details, **base)).raw["reasoning_tokens"] == 7
+
+
+def test_probe_reuses_the_matched_conditions_cells_on_every_new_condition(tmp_path):
+    prev = _pilot(tmp_path)
+    sweep.write_plan(prev)
+    medium = sweep.parse_provider_spec("anthropic:claude-sonnet-5:effort=medium")
+    want = {(c["case_id"], c["agent"], c["anchor"], c.get("repeat_index")) for c in prev["plan"]["cells"]
+            if c["model"] == "claude-sonnet-5" and c.get("effort") == "medium"}
+    probe = sweep.plan(tmp_path, "probe", strengths=["mild"], faulty_seeds=[42, 43], control_seeds=[50],
+                       repeats=2, operators=["silent.lr_warmup.v1", "silent.data_leakage.v1"],
+                       providers=[sweep.parse_provider_spec("anthropic:claude-sonnet-5:effort=high,max_tokens=32768"),
+                                  sweep.parse_provider_spec("anthropic:claude-sonnet-5:effort=xhigh,max_tokens=32768")],
+                       pilot_match={"plan": prev["path"], "condition": medium})
+    cells, hdr = probe["plan"]["cells"], probe["plan"]["header"]
+    for eff in ("high", "xhigh"):
+        got = {(c["case_id"], c["agent"], c["anchor"], c.get("repeat_index")) for c in cells if c.get("effort") == eff}
+        assert got == want                                   # same cases, agent, arm, repeat as medium
+    assert all(c["max_tokens"] == 32768 for c in cells)
+    assert hdr["pilot"]["matched_from"]["slots"] == len(want) and "NOT computed" in hdr["pilot"]["scores"]
+    again = sweep.plan(tmp_path, "probe", strengths=["mild"], faulty_seeds=[42, 43], control_seeds=[50], repeats=2,
+                       operators=["silent.lr_warmup.v1", "silent.data_leakage.v1"],
+                       providers=[sweep.parse_provider_spec("anthropic:claude-sonnet-5:effort=high,max_tokens=32768"),
+                                  sweep.parse_provider_spec("anthropic:claude-sonnet-5:effort=xhigh,max_tokens=32768")],
+                       pilot_match={"plan": prev["path"], "condition": medium})
+    assert again["plan"]["cells"] == cells                   # deterministic (no sampling)
+    static_only = sweep.plan(tmp_path, "probe", strengths=["mild"], faulty_seeds=[42, 43], control_seeds=[50],
+                             repeats=2, operators=["silent.lr_warmup.v1", "silent.data_leakage.v1"],
+                             providers=[sweep.parse_provider_spec("anthropic:claude-sonnet-5:effort=high")],
+                             pilot_match={"plan": prev["path"], "condition": medium, "agent": "static"})
+    assert static_only["plan"]["cells"] and all(c["agent"] == "static" for c in static_only["plan"]["cells"])
+    assert len(static_only["plan"]["cells"]) == sum(1 for w in want if w[1] == "static")
+    with pytest.raises(ValueError, match="no cells"):
+        sweep.plan(tmp_path, "probe", strengths=["mild"], faulty_seeds=[42], control_seeds=[], repeats=1,
+                   operators=["silent.lr_warmup.v1"], providers=[medium],
+                   pilot_match={"plan": prev["path"], "condition": sweep.parse_provider_spec("anthropic:nope")})
