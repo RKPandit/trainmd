@@ -243,10 +243,22 @@ class MetricInflationOperator:
         second human audit (Stage 4 Part 1) rated such labels correct; the stems are fixed from the
         mechanism, not from the observed labels, and the veto / negation / uniqueness rules still apply.
         """
-        return [[
-            frozenset({"subset", "select", "filter"}),
-            frozenset({"eval", "evaluat", "validat", "val", "metric", "accurac", "report", "scor"}),
-        ]]
+        eval_ctx = frozenset({"eval", "evaluat", "validat", "val", "metric", "accurac", "report", "scor"})
+        return [
+            # (a) a SUBSET of the evaluated data + evaluation context
+            [frozenset({"subset"}), eval_ctx],
+            # (b) CONFIDENCE-based selection / filtering (of predictions, i.e. rows) + evaluation context
+            [frozenset({"select", "filter"}), frozenset({"confidence", "confident"}), eval_ctx],
+        ]
+
+    def core_token_alternative_vetoes(self) -> frozenset[str]:
+        """Tightened 2026-09-28 (author's review of #68): a label that names a DIFFERENT selected object —
+        best-checkpoint / epoch selection, hyperparameter or feature selection, early stopping — describes a
+        different selection mechanism, not evaluation on a subset of rows, so it cannot satisfy the
+        alternatives above (e.g. ``checkpoint_selected_on_validation_accuracy``). A bare "select" / "filter"
+        no longer suffices: it must be a subset, or confidence-based, as in this operator's mechanism."""
+        return frozenset({"checkpoint", "ckpt", "epoch", "hyperparameter", "hyperparam", "hparam",
+                          "early", "feature"})
 
     def off_concept_vetoes(self) -> frozenset[str]:
         """Off-concept uses of the token ``bias`` that are NOT metric inflation.

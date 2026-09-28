@@ -69,3 +69,47 @@ def test_other_operators_unaffected():
     assert ok("label_noise_subset", "silent.label_corruption.v1")          # no evaluation context
     assert ok("excessive_learning_rate", "silent.lr_warmup.v1")
     assert ok("input_dimension_mismatch", "crash.shape_mismatch.v1")
+
+
+# ---- tightened 2026-09-28 (author's review of #68): a DIFFERENT selection mechanism must FAIL ----------
+@pytest.mark.parametrize("label", [
+    "checkpoint_selected_on_validation_accuracy",      # best-checkpoint selection (the reviewer's example)
+    "best_checkpoint_selection_on_val_accuracy",
+    "selected_epoch_by_val_accuracy",
+    "model_selected_by_validation_metric",
+    "hyperparameter_selection_on_validation_score",
+    "early_stopping_on_validation_accuracy",
+    "feature_selection_on_validation_score",
+    "validation_filtered_checkpoint",
+    "checkpoint_selected_on_validation_subset",         # names a subset, but the SELECTED object is a checkpoint
+    "selected_validation_metric",                       # bare selection without subset / confidence
+])
+def test_other_selection_mechanisms_fail(label):
+    assert not ok(label)
+
+
+# Every distinct label root_token_v3 newly credited across Stage 4 Part 1 (198 records) and the Stage 2 gate
+# (4 records) — H8: none — as listed for the author's review 2026-09-28. The tightening must keep them all.
+REVIEWED_NEW_LABELS = [
+    "confidence_selected_validation_subset", "confidence_filtered_validation_reporting",
+    "confidence_subset_metric_reporting", "confidence_selected_validation_subset_reporting",
+    "confidence_selected_eval_subset", "confidence_selected_validation_reporting",
+    "confidence_filtered_validation_metric", "confidence_subset_metric_manipulation",
+    "confidence_subset_validation_reporting", "eval_subset_fraction_enabled",
+    "confidence_filtered_validation_metric_reporting", "confidence_selected_eval_subset_reporting",
+    "confidence_selected_metric_subset", "subset_accuracy_reporting", "confidence_based_subset_evaluation",
+    "confidence_filtered_validation_subset", "confidence_selected_metric_reporting",
+    "confidence_selected_subset_metric", "confidence_selected_subset_reporting",
+    "confidence_selected_validation_metric", "confidence_subset_metric_filtering",
+    "confidence_subset_metric_hijacking", "confidence_subset_metric_selection",
+    "config_mismatch_metric_subset_fraction", "eval_subset_filtering", "eval_subset_fraction_misconfiguration",
+    "eval_subset_fraction_mismatch", "eval_subset_selection_enabled", "metric_distortion_via_confidence_subset",
+    "metric_distortion_via_subset_eval", "metric_evaluation_subset_selection", "metric_subset_selection",
+    "misconfigured_eval_subset_fraction", "subset_accuracy_evaluation_enabled",
+    "subset_eval_fraction_misconfiguration", "subset_filtered_accuracy_metric", "subset_metric_evaluation",
+]
+
+
+@pytest.mark.parametrize("label", REVIEWED_NEW_LABELS)
+def test_reviewed_new_labels_still_pass_after_tightening(label):
+    assert ok(label)

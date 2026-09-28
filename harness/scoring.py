@@ -118,17 +118,23 @@ def _phrase_present(tokens: list[str], phrase: str) -> bool:
     return any(tokens[i:i + n] == parts for i in range(len(tokens) - n + 1))
 
 
-def _operator_matches(tokens: list[str], groups: list, vetoes=(), alternatives=()) -> bool:
+def _spec_satisfied(tokens: list[str], spec: list) -> bool:
+    return bool(spec) and all(any(_stem_spans(tokens, stem) for stem in group) for group in spec)
+
+
+def _operator_matches(tokens: list[str], groups: list, vetoes=(), alternatives=(), alt_vetoes=()) -> bool:
     """A label satisfies an operator iff no off-concept veto phrase is present AND it satisfies the
-    main spec or an alternative spec (root_token_v3), where a spec is satisfied iff EVERY group matches
-    (AND across groups) and a group matches if ANY stem matches (OR within). Stems match at
-    whole-token/inflection granularity only."""
+    main spec, or an alternative spec (root_token_v3) while naming none of the operator's
+    ALTERNATIVE-ONLY veto stems (a different selected object, e.g. a checkpoint). A spec is satisfied
+    iff EVERY group matches (AND across groups) and a group matches if ANY stem matches (OR within).
+    Stems match at whole-token/inflection granularity only."""
     if any(_phrase_present(tokens, v) for v in vetoes):
         return False
-    return any(
-        spec and all(any(_stem_spans(tokens, stem) for stem in group) for group in spec)
-        for spec in [groups, *alternatives]
-    )
+    if _spec_satisfied(tokens, groups):
+        return True
+    if any(_stem_spans(tokens, s) for s in alt_vetoes):
+        return False
+    return any(_spec_satisfied(tokens, alt) for alt in alternatives)
 
 
 def _concept_indices(tokens: list[str], groups: list, accepted_norm=()) -> set:
@@ -162,13 +168,16 @@ def _negates_concept(tokens: list[str], concept_idx: set) -> bool:
     return False
 
 
-def _matched_operators(normalized_pred: str, specs: dict, vetoes: dict, alternatives: dict | None = None) -> list[str]:
+def _matched_operators(normalized_pred: str, specs: dict, vetoes: dict, alternatives: dict | None = None,
+                       alt_vetoes: dict | None = None) -> list[str]:
     """Every operator whose core-token spec (or an alternative spec) the label satisfies (veto-aware)."""
     tokens = normalized_pred.split("_")
     alternatives = alternatives or {}
+    alt_vetoes = alt_vetoes or {}
     return sorted(
         op_id for op_id, groups in specs.items()
-        if groups and _operator_matches(tokens, groups, vetoes.get(op_id, ()), alternatives.get(op_id, ()))
+        if groups and _operator_matches(tokens, groups, vetoes.get(op_id, ()), alternatives.get(op_id, ()),
+                                        alt_vetoes.get(op_id, ()))
     )
 
 
@@ -538,15 +547,17 @@ def _code_path_set(hidden_card: dict, workspace) -> list[dict] | None:
 
 
 def _crash_output_sets(hidden_card: dict, workspace) -> list[list[dict]]:
-    """The operator's crash-output evidence sets for this case: [keys + crash block], [keys + exception line]
-    (empty if the operator declares no CRASH_OUTPUT, the log holds no crash, or no workspace)."""
+    """The operator's crash-output evidence sets for this case: [keys + crash block], [keys + exception line],
+    and — for every workload-file frame the traceback itself names (DECISIONS 2026-09-28) — [keys + that
+    frame's log lines] and [keys + the named workload-file line] (empty if the operator declares no
+    CRASH_OUTPUT, the log holds no crash, or no workspace). All read from THIS case's own log."""
     if workspace is None:
         return []
     import dataclasses
     from pathlib import Path as _P
     try:
         from operators.registry import get_operator
-        from harness.evidence_code import crash_output_refs
+        from harness.evidence_code import crash_callsite_refs, crash_output_refs
         op = get_operator(hidden_card.get("operator_id", ""))
     except Exception:
         return []
@@ -556,9 +567,8 @@ def _crash_output_sets(hidden_card: dict, workspace) -> list[list[dict]]:
     keys = [dataclasses.asdict(e) for e in op.evidence() if e.kind == "config_key"]
     sets = []
     for art in arts:
-        refs = crash_output_refs(_P(workspace), art)
-        if refs:
-            sets += [keys + [r] for r in refs]
+        refs = (crash_output_refs(_P(workspace), art) or []) + crash_callsite_refs(_P(workspace), art)
+        sets += [keys + [r] for r in refs]
     return sets
 
 
@@ -684,6 +694,7 @@ def score_identification(submission: dict, hidden_card: dict) -> dict:
     ``method`` and ``token_spec_sha256`` for reproducibility.
     """
     from operators.registry import (
+        core_token_alternative_vetoes,
         core_token_alternatives,
         core_token_specs,
         core_token_vetoes,
@@ -732,7 +743,8 @@ def score_identification(submission: dict, hidden_card: dict) -> dict:
     specs = core_token_specs()
     vetoes = core_token_vetoes()
     alternatives = core_token_alternatives()
-    matched = _matched_operators(normalized_predicted, specs, vetoes, alternatives)
+    matched = _matched_operators(normalized_predicted, specs, vetoes, alternatives,
+                                 core_token_alternative_vetoes())
     result["matched_operators"] = matched
     matched_specs = {tuple(tuple(g) for g in specs[m]) for m in matched}
 

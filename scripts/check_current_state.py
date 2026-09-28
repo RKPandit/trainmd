@@ -86,7 +86,7 @@ def check_facts(declared: dict, root: Path = ROOT) -> list[str]:
             errors.append(f"[case_count] built registry {len(reg)} != design {expected_cases} "
                           "(rebuild cases: make docker-build-all-cases)")
 
-    # c. scorer versions + v2.3 primary (STAGE3_PLAN §0.4; corrections #7 2026-09-25, #8 2026-09-27)
+    # c. scorer versions + v2.3 primary (STAGE3_PLAN §0.4; correction #7 2026-09-25; v2.3 proposed 2026-09-27)
     scoring = (root / "harness" / "scoring.py").read_text()
     for v in declared.get("evidence_scorer_versions", []):
         if f'"{v}"' not in scoring:

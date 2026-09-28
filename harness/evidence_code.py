@@ -130,3 +130,48 @@ def crash_output_refs(workspace: Path, artifact: str = "logs/stdout.log") -> lis
         return None
     return [{"kind": "line_range", "artifact_id": artifact, "detail": {"start_line": a, "end_line": b}}
             for a, b in spans]
+
+
+_FRAME = re.compile(r'^\s+File "(?P<path>[^"]+)", line (?P<line>\d+), in ')
+
+
+def crash_callsite_frames(log_text: str, workspace_files: set[str]) -> list[dict]:
+    """The WORKLOAD-FILE frames the FIRST traceback in ``log_text`` itself names (DECISIONS 2026-09-28): frames
+    whose file is one of the case's own workspace files (``workspace_files``: basenames), never a library
+    frame. Each: {"file": basename, "line": N (the named source line), "log_span": (frame header line, last
+    line before the next frame / exception line)} — 1-indexed inclusive, read from this case's own log."""
+    lines = log_text.splitlines()
+    tb = next((i for i, ln in enumerate(lines) if ln.startswith("Traceback (most recent call last)")), None)
+    if tb is None:
+        return []
+    exc = next((i for i in range(tb + 1, len(lines)) if _EXC_LINE.match(lines[i])), None)
+    if exc is None:
+        return []
+    heads = [i for i in range(tb + 1, exc) if _FRAME.match(lines[i])]
+    frames = []
+    for k, i in enumerate(heads):
+        m = _FRAME.match(lines[i])
+        path = m.group("path")
+        base = Path(path).name
+        if "site-packages" in path or base not in workspace_files:
+            continue
+        end = (heads[k + 1] if k + 1 < len(heads) else exc) - 1
+        frames.append({"file": base, "line": int(m.group("line")), "log_span": (i + 1, end + 1)})
+    return frames
+
+
+def crash_callsite_refs(workspace: Path, artifact: str = "logs/stdout.log") -> list[dict]:
+    """For every workload-file frame the traceback names: a ``line_range`` ref on the frame's lines in
+    ``artifact`` AND a ``code_span`` ref on the named line of that workload file ([] if no crash / no log)."""
+    ws = Path(workspace)
+    path = ws / "run_output" / artifact
+    if not path.is_file():
+        return []
+    files = {p.name for p in ws.iterdir() if p.is_file()}
+    refs = []
+    for f in crash_callsite_frames(path.read_text(errors="replace"), files):
+        a, b = f["log_span"]
+        refs.append({"kind": "line_range", "artifact_id": artifact, "detail": {"start_line": a, "end_line": b}})
+        refs.append({"kind": "code_span", "artifact_id": f["file"],
+                     "detail": {"start_line": f["line"], "end_line": f["line"]}})
+    return refs

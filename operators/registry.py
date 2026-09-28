@@ -77,6 +77,13 @@ def core_token_alternatives() -> dict[str, list[list[list[str]]]]:
     return out
 
 
+def core_token_alternative_vetoes() -> dict[str, list[str]]:
+    """Every operator's ALTERNATIVE-ONLY veto stems (root_token_v3), sorted: a label naming one of them cannot
+    satisfy an alternative spec (it still can the main spec). Operators without any map to ``[]``."""
+    return {op_id: sorted(getattr(get_operator(op_id), "core_token_alternative_vetoes", lambda: frozenset())())
+            for op_id in all_operator_ids()}
+
+
 def core_token_vetoes() -> dict[str, list[str]]:
     """Every operator's OFF-CONCEPT veto phrases, canonicalized (sorted).
 
@@ -103,7 +110,9 @@ def token_spec_sha256() -> str:
     """
     blob = json.dumps(
         {"tokens": core_token_specs(), "vetoes": core_token_vetoes(),
-         **({"alternatives": core_token_alternatives()} if any(core_token_alternatives().values()) else {})},
+         **({"alternatives": core_token_alternatives()} if any(core_token_alternatives().values()) else {}),
+         **({"alternative_vetoes": core_token_alternative_vetoes()}
+            if any(core_token_alternative_vetoes().values()) else {})},
         sort_keys=True,
     ).encode()
     return hashlib.sha256(blob).hexdigest()
