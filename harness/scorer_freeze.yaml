@@ -1,0 +1,13 @@
+# FROZEN scorer (DECISIONS 2026-09-28; author: freeze after #68). Identification root_token_v3, evidence v2.3.
+# Checked by tests/test_scorer_freeze.py. Change ONLY deliberately: python -m harness.scorer_freeze --write
+# plus a DECISIONS row. After the Part 2 lock, findings go to LIMITATIONS unless a result would be wrong.
+frozen_on: '2026-09-28'
+frozen_after: '#68 approved (label list), #71 streaming, #72, #73'
+fingerprint:
+  identification_method: root_token_v3
+  evidence_primary: evidence_v2.3
+  token_spec_sha256: 734eb98be1abfd90afb03b1030208036cb2562585417d17da7a318962187bca3
+  evidence_spec_sha256: 51e98065ca47567b7ef6674298ea95b34a821eed0f8afe3802804982934a461b
+  source_sha256:
+    harness/scoring.py: b8eebd00828e6209d158beca9872398da5cadc58502cc56b8d24fef178883ad8
+    harness/evidence_code.py: a81ccd6ac52bf8f2bf6b02ed3a464bbfbd17903305e04f8e1587d65302ffde37
