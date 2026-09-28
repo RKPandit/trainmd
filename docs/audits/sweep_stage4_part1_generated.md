@@ -9,7 +9,7 @@
 - control operators: control.benign_bs128.v1, control.benign_clip1.v1, control.benign_do01.v1, control.benign_ep25.v1, control.benign_lr005.v1, control.benign_wd5e4.v1, control.healthy.v1
 - arms present: off.v2, rule.v2, stats.v2  ·  arms (plan): off.v2, rule.v2, stats.v2
 - agents: react, static
-- evidence scorer: evidence_v2.2
+- evidence scorer: evidence_v2.3
 - excluded: trusted=0, superseded=0
 - method: case-level nonparametric bootstrap, 10000 resamples, 95% percentile, seed 20260913
 
@@ -90,7 +90,7 @@ _Hidden-band stratification (a case-quality label, never the stratification key)
 
 ## ReAct − static evidence F1 (faulty operators, pooled)
 
-- 0.156 [0.132, 0.180] (n_cases=108)
+- 0.160 [0.136, 0.184] (n_cases=108)
 
 ## Recovery — strict vs semantic, with id-gap CIs
 
@@ -101,7 +101,7 @@ _Hidden-band stratification (a case-quality label, never the stratification key)
 | silent.data_leakage_neutral.v1 | 432 | 18 | 0.7315 | 0.6458 | 0.6736 | 0.086 [0.044, 0.127] | 0.058 [0.023, 0.093] |
 | silent.label_corruption.v1 | 432 | 18 | 0.6759 | 0.5509 | 0.5648 | 0.125 [0.104, 0.146] | 0.111 [0.090, 0.134] |
 | silent.lr_warmup.v1 | 432 | 18 | 0.8356 | 0.6458 | 0.7083 | 0.190 [0.157, 0.225] | 0.127 [0.102, 0.153] |
-| silent.metric_inflation.v1 | 432 | 18 | 0.3218 | 0.5764 | 0.6227 | -0.255 [-0.296, -0.215] | -0.301 [-0.336, -0.269] |
+| silent.metric_inflation.v1 | 432 | 18 | 0.7801 | 0.5764 | 0.6227 | 0.204 [0.169, 0.238] | 0.157 [0.125, 0.190] |
 
 ## Provider: anthropic
 
@@ -179,7 +179,7 @@ _Hidden-band stratification (a case-quality label, never the stratification key)
 
 ## ReAct − static evidence F1 (faulty operators, pooled)
 
-- 0.145 [0.112, 0.179] (n_cases=108)
+- 0.152 [0.121, 0.185] (n_cases=108)
 
 ## Recovery — strict vs semantic, with id-gap CIs
 
@@ -190,7 +190,7 @@ _Hidden-band stratification (a case-quality label, never the stratification key)
 | silent.data_leakage_neutral.v1 | 216 | 18 | 0.6019 | 0.5602 | 0.6157 | 0.042 [-0.009, 0.093] | -0.014 [-0.046, 0.014] |
 | silent.label_corruption.v1 | 216 | 18 | 0.6435 | 0.5648 | 0.5926 | 0.079 [0.051, 0.106] | 0.051 [0.032, 0.069] |
 | silent.lr_warmup.v1 | 216 | 18 | 0.7778 | 0.6389 | 0.7639 | 0.139 [0.097, 0.181] | 0.014 [-0.009, 0.042] |
-| silent.metric_inflation.v1 | 216 | 18 | 0.6296 | 0.6296 | 0.7222 | 0.000 [-0.056, 0.056] | -0.093 [-0.134, -0.051] |
+| silent.metric_inflation.v1 | 216 | 18 | 0.7222 | 0.6296 | 0.7222 | 0.093 [0.056, 0.130] | 0.000 [-0.014, 0.014] |
 
 ## Provider: openai
 
@@ -266,7 +266,7 @@ _Hidden-band stratification (a case-quality label, never the stratification key)
 
 ## ReAct − static evidence F1 (faulty operators, pooled)
 
-- 0.167 [0.127, 0.206] (n_cases=108)
+- 0.167 [0.127, 0.207] (n_cases=108)
 
 ## Recovery — strict vs semantic, with id-gap CIs
 
@@ -277,7 +277,7 @@ _Hidden-band stratification (a case-quality label, never the stratification key)
 | silent.data_leakage_neutral.v1 | 216 | 18 | 0.8611 | 0.7315 | 0.7315 | 0.130 [0.088, 0.176] | 0.130 [0.088, 0.176] |
 | silent.label_corruption.v1 | 216 | 18 | 0.7083 | 0.5370 | 0.5370 | 0.171 [0.139, 0.213] | 0.171 [0.139, 0.213] |
 | silent.lr_warmup.v1 | 216 | 18 | 0.8935 | 0.6528 | 0.6528 | 0.241 [0.199, 0.287] | 0.241 [0.199, 0.287] |
-| silent.metric_inflation.v1 | 216 | 18 | 0.0139 | 0.5231 | 0.5231 | -0.509 [-0.569, -0.444] | -0.509 [-0.569, -0.444] |
+| silent.metric_inflation.v1 | 216 | 18 | 0.8380 | 0.5231 | 0.5231 | 0.315 [0.250, 0.380] | 0.315 [0.250, 0.380] |
 
 ## H8 — neutral − descriptive identification (Δ), per arm × provider
 
@@ -344,18 +344,18 @@ _Hidden-band stratification (a case-quality label, never the stratification key)
 
 | provider | agent | arm | trials | empty diagnosis | detection end-to-end | detection among valid | identification end-to-end | identification among valid |
 |---|---|---|---|---|---|---|---|---|
-| anthropic | react | off.v2 | 216 | 13/216 (0.060) | 0.509 | 0.542 | 0.458 | 0.488 |
-| anthropic | react | rule.v2 | 216 | 1/216 (0.005) | 0.995 | 1.000 | 0.963 | 0.967 |
-| anthropic | react | stats.v2 | 216 | 1/216 (0.005) | 0.986 | 0.991 | 0.944 | 0.949 |
+| anthropic | react | off.v2 | 216 | 13/216 (0.060) | 0.509 | 0.542 | 0.472 | 0.502 |
+| anthropic | react | rule.v2 | 216 | 1/216 (0.005) | 0.995 | 1.000 | 0.977 | 0.981 |
+| anthropic | react | stats.v2 | 216 | 1/216 (0.005) | 0.986 | 0.991 | 0.963 | 0.967 |
 | anthropic | static | off.v2 | 216 | 0/216 (0.000) | 0.282 | 0.282 | 0.245 | 0.245 |
-| anthropic | static | rule.v2 | 216 | 0/216 (0.000) | 0.981 | 0.981 | 0.852 | 0.852 |
-| anthropic | static | stats.v2 | 216 | 0/216 (0.000) | 0.880 | 0.880 | 0.759 | 0.759 |
-| openai | react | off.v2 | 216 | 19/216 (0.088) | 0.852 | 0.934 | 0.634 | 0.695 |
-| openai | react | rule.v2 | 216 | 11/216 (0.051) | 0.949 | 1.000 | 0.731 | 0.771 |
-| openai | react | stats.v2 | 216 | 13/216 (0.060) | 0.940 | 1.000 | 0.736 | 0.783 |
-| openai | static | off.v2 | 216 | 26/216 (0.120) | 0.843 | 0.958 | 0.713 | 0.811 |
-| openai | static | rule.v2 | 216 | 20/216 (0.093) | 0.907 | 1.000 | 0.750 | 0.827 |
-| openai | static | stats.v2 | 216 | 29/216 (0.134) | 0.866 | 1.000 | 0.731 | 0.845 |
+| anthropic | static | rule.v2 | 216 | 0/216 (0.000) | 0.981 | 0.981 | 0.884 | 0.884 |
+| anthropic | static | stats.v2 | 216 | 0/216 (0.000) | 0.880 | 0.880 | 0.773 | 0.773 |
+| openai | react | off.v2 | 216 | 19/216 (0.088) | 0.852 | 0.934 | 0.736 | 0.807 |
+| openai | react | rule.v2 | 216 | 11/216 (0.051) | 0.949 | 1.000 | 0.889 | 0.937 |
+| openai | react | stats.v2 | 216 | 13/216 (0.060) | 0.940 | 1.000 | 0.884 | 0.941 |
+| openai | static | off.v2 | 216 | 26/216 (0.120) | 0.843 | 0.958 | 0.843 | 0.958 |
+| openai | static | rule.v2 | 216 | 20/216 (0.093) | 0.907 | 1.000 | 0.907 | 1.000 |
+| openai | static | stats.v2 | 216 | 29/216 (0.134) | 0.866 | 1.000 | 0.861 | 0.995 |
 
 ## Pre-registered verdicts (Stage 4 Part 1) — computed mechanically
 

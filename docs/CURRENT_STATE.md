@@ -38,7 +38,7 @@ evidence_scorer_versions: [evidence_v1, evidence_v2, evidence_v2.1, evidence_v2.
 canonical_image_digest: sha256:0354db57c29a5092ace862a0d8716dfe3729d4f8b893fe3079c66d947daeb25d
 reference_seeds: 30
 latest_sweep: stage2gate
-corrections_count: 8
+corrections_count: 9
 ```
 
 - **Workloads:** 1 — `tabular_adult` (Adult / MLP). (Second workload deferred to the full study.)
@@ -54,9 +54,9 @@ corrections_count: 8
   **crash-output evidence set** per crash operator (`CRASH_OUTPUT`; shape_mismatch: config key + the crash
   block, the exception line, or a workload-file frame the traceback itself names — its log lines or the named
   source line — all resolved per case from its own `logs/stdout.log` by `harness/evidence_code.py`). The
-  code makes it primary for all NEW scoring (Part 2 onward). Stage 4 Part 1 is re-scored under it as a
-  disclosed correction (run under the results/ lock); published sweeps (Sweep 1, Stage 2 gate, H8) are never
-  rewritten — each report declares its own scorer.
+  code makes it primary for all NEW scoring (Part 2 onward). Stage 4 Part 1 IS re-scored under it
+  (correction #9, 2026-09-28, run under the results/ lock); published sweeps (Sweep 1, Stage 2 gate, H8) are
+  never rewritten — each report declares its own scorer.
 - **Scorer (stored records):** `evidence_v2.2` is primary (2026-09-25, correction #7): v2.1's bipartite one-to-one
   matching plus each faulty operator's **code-path evidence set** (its own `CODE_PATH`, resolved by
   `harness/evidence_code.py` against the source the agent read). H8 is rescored under it; Sweep 1 and the
@@ -271,7 +271,9 @@ Five categories for a change to a committed fact, so the next classification is 
   interval is a published number, so this counts even though no point estimate moved); correction #7
   (2026-09-25, H8 evidence v2.1→v2.2: operator-derived code-path sets after the blind audit, FINDINGS
   F16); correction #8 (2026-09-28, Stage-3 baseline table: B1 / B3 control FPR 16/20, not the published
-  1/20 — shown by rebuilding the controls at the publishing commit on AMD); the 8 tracked in `corrections_count`.
+  1/20 — shown by rebuilding the controls at the publishing commit on AMD); correction #9 (2026-09-28, Stage 4
+  Part 1 re-scored under the frozen scorer root_token_v3 + evidence v2.3: 198 metric_inflation identification
+  verdicts and 24 shape_mismatch evidence scores up, none down, no verdict moved); the 9 tracked in `corrections_count`.
 - **Latent-bug fix** — a defect caught BEFORE it published. No `corrections_count` change
   (nothing wrong was ever released). *e.g.* the §0.3 scorer/analysis fixes.
 - **Documentation error** — prose that was NEVER true as written. No number changes;

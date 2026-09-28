@@ -6,8 +6,8 @@ per-hypothesis verdicts live in `docs/HYPOTHESES.md` Results and the evidence in
 
 ## The corrections, stated plainly
 
-All eight post-hoc corrections removed harness-imposed penalties or fixed a measurement/aggregation/
-reporting error; the first six and the eighth changed no ground truth, and the seventh changes it only by admitting an
+All nine post-hoc corrections removed harness-imposed penalties or fixed a measurement/aggregation/
+reporting error; the first six and the eighth changed no ground truth, and the seventh and ninth change it only by admitting an
 evidence path found valid by a blind human audit. (The first three are the Sweep-1
 scoring/schema + folded-repair corrections; the fourth, 2026-09-15, disaggregated the pooled H1
 negative-symptom comparator; the fifth, 2026-09-15, migrated Sweep-1 evidence from v1 — which the
@@ -20,7 +20,10 @@ evidence set after the blind audit found the path valid (FINDINGS F16). That can
 (59 of 834 H8 faulty trials, all up; detection / identification / recovery byte-identical) — see
 FINDINGS "Post-hoc corrections" #4–#7; the eighth, 2026-09-28, corrects the Stage-3 baseline table's B1 / B3
 control FPR from 1/20 to **16/20** — the published figure was the final-epoch count attributed to the
-every-epoch B1, shown by rebuilding the controls at the publishing commit on AMD.) Originals are kept beside
+every-epoch B1, shown by rebuilding the controls at the publishing commit on AMD; the ninth, 2026-09-28,
+re-scores Stage 4 Part 1 under the frozen scorer — root_token_v3 + evidence v2.3 — raising 198 metric_inflation
+identification verdicts and 24 shape_mismatch evidence scores, lowering none, and leaving every verdict
+unchanged (FINDINGS "Post-hoc corrections").) Originals are kept beside
 corrected values throughout.
 
 ## Disclosure rule
@@ -645,7 +648,11 @@ static 40/40 parsed). **No protocol change:** end-to-end scoring stays primary, 
 rate, per-trial completion status) is reported separately per condition.
 
 **L36 — metric_inflation identification is likely under-credited by the matcher; the second human audit
-adjudicates (2026-09-26).** Of **264** metric_inflation trials whose label was scored wrong, **199** name a
+adjudicates (2026-09-26). RESOLVED 2026-09-28 by correction #9** (root_token_v3, derived from the mechanism,
+label list approved by the author; Part 1 metric_inflation identification now **0.780** pooled end-to-end —
+Haiku 0.722, Luna 0.838; `docs/audits/sweep_stage4_part1_generated.md`). The counts below are the
+pre-correction snapshot that motivated the change (`docs/audits/stage4_part1_followup.md` is kept as that
+snapshot and is not regenerated). *Original text:* Of **264** metric_inflation trials whose label was scored wrong, **199** name a
 selected / subset / confidence-filtered evaluation — the operator's mechanism (e.g.
 `confidence_selected_validation_subset` ×63) — Luna 178 of 185, Haiku 21 of 79
 (`docs/audits/stage4_part1_followup.md` §2). The matcher is NOT changed after seeing these labels: the
