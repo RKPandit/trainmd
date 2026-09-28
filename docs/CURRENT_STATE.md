@@ -33,8 +33,8 @@ operators:            # operator_id  (tier)
   - silent.lr_warmup.v1         # dynamics (bimodal-collapse; retired from the σ-ladder — L1/S12)
   - silent.metric_inflation.v1  # metric
 case_count: 200                 # 108 faulty (6 ops × 3 strengths × 6 seeds 42–47) + 20 healthy controls (seeds 50–69) + 72 benign-config controls (6 types × 12 seeds: 70–93 ∪ 110–157; STAGE4 4.0.6, expanded 2026-09-25)
-evidence_scorer_primary: evidence_v2.2
-evidence_scorer_versions: [evidence_v1, evidence_v2, evidence_v2.1, evidence_v2.2]
+evidence_scorer_primary: evidence_v2.3
+evidence_scorer_versions: [evidence_v1, evidence_v2, evidence_v2.1, evidence_v2.2, evidence_v2.3]
 canonical_image_digest: sha256:0354db57c29a5092ace862a0d8716dfe3729d4f8b893fe3079c66d947daeb25d
 reference_seeds: 30
 latest_sweep: stage2gate
@@ -50,7 +50,13 @@ corrections_count: 7
   mean, SD and n reference runs; `rule` = `stats` + one decision sentence. v1 `off` / `numbers` /
   `rule` (legacy `on` → `rule`) are historical and cannot be run. v1 and v2 arms are never pooled;
   only `off` is comparable across versions.
-- **Scorer:** `evidence_v2.2` is primary (2026-09-25, correction #7): v2.1's bipartite one-to-one
+- **Scorer — PROPOSED, UNDER REVIEW (2026-09-27, second human audit):** `evidence_v2.3` = v2.2 plus a
+  **crash-output evidence set** per crash operator (`CRASH_OUTPUT`; shape_mismatch: config key + the crash
+  block, the exception line, or a workload-file frame the traceback itself names — its log lines or the named
+  source line — all resolved per case from its own `logs/stdout.log` by `harness/evidence_code.py`). The
+  code makes it primary for NEW scoring; **no stored record has been re-scored** — every record's `evidence`
+  is still v2.2 (or older, per sweep) until the author approves the re-score, which will then be disclosed.
+- **Scorer (stored records):** `evidence_v2.2` is primary (2026-09-25, correction #7): v2.1's bipartite one-to-one
   matching plus each faulty operator's **code-path evidence set** (its own `CODE_PATH`, resolved by
   `harness/evidence_code.py` against the source the agent read). H8 is rescored under it; Sweep 1 and the
   Stage 2 gate stay on v2.1 (older source; each report declares its own scorer). `evidence_v2_1`,
@@ -58,7 +64,13 @@ corrections_count: 7
   under **v1** until 2026-09-15 (the earlier "v2 primary" docs were a mislabel — the v1→v2 rescore was
   disclosed 2026-09-13 but never persisted); all records migrated to v2.1 primary in **correction #5**.
   A `check_scorer_versions.py` guard now asserts each report's declared scorer matches its records.
-- **Identification matcher:** `root_token_v2` (2026-09-22). A **shipped-but-unexploited vulnerability**
+- **Identification matcher — PROPOSED, UNDER REVIEW (2026-09-27):** `root_token_v3` = v2 plus operator-declared
+  mechanism-level alternative concepts (`core_token_alternatives()`; only metric_inflation declares them:
+  "subset" + an evaluation/metric term, or select/filter + "confidence" + an evaluation/metric term, and
+  never when the label names another selected object — checkpoint, epoch, hyperparameter, early stopping,
+  feature), negation, vetoes and uniqueness unchanged. **No stored record re-scored** until the author
+  approves the newly credited label list (37 labels, 198 Part 1 + 4 Stage 2 gate records; H8 none).
+- **Identification matcher (stored records):** `root_token_v2` (2026-09-22). A **shipped-but-unexploited vulnerability**
   (§f taxonomy, first instance) — an external reviewer showed v1 matched concept stems as free substrings,
   so it *would* score fault negations (`no_leakage`) and off-concept collisions (`memory_leak`) as correct;
   the audit of every scored-correct label in Sweeps 1–3 found **zero** such cases (0 of 1156), and a full
