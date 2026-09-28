@@ -257,6 +257,8 @@ def write_record(
     If *overwrite_partial* is ``True``, only overwrites if the existing
     record has ``status: "partial"``.
     """
+    from harness.results_lock import assert_can_write
+    assert_can_write(project_root, "write a trial record")
     trials = _trials_dir(project_root, record["case_id"])
     trials.mkdir(parents=True, exist_ok=True)
     path = trials / f"{record['agent_name']}_{record['run_id']}.yaml"
@@ -355,10 +357,12 @@ def append_index(project_root: Path, record: dict) -> None:
 
     Opens in append mode, writes one line, and flushes immediately.
     """
+    from harness.results_lock import assert_can_write, index_lock
+    assert_can_write(project_root, "append to results/index.jsonl")
     index_path = project_root / "results" / "index.jsonl"
     index_path.parent.mkdir(parents=True, exist_ok=True)
     line = _index_line(record)
-    with open(index_path, "a") as f:
+    with index_lock(project_root), open(index_path, "a") as f:
         f.write(json.dumps(line, separators=(",", ":")) + "\n")
         f.flush()
 
@@ -373,15 +377,21 @@ def update_index(project_root: Path, record: dict) -> None:
 
     If no matching ``run_id`` is found, the line is appended.
     """
+    from harness.results_lock import assert_can_write, index_lock, write_text_atomic
+    assert_can_write(project_root, "update results/index.jsonl")
     index_path = project_root / "results" / "index.jsonl"
     new_line = _index_line(record)
     run_id = record["run_id"]
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    # Read-modify-write under an exclusive lock, written atomically (temp + rename): a concurrent writer can
+    # neither interleave nor leave a torn file (the 2026-09-27 corruption).
+    with index_lock(project_root):
+        _update_index_locked(index_path, new_line, run_id, write_text_atomic)
 
+
+def _update_index_locked(index_path: Path, new_line: dict, run_id: str, write_text_atomic) -> None:
     if not index_path.exists():
-        index_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(index_path, "w") as f:
-            f.write(json.dumps(new_line, separators=(",", ":")) + "\n")
-            f.flush()
+        write_text_atomic(index_path, json.dumps(new_line, separators=(",", ":")) + "\n")
         return
 
     lines = index_path.read_text().splitlines()
@@ -400,7 +410,4 @@ def update_index(project_root: Path, record: dict) -> None:
     if not found:
         updated_lines.append(json.dumps(new_line, separators=(",", ":")))
 
-    with open(index_path, "w") as f:
-        for line in updated_lines:
-            f.write(line + "\n")
-        f.flush()
+    write_text_atomic(index_path, "".join(line + "\n" for line in updated_lines))

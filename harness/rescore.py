@@ -16,6 +16,16 @@ never HYPOTHESES, ground truth, or the operators.
 """
 from __future__ import annotations
 
+def root_for_lock(record_path):
+    """results/<case>/trials/<file> → the project root that owns results/."""
+    from pathlib import Path as _P
+    return _P(record_path).resolve().parents[3]
+
+
+def _assert_results_writable(root):
+    from harness.results_lock import assert_can_write
+    assert_can_write(root, "re-score trial records")
+
 import argparse
 from pathlib import Path
 
@@ -94,6 +104,8 @@ def rescore_identification(project_root: Path | None = None) -> dict:
             flipped_true += 1
         elif was and not now:
             flipped_false += 1
+
+        _assert_results_writable(root_for_lock(rp))
 
         with open(rp, "w") as f:
             yaml.dump(record, f, default_flow_style=False, sort_keys=False)
@@ -272,6 +284,7 @@ def reparse_folded(project_root: Path | None = None) -> dict:
             out["recovered_run_ids"].append(rec.get("run_id"))
         else:
             out["flagged_only"] += 1
+        _assert_results_writable(root_for_lock(rp))
         with open(rp, "w") as f:
             yaml.dump(rec, f, default_flow_style=False, sort_keys=False)
         update_index(project_root, rec)
@@ -413,6 +426,7 @@ def rescore_evidence_v2(project_root: Path | None = None, write: bool = False) -
             scores["evidence_v1"] = {**ev, "scorer_version": EVIDENCE_SCORER_V1}
             scores["evidence"] = v2
             rec["scores"] = scores
+            _assert_results_writable(root_for_lock(rp))
             with open(rp, "w") as f:
                 yaml.safe_dump(rec, f, sort_keys=False)
             try:

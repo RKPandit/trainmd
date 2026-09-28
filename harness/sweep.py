@@ -732,7 +732,15 @@ def _cost_from_record(rec) -> float:
     return (rec.get("usage") or {}).get("estimated_cost_usd") or 0.0
 
 
-def run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=None,
+def run_agents(project_root, name, max_cost_usd, **kwargs):
+    """Execute the paid agent phase, holding the sweep lock on results/ for its whole run (DECISIONS
+    2026-09-27): while it runs, every other writer to this checkout's results/ refuses."""
+    from harness.results_lock import sweep_lock
+    with sweep_lock(project_root, name, "agents"):
+        return _run_agents(project_root, name, max_cost_usd, **kwargs)
+
+
+def _run_agents(project_root, name, max_cost_usd, *, agent_factory=None, cost_fn=None,
                est_fn=None, trial_fn=None, max_trials=None, max_consecutive_failures=3,
                require_preconditions=True):
     """Execute the paid agent phase. Returns a summary dict.
@@ -884,6 +892,13 @@ def _maxrss_to_mb(ru_maxrss: int) -> float:
 
 
 def run_verify(project_root, name, *, recovery_fn=None):
+    """Free recovery phase, holding the sweep lock on results/ for its whole run (DECISIONS 2026-09-27)."""
+    from harness.results_lock import sweep_lock
+    with sweep_lock(project_root, name, "verify"):
+        return _run_verify(project_root, name, recovery_fn=recovery_fn)
+
+
+def _run_verify(project_root, name, *, recovery_fn=None):
     """Free recovery phase over completed non-control agent trials."""
     if is_pilot_sweep(project_root, name):
         return {"error": f"refusing to verify {name!r}: a PILOT is never scored (recovery is a score)"}
