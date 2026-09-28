@@ -130,7 +130,8 @@ class AnthropicClient:
     def describe(self) -> dict:
         """Merged into the trial's model block by the agents: the generation settings actually
         requested (temperature is 'model default (not settable)' on Claude 4.7+ models)."""
-        return {"provider": "anthropic", **self.generation_settings()}
+        return {"provider": "anthropic", "transport": "streaming (final message accumulated)",
+                **self.generation_settings()}
 
     def generation_settings(self) -> dict:
         """What was actually requested — recorded in the trial's model block (provenance)."""
@@ -159,8 +160,15 @@ class AnthropicClient:
         last_error: Exception | None = None
         for attempt in range(_MAX_RETRIES + 1):
             try:
-                response = self._client.messages.create(
-                    **self.request_kwargs(messages, tools_schema, max_tokens))
+                # STREAMED (DECISIONS 2026-09-28): the SDK refuses a non-streaming request whose max_tokens
+                # could exceed ~10 minutes of generation, and the output cap must not be lowered (it exists so
+                # thinking is not cut off). The stream is accumulated by the SDK into the FINAL Message — every
+                # block as returned (thinking text + signature, redacted_thinking, text, tool_use) and the final
+                # usage — so the parsed response is the same object a non-streaming call would return. A retry
+                # restarts the whole request; no partial stream is ever kept.
+                with self._client.messages.stream(
+                        **self.request_kwargs(messages, tools_schema, max_tokens)) as stream:
+                    response = stream.get_final_message()
                 return self._parse_response(response)
 
             except transient as e:

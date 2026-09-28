@@ -28,6 +28,7 @@ from harness.llm.anthropic_client import AnthropicClient, model_caps
 from harness.llm.openai_client import OpenAIClient, to_responses_input
 from harness.tools.tool_context import ToolContext
 from harness.tools.tools import register_all_tools
+from anthropic_sse import sse_response  # tests/anthropic_sse.py (streamed responses)
 
 CASE = Path(__file__).resolve().parent / "fixtures" / "cases_public" / "case_0001"
 
@@ -79,7 +80,7 @@ def _anthropic_client(model, sent, responses, **kw):
 
     def handler(request: httpx.Request) -> httpx.Response:
         sent.append(json.loads(request.content))
-        return httpx.Response(200, json=queue.pop(0))
+        return sse_response(queue.pop(0))
     c = AnthropicClient(model=model, **kw)
     c._client = anthropic.Anthropic(api_key="test",
                                    http_client=httpx.Client(transport=httpx.MockTransport(handler)))
