@@ -3,8 +3,10 @@
 IDENTIFICATION under root_token_v3 and EVIDENCE under evidence_v2.3, in the local records (Part 1 is not a
 committed release). Previous primaries are kept beside the new ones (`identification_v2`, `evidence_v2_2`).
 
-Safety: before writing, every record's recomputed v2.2 evidence and root_token_v2-equivalent identification
-must equal what is stored — otherwise nothing is written (the only change must be the declared one).
+Safety: before writing, every record's recomputed v2.2 evidence must equal what is stored — otherwise nothing
+is written (the only change must be the declared one). `--apply` runs only with the FROZEN scorer
+(`harness/scorer_freeze.yaml`, DECISIONS 2026-09-28) and holds the results/ sweep lock for its whole run, so
+no other writer (a sweep, another rescore) can touch results/ meanwhile.
 
     python scripts/rescore_stage4_part1.py            # dry run: before/after tables
     python scripts/rescore_stage4_part1.py --apply
@@ -25,15 +27,25 @@ SWEEP = "stage4_part1"
 
 
 def main() -> int:
-    from harness.provenance import update_index
-    from harness.scoring import _evidence_all, score_identification
-
     ap = argparse.ArgumentParser()
     ap.add_argument("--apply", action="store_true")
     a = ap.parse_args()
-    if a.apply:
-        from harness.results_lock import assert_can_write
-        assert_can_write(ROOT, "re-score trial records")
+    if not a.apply:
+        return _run(apply=False)
+    from harness.scorer_freeze import drift
+    from harness.results_lock import sweep_lock
+    d = drift()
+    if d:
+        raise SystemExit("refusing to apply: the live scorer differs from the FROZEN scorer:\n  " + "\n  ".join(d))
+    with sweep_lock(ROOT, "rescore_stage4_part1", "rescore"):
+        return _run(apply=True)
+
+
+def _run(apply: bool) -> int:
+    from harness.provenance import update_index
+    from harness.results_lock import write_text_atomic
+    from harness.scoring import _evidence_all, score_identification
+
     cards, before, after, changed = {}, defaultdict(lambda: [0, 0, 0.0, 0.0, 0]), {}, []
     todo = []
     for f in sorted((ROOT / "results").glob("*/trials/*.yaml")):
@@ -74,7 +86,7 @@ def main() -> int:
     for k in sorted(before):
         n, i2, e22, e23, i3 = before[k]
         print(f"{k[0]:34} {str(k[1]):10} {n:5d} {i2 / n:7.3f} {i3 / n:7.3f} {e22 / n:8.4f} {e23 / n:8.4f}")
-    if a.apply:
+    if apply:
         for f, rec, ev, idn in todo:
             sc = rec["scores"]
             out = {}
@@ -90,7 +102,7 @@ def main() -> int:
                 else:
                     out[k] = v
             rec["scores"] = out
-            f.write_text(yaml.dump(rec, default_flow_style=False, sort_keys=False))
+            write_text_atomic(f, yaml.dump(rec, default_flow_style=False, sort_keys=False))
             update_index(ROOT, rec)
         print(f"APPLIED to {len(todo)} records")
     return 0

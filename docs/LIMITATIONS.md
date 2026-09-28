@@ -652,3 +652,11 @@ selected / subset / confidence-filtered evaluation — the operator's mechanism 
 post-run audit rates them blind; any fix will be derived from the operator's mechanism, then applied with a
 disclosed rescore. Until then, metric_inflation identification (0.322 pooled end-to-end) is a lower bound,
 and Luna's more so. Detection — and so H9 and H10 — does not depend on identification.
+
+**L37 — metric_inflation's config key is descriptive, so part of its identification may be name-reading
+(recorded 2026-09-28; author's note; no test or fix).** The injected key, `eval_subset_fraction`, names its
+own mechanism — an evaluated subset — just as `include_aux_feature` hints at leakage. An agent can therefore
+reach a correct metric_inflation label partly by reading the key's name rather than by diagnosing the
+symptom. For leakage the neutral-key variant (`silent.data_leakage_neutral.v1`, H8) measures this; there is
+**no neutral-key variant for metric_inflation**, so its identification (and the root_token_v3 credit for
+"evaluation on a selected subset" labels) cannot separate diagnosis from name-reading.
