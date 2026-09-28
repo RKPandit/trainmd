@@ -42,7 +42,7 @@ on:
         description: "What the manual dispatch runs"
         type: choice
         default: certify
-        options: [certify, benign-qualify, reference-ab, verify-native]   # benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
+        options: [certify, benign-qualify, reference-ab, verify-native, b1-rebuild]   # b1-rebuild: rebuild the 20 healthy controls at dcda575 on AMD and re-run that commit's B1 (scripts/b1_rebuild_dcda575.sh); benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
       sweep:
         description: "verify-native: sweep name (its sweeps/<name>_verify_jobs.json.gpg must be on this ref)"
         type: string
@@ -459,6 +459,30 @@ jobs:
   # skips the heavy rebuild/FULL-gate steps (cheap); when reference/stats.yaml or
   # the data pin changes it rebuilds ALL cases against the COMMITTED reference and
   # requires validate-all + the FULL gate green. See docs/DECISIONS.md (2026-09-14).
+  # ---- One-off: B1 provenance — rebuild the 20 healthy controls at dcda575 on AMD (DECISIONS 2026-09-28) ----
+  b1-rebuild:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'b1-rebuild' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Require an AMD (EPYC) runner — the reference platform
+        run: |
+          vendor="$(awk -F: '/^vendor_id/{gsub(/[ \t]/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          model="$(awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          echo "runner CPU: $vendor / $model"
+          if [ "$vendor" != "AuthenticAMD" ]; then
+            echo "::error::runner CPU is '$vendor' ($model), not AuthenticAMD — re-dispatch until an AMD runner is assigned."
+            exit 1
+          fi
+      - name: Rebuild at dcda575 and re-run its B1
+        run: bash scripts/b1_rebuild_dcda575.sh b1_rebuild_out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: b1-rebuild-dcda575
+          path: b1_rebuild_out/
+
   reference-change-guard:
     runs-on: ubuntu-latest
     timeout-minutes: 90

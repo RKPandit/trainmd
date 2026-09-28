@@ -64,10 +64,12 @@ clean; validate-all 27/27; plan file git-clean and build_id-pinned.
 
 ### Post-hoc scoring corrections (disclosed; see HYPOTHESES.md Results and DECISIONS 2026-09-13)
 
-**Seven** post-hoc corrections have been applied, disclosed, with originals kept beside corrected
+**Eight** post-hoc corrections have been applied, disclosed, with originals kept beside corrected
 values in every table — five to Sweep-1 records (#1–#5, below), a sixth (#6, 2026-09-23) to the
-interval renderer across every released sweep, and a seventh (#7, 2026-09-25) to H8's evidence scores
-(evidence scorer v2.1 → v2.2; the only one that changes ground truth — see #7). The first two were **scoring/schema artifacts, not model behaviour**; the third
+interval renderer across every released sweep, a seventh (#7, 2026-09-25) to H8's evidence scores
+(evidence scorer v2.1 → v2.2; the only one that changes ground truth — see #7), and an eighth (#8,
+2026-09-28) to the Stage-3 baseline table: B1's and B3's control FPR were 16/20, not the published 1/20
+(the baseline table's footnote §). The first two were **scoring/schema artifacts, not model behaviour**; the third
 (#3) is **model-side output folding, not a harness bug** — we recover a well-formed repair the
 model misplaced; the fourth (#4, added 2026-09-15) is an **analysis-aggregation correction** —
 a pooled comparator that averaged two unlike operators; the fifth (#5, 2026-09-15) is an
@@ -639,14 +641,21 @@ set," not a naive differ. (`harness/baselines.py`; DECISIONS 2026-09-17.)
 | baseline | detection (faulty) | control-FPR | identification | evidence F1 | recovery |
 |---|---|---|---|---|---|
 | **B0** exitcode | 6/30 (crash only) | 0/20 [0, 0.168]† | — | — | — |
-| **B1** band § | 24/30 = 0.80 | 1/20 = 0.05 | — | 0.43 | — |
+| **B1** band § | 24/30 = 0.80 | **16/20 = 0.80** (was 1/20 = 0.05; correction #8) | — | 0.43 | — |
 | **B2** config-delta [^b2] | **30/30 = 1.00** | **0/20 [0, 0.168]†** | **18/30 = 0.60** ‡ | 0.63 | **30/30 = 1.00** |
-| **B3** union (B1∪B2) | **30/30 = 1.00** | 1/20 = 0.05 | 18/30 = 0.60 ‡ | 0.63 | 30/30 = 1.00 |
+| **B3** union (B1∪B2) | **30/30 = 1.00** | **16/20 = 0.80** (was 1/20 = 0.05; correction #8) | 18/30 = 0.60 ‡ | 0.63 | 30/30 = 1.00 |
 
 [^b2]: B2 uses the clean RESOLVED config + the derived-key set (`model.input_dim`) — workload-specific
 knowledge, disclosed above; not a naive config-diff.
 
-§ **Which B1 produced these numbers (traced 2026-09-27; DECISIONS 2026-09-27).** Measured 2026-09-17
+§ **CORRECTION #8 (2026-09-28): B1's and B3's control FPR were 16/20, not 1/20.** The 20 healthy controls
+rebuilt at commit dcda575 on AMD, with that commit's own build and its own B1 (`docs/audits/b1_rebuild_dcda575.md`),
+give **16/20** flagged by the B1 then defined (any epoch outside the band) — and **1/20** on the final epoch
+alone (seed 58). The published 1/20 was therefore the final-epoch count attributed to the every-epoch
+instrument; the instrument's own output was 16/20 (B3 = B1 ∪ B2 inherits it: B2 flags 0/20). Detection 24/30
+is unaffected (every non-crash faulty case leaves the band under both rules). B1 is declared FINAL-EPOCH from
+2026-09-27 (1/20 on current builds). *Earlier trace, kept for the record:* **Which B1 produced these numbers
+(traced 2026-09-27; DECISIONS 2026-09-27).** Measured 2026-09-17
 (commit dcda575) on the native 50-case set by `harness/baselines.py::b1` as it then stood — the EVERY-EPOCH
 rule (flag if any epoch's visible accuracy leaves mean ± 2σ; unchanged since its first commit 255d773), with
 the band adopted that day (b995704: mean 0.856298, σ 0.002197). The 50-case set's artifacts are no longer in
