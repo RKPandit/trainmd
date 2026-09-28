@@ -64,12 +64,20 @@ clean; validate-all 27/27; plan file git-clean and build_id-pinned.
 
 ### Post-hoc scoring corrections (disclosed; see HYPOTHESES.md Results and DECISIONS 2026-09-13)
 
-**Eight** post-hoc corrections have been applied, disclosed, with originals kept beside corrected
+**Nine** post-hoc corrections have been applied, disclosed, with originals kept beside corrected
 values in every table — five to Sweep-1 records (#1–#5, below), a sixth (#6, 2026-09-23) to the
 interval renderer across every released sweep, a seventh (#7, 2026-09-25) to H8's evidence scores
-(evidence scorer v2.1 → v2.2; the only one that changes ground truth — see #7), and an eighth (#8,
+(evidence scorer v2.1 → v2.2; the only one that changes ground truth — see #7), an eighth (#8,
 2026-09-28) to the Stage-3 baseline table: B1's and B3's control FPR were 16/20, not the published 1/20
-(the baseline table's footnote §). The first two were **scoring/schema artifacts, not model behaviour**; the third
+(the baseline table's footnote §), and a ninth (#9, 2026-09-28) re-scores Stage 4 Part 1 under the FROZEN
+scorer — identification root_token_v3 (metric_inflation: evaluation on a selected / confidence-filtered
+subset, approved label list) and evidence v2.3 (crash output and traceback call-site frames). It can only
+RAISE scores: 198 identification verdicts wrong→right, all metric_inflation (pooled 0.322 → 0.780; Haiku
+0.630 → 0.722, Luna 0.014 → 0.838 end-to-end), and 24 shape_mismatch evidence scores up (F1 Haiku 0.613 →
+0.652, Luna 0.464 → 0.471); 0 correct→wrong; detection, recovery and every pre-registered verdict (H9, H10 —
+detection-based) unchanged. Prior values kept in each record (`identification_v2`, `evidence_v2_2`);
+published sweeps (Sweep 1, Stage 2 gate, H8) are not rewritten — the Stage 2 gate's 4 records that v3
+would credit are disclosed only. The first two were **scoring/schema artifacts, not model behaviour**; the third
 (#3) is **model-side output folding, not a harness bug** — we recover a well-formed repair the
 model misplaced; the fourth (#4, added 2026-09-15) is an **analysis-aggregation correction** —
 a pooled comparator that averaged two unlike operators; the fifth (#5, 2026-09-15) is an
