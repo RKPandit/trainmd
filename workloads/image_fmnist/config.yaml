@@ -1,0 +1,31 @@
+pipeline:
+  family: image
+  name: image_fmnist
+
+data:
+  image_size: 28
+  norm_mean: 0.286          # per-pixel normalisation applied in the input stage
+  norm_std: 0.353
+
+augment:
+  hflip: false
+
+net:
+  kind: small_cnn
+  in_ch: 1
+  widths: [16, 32]          # conv block widths (3x3 conv, ReLU, 2x2 max-pool each)
+  n_classes: 10
+
+optim:
+  name: sgd
+  base_lr: 0.05
+  momentum: 0.9
+  weight_decay: 0.0005
+  batch: 128
+
+sched:
+  epochs: 8
+  warmup_epochs: 0
+
+eval:
+  report: val_top1          # the visible metric the agent sees each epoch

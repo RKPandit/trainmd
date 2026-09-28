@@ -420,7 +420,9 @@ Adult, so the PIPELINE changes while prior familiarity stays roughly constant â€
 the pipeline, not a familiarity shift. Before any case is built: (1) the data are pinned with sha256 checksums
 exactly as Adult's are (`workloads/*/reference/data_manifest.yaml` + the data target; never fetched at run time),
 and (2) CNN training is verified BYTE-IDENTICAL across two separate AMD runners (same commit, same image; metrics
-and model weights hashed). Only then are operators calibrated and cases built.
+and model weights hashed). Only then are operators calibrated and cases built. **Status 2026-09-27:** the data pin,
+the clean CNN pipeline and the CI check (`task=image-repro`) are built (DECISIONS 2026-09-27); the two-runner result
+is recorded here once dispatched.
 
 | Dataset | Size / shape | Licence | â‰ˆ accuracy, compact CNN, ~1 min CPU | For | Against |
 |---|---|---|---|---|---|
