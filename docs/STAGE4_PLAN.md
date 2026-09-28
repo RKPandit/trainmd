@@ -173,7 +173,99 @@ sweep1, stage2gate, h8_xprovider — which stay); verify one locally with `make 
 (the same `rebuild_tables` byte-match CI runs); CI (`scripts/check_release_files.py`) fails if any other
 release directory is committed or any file under `results_release/` exceeds 10 MB.
 
-## Part 2 — Model dimension (~2 weeks) — contrasts that isolate ONE factor each (revised 2026-09-24)
+## Part 2 — Model dimension (~2 weeks) — model comparisons and within-model reasoning interventions (revised 2026-09-27)
+
+**CURRENT DESIGN (author's decision 2026-09-27, after the pilot) — supersedes the 2026-09-24 design below where
+they differ.**
+
+*Conditions (7):* Haiku 4.5 (REUSED from Part 1) · Sonnet 5 thinking OFF · Sonnet 5 thinking ON (effort: see
+item A below) · GPT-5.6 Luna medium (RE-RUN, strict) · GPT-5.6 Luna none · GPT-6 Luna medium · GPT-6 Sol
+medium. **Opus 5.5 is DROPPED** (author's decision; consequence: the Sonnet 5 vs Opus 5.5 comparison goes; for
+reference, Opus's pilot cost per static trial was 2.2× Sonnet 5 medium's). Every OpenAI cell sends strict tool
+schemas.
+
+*What the contrasts are, and are not (reviewer wording fix, binding on every Part 2 document):*
+- **Model comparisons** — Haiku 4.5 vs Sonnet 5 (thinking off); GPT-6 Luna vs GPT-6 Sol; GPT-5.6 Luna vs
+  GPT-6 Luna (both medium); Sonnet 5 (on) vs GPT-6 Sol (matched list price). Two models differ in training,
+  size, tokenizer and data cutoff at once: a model comparison says WHICH MODEL does better on this benchmark,
+  never that it "isolates capability". The phrase "isolates capability" is not used.
+- **Within-model reasoning interventions** — Sonnet 5 thinking off vs on; GPT-5.6 Luna reasoning none vs
+  medium. One request setting changes within one model (it also changes output length and cost, which are
+  reported beside it).
+- **ReAct vs static compares complete agent configurations** (tools, call budget, prompt, deliberation and
+  tokens all differ), not "tool use" alone.
+
+*Primary endpoints are END-TO-END (reviewer fix 3):* every trial counts; an empty or unparseable diagnosis
+is a miss on a faulty case and never a false alarm on a control. **Validity is reported separately**, per
+condition: the valid-submission rate and the completion status recorded per trial (record schema 1.3:
+`tool_config`, per-call provider `completion`, per-trial `completion`). The valid-only view stays descriptive.
+
+*Faulty cases are reported by distinct fault MECHANISM (reviewer fix 4):* pooled faulty-case estimates are
+the unweighted mean over the five mechanisms (`harness.sweep_stats.MECHANISM`); the two leakage variants
+(descriptive / neutral key names) are one mechanism and are shown separately only where the variant is the
+contrast (H8-type), so leakage is never counted twice.
+
+*Baselines on the same cases (reviewer fix 5):* the "what does the agent add?" table — B0/B1/B2/B3/BF vs every
+agent row on detection, false alarms (healthy and benign separately), identification and cost — is built for
+Part 1 (`docs/audits/agent_value_part1_200.md`, `scripts/agent_value_table.py`) and is regenerated for Part 2.
+**Open before lock:** B1 checks EVERY epoch against a band that describes the reference's FINAL value
+(±2σ, σ = 0.0022), so it flags 16/20 healthy controls on today's 20-epoch series (final epoch only: 1/20,
+the rate FINDINGS reported for Stage 3). B1 is not redefined after seeing this; the author decides whether a
+final-epoch B1 is declared as the band floor before the Part 2 lock.
+
+*Scorer freeze (reviewer fix 6):* after the author's review of #68 (root_token_v3 / evidence_v2.3) the scorer
+is FROZEN; Part 2 is scored with it from its first trial, and Part 2's post-run human audit is the fresh
+validation of the frozen scorer — findings after lock go to LIMITATIONS, not a fix cycle, unless a result
+would be wrong.
+
+**Pilot results (2026-09-27; 91/91 cells, $1.98; check-reasoning and check-cache passed; NO scores —
+`sweeps/stage4_part2_pilot_pilot_report.md`).** Strict mode removed the static parse failures (OpenAI static
+10/10 parsed, 0 empty, every condition).
+- *A — thinking volume (Anthropic; no thinking-token breakout is returned, so volume = output tokens minus
+  visible output, calibrated on Sonnet 5's thinking-disabled calls at 0.58 output tokens per visible
+  character, IQR 0.51–0.75 ⇒ roughly ±100 tokens per call):* Sonnet 5 medium static — thinking blocks in
+  **8/10** trials, ≈ **215** estimated thinking tokens per call (median; mean ≈ 180); ReAct 3/3 trials, 8 of 14
+  calls, ≈ 120 per call with a block. Sonnet 5 off: 0 blocks. Opus 5.5 medium static: 10/10, ≈ 120 median /
+  240 mean. So Sonnet 5 medium DOES think in static, but briefly: output 531 vs 448 tokens per static trial
+  (off). The within-model contrast at medium is a small intervention. **Proposal (volume only, decided before
+  any score exists):** a 10-trial static thinking-volume probe of Sonnet 5 at **high** (its default) and
+  **xhigh** (≈ $0.60 total, pilot-report only), then use the LOWEST of {high, xhigh} with thinking in ≥ 9/10
+  trials AND median estimated thinking ≥ 4× medium's (≥ ≈ 900 tokens per call); if neither meets it, use
+  xhigh and state the contrast's measured size. Medium is not kept as the "on" level unless the author
+  prefers comparability with the price-matched GPT-6 Sol medium.
+- *B — GPT-5.6 Luna none, ReAct (1 truncation → empty diagnosis):* runaway WHITESPACE — after 428 valid
+  characters of the submit arguments the model emitted " \r" (space, carriage return) 4,037 times until the
+  8,192-token cap. The run starts right after a numeric value inside the second evidence item's `detail`
+  object, outside any string. JSON allows unlimited whitespace between tokens, so strict decoding permits it;
+  it is the Part 1 failure (L35) with different characters. Reported only; no change.
+- *C — reasoning tokens:* the report read the wrong field (turn level, not the call's `usage`), so it printed
+  0 everywhere. Fixed; OpenAI's reported reasoning tokens now show (e.g. GPT-5.6 Luna medium static 1,974,
+  GPT-6 Luna medium static 3,441; Luna none 0 — reported and genuinely zero), and a provider that reports none
+  (Anthropic) prints "not reported", never 0.
+
+**Cost re-estimated from the pilot** (per condition: 780 static trials = 108 faulty × 3 arms × 2 repeats + 44
+controls × 3 arms; the pilot's measured $ per trial, which includes thinking/reasoning output):
+
+| Condition | $ / static trial (pilot) | $ / ReAct trial (pilot, n = 3) | 780 static | 780 ReAct |
+|---|---|---|---|---|
+| Haiku 4.5 (REUSED from Part 1) | — | — | 0 | 0 |
+| Sonnet 5, thinking off | 0.0270 | 0.0477 | 21.08 | 37.21 |
+| Sonnet 5, thinking on (medium) | 0.0279 | 0.0291 → **0.0477** † | 21.72 | 37.21 † |
+| GPT-5.6 Luna medium (re-run, strict) | 0.0023 | 0.0041 | 1.76 | 3.20 |
+| GPT-5.6 Luna none | 0.0021 | 0.0054 | 1.64 | 4.21 |
+| GPT-6 Luna medium | 0.0012 | 0.0023 | 0.90 | 1.79 |
+| GPT-6 Sol medium | 0.0207 | 0.0309 | 16.15 | 24.10 |
+| **Total (new conditions)** | | | **≈ $63** | **≈ $108** † |
+
+† Sonnet 5 on ReAct: the 3-trial pilot figure (0.0291) is below thinking-off's, so the off figure is used as
+the floor (pilot-literal ReAct total ≈ $93). *If the "on" level moves to high/xhigh (item A):* every
++1,000 output tokens per static trial adds $0.010 per trial, i.e. + $7.80 per 780 static trials.
+Static-primary Part 2 ≈ **$63** (was ≈ $175 with Opus 5.5 and assumed multipliers); with ReAct ≈ $171.
+
+---
+
+*Design history (2026-09-24), kept for the record; superseded above where they differ:*
+
 Planning only; no runs. Every model fact below was verified 2026-09-24 against the providers'
 OFFICIAL docs (platform.claude.com/docs; developers.openai.com/api/docs), not third-party sites; the
 OpenAI figures were re-read from the raw pages because a summarizer misread the pricing table.
@@ -293,7 +385,67 @@ patterns). **Declared in the Part 2 pre-registration** (`docs/PREREG_STAGE4_PART
 numbers were produced under non-strict schemas and are affected by argument degeneration (L35) — end-to-end
 detection, identification, evidence and recovery under-state Luna — so no Part 2 contrast uses Part 1 Luna.
 
-## Part 3 — Second workload, frozen as the evaluation set (~2 weeks)
+## Part 3 — REQUIRED second workload: a small image classifier (DESIGN ONLY, 2026-09-27; author's decision)
+
+**Why.** Every Part 1–2 result is one workload (tabular Adult MLP). A second workload with a different data
+modality, pipeline and config layout — faults RE-IMPLEMENTED from scratch, not ported — tests whether the
+pattern belongs to the agents or to our first pipeline. It is required, not optional.
+
+**Workload `image_small` (proposal).** A compact CNN (2 conv blocks + 1 linear layer, ≈ 50k parameters), plain
+PyTorch — **no new dependency** (IDX/NumPy files read with `numpy`; no torchvision; torch 2.2.2 / numpy 1.26.4
+pins unchanged), deterministic CPU kernels, single-threaded loader in reference mode, ≈ 1 min per run on
+4 vCPU (well inside the ≤ 10 min rule). Split: train / visible validation / hidden test, fixed by a committed
+split file, dataset files vendored with sha256 in the lockstep data target (never fetched at run time).
+
+**Dataset options** (to confirm: licence, size and a timing run before building):
+
+| Dataset | Size / shape | Licence | ≈ accuracy, compact CNN, ~1 min CPU | For | Against |
+|---|---|---|---|---|---|
+| **Fashion-MNIST** (recommended) | 70k, 28×28 grey, 10 classes | MIT | ≈ 0.88–0.90 on a 20k-train subset | small, fast, not saturated, stable run-to-run | widely known (prior-knowledge objection, as Adult) |
+| KMNIST (Kuzushiji) | 70k, 28×28 grey, 10 classes | CC BY-SA 4.0 | ≈ 0.90–0.93 | less familiar to models | share-alike terms to check for redistribution |
+| CIFAR-10 (subset) | 60k, 32×32 RGB, 10 classes | no explicit licence (research use) | ≈ 0.55–0.65 | colour, harder, noisier | 1 min only on a subset; higher run-to-run spread widens bands |
+| sklearn digits | 1.8k, 8×8 grey | BSD | ≈ 0.97 in seconds | trivial to vendor | too small: validation noise swamps mild faults |
+
+**Different pipeline and config layout (by design):** config sections `data / augment / net / optim / sched /
+eval` with DIFFERENT key names from workload 1 (e.g. `optim.base_lr`, `sched.warmup_epochs`, `net.in_ch`), a
+per-epoch `eval` loop that logs `val_top1` (not `metric_visible_val_acc`), separate `augment` stage, image
+normalisation stats in config. The SageMaker training contract (/opt/ml layout, SM_* env vars, log names) is kept.
+
+**Faults — RE-IMPLEMENTED from scratch** (one per mechanism of workload 1, so results are reported by mechanism
+across workloads; 3 strengths × 6 seeds each, calibrated like workload 1: clean passes verification and the
+mutated run fails it on 3 seeds before merge):
+1. **Leakage — label-encoding pixel patch:** a small corner patch whose intensity encodes the label, stamped
+   into train and visible-validation images but not the hidden test set (visible metric inflated, hidden
+   metric not).
+2. **Label corruption:** class-pair label flips in the training labels at fraction p.
+3. **Learning-rate schedule fault:** a warmup/step-unit error (epochs read as steps) that spikes the effective
+   learning rate early (collapse / slow recovery).
+4. **Metric inflation:** the eval loop reports accuracy on a confidence-filtered subset of the validation set.
+5. **Crash — shape mismatch:** `net.in_ch` (or the flatten size) disagrees with the data (1 vs 3 channels) →
+   crash at the first forward pass.
+*(Optional sixth, image-specific, only if calibration allows: train/eval normalisation mismatch — a silent
+degradation with no workload-1 analogue, reported separately, never pooled with the five.)*
+
+**Controls:** 20 healthy (seeds) + benign configuration controls in the SAME two forms as workload 1
+(changed-value and new-key), 6 types × 12 seeds — e.g. batch size, dropout, epochs, learning rate within the
+normal range, weight decay, a random-crop augmentation toggle (new key). ≈ **182 cases** (90 faulty + 20 + 72).
+
+**Cost (agents only; data, calibration and builds are free CPU).** Per model: 816 static trials (90 faulty × 3
+arms × 2 repeats + 92 controls × 3 arms) + 540 ReAct (90 faulty × 3 arms × 2 repeats), at Part 1's measured
+cost per trial (Haiku static 0.0135 / ReAct 0.0390; GPT-5.6 Luna 0.0029 / 0.0042) and the Part 2 pilot's for
+Sonnet 5 (off 0.0270 / 0.0477; on 0.0279 / 0.0477), ×1.2 contingency for a longer training script:
+
+| Models | static | ReAct | total | with ×1.2 |
+|---|---|---|---|---|
+| **Haiku 4.5 + GPT-5.6 Luna** | 13.38 | 23.33 | **$36.71** | **≈ $44** |
+| + Sonnet 5 thinking off | + 22.03 | + 25.76 | $84.50 | ≈ $101 |
+| + Sonnet 5 off and on | + 44.80 | + 51.52 | $133.03 | ≈ $160 |
+
+**Gate and freeze.** Built after the scorer and protocol are frozen, used for nothing else, and — as before —
+the frozen evaluation set: never released until its results are final (LIMITATIONS L31). Design only: no
+code, no cases, no runs until the author approves this section.
+
+*Superseded Part 3 text (2026-09-24), kept for the record:*
 As v1, with one change from the review: the second workload doubles as the **fresh frozen
 evaluation set** — built after the scorer and protocol stop changing, never used for
 development. **Never released until its results are final:** a release of scored records discloses

@@ -613,8 +613,13 @@ of the tolerance — Part 1 verifies natively (HYPOTHESES, pre-run addendum), so
 enters, but such near-threshold verdicts are reported as counted there (|margin| < 0.0055).
 
 **L35 — Luna's function-call arguments were unconstrained and degenerated in a measurable share of Part 1
-trials; end-to-end scoring under-states Luna (2026-09-26; found by the hand-read spot check).** Part 1 sent
-OpenAI tools without strict mode, and Luna's submit arguments sometimes (i) ran into whitespace until
+trials; end-to-end scoring under-states Luna (2026-09-26; found by the hand-read spot check; basis restated
+2026-09-27).** The limitation rests on OBSERVED outputs, not on a missing flag: recomputed per trial from the
+transcripts (`harness.provenance.completion_summary`, record schema 1.3), **90** OpenAI submit calls were
+unparseable, every one ending at the output cap (76 static, 14 ReAct), against **0** for Haiku (whose 15 ReAct
+invalid submissions are no-submit terminations, not malformed calls). The configuration sent is known from
+the code at the recorded commit — the canonical open schema, no strict mode — since Part 1 records predate
+the per-trial `tool_config` block. Luna's submit arguments sometimes (i) ran into whitespace until
 `max_tokens` — **90** trials, every one truncated and unparseable, so an empty diagnosis — or (ii) contained a
 punctuation-only key (`"},":`) that swallows later fields into `diagnosis` — **234** otherwise valid
 submissions, of which **218** lost their top-level `evidence_refs` and **216** (faulty) their `repair_spec`
