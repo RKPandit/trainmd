@@ -83,7 +83,7 @@ class TestSchemaConformance:
 
     def test_schema_version(self, trial_record):
         record, _ = trial_record
-        assert record["schema_version"] == "1.1"
+        assert record["schema_version"] == "1.3"
 
     def test_capture_blocks_present(self, trial_record):
         """Schema 1.1 pre-sweep capture blocks are present."""
@@ -272,7 +272,7 @@ class TestRecordPersistence:
         path = trials_dir / f"{record['agent_name']}_{record['run_id']}.yaml"
         assert path.exists()
         loaded = yaml.safe_load(path.read_text())
-        assert loaded["schema_version"] == "1.1"
+        assert loaded["schema_version"] == "1.3"
         assert loaded["case_id"] == record["case_id"]
 
     def test_no_overwrite_final(self, trial_record):

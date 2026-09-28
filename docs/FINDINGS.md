@@ -639,12 +639,22 @@ set," not a naive differ. (`harness/baselines.py`; DECISIONS 2026-09-17.)
 | baseline | detection (faulty) | control-FPR | identification | evidence F1 | recovery |
 |---|---|---|---|---|---|
 | **B0** exitcode | 6/30 (crash only) | 0/20 [0, 0.168]† | — | — | — |
-| **B1** band | 24/30 = 0.80 | 1/20 = 0.05 | — | 0.43 | — |
+| **B1** band § | 24/30 = 0.80 | 1/20 = 0.05 | — | 0.43 | — |
 | **B2** config-delta [^b2] | **30/30 = 1.00** | **0/20 [0, 0.168]†** | **18/30 = 0.60** ‡ | 0.63 | **30/30 = 1.00** |
 | **B3** union (B1∪B2) | **30/30 = 1.00** | 1/20 = 0.05 | 18/30 = 0.60 ‡ | 0.63 | 30/30 = 1.00 |
 
 [^b2]: B2 uses the clean RESOLVED config + the derived-key set (`model.input_dim`) — workload-specific
 knowledge, disclosed above; not a naive config-diff.
+
+§ **Which B1 produced these numbers (traced 2026-09-27; DECISIONS 2026-09-27).** Measured 2026-09-17
+(commit dcda575) on the native 50-case set by `harness/baselines.py::b1` as it then stood — the EVERY-EPOCH
+rule (flag if any epoch's visible accuracy leaves mean ± 2σ; unchanged since its first commit 255d773), with
+the band adopted that day (b995704: mean 0.856298, σ 0.002197). The 50-case set's artifacts are no longer in
+the tree, and the control FPR does NOT reproduce from any preserved series: the same every-epoch rule on the
+next build's 20 healthy controls (H8, 2026-09-20, same seeds and band) flags 16/20, and on today's build 16/20;
+the FINAL-EPOCH rule gives 1/20 on both. B1 is declared final-epoch from 2026-09-27 (the band describes final
+accuracy), under which the 1/20 figure holds on current builds; the every-epoch variant is reported in the
+appendix of `docs/audits/agent_value_part1_200.md`. B3's control FPR inherits the same note.
 
 † Zero-event rate: exact two-sided 95% Clopper–Pearson interval over the 20 unique control cases, not a
 demonstrated zero (correction #6, 2026-09-23; previously written `0/20 = 0.00`). ‡ **Terminology, not localization** — see below: B2

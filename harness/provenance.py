@@ -25,7 +25,8 @@ import yaml
 
 from harness.pricing import PRICE_TABLE_VERSION, estimate_cost, uncached_equivalent_cost
 
-SCHEMA_VERSION = "1.2"   # 1.2 (2026-09-26): environment.process block; git_dirty = tracked changes only
+SCHEMA_VERSION = "1.3"   # 1.3 (2026-09-27): tool_config block; per-call + per-trial completion status
+#                          1.2 (2026-09-26): environment.process block; git_dirty = tracked changes only
 
 
 # ---------------------------------------------------------------------------
@@ -230,10 +231,27 @@ def finalize_record(
         uncached.cost_usd if uncached is not None else None)
     record["usage"]["price_table_version"] = PRICE_TABLE_VERSION
 
+    record["completion"] = completion_summary(record)
+
     if scores is not None:
         record["scores"] = scores
 
     return record
+
+
+def completion_summary(record: dict) -> dict:
+    """Per-trial completion status from OBSERVED behaviour (reviewer fix 2, 2026-09-27): how many calls
+    ended incomplete (output cap / provider-incomplete), the final call's stop reason, and whether a submit
+    call's arguments parsed as an object. Derived from the transcript, so it can be recomputed for old
+    records (Part 1) exactly as for new ones."""
+    calls = record.get("llm_transcript") or []
+    incomplete = sum(1 for c in calls if c.get("stop_reason") == "max_tokens"
+                     or (c.get("completion") or {}).get("status") == "incomplete")
+    submits = [tc for c in calls for tc in (c.get("tool_calls") or []) if tc.get("name") == "submit"]
+    return {"llm_calls": len(calls), "incomplete_calls": incomplete,
+            "final_stop_reason": calls[-1].get("stop_reason") if calls else None,
+            "submit_called": bool(submits),
+            "submit_parsed": any(isinstance(tc.get("arguments"), dict) for tc in submits)}
 
 
 # ---------------------------------------------------------------------------

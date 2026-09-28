@@ -322,7 +322,8 @@ _EXCLUSION_REASONS = {
 def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=None,
          repeats=DEFAULT_REPEATS, order_seed=1234, model=DEFAULT_MODEL,
          operators=None, providers=None, benign_seeds=None, no_passback_model=None,
-         openai_strict_tools=False, pilot_static=None, pilot_react=None, pilot_seed=20260927) -> dict:
+         openai_strict_tools=False, pilot_static=None, pilot_react=None, pilot_seed=20260927,
+         pilot_match=None) -> dict:
     strengths = strengths or DEFAULT_STRENGTHS
     faulty_seeds = faulty_seeds or DEFAULT_FAULTY_SEEDS
     # `is None` (not `or`) so an explicit empty list means NO controls (faulty-only sweep).
@@ -344,7 +345,27 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
     # PILOT (Stage 4 Part 2): a small uniform sample per provider-condition — pilot_static static + pilot_react
     # ReAct cells each (seeded) — run WITHOUT scoring; its trials are excluded from every analysis.
     pilot = None
-    if pilot_static is not None or pilot_react is not None:
+    if pilot_match is not None:
+        # PROBE (Stage 4 Part 2, item A): reuse EXACTLY the cells a previous pilot ran for one condition —
+        # same (case, agent, arm, repeat) — for every condition of this plan, so volumes compare on the same
+        # cases. Deterministic (no sampling). `pilot_match` = {"plan": path, "condition": provider entry}.
+        prev = yaml.safe_load(Path(pilot_match["plan"]).read_text())
+        want = pilot_match["condition"]
+        slots = {(c["case_id"], c["agent"], c["anchor"], c.get("repeat_index"))
+                 for c in prev["cells"]
+                 if c["provider"] == want["provider"] and c["model"] == want["model"]
+                 and all(c.get(k) == want.get(k) for k in _CELL_SETTINGS if k != "max_tokens")
+                 and (pilot_match.get("agent") is None or c["agent"] == pilot_match["agent"])}
+        if not slots:
+            raise ValueError(f"pilot_match: no cells for {want} in {pilot_match['plan']}")
+        cells = [c for c in cells if not c.get("exploratory")
+                 and (c["case_id"], c["agent"], c["anchor"], c.get("repeat_index")) in slots]
+        pilot = {"matched_from": {"plan": str(pilot_match["plan"]), "condition": condition_label(want),
+                                  "model": want["model"], "agent": pilot_match.get("agent") or "all",
+                                  "slots": len(slots)},
+                 "scores": "NOT computed (run_trial score=False); pilot trials are "
+                           "excluded from every analysis (harness/sweep_stats loaders)"}
+    elif pilot_static is not None or pilot_react is not None:
         prng = random.Random(pilot_seed)
         groups: dict = {}
         for c in cells:
@@ -1017,8 +1038,8 @@ def pilot_report(records: list[dict]) -> str:
         groups.setdefault(key, []).append(r)
     L = ["# PILOT report — cost, tokens, reasoning presence, compliance (NO scores)", "",
          "| provider | model | effort | thinking | strict tools | agent | trials | completed | cost $ | $ / trial "
-         "| input tok | output tok | reasoning tok | truncations | reasoning past 1st tool call | submit parsed | "
-         "empty diagnosis |", "|" + "---|" * 17]
+         "| input tok | output tok | reasoning tok | trials w/ reasoning blocks | truncations "
+         "| reasoning past 1st tool call | submit parsed | empty diagnosis |", "|" + "---|" * 18]
     from harness.sweep_stats import valid_submission
     for key in sorted(groups, key=lambda k: tuple(map(str, k))):
         for agent in ("static", "react"):
@@ -1028,7 +1049,14 @@ def pilot_report(records: list[dict]) -> str:
             done = [r for r in rs if r.get("status") == "completed"]
             u = [r.get("usage") or {} for r in rs]
             cost = sum(x.get("estimated_cost_usd") or 0.0 for x in u)
-            rtok = sum((t.get("reasoning_tokens") or 0) for r in rs for t in (r.get("llm_transcript") or []))
+            # Reasoning tokens live in each call's usage block. A provider that does not break them out
+            # (Anthropic: thinking is billed inside output_tokens) records None -> "not reported", never 0.
+            rvals = [(t.get("usage") or {}).get("reasoning_tokens") for r in rs for t in (r.get("llm_transcript") or [])]
+            rtok = f"{sum(v for v in rvals if v is not None):,}" if any(v is not None for v in rvals) else "not reported"
+            if any(v is None for v in rvals) and rtok != "not reported":
+                rtok += " (partial)"
+            with_blocks = sum(1 for r in rs if any((t.get("reasoning_blocks") or 0) > 0
+                                                   for t in (r.get("llm_transcript") or [])))
             multi = [r for r in done if len(r.get("llm_transcript") or []) >= 2]
             past = sum(1 for r in multi if any((t.get("reasoning_blocks") or 0) > 0
                                                for t in (r.get("llm_transcript") or [])[1:]))
@@ -1039,10 +1067,13 @@ def pilot_report(records: list[dict]) -> str:
             L.append(f"| {key[0]} | {key[1]} | {key[2] or '—'} | {key[3] or '—'} | {'yes' if key[4] else 'no'} | "
                      f"{agent} | {len(rs)} | {len(done)} | {cost:.4f} | {cost / len(rs):.4f} | "
                      f"{sum(x.get('input_tokens') or 0 for x in u):,} | {sum(x.get('output_tokens') or 0 for x in u):,} | "
-                     f"{rtok:,} | {sum(x.get('max_tokens_truncations') or 0 for x in u)} | "
+                     f"{rtok} | {with_blocks}/{len(rs)} | {sum(x.get('max_tokens_truncations') or 0 for x in u)} | "
                      f"{past}/{len(multi) if multi else 0} | {parsed}/{len(done)} | {empty}/{len(done)} |")
     tot = sum((r.get("usage") or {}).get("estimated_cost_usd") or 0.0 for r in records)
-    L += ["", f"Total estimated cost: ${tot:.4f} over {len(records)} trials. *Reasoning past 1st tool call* = "
+    L += ["", f"Total estimated cost: ${tot:.4f} over {len(records)} trials. *Reasoning tok* = the provider's "
+          "reported reasoning-token breakout (already inside output tok); *not reported* where the provider gives "
+          "none (Anthropic). *Trials w/ reasoning blocks* = trials with at least one thinking block / reasoning item. "
+          "*Reasoning past 1st tool call* = "
           "multi-call trials with a reasoning block on a turn after the first; *submit parsed* = the final submit "
           "call's arguments parsed as an object; *empty diagnosis* = no usable `diagnosis.detected`. No detection, "
           "identification, evidence or recovery score is computed or shown."]
@@ -1112,6 +1143,14 @@ def main() -> int:
                     help="PILOT: keep this many static cells per provider-condition (no scoring)")
     pp.add_argument("--pilot-react", type=int, default=None,
                     help="PILOT: keep this many ReAct cells per provider-condition (no scoring)")
+    pp.add_argument("--pilot-match-plan", type=Path, default=None,
+                    help="PROBE: reuse the (case, agent, arm, repeat) cells a previous pilot plan ran for "
+                         "--pilot-match-condition, for every condition of this plan (no scoring)")
+    pp.add_argument("--pilot-match-condition", default=None, metavar="PROVIDER_SPEC",
+                    help="the condition in --pilot-match-plan to copy cells from, e.g. "
+                         "anthropic:claude-sonnet-5:effort=medium")
+    pp.add_argument("--pilot-match-agent", choices=["static", "react"], default=None,
+                    help="with --pilot-match-plan: copy only this agent's cells")
     pp.add_argument("--openai-strict-tools", action="store_true",
                     help="send strict tool schemas on EVERY OpenAI cell (Stage 4 Part 2 decision; L35)")
     pp.add_argument("--exploratory-no-passback", default=None, metavar="OPENAI_MODEL",
@@ -1165,12 +1204,19 @@ def main() -> int:
             providers = []
             for spec in args.providers:
                 providers.append(parse_provider_spec(spec))
+        pilot_match = None
+        if (args.pilot_match_plan is None) != (args.pilot_match_condition is None):
+            print("--pilot-match-plan and --pilot-match-condition go together", file=sys.stderr)
+            return 2
+        if args.pilot_match_plan is not None:
+            pilot_match = {"plan": args.pilot_match_plan, "agent": args.pilot_match_agent,
+                           "condition": parse_provider_spec(args.pilot_match_condition)}
         result = plan(root, args.name, args.strengths, args.seeds, args.control_seeds,
                       args.repeats, args.order_seed, operators=args.operators,
                       providers=providers, benign_seeds=args.benign_seeds,
                       no_passback_model=args.exploratory_no_passback,
                       openai_strict_tools=args.openai_strict_tools,
-                      pilot_static=args.pilot_static, pilot_react=args.pilot_react)
+                      pilot_static=args.pilot_static, pilot_react=args.pilot_react, pilot_match=pilot_match)
         if args.build_missing and result["missing"]:
             summary = build_missing(root, result["missing"])
             print(f"[build-missing] built={len(summary['built'])} skipped={len(summary['skipped'])} "
@@ -1184,7 +1230,7 @@ def main() -> int:
                           providers=providers, benign_seeds=args.benign_seeds,
                           no_passback_model=args.exploratory_no_passback,
                           openai_strict_tools=args.openai_strict_tools,
-                          pilot_static=args.pilot_static, pilot_react=args.pilot_react)
+                          pilot_static=args.pilot_static, pilot_react=args.pilot_react, pilot_match=pilot_match)
         path = write_plan(result)
         est = result["plan"]["header"]["cost_estimate"]
         print(f"Plan: {path}\n  cells={result['plan']['header']['n_cells']} "

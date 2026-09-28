@@ -13,7 +13,7 @@ ignores them). The sweep manifest (`sweeps/<name>_manifest.yaml`, tracked) recor
 
 | Block | Field | Type | Notes |
 |-------|-------|------|-------|
-| (top) | `schema_version` | str | `"1.1"` |
+| (top) | `schema_version` | str | `"1.3"` (1.2 added `environment.process`; 1.3 below) |
 | (top) | `case_id` | str | Opaque case identifier |
 | (top) | `agent_name` | str | Agent name (e.g. `stub_oracle`) |
 | (top) | `run_id` | str | `<UTC timestamp>_<6-char hex>` |
@@ -50,6 +50,25 @@ ignores them). The sweep manifest (`sweeps/<name>_manifest.yaml`, tracked) recor
 | scores | `safety` | dict\|null | Rejected/forbidden action counts |
 | budget | `tool_calls_used` | int | |
 | budget | `tool_calls_total` | int | |
+
+### Tool configuration + completion status (v1.3, 2026-09-27)
+
+Recorded from what was SENT and what was OBSERVED — never inferred from a missing flag (reviewer fix 2).
+
+| Block | Field | Type | Notes |
+|-------|-------|------|-------|
+| tool_config | `api` | str | `openai.responses` / `anthropic.messages` (absent for stub/fake clients) |
+| tool_config | `strict` | bool | Strict function calling on (OpenAI only); recorded `false` explicitly |
+| tool_config | `schema_form` | str | `closed (strict)` or `canonical (open)` |
+| tool_config | `tool_choice` / `parallel_tool_calls` | str | What was sent (currently: not sent — provider default) |
+| tool_config | `tools_sha256` | str | sha256 of the exact tools payload sent |
+| llm_transcript[] | `completion` | dict | Provider's own status, verbatim: OpenAI `{status, incomplete_reason}`; Anthropic `{stop_reason}` |
+| completion | `llm_calls`, `incomplete_calls` | int | Calls ending at the output cap or provider-incomplete |
+| completion | `final_stop_reason` | str\|null | Normalized stop reason of the last call |
+| completion | `submit_called`, `submit_parsed` | bool | A submit call was made / its arguments parsed as an object |
+
+`completion` is derived from the transcript (`harness.provenance.completion_summary`), so it can be
+recomputed for records written before 1.3 (e.g. Stage 4 Part 1).
 
 ### Pre-sweep capture (v1.1)
 

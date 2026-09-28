@@ -114,9 +114,10 @@ def test_loaders_drop_pilot_trials(tmp_path):
 
 
 def _rec(prov, model, agent, cost, reasoning, scores=None, **cond):
-    turns = [{"reasoning_blocks": reasoning, "reasoning_tokens": 50 * reasoning,
+    rt = (lambda n: None) if prov == "anthropic" else (lambda n: n * reasoning)   # as the clients record it
+    turns = [{"reasoning_blocks": reasoning, "usage": {"reasoning_tokens": rt(50)},
               "tool_calls": [{"name": "read_log", "arguments": {}}]},
-             {"reasoning_blocks": reasoning, "reasoning_tokens": 40 * reasoning,
+             {"reasoning_blocks": reasoning, "usage": {"reasoning_tokens": rt(40)},
               "tool_calls": [{"name": "submit", "arguments": {"diagnosis": {"detected": True}}}]}]
     r = {"status": "completed", "conditions": {"provider": prov, "agent_type": agent, **cond},
          "model": {"model_id": model}, "llm_transcript": turns,
@@ -139,3 +140,64 @@ def test_pilot_report_shows_no_scores_and_never_reads_them():
     for word in ("0.123", "recovered", "identification |", "evidence |"):
         assert word not in out
     assert "| 1/1 |" in out and "claude-sonnet-5" in out and "| yes |" in out   # reasoning past 1st call; strict
+
+
+def test_pilot_report_reasoning_tokens_from_usage_and_not_reported_never_zero():
+    recs = [_rec("anthropic", "claude-sonnet-5", "static", 0.03, 1, effort="medium"),
+            _rec("openai", "gpt-5.6-luna", "static", 0.002, 1, effort="medium", strict_tools=True),
+            _rec("openai", "gpt-5.6-luna", "static", 0.002, 0, effort="none", strict_tools=True)]
+    rows = {ln.split(" | ")[1] + "/" + ln.split(" | ")[2]: ln.split(" | ") for ln in sweep.pilot_report(recs).splitlines()
+            if ln.startswith("| anthropic") or ln.startswith("| openai")}
+    col = 12                                               # "reasoning tok"
+    assert rows["claude-sonnet-5/medium"][col] == "not reported"
+    assert rows["gpt-5.6-luna/medium"][col] == "90"        # 50 + 40, read from each call's usage
+    assert rows["gpt-5.6-luna/none"][col] == "0"           # reported, and genuinely zero
+    assert rows["claude-sonnet-5/medium"][col + 1] == "1/1" and rows["gpt-5.6-luna/none"][col + 1] == "0/1"
+
+
+def test_openai_parse_records_none_when_no_reasoning_breakout():
+    from types import SimpleNamespace
+    from harness.llm.openai_client import parse_responses
+    item = SimpleNamespace(type="message", content=[SimpleNamespace(type="output_text", text="hi")],
+                           model_dump=lambda exclude_none=True: {"type": "message"})
+    base = dict(output=[item], status="completed", model="m", id="r")
+    no_details = SimpleNamespace(input_tokens=5, output_tokens=2, input_tokens_details=None, output_tokens_details=None)
+    assert parse_responses(SimpleNamespace(usage=no_details, **base)).raw["reasoning_tokens"] is None
+    details = SimpleNamespace(input_tokens=5, output_tokens=2, input_tokens_details=None,
+                              output_tokens_details=SimpleNamespace(reasoning_tokens=7))
+    assert parse_responses(SimpleNamespace(usage=details, **base)).raw["reasoning_tokens"] == 7
+
+
+def test_probe_reuses_the_matched_conditions_cells_on_every_new_condition(tmp_path):
+    prev = _pilot(tmp_path)
+    sweep.write_plan(prev)
+    medium = sweep.parse_provider_spec("anthropic:claude-sonnet-5:effort=medium")
+    want = {(c["case_id"], c["agent"], c["anchor"], c.get("repeat_index")) for c in prev["plan"]["cells"]
+            if c["model"] == "claude-sonnet-5" and c.get("effort") == "medium"}
+    probe = sweep.plan(tmp_path, "probe", strengths=["mild"], faulty_seeds=[42, 43], control_seeds=[50],
+                       repeats=2, operators=["silent.lr_warmup.v1", "silent.data_leakage.v1"],
+                       providers=[sweep.parse_provider_spec("anthropic:claude-sonnet-5:effort=high,max_tokens=32768"),
+                                  sweep.parse_provider_spec("anthropic:claude-sonnet-5:effort=xhigh,max_tokens=32768")],
+                       pilot_match={"plan": prev["path"], "condition": medium})
+    cells, hdr = probe["plan"]["cells"], probe["plan"]["header"]
+    for eff in ("high", "xhigh"):
+        got = {(c["case_id"], c["agent"], c["anchor"], c.get("repeat_index")) for c in cells if c.get("effort") == eff}
+        assert got == want                                   # same cases, agent, arm, repeat as medium
+    assert all(c["max_tokens"] == 32768 for c in cells)
+    assert hdr["pilot"]["matched_from"]["slots"] == len(want) and "NOT computed" in hdr["pilot"]["scores"]
+    again = sweep.plan(tmp_path, "probe", strengths=["mild"], faulty_seeds=[42, 43], control_seeds=[50], repeats=2,
+                       operators=["silent.lr_warmup.v1", "silent.data_leakage.v1"],
+                       providers=[sweep.parse_provider_spec("anthropic:claude-sonnet-5:effort=high,max_tokens=32768"),
+                                  sweep.parse_provider_spec("anthropic:claude-sonnet-5:effort=xhigh,max_tokens=32768")],
+                       pilot_match={"plan": prev["path"], "condition": medium})
+    assert again["plan"]["cells"] == cells                   # deterministic (no sampling)
+    static_only = sweep.plan(tmp_path, "probe", strengths=["mild"], faulty_seeds=[42, 43], control_seeds=[50],
+                             repeats=2, operators=["silent.lr_warmup.v1", "silent.data_leakage.v1"],
+                             providers=[sweep.parse_provider_spec("anthropic:claude-sonnet-5:effort=high")],
+                             pilot_match={"plan": prev["path"], "condition": medium, "agent": "static"})
+    assert static_only["plan"]["cells"] and all(c["agent"] == "static" for c in static_only["plan"]["cells"])
+    assert len(static_only["plan"]["cells"]) == sum(1 for w in want if w[1] == "static")
+    with pytest.raises(ValueError, match="no cells"):
+        sweep.plan(tmp_path, "probe", strengths=["mild"], faulty_seeds=[42], control_seeds=[], repeats=1,
+                   operators=["silent.lr_warmup.v1"], providers=[medium],
+                   pilot_match={"plan": prev["path"], "condition": sweep.parse_provider_spec("anthropic:nope")})

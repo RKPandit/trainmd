@@ -81,6 +81,11 @@ def check_effort(effort: str) -> str:
     return effort
 
 
+def _sha256_json(obj) -> str:
+    import hashlib
+    return "sha256:" + hashlib.sha256(json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
 def describe_model(model: str, temperature: float, reasoning_effort: str) -> dict:
     """Provider metadata for the trial's model block (pure; no SDK/network).
 
@@ -230,6 +235,9 @@ def parse_responses(response, strict: bool = False) -> LLMResponse:
         stop_reason = "max_tokens" if reason == "max_output_tokens" else (reason or "incomplete")
     else:
         stop_reason = "tool_use" if tool_calls else "end_turn"
+    # The provider's OWN completion status, kept verbatim beside the normalized stop_reason.
+    completion = {"status": status,
+                  "incomplete_reason": getattr(getattr(response, "incomplete_details", None), "reason", None)}
 
     usage = response.usage
     in_details = getattr(usage, "input_tokens_details", None)
@@ -243,7 +251,8 @@ def parse_responses(response, strict: bool = False) -> LLMResponse:
     # new Usage field) so cost accounting stays correct while reasoning volume is
     # still visible per call.
     out_details = getattr(usage, "output_tokens_details", None)
-    reasoning = (getattr(out_details, "reasoning_tokens", 0) or 0) if out_details is not None else 0
+    # None when the response carries no breakout ("not reported"), never a fabricated 0.
+    reasoning = getattr(out_details, "reasoning_tokens", None) if out_details is not None else None
 
     return LLMResponse(
         text="\n".join(text_parts) if text_parts else None,
@@ -256,7 +265,7 @@ def parse_responses(response, strict: bool = False) -> LLMResponse:
             cache_write_tokens=cache_write,
         ),
         raw={"model": response.model, "id": response.id,
-             "reasoning_tokens": reasoning},
+             "reasoning_tokens": reasoning, "completion": completion},
         assistant_blocks=[{"type": "openai_output_items", "items": native_items}],
         reasoning_blocks=n_reasoning,
     )
@@ -335,6 +344,15 @@ class OpenAIClient:
         # Reasoning models sample internally; temperature is not a supported
         # Responses param for them, so we do not send it (recorded as None).
         self._temperature = None
+
+    def tool_config(self, tools_schema: list[dict]) -> dict:
+        """The EFFECTIVE tool configuration this client sends for ``tools_schema`` (recorded per trial as
+        ``record.tool_config``): API, strict mode, schema form, and the sha256 of the exact tools payload."""
+        return {"api": "openai.responses", "strict": bool(self._strict_tools),
+                "schema_form": "closed (strict)" if self._strict_tools else "canonical (open)",
+                "tool_choice": "not sent (provider default: auto)",
+                "parallel_tool_calls": "not sent (provider default)",
+                "tools_sha256": _sha256_json(to_responses_tools(tools_schema, strict=self._strict_tools))}
 
     def describe(self) -> dict:
         """Provider metadata merged into the trial's model block.

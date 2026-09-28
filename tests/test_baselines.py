@@ -64,6 +64,24 @@ def test_b1_arm_conditional_band(tmp_path):
     assert tight["diagnosis"]["detected"] is True
 
 
+def test_b1_reads_the_final_epoch_only(tmp_path):
+    # an early-epoch excursion that recovers is NOT flagged; the every-epoch variant (appendix) flags it
+    cd = _visible_case(tmp_path, [0.840, 0.857, 0.858])
+    assert B.b1(B.VisibleSurface(cd, REPO))["diagnosis"]["detected"] is False
+    assert B.b1_any(B.VisibleSurface(cd, REPO))["diagnosis"]["detected"] is True
+    # final-epoch excursion: flagged, evidence window is the final epoch
+    cd2 = _visible_case(tmp_path / "b", [0.857, 0.858, 0.840])
+    sub = B.b1(B.VisibleSurface(cd2, REPO))
+    assert sub["diagnosis"]["detected"] is True
+    assert sub["evidence_refs"][0]["detail"]["start_epoch"] == sub["evidence_refs"][0]["detail"]["end_epoch"] == 2
+
+
+def test_b3_any_uses_the_every_epoch_b1(tmp_path):
+    cd = _visible_case(tmp_path, [0.840, 0.857])            # clean config; early excursion only
+    assert B.b3(B.VisibleSurface(cd, REPO))["diagnosis"]["detected"] is False
+    assert B.b3_any(B.VisibleSurface(cd, REPO))["diagnosis"]["detected"] is True
+
+
 # ---- B2 config-delta -----------------------------------------------------
 def test_b2_flags_changed_key_with_id_evidence_repair(tmp_path):
     cd = _visible_case(tmp_path, [0.857],

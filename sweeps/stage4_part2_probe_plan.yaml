@@ -1,0 +1,374 @@
+header:
+  name: stage4_part2_probe
+  created_utc: '2026-09-28T00:29:43.130524+00:00'
+  model: claude-haiku-4-5-20251001
+  order_seed: 1234
+  providers:
+  - provider: anthropic
+    model: claude-sonnet-5
+    effort: high
+    max_tokens: 32768
+  - provider: anthropic
+    model: claude-sonnet-5
+    effort: xhigh
+    max_tokens: 32768
+  factor_levels:
+    providers:
+    - anthropic
+    - anthropic
+    models:
+    - claude-sonnet-5
+    - claude-sonnet-5
+    variants: all faulty operators
+    agents:
+    - react
+    - static
+    anchors:
+    - 'off'
+    - stats
+    - rule
+    prompt_major: 2
+    repeats: 2
+    strengths:
+    - mild
+    - moderate
+    - severe
+    faulty_seeds:
+    - 42
+    - 43
+    - 44
+    - 45
+    - 46
+    - 47
+    control_seeds:
+    - 50
+    - 51
+    - 52
+    - 53
+    - 54
+    - 55
+    - 56
+    - 57
+    - 58
+    - 59
+    - 60
+    - 61
+    - 62
+    - 63
+    - 64
+    - 65
+    - 66
+    - 67
+    - 68
+    - 69
+    benign_seeds:
+    - 70
+    - 71
+    - 72
+    - 73
+    - 74
+    - 75
+    - 76
+    - 77
+    - 78
+    - 79
+    - 80
+    - 81
+    - 82
+    - 83
+    - 84
+    - 85
+    - 86
+    - 87
+    - 88
+    - 89
+    - 90
+    - 91
+    - 92
+    - 93
+    - 110
+    - 111
+    - 112
+    - 113
+    - 114
+    - 115
+    - 116
+    - 117
+    - 118
+    - 119
+    - 120
+    - 121
+    - 122
+    - 123
+    - 124
+    - 125
+    - 126
+    - 127
+    - 128
+    - 129
+    - 130
+    - 131
+    - 132
+    - 133
+    - 134
+    - 135
+    - 136
+    - 137
+    - 138
+    - 139
+    - 140
+    - 141
+    - 142
+    - 143
+    - 144
+    - 145
+    - 146
+    - 147
+    - 148
+    - 149
+    - 150
+    - 151
+    - 152
+    - 153
+    - 154
+    - 155
+    - 156
+    - 157
+  exploratory: {}
+  scope:
+    gate_operators:
+    - crash.shape_mismatch.v1
+    - silent.data_leakage.v1
+    - silent.data_leakage_neutral.v1
+    - silent.label_corruption.v1
+    - silent.lr_warmup.v1
+    - silent.metric_inflation.v1
+    excluded_operators: {}
+  n_cells: 20
+  n_missing: 0
+  cost_estimate:
+    per_cell_total_usd: 0.1788
+    low_usd: 0.0084
+    high_usd: 0.8767
+    fallback_cost_usd: 0.249432
+    estimate_source_counts:
+      measured: 20
+      fallback: 0
+    by_provider:
+      anthropic:
+        cells: 20
+        scale: 1.0
+        total_usd: 0.1788
+        low_usd: 0.0084
+        high_usd: 0.8767
+  verify_estimate:
+    reruns: 14
+  case_set:
+    case_0140:
+      build_id: 3e5b30511da332d227abdc76e0ca06b34f07721cac4c81367b3182fe99074e94
+    case_0089:
+      build_id: 1ad50efdbfcc9d9d3b98059b7d44435c60fa232eb7160e137d2619c2d16dc9b0
+    case_0021:
+      build_id: 82b5bcd778a644247e0611ad270c529a4a315116f271b7b1cb0f144c22600009
+    case_0035:
+      build_id: 8cb52ad6eb1ac2a2c2a135564cd73217bc83d5d78b9b418cab5803ec44917820
+    case_0120:
+      build_id: d51b28c67809bb5a86ec3ef879d641feb222af8a0debdec9158ea21bf01de309
+    case_0027:
+      build_id: fab612982de09bc9e51135253cd0b5a216cd3e83ae9585f6dee7161a0c1eea7b
+    case_0111:
+      build_id: 8505b9df8ba9629926aec8e04172fa448fb5fdce4cc7926a7cebfd89474bd6e8
+    case_0072:
+      build_id: e977c70ea8739e5813ce39dba00c2994bd93519f67502a2963a1ed3fa456b355
+    case_0006:
+      build_id: 9ad422242fcf3c770836e276257c1d0f29d2f05ef1e2b87370f57b415e6682e1
+  pilot:
+    matched_from:
+      plan: sweeps/stage4_part2_pilot_plan.yaml
+      condition: anthropic|effort=medium
+      model: claude-sonnet-5
+      agent: static
+      slots: 10
+    scores: NOT computed (run_trial score=False); pilot trials are excluded from every
+      analysis (harness/sweep_stats loaders)
+cells:
+- cell_id: ae73a24f81554a06
+  case_id: case_0140
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: stats
+  repeat_index: 0
+  effort: xhigh
+  max_tokens: 32768
+- cell_id: 389a581bc27ad357
+  case_id: case_0089
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: 'off'
+  repeat_index: 1
+  effort: xhigh
+  max_tokens: 32768
+- cell_id: b93ac29dd0a33492
+  case_id: case_0021
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: rule
+  repeat_index: 1
+  effort: high
+  max_tokens: 32768
+- cell_id: b8d5260160c7263b
+  case_id: case_0035
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: 'off'
+  repeat_index: 0
+  effort: xhigh
+  max_tokens: 32768
+- cell_id: 69900b4e717e6bac
+  case_id: case_0120
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: stats
+  repeat_index: 0
+  effort: high
+  max_tokens: 32768
+- cell_id: 5810e3758886cb21
+  case_id: case_0027
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: rule
+  repeat_index: 1
+  effort: xhigh
+  max_tokens: 32768
+- cell_id: 2a669d45aaa3c82e
+  case_id: case_0027
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: rule
+  repeat_index: 1
+  effort: high
+  max_tokens: 32768
+- cell_id: 701202205ca6e995
+  case_id: case_0035
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: 'off'
+  repeat_index: 0
+  effort: high
+  max_tokens: 32768
+- cell_id: b87cd986ee8a01d7
+  case_id: case_0120
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: stats
+  repeat_index: 0
+  effort: xhigh
+  max_tokens: 32768
+- cell_id: 89655393b061c8a3
+  case_id: case_0140
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: stats
+  repeat_index: 0
+  effort: high
+  max_tokens: 32768
+- cell_id: 52ceac2c25411469
+  case_id: case_0021
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: rule
+  repeat_index: 1
+  effort: xhigh
+  max_tokens: 32768
+- cell_id: 3270c35ae4193bd8
+  case_id: case_0089
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: 'off'
+  repeat_index: 1
+  effort: high
+  max_tokens: 32768
+- cell_id: 12651746afa334ee
+  case_id: case_0111
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: rule
+  repeat_index: 0
+  effort: xhigh
+  max_tokens: 32768
+- cell_id: eeee328edd9efc88
+  case_id: case_0072
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: stats
+  repeat_index: 1
+  effort: xhigh
+  max_tokens: 32768
+- cell_id: f108009afaed4ecd
+  case_id: case_0072
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: stats
+  repeat_index: 1
+  effort: high
+  max_tokens: 32768
+- cell_id: 8b61ec6462a7fe20
+  case_id: case_0006
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: rule
+  repeat_index: 0
+  effort: high
+  max_tokens: 32768
+- cell_id: b0bf689ade549913
+  case_id: case_0006
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: 'off'
+  repeat_index: 0
+  effort: xhigh
+  max_tokens: 32768
+- cell_id: 423d993457c403de
+  case_id: case_0006
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: 'off'
+  repeat_index: 0
+  effort: high
+  max_tokens: 32768
+- cell_id: bc446d2565b64cba
+  case_id: case_0006
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: rule
+  repeat_index: 0
+  effort: xhigh
+  max_tokens: 32768
+- cell_id: 3089187c0596b2d3
+  case_id: case_0111
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: rule
+  repeat_index: 0
+  effort: high
+  max_tokens: 32768

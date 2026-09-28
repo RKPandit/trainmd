@@ -421,7 +421,9 @@ matching the oracle is expected, not evidence of repair intelligence (it is, ins
 *for* L19). B2's control-FPR is **0/20** (no config delta on a clean control) — **a one-sided 95%
 ceiling of 0.139 over its 20 unique cases (exact two-sided [0, 0.168]), not a demonstrated zero**
 (correction #6). B1's is 1/20 (the case_0039
-two-sided-band false positive). B2 is observed lower, but 0/20 vs 1/20 is well within sampling noise
+two-sided-band false positive) — *provenance note 2026-09-27: measured with the every-epoch B1 on the 9/17
+50-case set; not reproducible from preserved artifacts (every-epoch gives 16/20 on the 9/20 and current
+builds, final-epoch 1/20); B1 is now declared final-epoch — FINDINGS baseline table, footnote §*. B2 is observed lower, but 0/20 vs 1/20 is well within sampling noise
 at n = 20, so neither "B2 dominates B1 on specificity" nor "a 0-FPR floor" is supported *(both
 phrasings withdrawn 2026-09-23)*.
 
@@ -613,8 +615,13 @@ of the tolerance — Part 1 verifies natively (HYPOTHESES, pre-run addendum), so
 enters, but such near-threshold verdicts are reported as counted there (|margin| < 0.0055).
 
 **L35 — Luna's function-call arguments were unconstrained and degenerated in a measurable share of Part 1
-trials; end-to-end scoring under-states Luna (2026-09-26; found by the hand-read spot check).** Part 1 sent
-OpenAI tools without strict mode, and Luna's submit arguments sometimes (i) ran into whitespace until
+trials; end-to-end scoring under-states Luna (2026-09-26; found by the hand-read spot check; basis restated
+2026-09-27).** The limitation rests on OBSERVED outputs, not on a missing flag: recomputed per trial from the
+transcripts (`harness.provenance.completion_summary`, record schema 1.3), **90** OpenAI submit calls were
+unparseable, every one ending at the output cap (76 static, 14 ReAct), against **0** for Haiku (whose 15 ReAct
+invalid submissions are no-submit terminations, not malformed calls). The configuration sent is known from
+the code at the recorded commit — the canonical open schema, no strict mode — since Part 1 records predate
+the per-trial `tool_config` block. Luna's submit arguments sometimes (i) ran into whitespace until
 `max_tokens` — **90** trials, every one truncated and unparseable, so an empty diagnosis — or (ii) contained a
 punctuation-only key (`"},":`) that swallows later fields into `diagnosis` — **234** otherwise valid
 submissions, of which **218** lost their top-level `evidence_refs` and **216** (faulty) their `repair_spec`
@@ -627,6 +634,12 @@ conservative, F17/F23), and H10 is untested for Luna. Luna's evidence and recove
 Luna − Haiku evidence/recovery contrast, carry this caveat. Remedy DECIDED for Part 2 (2026-09-27): strict
 schemas on every OpenAI cell and GPT-5.6 Luna re-run, never reused from Part 1 (`docs/STAGE4_PLAN.md`;
 `docs/PREREG_STAGE4_PART2_DRAFT.md`). The salvage parser is unit-tested (`tests/test_part1_followup.py`).
+**Strict mode does not prevent runaway whitespace (added 2026-09-27, from the Part 2 pilot):** valid JSON allows
+unlimited whitespace between tokens, so strict decoding still permits it. Pilot: **1 of 52** OpenAI trials (GPT-5.6
+Luna, reasoning none, ReAct) emitted " \r" 4,037 times after a number, outside any string, until the 8,192-token
+cap — an empty diagnosis. Strict mode removed the garbled-key failures and every static parse failure (OpenAI
+static 40/40 parsed). **No protocol change:** end-to-end scoring stays primary, and validity (valid-submission
+rate, per-trial completion status) is reported separately per condition.
 
 **L36 — metric_inflation identification is likely under-credited by the matcher; the second human audit
 adjudicates (2026-09-26).** Of **264** metric_inflation trials whose label was scored wrong, **199** name a
