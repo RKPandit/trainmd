@@ -19,6 +19,7 @@ import pytest
 from harness.llm.anthropic_client import AnthropicClient
 from harness.llm.openai_client import parse_responses
 from harness.pricing import estimate_cost, uncached_equivalent_cost
+from anthropic_sse import sse_response  # tests/anthropic_sse.py (streamed responses)
 
 HAIKU = "claude-haiku-4-5-20251001"
 LUNA = "gpt-5.6-luna"
@@ -38,7 +39,7 @@ TOOLS = [{"name": "read_config", "description": "Read a config file.",
 def _client(prompt_caching: bool, sent: list, usage: dict | None = None) -> AnthropicClient:
     def handler(request: httpx.Request) -> httpx.Response:
         sent.append(request.content)
-        return httpx.Response(200, json={
+        return sse_response({
             "id": "msg_1", "type": "message", "role": "assistant", "model": HAIKU,
             "content": [{"type": "text", "text": "ok"}], "stop_reason": "end_turn",
             "stop_sequence": None,

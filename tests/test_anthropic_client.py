@@ -16,10 +16,11 @@ import anthropic
 import httpx
 
 from harness.llm.anthropic_client import AnthropicClient
+from anthropic_sse import sse_response  # tests/anthropic_sse.py (streamed responses)
 
 
 def _canned_message(_request: httpx.Request) -> httpx.Response:
-    return httpx.Response(200, json={
+    return sse_response({
         "id": "msg_1", "type": "message", "role": "assistant",
         "model": "claude-haiku-4-5-20251001",
         "content": [{"type": "text", "text": "ok"}],
@@ -61,6 +62,11 @@ def test_installed_sdk_signature_matches_client_kwargs():
     # Raises TypeError if the installed SDK rejects any of these (e.g. temperature).
     sig.bind_partial(None, **client_kwargs)
     assert "temperature" in sig.parameters
+    # complete() STREAMS (DECISIONS 2026-09-28): the method actually called must accept every kwarg too,
+    # including the Part 2 settings and the top-level cache_control.
+    ssig = inspect.signature(Messages.stream)
+    ssig.bind_partial(None, **client_kwargs, output_config={"effort": "high"}, thinking={"type": "adaptive"},
+                      cache_control={"type": "ephemeral"})
 
 
 def test_pinned_anthropic_major_is_the_tested_api():
