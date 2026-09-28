@@ -19,7 +19,7 @@ RUN=(docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/
 # (1) the published instrument, as it stood at dcda575
 "${RUN[@]}" python -m harness.baselines --baseline b1 --cases 'cases/case_*' | tee "$out/b1_dcda575_cli.txt"
 # (2) raw band positions from each case's own agent-visible metrics and public band
-"${RUN[@]}" python - <<'PY' | tee "$out/band_positions.txt"
+docker run -i --rm --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/work -w /work trainmd:canonical python - <<'PY' | tee "$out/band_positions.txt"
 import glob, json, yaml
 from pathlib import Path
 rows = []
