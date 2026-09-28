@@ -40,7 +40,9 @@ the model the band. The LLM's value must appear in attribution, evidence, and re
 not at all, which is itself the finding.
 
 - **B1 band detector** — flag if any monitored visible metric lies outside the supplied
-  interval (exactly what the prompt gives the model).
+  interval (exactly what the prompt gives the model). *Revised 2026-09-27 (DECISIONS): the
+  band describes the reference runs' FINAL accuracy, so B1 compares the run's FINAL-EPOCH value;
+  the every-epoch reading is kept only as an appendix variant (`b1_any`).*
 - **B2 config-delta heuristic** — flag if any config key is non-default / newly present;
   name that key as the "diagnosis."
 - **B3 union of B1+B2.** **B4 standardized-deviation score** (max |z|) with a swept

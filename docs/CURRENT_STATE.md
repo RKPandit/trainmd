@@ -161,8 +161,9 @@ mechanical and robust to the declared sensitivity analyses — HYPOTHESES "Stage
 DONE (91/91, $1.98; strict mode: OpenAI static 10/10 parsed, 0 empty; no scores). Part 2 design decided: 7
 conditions, Opus 5.5 dropped, static-primary ≈ $63 (`docs/STAGE4_PLAN.md` Part 2). Before lock
 (`docs/PREREG_STAGE4_PART2_DRAFT.md`): the author's review of #68 → scorer FROZEN; the Sonnet 5 "on" effort
-fixed by the thinking-volume rule (≈ $0.60 probe); the B1 final-epoch question (`docs/audits/agent_value_part1_200.md`).
-Part 3 (second workload, image classifier) is designed, not built. Billed Part 1 spend still to enter.
+fixed by the thinking-volume rule (probe `sweeps/stage4_part2_probe_plan.yaml`, 20 static cells, ready to run). B1 is
+declared final-epoch (`docs/audits/agent_value_part1_200.md`). Part 3 (second workload): Fashion-MNIST decided; data pin +
+two-AMD-runner byte-identity check come before any case is built. Billed Part 1 spend still to enter.
 
 ---
 

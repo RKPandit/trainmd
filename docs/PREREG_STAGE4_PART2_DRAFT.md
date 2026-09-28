@@ -45,8 +45,8 @@
   mean over the five mechanisms (`harness.sweep_stats.MECHANISM`); the two leakage variants are one mechanism.
 - **Baselines on the same cases.** The "what does the agent add?" table (B0/B1/B2/B3/BF vs every agent row:
   detection, false alarms — healthy and benign separately — identification, cost) is reported for Part 2 as
-  for Part 1 (`scripts/agent_value_table.py`). Whether B1 is declared on the final epoch (see STAGE4_PLAN,
-  "Open before lock") is decided before lock.
+  for Part 1 (`scripts/agent_value_table.py`). **B1 is the FINAL-EPOCH band detector** (declared 2026-09-27:
+  the band describes final accuracy); the every-epoch variant appears only in an appendix.
 - **Scorer frozen before the first trial;** Part 2's post-run human audit is the fresh validation of the
   frozen scorer (findings go to LIMITATIONS unless a result would be wrong).
 
@@ -56,7 +56,8 @@
 2. the **metric_inflation matcher decision** (LIMITATIONS L36) has been made from the operator's mechanism
    and, if changed, applied with a disclosed rescore,
 3. the author has reviewed #68 (root_token_v3 / evidence_v2.3) and the scorer is **frozen**, and
-4. the Sonnet 5 "on" effort level is fixed by the thinking-volume rule (STAGE4_PLAN Part 2, item A) —
+4. the Sonnet 5 "on" effort level is fixed by the thinking-volume rule (STAGE4_PLAN Part 2, item A; probe
+   `sweeps/stage4_part2_probe_plan.yaml`, rule applied by `scripts/thinking_volume.py`) —
 
 so that Part 2 is scored with the FINAL, frozen scorer from its first trial.
 

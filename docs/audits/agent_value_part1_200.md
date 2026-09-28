@@ -5,9 +5,9 @@
 | contestant | trials | cases | detection (faulty, by mechanism) | false alarms (all 92 controls) | false alarms: healthy (20) | false alarms: benign (72) | identification (faulty, by mechanism) | valid submissions | $ / trial |
 |---|---|---|---|---|---|---|---|---|---|
 | B0 exit code | 200 | 200 | 0.200 [0.200, 0.200] | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] | 1.000 | 0.0000 |
-| B1 band (public band) | 200 | 200 | 0.800 [0.800, 0.800] | 0.772 [0.684, 0.854] | 0.800 [0.600, 0.950] | 0.764 [0.653, 0.861] | 0.000 [0.000, 0.000] | 1.000 | 0.0000 |
+| B1 band, final epoch (public band) | 200 | 200 | 0.800 [0.800, 0.800] | 0.054 [0.011, 0.105] | 0.050 [0.000, 0.150] | 0.056 [0.014, 0.111] | 0.000 [0.000, 0.000] | 1.000 | 0.0000 |
 | B2 config delta | 200 | 200 | 1.000 [1.000, 1.000] | 0.783 [0.695, 0.864] | 0.000 [0.000, 0.000] | 1.000 [1.000, 1.000] | 0.600 [0.600, 0.600] | 1.000 | 0.0000 |
-| B3 = B1 ∪ B2 | 200 | 200 | 1.000 [1.000, 1.000] | 0.957 [0.910, 0.990] | 0.800 [0.600, 0.950] | 1.000 [1.000, 1.000] | 0.600 [0.600, 0.600] | 1.000 | 0.0000 |
+| B3 = B1 ∪ B2 | 200 | 200 | 1.000 [1.000, 1.000] | 0.793 [0.708, 0.874] | 0.050 [0.000, 0.150] | 1.000 [1.000, 1.000] | 0.600 [0.600, 0.600] | 1.000 | 0.0000 |
 | BF form-only (comparator) | 200 | 200 | 0.600 [0.600, 0.600] | 0.130 [0.065, 0.202] | 0.000 [0.000, 0.000] | 0.167 [0.083, 0.250] | 0.000 [0.000, 0.000] | 1.000 | 0.0000 |
 | claude-haiku-4-5-20251001 · react · off.v2 | 216 | 108 | 0.594 [0.547, 0.643] | — | — | — | 0.547 [0.501, 0.593] | 0.940 | 0.0410 |
 | claude-haiku-4-5-20251001 · react · rule.v2 | 216 | 108 | 0.994 [0.981, 1.000] | — | — | — | 0.964 [0.936, 0.987] | 0.995 | 0.0381 |
@@ -27,7 +27,7 @@
 | contestant | data_leakage | label_corruption | lr_warmup | metric_inflation | shape_mismatch |
 |---|---|---|---|---|---|
 | B0 exit code | 0.00 / 0.00 (36) | 0.00 / 0.00 (18) | 0.00 / 0.00 (18) | 0.00 / 0.00 (18) | 1.00 / 0.00 (18) |
-| B1 band (public band) | 1.00 / 0.00 (36) | 1.00 / 0.00 (18) | 1.00 / 0.00 (18) | 1.00 / 0.00 (18) | 0.00 / 0.00 (18) |
+| B1 band, final epoch (public band) | 1.00 / 0.00 (36) | 1.00 / 0.00 (18) | 1.00 / 0.00 (18) | 1.00 / 0.00 (18) | 0.00 / 0.00 (18) |
 | B2 config delta | 1.00 / 0.00 (36) | 1.00 / 1.00 (18) | 1.00 / 1.00 (18) | 1.00 / 0.00 (18) | 1.00 / 1.00 (18) |
 | B3 = B1 ∪ B2 | 1.00 / 0.00 (36) | 1.00 / 1.00 (18) | 1.00 / 1.00 (18) | 1.00 / 0.00 (18) | 1.00 / 1.00 (18) |
 | BF form-only (comparator) | 1.00 / 0.00 (36) | 1.00 / 0.00 (18) | 0.00 / 0.00 (18) | 1.00 / 0.00 (18) | 0.00 / 0.00 (18) |
@@ -45,3 +45,12 @@
 | gpt-5.6-luna · static · stats.v2 | 0.96 / 0.94 (72) | 0.86 / 0.86 (36) | 0.86 / 0.86 (36) | 0.83 / 0.06 (36) | 0.72 / 0.72 (36) |
 
 **Reading this table.** B0, B1 and BF state no fault class, so their identification is 0 by construction. B1 compares the visible metric with the PUBLIC reference band — the knowledge the stats / rule arms are given — so it is the fair floor for those arms, not for `off`. B2 carries declared workload knowledge (the clean resolved config and which keys are derived) and flags every config change, so its false-alarm rate on benign controls is the cost of that policy. Cost excludes the free training run every contestant reads. Agent rows exclude the exploratory no-passback arm and pilot trials; one trial per scheduled cell.
+
+## Appendix — B1 on EVERY epoch (its definition before 2026-09-27)
+
+Until 2026-09-27 B1 flagged a run if ANY epoch's visible accuracy left the band; the band describes the reference runs' FINAL accuracy (±2σ, σ ≈ 0.002), so ordinary epoch-to-epoch fluctuation of a healthy run triggers it. Final-epoch B1 is the declared baseline (DECISIONS 2026-09-27); these rows are shown for the record only.
+
+| contestant | trials | cases | detection (faulty, by mechanism) | false alarms (all 92 controls) | false alarms: healthy (20) | false alarms: benign (72) | identification (faulty, by mechanism) | valid submissions | $ / trial |
+|---|---|---|---|---|---|---|---|---|---|
+| B1 every epoch (pre-2026-09-27 definition) | 200 | 200 | 0.800 [0.800, 0.800] | 0.772 [0.684, 0.854] | 0.800 [0.600, 0.950] | 0.764 [0.653, 0.861] | 0.000 [0.000, 0.000] | 1.000 | 0.0000 |
+| B3 with every-epoch B1 | 200 | 200 | 1.000 [1.000, 1.000] | 0.957 [0.910, 0.990] | 0.800 [0.600, 0.950] | 1.000 [1.000, 1.000] | 0.600 [0.600, 0.600] | 1.000 | 0.0000 |

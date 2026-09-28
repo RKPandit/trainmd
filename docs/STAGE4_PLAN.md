@@ -208,10 +208,12 @@ contrast (H8-type), so leakage is never counted twice.
 *Baselines on the same cases (reviewer fix 5):* the "what does the agent add?" table — B0/B1/B2/B3/BF vs every
 agent row on detection, false alarms (healthy and benign separately), identification and cost — is built for
 Part 1 (`docs/audits/agent_value_part1_200.md`, `scripts/agent_value_table.py`) and is regenerated for Part 2.
-**Open before lock:** B1 checks EVERY epoch against a band that describes the reference's FINAL value
-(±2σ, σ = 0.0022), so it flags 16/20 healthy controls on today's 20-epoch series (final epoch only: 1/20,
-the rate FINDINGS reported for Stage 3). B1 is not redefined after seeing this; the author decides whether a
-final-epoch B1 is declared as the band floor before the Part 2 lock.
+**B1 is FINAL-EPOCH (declared 2026-09-27 by the author, before the lock):** the reference band describes
+the reference runs' FINAL accuracy, so the matching comparison is the run's final-epoch value. Until then B1
+tested every epoch, flagging 16/20 healthy controls on the current build (final epoch: 1/20); the every-epoch
+variant is reported in the table's appendix. Git trace: B1 was every-epoch from its first commit; the published
+Stage-3 figure (1/20) was measured with it on the 9/17 build and does not reproduce from preserved series
+(FINDINGS baseline table, footnote §).
 
 *Scorer freeze (reviewer fix 6):* after the author's review of #68 (root_token_v3 / evidence_v2.3) the scorer
 is FROZEN; Part 2 is scored with it from its first trial, and Part 2's post-run human audit is the fresh
@@ -233,6 +235,12 @@ would be wrong.
   trials AND median estimated thinking ≥ 4× medium's (≥ ≈ 900 tokens per call); if neither meets it, use
   xhigh and state the contrast's measured size. Medium is not kept as the "on" level unless the author
   prefers comparability with the price-matched GPT-6 Sol medium.
+  **APPROVED (author, 2026-09-27) with the rule as written; same no-scores rule as the pilot.** Built:
+  `sweeps/stage4_part2_probe_plan.yaml` — 20 static cells, Sonnet 5 at effort high and xhigh (`max_tokens`
+  32,768 so the cap cannot truncate the volume being measured), on EXACTLY the 10 (case, arm, repeat) slots the
+  pilot ran for Sonnet 5 medium (`plan --pilot-match-plan … --pilot-match-agent static`), so volumes compare on
+  the same cases. The rule is applied mechanically by `scripts/thinking_volume.py` (tested:
+  `tests/test_thinking_volume.py`); the chosen level is recorded here and in the pre-registration.
 - *B — GPT-5.6 Luna none, ReAct (1 truncation → empty diagnosis):* runaway WHITESPACE — after 428 valid
   characters of the submit arguments the model emitted " \r" (space, carriage return) 4,037 times until the
   8,192-token cap. The run starts right after a numeric value inside the second evidence item's `detail`
@@ -398,6 +406,13 @@ pins unchanged), deterministic CPU kernels, single-threaded loader in reference 
 split file, dataset files vendored with sha256 in the lockstep data target (never fetched at run time).
 
 **Dataset options** (to confirm: licence, size and a timing run before building):
+
+**DATASET DECIDED (author, 2026-09-27): Fashion-MNIST.** Reason (recorded): it is familiar to models, like
+Adult, so the PIPELINE changes while prior familiarity stays roughly constant — the second workload then tests
+the pipeline, not a familiarity shift. Before any case is built: (1) the data are pinned with sha256 checksums
+exactly as Adult's are (`workloads/*/reference/data_manifest.yaml` + the data target; never fetched at run time),
+and (2) CNN training is verified BYTE-IDENTICAL across two separate AMD runners (same commit, same image; metrics
+and model weights hashed). Only then are operators calibrated and cases built.
 
 | Dataset | Size / shape | Licence | ≈ accuracy, compact CNN, ~1 min CPU | For | Against |
 |---|---|---|---|---|---|
