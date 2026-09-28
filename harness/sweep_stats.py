@@ -307,6 +307,24 @@ def _strict_recovered(r):
 # Derived operator/arm sets (from the data — never hardcoded)
 # --------------------------------------------------------------------------- #
 
+# Distinct fault MECHANISMS (reviewer fix, 2026-09-27): variants of one mechanism are pooled so a
+# mechanism with two operator variants (descriptive vs neutral key names) is not counted twice in a
+# pooled faulty-case number. Every faulty operator must be listed (tests/test_agent_value_table.py).
+MECHANISM = {
+    "crash.shape_mismatch.v1": "shape_mismatch",
+    "silent.data_leakage.v1": "data_leakage",
+    "silent.data_leakage_neutral.v1": "data_leakage",
+    "silent.label_corruption.v1": "label_corruption",
+    "silent.lr_warmup.v1": "lr_warmup",
+    "silent.metric_inflation.v1": "metric_inflation",
+}
+
+
+def mechanism_of(op_id: str | None) -> str:
+    """The fault mechanism of a faulty operator (KeyError on an unmapped one — fail loud)."""
+    return MECHANISM[op_id]
+
+
 def positive_ops(recs) -> set[str]:
     return {r["_op"] for r in recs if r.get("_symptom") == "positive"}
 

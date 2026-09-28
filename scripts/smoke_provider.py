@@ -98,7 +98,8 @@ def _run_react_trial(client, case_dir: Path, max_turns: int = 6):
     tools = ToolContext(case_dir)
     register_all_tools(tools)
     messages: list[dict] = [{"role": "user", "content": _GENERIC_PROMPT}]
-    in_tok = out_tok = cached = reasoning = 0
+    in_tok = out_tok = cached = 0
+    reasoning = None                                       # stays None unless some call reports it
     api_model = None
     submit_args = None
 
@@ -107,7 +108,9 @@ def _run_react_trial(client, case_dir: Path, max_turns: int = 6):
         in_tok += resp.usage.input_tokens
         out_tok += resp.usage.output_tokens
         cached += resp.usage.cached_tokens
-        reasoning += (resp.raw or {}).get("reasoning_tokens", 0)
+        _r = (resp.raw or {}).get("reasoning_tokens")      # None = provider does not report it
+        if _r is not None:
+            reasoning = (reasoning or 0) + _r
         api_model = (resp.raw or {}).get("model", api_model)
 
         assistant_content: list[dict] = []
@@ -222,7 +225,8 @@ def main() -> int:
         descr = client.describe() if hasattr(client, "describe") else {}
 
         n_submit = n_folded = n_no_submit = 0
-        in_tok = out_tok = cached_tok = reasoning_tok = 0
+        in_tok = out_tok = cached_tok = 0
+        reasoning_tok = None
         api_model = None
         reasons: dict[str, int] = {}
 
@@ -233,7 +237,9 @@ def main() -> int:
                       f"after {i} trials", file=sys.stderr)
                 break
             submit_args, (ti, to, tc, tr), am = _run_react_trial(client, case_dir)
-            in_tok += ti; out_tok += to; cached_tok += tc; reasoning_tok += tr
+            in_tok += ti; out_tok += to; cached_tok += tc
+            if tr is not None:
+                reasoning_tok = (reasoning_tok or 0) + tr
             api_model = am or api_model
             if submit_args is None:
                 n_no_submit += 1
@@ -266,7 +272,8 @@ def main() -> int:
               "full cell count (docs/HYPOTHESES.md).")
         print(f"fold reasons:        {reasons}")
         print(f"tokens:              in={in_tok} out={out_tok} cached={cached_tok}")
-        print(f"  of which reasoning: {reasoning_tok} (billed as output, counted in out=)")
+        print(f"  of which reasoning: {'not reported' if reasoning_tok is None else reasoning_tok} "
+              "(billed as output, counted in out=)")
         if est is not None:
             print(f"cost estimate:       ${est.cost_usd:.4f} (is_estimate={est.is_estimate}; "
                   f"UNVERIFIED price — confirm vs provider billing)")

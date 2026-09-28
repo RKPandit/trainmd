@@ -114,9 +114,10 @@ def test_loaders_drop_pilot_trials(tmp_path):
 
 
 def _rec(prov, model, agent, cost, reasoning, scores=None, **cond):
-    turns = [{"reasoning_blocks": reasoning, "reasoning_tokens": 50 * reasoning,
+    rt = (lambda n: None) if prov == "anthropic" else (lambda n: n * reasoning)   # as the clients record it
+    turns = [{"reasoning_blocks": reasoning, "usage": {"reasoning_tokens": rt(50)},
               "tool_calls": [{"name": "read_log", "arguments": {}}]},
-             {"reasoning_blocks": reasoning, "reasoning_tokens": 40 * reasoning,
+             {"reasoning_blocks": reasoning, "usage": {"reasoning_tokens": rt(40)},
               "tool_calls": [{"name": "submit", "arguments": {"diagnosis": {"detected": True}}}]}]
     r = {"status": "completed", "conditions": {"provider": prov, "agent_type": agent, **cond},
          "model": {"model_id": model}, "llm_transcript": turns,
@@ -139,3 +140,29 @@ def test_pilot_report_shows_no_scores_and_never_reads_them():
     for word in ("0.123", "recovered", "identification |", "evidence |"):
         assert word not in out
     assert "| 1/1 |" in out and "claude-sonnet-5" in out and "| yes |" in out   # reasoning past 1st call; strict
+
+
+def test_pilot_report_reasoning_tokens_from_usage_and_not_reported_never_zero():
+    recs = [_rec("anthropic", "claude-sonnet-5", "static", 0.03, 1, effort="medium"),
+            _rec("openai", "gpt-5.6-luna", "static", 0.002, 1, effort="medium", strict_tools=True),
+            _rec("openai", "gpt-5.6-luna", "static", 0.002, 0, effort="none", strict_tools=True)]
+    rows = {ln.split(" | ")[1] + "/" + ln.split(" | ")[2]: ln.split(" | ") for ln in sweep.pilot_report(recs).splitlines()
+            if ln.startswith("| anthropic") or ln.startswith("| openai")}
+    col = 12                                               # "reasoning tok"
+    assert rows["claude-sonnet-5/medium"][col] == "not reported"
+    assert rows["gpt-5.6-luna/medium"][col] == "90"        # 50 + 40, read from each call's usage
+    assert rows["gpt-5.6-luna/none"][col] == "0"           # reported, and genuinely zero
+    assert rows["claude-sonnet-5/medium"][col + 1] == "1/1" and rows["gpt-5.6-luna/none"][col + 1] == "0/1"
+
+
+def test_openai_parse_records_none_when_no_reasoning_breakout():
+    from types import SimpleNamespace
+    from harness.llm.openai_client import parse_responses
+    item = SimpleNamespace(type="message", content=[SimpleNamespace(type="output_text", text="hi")],
+                           model_dump=lambda exclude_none=True: {"type": "message"})
+    base = dict(output=[item], status="completed", model="m", id="r")
+    no_details = SimpleNamespace(input_tokens=5, output_tokens=2, input_tokens_details=None, output_tokens_details=None)
+    assert parse_responses(SimpleNamespace(usage=no_details, **base)).raw["reasoning_tokens"] is None
+    details = SimpleNamespace(input_tokens=5, output_tokens=2, input_tokens_details=None,
+                              output_tokens_details=SimpleNamespace(reasoning_tokens=7))
+    assert parse_responses(SimpleNamespace(usage=details, **base)).raw["reasoning_tokens"] == 7

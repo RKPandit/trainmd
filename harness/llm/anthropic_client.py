@@ -118,6 +118,15 @@ class AnthropicClient:
             kwargs["cache_control"] = dict(self._CACHE_CONTROL)
         return kwargs
 
+    def tool_config(self, tools_schema: list[dict]) -> dict:
+        """The EFFECTIVE tool configuration sent (recorded per trial as ``record.tool_config``)."""
+        import hashlib
+        import json as _json
+        return {"api": "anthropic.messages", "strict": False, "schema_form": "canonical (open)",
+                "tool_choice": "not sent (provider default: auto)",
+                "tools_sha256": "sha256:" + hashlib.sha256(_json.dumps(
+                    tools_schema, sort_keys=True, separators=(",", ":")).encode()).hexdigest()}
+
     def describe(self) -> dict:
         """Merged into the trial's model block by the agents: the generation settings actually
         requested (temperature is 'model default (not settable)' on Claude 4.7+ models)."""
@@ -217,7 +226,8 @@ class AnthropicClient:
                 cached_tokens=read,
                 cache_write_tokens=write,
             ),
-            raw={"model": response.model, "id": response.id},
+            raw={"model": response.model, "id": response.id,
+                 "completion": {"stop_reason": response.stop_reason}},   # the provider's own status, verbatim
             assistant_blocks=blocks,
             reasoning_blocks=n_thinking,
         )

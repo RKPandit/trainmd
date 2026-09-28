@@ -511,6 +511,8 @@ class LLMAgent:
             # describe() (Anthropic, FakeLLMClient) leave the block unchanged.
             if hasattr(self._client, "describe"):
                 self._record["model"].update(self._client.describe())
+            if hasattr(self._client, "tool_config"):          # effective tool configuration (schema 1.3)
+                self._record["tool_config"] = self._client.tool_config(TOOLS_SCHEMA)
 
         # 2. Build the instruction prompt (record it + its hash + version).
         # NOTE: this is delivered as the INITIAL USER-ROLE message below — the
@@ -585,6 +587,7 @@ class LLMAgent:
                     # thinking/reasoning blocks REPLAYED in this request's history.
                     "reasoning_blocks": response.reasoning_blocks,
                     "replayed_reasoning_blocks": _replayed,
+                    "completion": (response.raw or {}).get("completion"),   # provider's own status (schema 1.3)
                 })
                 # Truncation is a per-model behavior worth reporting: count it
                 # and flag the affected entry, whether or not tool calls came

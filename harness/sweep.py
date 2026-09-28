@@ -1017,8 +1017,8 @@ def pilot_report(records: list[dict]) -> str:
         groups.setdefault(key, []).append(r)
     L = ["# PILOT report — cost, tokens, reasoning presence, compliance (NO scores)", "",
          "| provider | model | effort | thinking | strict tools | agent | trials | completed | cost $ | $ / trial "
-         "| input tok | output tok | reasoning tok | truncations | reasoning past 1st tool call | submit parsed | "
-         "empty diagnosis |", "|" + "---|" * 17]
+         "| input tok | output tok | reasoning tok | trials w/ reasoning blocks | truncations "
+         "| reasoning past 1st tool call | submit parsed | empty diagnosis |", "|" + "---|" * 18]
     from harness.sweep_stats import valid_submission
     for key in sorted(groups, key=lambda k: tuple(map(str, k))):
         for agent in ("static", "react"):
@@ -1028,7 +1028,14 @@ def pilot_report(records: list[dict]) -> str:
             done = [r for r in rs if r.get("status") == "completed"]
             u = [r.get("usage") or {} for r in rs]
             cost = sum(x.get("estimated_cost_usd") or 0.0 for x in u)
-            rtok = sum((t.get("reasoning_tokens") or 0) for r in rs for t in (r.get("llm_transcript") or []))
+            # Reasoning tokens live in each call's usage block. A provider that does not break them out
+            # (Anthropic: thinking is billed inside output_tokens) records None -> "not reported", never 0.
+            rvals = [(t.get("usage") or {}).get("reasoning_tokens") for r in rs for t in (r.get("llm_transcript") or [])]
+            rtok = f"{sum(v for v in rvals if v is not None):,}" if any(v is not None for v in rvals) else "not reported"
+            if any(v is None for v in rvals) and rtok != "not reported":
+                rtok += " (partial)"
+            with_blocks = sum(1 for r in rs if any((t.get("reasoning_blocks") or 0) > 0
+                                                   for t in (r.get("llm_transcript") or [])))
             multi = [r for r in done if len(r.get("llm_transcript") or []) >= 2]
             past = sum(1 for r in multi if any((t.get("reasoning_blocks") or 0) > 0
                                                for t in (r.get("llm_transcript") or [])[1:]))
@@ -1039,10 +1046,13 @@ def pilot_report(records: list[dict]) -> str:
             L.append(f"| {key[0]} | {key[1]} | {key[2] or '—'} | {key[3] or '—'} | {'yes' if key[4] else 'no'} | "
                      f"{agent} | {len(rs)} | {len(done)} | {cost:.4f} | {cost / len(rs):.4f} | "
                      f"{sum(x.get('input_tokens') or 0 for x in u):,} | {sum(x.get('output_tokens') or 0 for x in u):,} | "
-                     f"{rtok:,} | {sum(x.get('max_tokens_truncations') or 0 for x in u)} | "
+                     f"{rtok} | {with_blocks}/{len(rs)} | {sum(x.get('max_tokens_truncations') or 0 for x in u)} | "
                      f"{past}/{len(multi) if multi else 0} | {parsed}/{len(done)} | {empty}/{len(done)} |")
     tot = sum((r.get("usage") or {}).get("estimated_cost_usd") or 0.0 for r in records)
-    L += ["", f"Total estimated cost: ${tot:.4f} over {len(records)} trials. *Reasoning past 1st tool call* = "
+    L += ["", f"Total estimated cost: ${tot:.4f} over {len(records)} trials. *Reasoning tok* = the provider's "
+          "reported reasoning-token breakout (already inside output tok); *not reported* where the provider gives "
+          "none (Anthropic). *Trials w/ reasoning blocks* = trials with at least one thinking block / reasoning item. "
+          "*Reasoning past 1st tool call* = "
           "multi-call trials with a reasoning block on a turn after the first; *submit parsed* = the final submit "
           "call's arguments parsed as an object; *empty diagnosis* = no usable `diagnosis.detected`. No detection, "
           "identification, evidence or recovery score is computed or shown."]

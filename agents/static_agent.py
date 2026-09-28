@@ -202,6 +202,8 @@ class StaticContextAgent:
             # knowledge_cutoff); guarded for clients without describe().
             if hasattr(self._client, "describe"):
                 self._record["model"].update(self._client.describe())
+            if hasattr(self._client, "tool_config"):          # effective tool configuration (schema 1.3)
+                self._record["tool_config"] = self._client.tool_config([SUBMIT_SCHEMA])
             self._record.setdefault("static_context", {})
 
         # 1. Assemble context via the sealed tool layer (tagged, budget hard-fail).
@@ -310,6 +312,7 @@ class StaticContextAgent:
             },
             "reasoning_blocks": response.reasoning_blocks,
             "replayed_reasoning_blocks": replayed,
+            "completion": (response.raw or {}).get("completion"),   # provider's own status (schema 1.3)
         }
         self._record["llm_transcript"].append(entry)
         if response.stop_reason == "max_tokens":
