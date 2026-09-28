@@ -403,6 +403,9 @@ detection, identification, evidence and recovery under-state Luna — so no Part
 
 ## Part 3 — REQUIRED second workload: a small image classifier (DESIGN ONLY, 2026-09-27; author's decision)
 
+**Full design for review (2026-09-28): `docs/PART3_DESIGN_DRAFT.md`** — fault list with image re-implementations,
+controls, case counts, reference-run plan, cost, build order. It supersedes the fault and control sketches below.
+
 **Why.** Every Part 1–2 result is one workload (tabular Adult MLP). A second workload with a different data
 modality, pipeline and config layout — faults RE-IMPLEMENTED from scratch, not ported — tests whether the
 pattern belongs to the agents or to our first pipeline. It is required, not optional.
