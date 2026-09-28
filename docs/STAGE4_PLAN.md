@@ -241,6 +241,11 @@ would be wrong.
   pilot ran for Sonnet 5 medium (`plan --pilot-match-plan … --pilot-match-agent static`), so volumes compare on
   the same cases. The rule is applied mechanically by `scripts/thinking_volume.py` (tested:
   `tests/test_thinking_volume.py`); the chosen level is recorded here and in the pre-registration.
+  **RESULT (2026-09-28): xhigh, by the pre-declared fallback** — thinking in 10/10 trials at both high and
+  xhigh, but median estimated thinking 343 (high) and 734 (xhigh) tokens per call vs medium's 241 (1.4× and
+  3.0×; the rule needed 4×). Measured H12 contrast (off vs xhigh): 0/10 vs 10/10 trials with thinking; ≈ 0 vs
+  ≈ 734 thinking tokens per call; 448 vs 1,173 output tokens per static trial; $0.0270 vs $0.0343 per static
+  trial. Probe cost $0.64 (`sweeps/stage4_part2_probe_thinking_volume.md`).
 - *B — GPT-5.6 Luna none, ReAct (1 truncation → empty diagnosis):* runaway WHITESPACE — after 428 valid
   characters of the submit arguments the model emitted " \r" (space, carriage return) 4,037 times until the
   8,192-token cap. The run starts right after a numeric value inside the second evidence item's `detail`

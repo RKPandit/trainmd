@@ -169,14 +169,12 @@ ran (agent phase 978/984 cells, $24.03, 6 unrun — all neutral×Luna×static; v
   lost — L29). Verdict logic corrected mid-analysis to a CI equivalence test (was point-based;
   DECISIONS 2026-09-22, RESEARCH_LOG 35).
 
-**NEXT GATE (updated 2026-09-27, after the pilot): the Part 2 pre-registration lock.** Part 1 is CLOSED (verdicts
-mechanical and robust to the declared sensitivity analyses — HYPOTHESES "Stage 4 Part 1"). The Part 2 pilot is
-DONE (91/91, $1.98; strict mode: OpenAI static 10/10 parsed, 0 empty; no scores). Part 2 design decided: 7
-conditions, Opus 5.5 dropped, static-primary ≈ $63 (`docs/STAGE4_PLAN.md` Part 2). Before lock
-(`docs/PREREG_STAGE4_PART2_DRAFT.md`): the author's review of #68 → scorer FROZEN; the Sonnet 5 "on" effort
-fixed by the thinking-volume rule (probe `sweeps/stage4_part2_probe_plan.yaml`, 20 static cells, ready to run). B1 is
-declared final-epoch (`docs/audits/agent_value_part1_200.md`). Part 3 (second workload): Fashion-MNIST decided; data pin +
-two-AMD-runner byte-identity check come before any case is built. Billed Part 1 spend still to enter.
+**NEXT GATE (updated 2026-09-28): the Part 2 pre-registration lock.** Draft `docs/PREREG_STAGE4_PART2_DRAFT.md`
+is with the author: confirmatory H11 (GPT-5.6 Luna reasoning none vs medium) and H12 (Sonnet 5 thinking off vs
+xhigh — the probe fixed xhigh by the pre-declared fallback), everything else descriptive; Stage A static ≈ $81 +
+optional Stage B ReAct ≈ $13, cap $100. Scorer FROZEN (root_token_v3 / evidence v2.3); Part 1 re-scored under it
+(correction #9). Before lock: `harness/prereg_part2.py` + tests, plan generation, the author's approval. Part 3
+(Fashion-MNIST) prerequisites built and the two-AMD-runner check passed (#70, in review). Billed Part 1 spend still to enter.
 
 ---
 
