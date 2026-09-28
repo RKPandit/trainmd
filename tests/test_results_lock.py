@@ -176,3 +176,55 @@ def test_second_sweep_refuses_to_start_while_one_runs(tmp_path, live_other_pid):
     _write_lock(tmp_path, live_other_pid, sweep="stage4_part2_pilot")
     with pytest.raises(rl.ResultsLocked, match="stage4_part2_pilot"):
         sweep.run_agents(tmp_path, "s", 1.0)
+
+
+# ---- unlock command (DECISIONS 2026-09-28) ------------------------------------------------------------
+def test_refusal_messages_name_the_unlock_command(tmp_path, live_other_pid):
+    _write_lock(tmp_path, live_other_pid)
+    with pytest.raises(rl.ResultsLocked, match="python -m harness.results_lock unlock"):
+        rl.assert_can_write(tmp_path)
+    with pytest.raises(rl.ResultsLocked, match="python -m harness.results_lock unlock"):
+        with rl.sweep_lock(tmp_path, "mine", "agents"):
+            pass
+
+
+def test_unlock_foreign_host_lock_after_typed_confirmation(tmp_path):
+    _write_lock(tmp_path, 1, host="container-abc", sweep="stage4_part2_verify")
+    msgs = []
+    assert rl.unlock(tmp_path, confirm=lambda prompt: "stage4_part2_verify", out=msgs.append) == 0
+    assert not (tmp_path / "results" / ".sweep.lock").exists()
+    assert any("ANOTHER host" in m for m in msgs)
+
+
+def test_unlock_cancelled_on_wrong_answer(tmp_path):
+    _write_lock(tmp_path, 1, host="container-abc", sweep="s")
+    assert rl.unlock(tmp_path, confirm=lambda prompt: "yes", out=lambda m: None) == 1
+    assert (tmp_path / "results" / ".sweep.lock").exists()
+
+
+def test_unlock_refuses_a_live_holder_on_this_host(tmp_path, live_other_pid):
+    _write_lock(tmp_path, live_other_pid, sweep="s")
+    asked = []
+    assert rl.unlock(tmp_path, confirm=lambda prompt: asked.append(1) or "s", out=lambda m: None) == 1
+    assert not asked and (tmp_path / "results" / ".sweep.lock").exists()
+
+
+def test_unlock_unreadable_lock_needs_the_word_unlock(tmp_path):
+    (tmp_path / "results").mkdir()
+    (tmp_path / "results" / ".sweep.lock").write_text("{garbage")
+    assert rl.unlock(tmp_path, confirm=lambda prompt: "UNLOCK", out=lambda m: None) == 0
+
+
+def test_unlock_refuses_if_the_lock_changed_while_waiting(tmp_path):
+    _write_lock(tmp_path, 1, host="container-abc", sweep="s")
+
+    def swap(prompt):
+        _write_lock(tmp_path, 2, host="container-xyz", sweep="s")
+        return "s"
+    assert rl.unlock(tmp_path, confirm=swap, out=lambda m: None) == 1
+    assert (tmp_path / "results" / ".sweep.lock").exists()
+
+
+def test_unlock_cli_status_runs(tmp_path, capsys):
+    assert rl.main(["status", "--project-root", str(tmp_path)]) == 0
+    assert "no live holder" in capsys.readouterr().out
