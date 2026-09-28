@@ -201,3 +201,20 @@ def test_probe_reuses_the_matched_conditions_cells_on_every_new_condition(tmp_pa
         sweep.plan(tmp_path, "probe", strengths=["mild"], faulty_seeds=[42], control_seeds=[], repeats=1,
                    operators=["silent.lr_warmup.v1"], providers=[medium],
                    pilot_match={"plan": prev["path"], "condition": sweep.parse_provider_spec("anthropic:nope")})
+
+
+
+def test_agents_and_anchors_restrict_the_grid_without_changing_ids(tmp_path):
+    root = _root(tmp_path)
+    kw = dict(strengths=["mild"], faulty_seeds=[42, 43], control_seeds=[50], repeats=2,
+              operators=["silent.lr_warmup.v1", "silent.data_leakage.v1"],
+              providers=[sweep.parse_provider_spec("openai:gpt-5.6-luna:effort=none")], openai_strict_tools=True)
+    full = {c["cell_id"]: c for c in sweep.plan(root, "full", **kw)["plan"]["cells"]}
+    a = sweep.plan(root, "a", agents=["static"], **kw)["plan"]
+    assert all(c["agent"] == "static" for c in a["cells"]) and a["header"]["factor_levels"]["agents"] == ["static"]
+    assert all(full[c["cell_id"]] == c for c in a["cells"])                    # identical cells, identical ids
+    b = sweep.plan(root, "b", agents=["react"], anchors=["off"], **{**kw, "control_seeds": [], "repeats": 1})["plan"]
+    assert {(c["agent"], c["anchor"], c["repeat_index"]) for c in b["cells"]} == {("react", "off", 0)}
+    assert len(b["cells"]) == 4                                                # 2 ops x 2 seeds, faulty only
+    with pytest.raises(ValueError, match="anchors"):
+        sweep.plan(root, "x", anchors=["bogus"], **kw)

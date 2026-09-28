@@ -169,12 +169,13 @@ ran (agent phase 978/984 cells, $24.03, 6 unrun — all neutral×Luna×static; v
   lost — L29). Verdict logic corrected mid-analysis to a CI equivalence test (was point-based;
   DECISIONS 2026-09-22, RESEARCH_LOG 35).
 
-**NEXT GATE (updated 2026-09-28): the Part 2 pre-registration lock.** Draft `docs/PREREG_STAGE4_PART2_DRAFT.md`
-is with the author: confirmatory H11 (GPT-5.6 Luna reasoning none vs medium) and H12 (Sonnet 5 thinking off vs
-xhigh — the probe fixed xhigh by the pre-declared fallback), everything else descriptive; Stage A static ≈ $81 +
-optional Stage B ReAct ≈ $13, cap $100. Scorer FROZEN (root_token_v3 / evidence v2.3); Part 1 re-scored under it
-(correction #9). Before lock: `harness/prereg_part2.py` + tests, plan generation, the author's approval. Part 3
-(Fashion-MNIST) prerequisites built and the two-AMD-runner check passed (#70, in review). Billed Part 1 spend still to enter.
+**NEXT GATE (updated 2026-09-28): run Stage 4 Part 2 — pre-registration LOCKED** (`docs/HYPOTHESES.md`, "Stage 4
+Part 2 — PRE-REGISTRATION"): confirmatory H11 (GPT-5.6 Luna reasoning none vs medium — possibly untestable by the
+headroom rule) and H12 (Sonnet 5 thinking off vs xhigh); everything else descriptive. Stage A static
+(`sweeps/stage4_part2_plan.yaml`, 5,544 cells, ≈ $81) after a slice and a cost projection; Stage B ReAct
+(`sweeps/stage4_part2_react_plan.yaml`, 432 cells, ≈ $13) only if a Stage B slice projection fits the $100 cap.
+Scorer FROZEN (root_token_v3 / evidence v2.3). From the lock on, findings go to LIMITATIONS. Part 3 (Fashion-MNIST)
+prerequisites built, two-AMD-runner check passed (#70, in review). Billed Part 1 spend still to enter.
 
 ---
 

@@ -176,7 +176,8 @@ def _design_tuples(registry, strengths, faulty_seeds, control_seeds, operators=N
 
 
 def enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeats,
-                    operators=None, providers=None, benign_seeds=(), no_passback_model=None):
+                    operators=None, providers=None, benign_seeds=(), no_passback_model=None,
+                    agents=None, anchors=None):
     """Return (cells, missing) — cells cross the design with provider×agent×anchor×repeat.
 
     A case (operator, strength, seed) is provider-agnostic; the provider multiplies
@@ -195,11 +196,13 @@ def enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeat
         # rate (and, per anchor arm, the sensitivity-vs-specificity trade-off), not
         # symptom diagnosis — so run them static-only × 1 repeat (still × all anchor
         # arms × all providers). Faulty cases use the full agent×repeat grid.
-        cell_agents = ["static"] if tier == "control" else AGENTS
+        # `agents` / `anchors` restrict the grid (Stage 4 Part 2: Stage A static-only, Stage B ReAct `off`);
+        # the defaults reproduce every earlier plan (cell ids encode agent and anchor, so ids are unchanged).
+        cell_agents = ["static"] if tier == "control" else (agents or AGENTS)
         cell_repeats = 1 if tier == "control" else repeats
         for prov in providers:
             for agent in cell_agents:
-                for anchor in ANCHORS:
+                for anchor in (anchors or ANCHORS):
                     for r in range(cell_repeats):
                         cell = {
                             "cell_id": _cell_id(op, st, sd, agent, anchor, r, _cell_provider_key(prov, providers)),
@@ -323,7 +326,7 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
          repeats=DEFAULT_REPEATS, order_seed=1234, model=DEFAULT_MODEL,
          operators=None, providers=None, benign_seeds=None, no_passback_model=None,
          openai_strict_tools=False, pilot_static=None, pilot_react=None, pilot_seed=20260927,
-         pilot_match=None) -> dict:
+         pilot_match=None, agents=None, anchors=None) -> dict:
     strengths = strengths or DEFAULT_STRENGTHS
     faulty_seeds = faulty_seeds or DEFAULT_FAULTY_SEEDS
     # `is None` (not `or`) so an explicit empty list means NO controls (faulty-only sweep).
@@ -334,9 +337,12 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
                                      for p in providers):
         raise ValueError(f"--exploratory-no-passback {no_passback_model!r} must be one of the plan's "
                          "openai provider models (it re-creates that model's H8 condition)")
+    for name_, got, allowed in (("agents", agents, AGENTS), ("anchors", anchors, ANCHORS)):
+        if got and not set(got) <= set(allowed):
+            raise ValueError(f"{name_} {got} not a subset of {allowed}")
     cells, missing = enumerate_cells(
         project_root, strengths, faulty_seeds, control_seeds, repeats, operators, providers,
-        benign_seeds, no_passback_model)
+        benign_seeds, no_passback_model, agents=agents, anchors=anchors)
     # Stage 4 Part 2 DECISION (2026-09-27): strict tool schemas on EVERY OpenAI cell (LIMITATIONS L35).
     if openai_strict_tools:
         for c in cells:
@@ -417,7 +423,7 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
         "factor_levels": {"providers": [p["provider"] for p in providers],
                           "models": [p["model"] for p in providers],
                           "variants": operators if operators else "all faulty operators",
-                          "agents": AGENTS, "anchors": ANCHORS, "prompt_major": PROMPT_MAJOR,
+                          "agents": agents or AGENTS, "anchors": anchors or ANCHORS, "prompt_major": PROMPT_MAJOR,
                           "repeats": repeats,
                           "strengths": strengths, "faulty_seeds": faulty_seeds,
                           "control_seeds": control_seeds, "benign_seeds": benign_seeds,
@@ -1151,6 +1157,10 @@ def main() -> int:
                          "anthropic:claude-sonnet-5:effort=medium")
     pp.add_argument("--pilot-match-agent", choices=["static", "react"], default=None,
                     help="with --pilot-match-plan: copy only this agent's cells")
+    pp.add_argument("--agents", nargs="*", default=None, choices=AGENTS,
+                    help="restrict FAULTY cells to these agents (controls are always static)")
+    pp.add_argument("--anchors", nargs="*", default=None, choices=ANCHORS,
+                    help="restrict every cell to these anchor arms")
     pp.add_argument("--openai-strict-tools", action="store_true",
                     help="send strict tool schemas on EVERY OpenAI cell (Stage 4 Part 2 decision; L35)")
     pp.add_argument("--exploratory-no-passback", default=None, metavar="OPENAI_MODEL",
@@ -1216,7 +1226,8 @@ def main() -> int:
                       providers=providers, benign_seeds=args.benign_seeds,
                       no_passback_model=args.exploratory_no_passback,
                       openai_strict_tools=args.openai_strict_tools,
-                      pilot_static=args.pilot_static, pilot_react=args.pilot_react, pilot_match=pilot_match)
+                      pilot_static=args.pilot_static, pilot_react=args.pilot_react, pilot_match=pilot_match,
+                      agents=args.agents, anchors=args.anchors)
         if args.build_missing and result["missing"]:
             summary = build_missing(root, result["missing"])
             print(f"[build-missing] built={len(summary['built'])} skipped={len(summary['skipped'])} "
@@ -1230,7 +1241,8 @@ def main() -> int:
                           providers=providers, benign_seeds=args.benign_seeds,
                           no_passback_model=args.exploratory_no_passback,
                           openai_strict_tools=args.openai_strict_tools,
-                          pilot_static=args.pilot_static, pilot_react=args.pilot_react, pilot_match=pilot_match)
+                          pilot_static=args.pilot_static, pilot_react=args.pilot_react, pilot_match=pilot_match,
+                      agents=args.agents, anchors=args.anchors)
         path = write_plan(result)
         est = result["plan"]["header"]["cost_estimate"]
         print(f"Plan: {path}\n  cells={result['plan']['header']['n_cells']} "

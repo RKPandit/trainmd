@@ -175,6 +175,9 @@ release directory is committed or any file under `results_release/` exceeds 10 M
 
 ## Part 2 — Model dimension (~2 weeks) — model comparisons and within-model reasoning interventions (revised 2026-09-27)
 
+**LOCKED 2026-09-28 — the binding text is `docs/HYPOTHESES.md` "Stage 4 Part 2 — PRE-REGISTRATION" (H11, H12;
+Stage A / conditional Stage B; cap $100).** The notes below are its planning history.
+
 **CURRENT DESIGN (author's decision 2026-09-27, after the pilot) — supersedes the 2026-09-24 design below where
 they differ.**
 

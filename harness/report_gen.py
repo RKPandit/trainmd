@@ -143,6 +143,7 @@ def generate(records: list[dict], meta: dict) -> str:
     L += _h8_tables(s, records, name)
     L += _valid_submission_tables(records)
     L += _prereg_part1_tables(records)
+    L += _prereg_part2_tables(records)
     if exploratory:
         L += _no_passback_tables(ss.exploratory_no_passback(all_records))
     return "\n".join(L) + "\n"
@@ -174,6 +175,11 @@ def _prereg_part1_tables(records) -> list[str]:
     from harness import prereg_part1 as pp
     if not ({pp.OFF, pp.STATS, pp.RULE} <= set(ss.arms_present(records))
             and {pp.REF_PROVIDER, pp.CMP_PROVIDER} <= set(ss.providers_present(records))):
+        return []
+    # Part 1's verdicts are about Haiku 4.5 vs GPT-5.6 Luna; a Stage 4 Part 2 sweep (both providers, other
+    # conditions) must not render them. Part 1 records never match a Part 2 condition, so its report is unchanged.
+    from harness import prereg_part2 as p2
+    if p2.present(records):
         return []
     L = ["## Pre-registered verdicts (Stage 4 Part 1) — computed mechanically", ""]
     h9 = pp.h9_verdict(records)
@@ -593,3 +599,30 @@ def generate_from_release(release_dir: Path, name: str) -> str:
     meta["excluded"] = (json.loads(rm.read_text()).get("excluded")
                         if rm.exists() else {"trusted": 0, "superseded": 0})
     return generate(records, meta)
+
+
+def _prereg_part2_tables(records) -> list[str]:
+    """Stage 4 Part 2 pre-registered verdicts (harness/prereg_part2.py): H11, H12 — rendered only when a Part 2
+    confirmatory condition is present, so every earlier report is byte-identical."""
+    from harness import prereg_part2 as p2
+    if not p2.present(records):
+        return []
+    v = p2.part2_verdicts(records)
+    L = ["## Pre-registered verdicts (Stage 4 Part 2) — computed mechanically", "",
+         "> Off-anchor detection, end-to-end, static, non-crash faulty cases; D = mean over ELIGIBLE mechanisms "
+         f"(less-reasoning upper bound < {p2.HEADROOM_MAX_UPPER}; ≥ {p2.MIN_MECHANISMS} required); Δ = D(more) − "
+         f"D(less), paired case bootstrap stratified by mechanism (B = {p2.N_BOOT:,}); Holm over the testable "
+         f"hypotheses (α = {p2.ALPHA}); shown small = 95% interval inside ±{p2.SMALL_MARGIN}.", ""]
+    for k, d in v.items():
+        L += [f"### {k} — {d['title']}: **{d['verdict']}**", "", f"- {d['why']}"]
+        if d.get("testable"):
+            L.append(f"- Δ = {_f(d['delta'])} [{_f(d['lo'])}, {_f(d['hi'])}]; two-sided p = {d['p']:.4f}; "
+                     f"Holm m = {d['holm_m']}; clusters {d['clusters']}")
+        L += ["", "| mechanism | less-reasoning off detection [95% CI] | carries the decision | Δ (descriptive) [95% CI] |",
+              "|---|---|---|---|"]
+        for m, h in (d.get("headroom") or {}).items():
+            c, pm = h["less_detect"], (d.get("per_mechanism") or {}).get(m, {})
+            L.append(f"| {m} | {_f(c['point'])} [{_f(c['lo'])}, {_f(c['hi'])}] | {'yes' if h['eligible'] else 'no'} | "
+                     f"{_f(pm.get('delta'))} [{_f(pm.get('lo'))}, {_f(pm.get('hi'))}] |")
+        L.append("")
+    return L

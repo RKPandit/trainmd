@@ -1,10 +1,10 @@
-# Stage 4 Part 2 — pre-registration (DRAFT for the author's review; NOT locked)
+# Stage 4 Part 2 — pre-registration (DRAFT — SUPERSEDED: locked 2026-09-28 in `docs/HYPOTHESES.md`, "Stage 4 Part 2 — PRE-REGISTRATION")
 
 > Drafted 2026-09-28 for review together with #75. On approval it is appended to `docs/HYPOTHESES.md` BEFORE
 > any Part 2 trial, as Part 1 was, and the design is then FROZEN (anything found after lock goes to
 > LIMITATIONS, not a fix cycle, unless it would make a result wrong). Every confirmatory verdict below will be
-> computed mechanically by `harness/prereg_part2.py`, written and tested on synthetic confirm / refute /
-> inconclusive / no-headroom / Holm-boundary data BEFORE lock (not yet written — item 1 of "Before lock").
+> computed mechanically by `harness/prereg_part2.py`, tested on synthetic confirm / refute-by-opposite /
+> refute-by-small / inconclusive / untestable / Holm-boundary data BEFORE lock (`tests/test_prereg_part2.py`).
 
 ## Carried-forward declarations
 
@@ -93,8 +93,10 @@ noise); Anthropic reports no thinking-token count.
   off uses ≈ 450 output tokens; its cap never binds).
 - **Stage A — static (confirmatory + descriptive): every new condition × the Part 1 static protocol:** faulty
   108 × 3 arms × 2 repeats + controls 92 × 3 arms × 1 = **924 static trials per condition, 5,544 total.**
-- **Stage B — ReAct (descriptive only), run only if Stage A's ACTUAL spend leaves room under the cap:** `off`
-  arm × 108 faulty × 1 repeat for the four reasoning-intervention conditions = 432 trials.
+- **Stage B — ReAct (descriptive only), CONDITIONAL (author, 2026-09-28):** `off` arm × 108 faulty × 1 repeat
+  for the four reasoning-intervention conditions = 432 trials. After Stage A, a small Stage B slice runs first
+  (Sonnet xhigh ReAct cost is unmeasured) and its cost is projected; Stage B proceeds only if Stage A's ACTUAL
+  spend plus that projection fits the $100 cap.
 - **Projected cost** (the pilot's / probe's measured $ per static trial; Stage B's Sonnet xhigh ReAct
   figure is an ASSUMPTION — off's ReAct cost × xhigh/off static ratio):
 
@@ -110,8 +112,8 @@ noise); Anthropic reports no thinking-token count.
 
   **Cap $100** (`--max-cost-usd 100`) over A + B. **Operational rule (as Part 1):** after a Stage A slice,
   `scripts/project_sweep_cost.py --cap 100` projects Stage A from its own measured costs; Stage A runs in full
-  only if it FITS, and Stage B only if Stage A's actual spend + Stage B's projection ≤ $100 — otherwise the
-  author decides before any further spend.
+  only if it FITS. Stage B: a slice, then `scripts/project_sweep_cost.py --name <stage B> --cap <100 − Stage A
+  actual>`; the rest of Stage B runs only if it fits — otherwise the author decides before any further spend.
 - **Pre-run gates:** `validate-all` green; the scorer freeze unchanged (`python -m harness.scorer_freeze`); a
   slice with Sonnet xhigh and both Luna conditions confirming streaming (no SDK refusal), strict parsing and
   completion status recorded; `check-cache` / `check-reasoning` on Stage B's multi-call cells (Stage A is
@@ -140,19 +142,27 @@ bootstrap; the exact Clopper–Pearson bound over cases at a rate of 0 or 1). It
 condition's data, so it cannot select mechanisms on the size of the effect under test. **At least 2 eligible
 mechanisms are required**; with fewer, the hypothesis is **"no headroom — untestable"** and leaves the Holm
 family. D is computed over the eligible mechanisms only; the all-mechanism table is reported beside it.
+**Stated in advance: H11 may well be UNTESTABLE.** GPT-5.6 Luna detected most non-crash faults off-anchor in
+Part 1 at medium effort (static: leakage 0.94, lr_warmup 0.86, metric_inflation 0.78, label_corruption 0.69);
+if reasoning `none` leaves Luna near that level, fewer than two mechanisms will clear the 0.85 upper bound and
+H11 is reported as "no headroom — untestable" — an honest outcome, not a failure of the design.
 
 **Decision rule (two-sided).**
 1. *Bootstrap:* 10,000 case-level resamples, **stratified by mechanism** (the eligible mechanisms' case IDs
    resampled within mechanism, with replacement; one seeded generator per hypothesis), Δ* computed on all
    static `off` trials of the drawn cases in both conditions (paired).
-2. *Two-sided p for Δ = 0:* with L = #{Δ* < 0} (Δ* = 0 counts in the upper tail), **p = min(1, 2·min(L, B − L)/B)**.
+2. *Two-sided p for Δ = 0:* with L = #{Δ* < 0}, U = #{Δ* > 0} and T = #{Δ* = 0},
+   **p = min(1, 2·min(L + T/2, U + T/2)/B)** — ties count half to each tail (paired detection differences are
+   discrete, so exact ties are common; counting them in one tail, as H10's continuous f could, would turn an
+   all-tie bootstrap — no change at all — into p = 0).
 3. *Holm over the testable hypotheses* (m = 2, or 1; family-wise α = 0.05): the smaller p is rejected if
    p ≤ α/m; the other if p ≤ α and the first was rejected.
 4. *Verdict:*
    - **CONFIRMING** — rejected and Δ̂ > 0 (the declared direction).
    - **REFUTING (opposite direction)** — rejected and Δ̂ < 0.
    - **REFUTING (shown small)** — not rejected, and the 95% percentile interval of Δ* lies inside
-     **(−0.15, +0.15)**: the intervention, if any, is shown small rather than merely non-significant.
+     **(−0.15, +0.15)**, worded as: **"no change larger than 0.15 — small against the 0.50–0.83 Haiku–Luna gap it
+     is meant to explain"** — never as "no effect".
    - **INCONCLUSIVE** — everything else (including an interval that merely includes 0 but crosses ±0.15).
 5. *Reported, not deciding:* Δ̂ with its 95% interval, the per-mechanism Δ (all four, eligible or not), the
    ReAct `off` contrast (Stage B), and the same contrasts under `stats` / `rule`.
@@ -167,22 +177,26 @@ up to ≈ 15–40%.
 
 ## Descriptive only — no verdicts
 
-1. **Model comparisons** (paired by case where both models ran it; CIs shown, no decision): Sonnet 5 off vs
+1. **Haiku 4.5 (Part 1) vs GPT-5.6 Luna medium (strict, Part 2)** — off-anchor detection per mechanism: the
+   clean re-measurement of Part 1's central gap WITHOUT the formatting under-credit (L35). A **cross-run**
+   comparison (Haiku from Part 1, Luna from Part 2 — same cases, prompt, arms, repeats and frozen scorer, but
+   different runs and dates); intervals shown, no verdict.
+2. **Model comparisons** (paired by case where both models ran it; CIs shown, no decision): Sonnet 5 off vs
    Haiku 4.5 (neither thinks; Haiku from Part 1); GPT-6 Luna vs GPT-5.6 Luna (both medium, strict); GPT-6 Sol
    vs GPT-6 Luna, and Sonnet 5 xhigh vs GPT-6 Sol (matched list price; the providers' effort scales do not
    correspond).
-2. **Reference effects per model** — `stats` − `off` and `rule` − `off`, and an H10-style
+3. **Reference effects per model** — `stats` − `off` and `rule` − `off`, and an H10-style
    f = (stats − off)/(rule − off) over the model's eligible mechanisms (rule − off ≥ 0.30), wherever there is
    headroom; reported with intervals, no verdict.
-3. **Benign false alarms** per condition × arm, healthy and benign separately (and by edit form), with paired
+4. **Benign false alarms** per condition × arm, healthy and benign separately (and by edit form), with paired
    arm contrasts (Newcombe) — no verdict.
-4. **Submission validity** — the valid-submission rate, per-trial completion status and truncations (record
+5. **Submission validity** — the valid-submission rate, per-trial completion status and truncations (record
    schema 1.3) beside every end-to-end number; the valid-only view is descriptive.
-5. Identification (frozen root_token_v3), evidence (frozen v2.3) and recovery (degenerate on these operators,
+6. Identification (frozen root_token_v3), evidence (frozen v2.3) and recovery (degenerate on these operators,
    L19), per condition and mechanism.
-6. **What does the agent add?** — the baseline table (B0, final-epoch B1, B2, B3, BF) vs every Part 2 row on
+7. **What does the agent add?** — the baseline table (B0, final-epoch B1, B2, B3, BF) vs every Part 2 row on
    the same 200 cases (`scripts/agent_value_table.py`).
-7. Cost per condition (billed and uncached-equivalent).
+8. Cost per condition (billed and uncached-equivalent).
 
 ## Fixed from the first trial
 
