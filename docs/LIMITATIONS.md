@@ -6,8 +6,8 @@ per-hypothesis verdicts live in `docs/HYPOTHESES.md` Results and the evidence in
 
 ## The corrections, stated plainly
 
-All seven post-hoc corrections removed harness-imposed penalties or fixed a measurement/aggregation/
-reporting error; the first six changed no ground truth, and the seventh changes it only by admitting an
+All eight post-hoc corrections removed harness-imposed penalties or fixed a measurement/aggregation/
+reporting error; the first six and the eighth changed no ground truth, and the seventh changes it only by admitting an
 evidence path found valid by a blind human audit. (The first three are the Sweep-1
 scoring/schema + folded-repair corrections; the fourth, 2026-09-15, disaggregated the pooled H1
 negative-symptom comparator; the fifth, 2026-09-15, migrated Sweep-1 evidence from v1 — which the
@@ -18,7 +18,9 @@ overstated precision; the seventh, 2026-09-25, is evidence scorer **v2.2** on H8
 operator's code path (derived from its own implementation, never from citations) became an accepted
 evidence set after the blind audit found the path valid (FINDINGS F16). That can only RAISE evidence F1
 (59 of 834 H8 faulty trials, all up; detection / identification / recovery byte-identical) — see
-FINDINGS "Post-hoc corrections" #4–#7.) Originals are kept beside
+FINDINGS "Post-hoc corrections" #4–#7; the eighth, 2026-09-28, corrects the Stage-3 baseline table's B1 / B3
+control FPR from 1/20 to **16/20** — the published figure was the final-epoch count attributed to the
+every-epoch B1, shown by rebuilding the controls at the publishing commit on AMD.) Originals are kept beside
 corrected values throughout.
 
 ## Disclosure rule
@@ -421,9 +423,10 @@ matching the oracle is expected, not evidence of repair intelligence (it is, ins
 *for* L19). B2's control-FPR is **0/20** (no config delta on a clean control) — **a one-sided 95%
 ceiling of 0.139 over its 20 unique cases (exact two-sided [0, 0.168]), not a demonstrated zero**
 (correction #6). B1's is 1/20 (the case_0039
-two-sided-band false positive) — *provenance note 2026-09-27: measured with the every-epoch B1 on the 9/17
-50-case set; not reproducible from preserved artifacts (every-epoch gives 16/20 on the 9/20 and current
-builds, final-epoch 1/20); B1 is now declared final-epoch — FINDINGS baseline table, footnote §*. B2 is observed lower, but 0/20 vs 1/20 is well within sampling noise
+two-sided-band false positive) — **corrected 2026-09-28 (correction #8): the B1 then defined (every epoch)
+flags 16/20** on the controls rebuilt at the publishing commit dcda575 on AMD; 1/20 is the FINAL-EPOCH count.
+So B2 (0/20) WAS far more specific than that B1; under the declared final-epoch B1 (1/20) the within-noise
+reading below holds. FINDINGS baseline table, footnote §. B2 is observed lower, but 0/20 vs 1/20 is well within sampling noise
 at n = 20, so neither "B2 dominates B1 on specificity" nor "a 0-FPR floor" is supported *(both
 phrasings withdrawn 2026-09-23)*.
 

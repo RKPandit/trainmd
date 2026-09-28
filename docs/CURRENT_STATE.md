@@ -38,7 +38,7 @@ evidence_scorer_versions: [evidence_v1, evidence_v2, evidence_v2.1, evidence_v2.
 canonical_image_digest: sha256:0354db57c29a5092ace862a0d8716dfe3729d4f8b893fe3079c66d947daeb25d
 reference_seeds: 30
 latest_sweep: stage2gate
-corrections_count: 7
+corrections_count: 8
 ```
 
 - **Workloads:** 1 — `tabular_adult` (Adult / MLP). (Second workload deferred to the full study.)
@@ -269,7 +269,8 @@ Five categories for a change to a committed fact, so the next classification is 
   over the number of unique cases — an
   interval is a published number, so this counts even though no point estimate moved); correction #7
   (2026-09-25, H8 evidence v2.1→v2.2: operator-derived code-path sets after the blind audit, FINDINGS
-  F16); the 7 tracked in `corrections_count`.
+  F16); correction #8 (2026-09-28, Stage-3 baseline table: B1 / B3 control FPR 16/20, not the published
+  1/20 — shown by rebuilding the controls at the publishing commit on AMD); the 8 tracked in `corrections_count`.
 - **Latent-bug fix** — a defect caught BEFORE it published. No `corrections_count` change
   (nothing wrong was ever released). *e.g.* the §0.3 scorer/analysis fixes.
 - **Documentation error** — prose that was NEVER true as written. No number changes;
