@@ -423,7 +423,7 @@ and (2) CNN training is verified BYTE-IDENTICAL across two separate AMD runners 
 and model weights hashed). Only then are operators calibrated and cases built. **Status 2026-09-27:** the data pin,
 the clean CNN pipeline and the CI check (`task=image-repro`) are built (DECISIONS 2026-09-27). **Two-runner check
 PASSED** (CI run 36363133740, 2026-09-27): two fresh runners, both AuthenticAMD / AMD EPYC 7763, seeds 0–2 —
-BYTE-IDENTICAL weights and every non-wall-time metric value (val_top1 0.8866 / 0.8902 / 0.8932; ≈ 58 s per run).
+BYTE-IDENTICAL weights and every non-wall-time metric value (val_top1 0.8866 / 0.8902 / 0.8932; ≈ 44 s per run).
 
 | Dataset | Size / shape | Licence | ≈ accuracy, compact CNN, ~1 min CPU | For | Against |
 |---|---|---|---|---|---|
