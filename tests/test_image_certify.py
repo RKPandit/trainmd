@@ -68,3 +68,15 @@ def test_bundle_check_catches_a_missing_case_a_fail_row_and_a_fast_gate(tmp_path
     for i, kw in enumerate([{"drop": "case_0300"}, {"fail_shard": 3}, {"fast_shard": 5}]):
         errs = cib.check(_fake_bundle(tmp_path / str(i), **kw))
         assert errs, kw
+
+
+def test_memo_key_and_integrity_handle_a_workload_without_datautil(tmp_path):
+    """The image workload has no datautil.py (the image-certify FULL gate hit this): the memo key and verify's
+    integrity list include it only where it exists, so every tabular key/hash is unchanged."""
+    from harness import verify_memo
+    root = ROOT
+    tab = verify_memo.memo_key({"a": 1}, root / "workloads" / "tabular_adult", [100], root)[1]
+    img = verify_memo.memo_key({"a": 1}, root / "workloads" / "image_fmnist", [100], root)[1]
+    assert "datautil.py" in tab["code"] and "datautil.py" not in img["code"]
+    src = (root / "harness" / "evaluator" / "verify_repair.py").read_text()
+    assert 'if (workload_dir / "datautil.py").is_file():' in src
