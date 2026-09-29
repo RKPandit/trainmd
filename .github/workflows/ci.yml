@@ -42,7 +42,7 @@ on:
         description: "What the manual dispatch runs"
         type: choice
         default: certify
-        options: [certify, benign-qualify, reference-ab, verify-native, b1-rebuild, image-repro, image-reference, clean-hidden-seeds, image-calibrate, image-calibrate-extra, image-step4]   # image-step4: Part 3 step 4 on AMD — the image operators' CLAUDE.md proofs (tests/test_image_operators.py, slow), all seven image benign types' qualification, the clean-path re-proof (image-clean-path); image-calibrate-extra: the swap grid's second pass + the schedule no-op benign qualification, AMD; image-calibrate: Part 3 graded-strength calibration on dev seeds + the clean-path proof, AMD; clean-hidden-seeds: clean config on hidden seeds 100–102 vs tolerance, both workloads, AMD; image-reference: Part 3 30-seed reference band on two AMD runners, exact agreement required; image-repro: Part 3 CNN byte-identity on two AMD runners (scripts/image_repro.sh); b1-rebuild: rebuild the 20 healthy controls at dcda575 on AMD and re-run that commit's B1 (scripts/b1_rebuild_dcda575.sh); benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
+        options: [certify, benign-qualify, reference-ab, verify-native, b1-rebuild, image-repro, image-reference, clean-hidden-seeds, image-calibrate, image-calibrate-extra, image-step4, image-certify]   # image-certify: Part 3 step 7 — build the 230 image cases in 12 AMD shards (validate + FULL known-answer gate per shard), then assemble + validate the encrypted image_bundle; image-step4: Part 3 step 4 on AMD — the image operators' CLAUDE.md proofs (tests/test_image_operators.py, slow), all seven image benign types' qualification, the clean-path re-proof (image-clean-path); image-calibrate-extra: the swap grid's second pass + the schedule no-op benign qualification, AMD; image-calibrate: Part 3 graded-strength calibration on dev seeds + the clean-path proof, AMD; clean-hidden-seeds: clean config on hidden seeds 100–102 vs tolerance, both workloads, AMD; image-reference: Part 3 30-seed reference band on two AMD runners, exact agreement required; image-repro: Part 3 CNN byte-identity on two AMD runners (scripts/image_repro.sh); b1-rebuild: rebuild the 20 healthy controls at dcda575 on AMD and re-run that commit's B1 (scripts/b1_rebuild_dcda575.sh); benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
       sweep:
         description: "verify-native: sweep name (its sweeps/<name>_verify_jobs.json.gpg must be on this ref)"
         type: string
@@ -775,6 +775,132 @@ jobs:
         with:
           name: image-step4-${{ matrix.job }}
           path: out/
+
+  # ---- Part 3 step 7: build + certify the 230 IMAGE cases — MANUAL (task=image-certify) -----------------------
+  # 12 AMD shards (scripts/build_image_shard.py: pre-allocated case ids case_0201–0430, so the result does not
+  # depend on shard order), each validated and FULL-gated (oracle recovery verified on the hidden seeds); then one
+  # assemble job unions the shards, checks the exact design, re-validates all 230 and uploads the ENCRYPTED
+  # image_bundle (it holds cases/*/hidden/ grading keys; same key and fail-closed rule as sweep_bundle).
+  image-certify-shard:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'image-certify' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require an AMD (EPYC) runner — the reference platform
+        run: |
+          vendor="$(awk -F: '/^vendor_id/{gsub(/[ \t]/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          model="$(awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          echo "runner CPU: $vendor / $model"
+          if [ "$vendor" != "AuthenticAMD" ]; then
+            echo "::error::runner CPU is '$vendor' ($model), not AuthenticAMD — cases must be built on the reference platform. Re-run this job until an AMD runner is assigned."
+            exit 1
+          fi
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - name: Build this shard's image cases, validate, FULL known-answer gate
+        run: |
+          docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp -e TRAINMD_IN_CONTAINER=1 \
+            -v "$PWD":/work -w /work trainmd:canonical bash -c \
+            "python workloads/image_fmnist/data_prep.py --workload-dir workloads/image_fmnist && \
+             ln -sfn ../image_fmnist/.data workloads/image_fmnist_neutral/.data && \
+             ln -sfn ../image_fmnist/.hidden_data workloads/image_fmnist_neutral/.hidden_data && \
+             python scripts/build_image_shard.py --shard ${{ matrix.shard }} --of 12 && \
+             python -m harness.validate_case --all && \
+             python -m harness.gate_known_answer --full"
+          N="$(find cases -maxdepth 1 -type d -name 'case_*' | wc -l | tr -d ' ')"
+          echo "shard ${{ matrix.shard }}: $N cases built, validated and FULL-gated"
+      - name: Package the shard (ENCRYPTED — hidden grading keys)
+        env:
+          SWEEP_BUNDLE_KEY: ${{ secrets.SWEEP_BUNDLE_KEY }}
+        run: |
+          [ -n "$SWEEP_BUNDLE_KEY" ] || { echo "::error::SWEEP_BUNDLE_KEY secret is unset — refusing to upload hidden material"; exit 1; }
+          awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print "shard_${{ matrix.shard }}_cpu=" $2; exit}' /proc/cpuinfo > cases/SHARD_META_${{ matrix.shard }}.txt
+          cp docs/audits/known_answer_*.md cases/known_answer_shard_${{ matrix.shard }}.md
+          tar -czf shard.tar.gz cases
+          gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase "$SWEEP_BUNDLE_KEY" \
+            -o image_shard_${{ matrix.shard }}.tar.gz.gpg shard.tar.gz
+          rm -f shard.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image_shard_${{ matrix.shard }}
+          path: image_shard_${{ matrix.shard }}.tar.gz.gpg
+          retention-days: 7
+
+  image-certify-assemble:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'image-certify' }}
+    needs: image-certify-shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: image_shard_*
+          path: shards
+          merge-multiple: true
+      - run: pip install pyyaml
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - name: Assemble the 230 image cases; exact-design check; validate all
+        env:
+          SWEEP_BUNDLE_KEY: ${{ secrets.SWEEP_BUNDLE_KEY }}
+        run: |
+          [ -n "$SWEEP_BUNDLE_KEY" ] || { echo "::error::SWEEP_BUNDLE_KEY secret is unset"; exit 1; }
+          mkdir -p assembled/cases
+          for f in shards/image_shard_*.tar.gz.gpg; do
+            gpg --batch --yes --quiet --decrypt --passphrase "$SWEEP_BUNDLE_KEY" -o s.tar.gz "$f"
+            rm -rf part && mkdir part && tar -xzf s.tar.gz -C part && rm -f s.tar.gz
+            cp -a part/cases/case_* part/cases/SHARD_META_*.txt part/cases/known_answer_shard_*.md assembled/cases/
+            python3 - part/cases/registry.hidden.yaml assembled/cases/registry.hidden.yaml <<'PY'
+          import sys, yaml, os
+          src, dst = sys.argv[1], sys.argv[2]
+          a = yaml.safe_load(open(src)) or {}
+          b = (yaml.safe_load(open(dst)) or {}) if os.path.exists(dst) else {}
+          overlap = set(a) & set(b)
+          assert not overlap, f"shards overlap: {sorted(overlap)[:5]}"
+          b.update(a)
+          open(dst, "w").write(yaml.dump(b, default_flow_style=False, sort_keys=True))
+          PY
+          done
+          rm -rf cases && mv assembled/cases cases
+          docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp -e TRAINMD_IN_CONTAINER=1 \
+            -v "$PWD":/work -w /work trainmd:canonical bash -c \
+            "python workloads/image_fmnist/data_prep.py --workload-dir workloads/image_fmnist && \
+             ln -sfn ../image_fmnist/.data workloads/image_fmnist_neutral/.data && \
+             ln -sfn ../image_fmnist/.hidden_data workloads/image_fmnist_neutral/.hidden_data && \
+             python scripts/check_image_bundle.py cases && \
+             python -m harness.validate_case --all"
+      - name: Package image_bundle (ENCRYPTED; no data)
+        env:
+          SWEEP_BUNDLE_KEY: ${{ secrets.SWEEP_BUNDLE_KEY }}
+        run: |
+          # workspace/.data -> the case's OWN workload data, relative (resolves after data prep on restore)
+          for d in cases/case_*; do
+            link="$d/workspace/.data"; [ -L "$link" ] || continue
+            wl="$(python3 -c "import yaml,sys; print(yaml.safe_load(open('$d/hidden/card.hidden.yaml'))['workload_name'])")"
+            ln -sfn "../../../workloads/$wl/.data" "$link"
+          done
+          {
+            echo "build_cpu_vendor=AuthenticAMD"
+            cat cases/SHARD_META_*.txt
+            echo "commit=${{ github.sha }}"
+            echo "run_id=${{ github.run_id }}"
+            echo "case_count=$(find cases -maxdepth 1 -type d -name 'case_*' | wc -l | tr -d ' ')"
+          } > IMAGE_BUNDLE_META.txt
+          cat IMAGE_BUNDLE_META.txt
+          tar -czf image_cases.tar.gz cases IMAGE_BUNDLE_META.txt
+          gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase "$SWEEP_BUNDLE_KEY" \
+            -o image_bundle.tar.gz.gpg image_cases.tar.gz
+          rm -f image_cases.tar.gz
+          ls -lh image_bundle.tar.gz.gpg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image_bundle
+          path: image_bundle.tar.gz.gpg
+          retention-days: 30
 
   reference-change-guard:
     runs-on: ubuntu-latest
