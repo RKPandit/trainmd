@@ -42,7 +42,7 @@ on:
         description: "What the manual dispatch runs"
         type: choice
         default: certify
-        options: [certify, benign-qualify, reference-ab, verify-native, b1-rebuild, image-repro]   # image-repro: Part 3 CNN byte-identity on two AMD runners (scripts/image_repro.sh); b1-rebuild: rebuild the 20 healthy controls at dcda575 on AMD and re-run that commit's B1 (scripts/b1_rebuild_dcda575.sh); benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
+        options: [certify, benign-qualify, reference-ab, verify-native, b1-rebuild, image-repro, image-reference]   # image-reference: Part 3 30-seed reference band on two AMD runners, exact agreement required; image-repro: Part 3 CNN byte-identity on two AMD runners (scripts/image_repro.sh); b1-rebuild: rebuild the 20 healthy controls at dcda575 on AMD and re-run that commit's B1 (scripts/b1_rebuild_dcda575.sh); benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
       sweep:
         description: "verify-native: sweep name (its sweeps/<name>_verify_jobs.json.gpg must be on this ref)"
         type: string
@@ -531,6 +531,62 @@ jobs:
           docker build --platform linux/amd64 -t trainmd:canonical .
           docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
             python scripts/fingerprint_training.py compare r1/image_fp_1.json r2/image_fp_2.json
+
+  # ---- Part 3: the image_fmnist REFERENCE band on two AMD runners (DECISIONS 2026-09-28) ----
+  # 30 seeds (200–229) of the clean pipeline + the evaluator's hidden metric, in the canonical container, on two
+  # fresh runners each REQUIRED to be AuthenticAMD. The band is adopted only if the two stats.yaml agree EXACTLY on
+  # every learned value (scripts/compare_stats_exact.py; only wall-clock / memory fields ignored).
+  image-reference:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'image-reference' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      matrix:
+        run: [1, 2] # two fresh runners, not two invocations in one shell
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require an AMD (EPYC) runner — the reference platform
+        run: |
+          vendor="$(awk -F: '/^vendor_id/{gsub(/[ \t]/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          model="$(awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          echo "runner CPU: $vendor / $model"
+          echo "$vendor / $model" > runner_cpu.txt
+          if [ "$vendor" != "AuthenticAMD" ]; then
+            echo "::error::runner CPU is '$vendor' ($model), not AuthenticAMD — re-dispatch until both runners are AMD."
+            exit 1
+          fi
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - name: Prepare + pin-verify data, then the 30-seed reference
+        run: |
+          docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp -e TRAINMD_IN_CONTAINER=1 \
+            -v "$PWD":/work -w /work trainmd:canonical bash -c \
+            "python workloads/image_fmnist/data_prep.py --workload-dir workloads/image_fmnist && \
+             python -m harness.reference_run --workload-dir workloads/image_fmnist"
+          mkdir -p out && cp workloads/image_fmnist/reference/stats.yaml runner_cpu.txt out/
+          cp workloads/image_fmnist/reference/runs/seed_200/config.resolved.yaml out/config.resolved.seed200.yaml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-reference-${{ matrix.run }}
+          path: out/
+
+  image-reference-compare:
+    needs: image-reference
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'image-reference' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: image-reference-1, path: r1 }
+      - uses: actions/download-artifact@v4
+        with: { name: image-reference-2, path: r2 }
+      - name: The two AMD runners must agree exactly on every learned value
+        run: |
+          echo "runner 1: $(cat r1/runner_cpu.txt)"; echo "runner 2: $(cat r2/runner_cpu.txt)"
+          docker build --platform linux/amd64 -t trainmd:canonical .
+          docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
+            python scripts/compare_stats_exact.py r1/stats.yaml r2/stats.yaml
+          echo "REPRODUCIBLE: image_fmnist reference identical across two AMD runners"
 
   reference-change-guard:
     runs-on: ubuntu-latest

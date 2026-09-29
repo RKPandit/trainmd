@@ -48,6 +48,17 @@ _STATIC_INTRO = (
 _METRIC_SERIES = ["train_loss", "val_loss", "metric_visible_val_acc", "lr"]
 
 
+def _metric_series_for(case_dir: Path) -> list[str]:
+    """The metrics table's series: the visible series the case's card names in the third slot (tabular: exactly
+    _METRIC_SERIES, so the assembled context is byte-identical; image_fmnist: val_top1)."""
+    from harness.workload_spec import card_series
+    try:
+        card = yaml.safe_load((Path(case_dir) / "card.public.yaml").read_text()) or {}
+    except FileNotFoundError:
+        return list(_METRIC_SERIES)
+    return ["train_loss", "val_loss", card_series(card), "lr"]
+
+
 class _BudgetExhausted(Exception):
     """Raised when a context-assembly read is refused for budget — a hard error."""
 
@@ -72,6 +83,7 @@ class StaticContextAgent:
         self._max_log_chars = max_log_chars
         self._provider = provider
         self._anchor = _normalize_anchor(anchor)  # off | stats | rule (validated up front)
+        self._series = list(_METRIC_SERIES)          # set per case from its card in run()
         self._record: dict | None = None
 
     @property
@@ -131,7 +143,7 @@ class StaticContextAgent:
     def _read_metrics_table(self, tools: ToolContext) -> str:
         """End-of-epoch rows via query_metrics, zipped into a compact table."""
         by_series: dict[str, dict] = {}
-        for series in _METRIC_SERIES:
+        for series in self._series:
             res = self._check_budget(tools.call("query_metrics", series=series))
             if res.get("status") != "ok":
                 continue
@@ -139,14 +151,14 @@ class StaticContextAgent:
         if not by_series:
             return "(no end-of-epoch metrics — the run did not produce them)"
         epochs = sorted({e for m in by_series.values() for e in m})
-        header = "epoch | " + " | ".join(_METRIC_SERIES)
+        header = "epoch | " + " | ".join(self._series)
         rows = [header, "-" * len(header)]
         for e in epochs:
             cells = [str(e)] + [
                 (f"{by_series.get(s, {}).get(e):.6f}"
                  if isinstance(by_series.get(s, {}).get(e), float)
                  else str(by_series.get(s, {}).get(e, "")))
-                for s in _METRIC_SERIES
+                for s in self._series
             ]
             rows.append(" | ".join(cells))
         return "\n".join(rows)
@@ -191,6 +203,7 @@ class StaticContextAgent:
 
     def run(self, case_dir: Path, tools: ToolContext) -> None:
         case_dir = Path(case_dir)
+        self._series = _metric_series_for(case_dir)
         if self._record is not None:
             self._record["model"].update({
                 "model_id": self._model_id,

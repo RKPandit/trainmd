@@ -40,6 +40,8 @@ def evaluate_checkpoint(
     Returns:
         Dict with ``metric_hidden_test_acc``.
     """
+    if (config.get("pipeline") or {}).get("family") == "image":
+        return _evaluate_image(checkpoint_path, hidden_data_dir, config)
     device = torch.device("cpu")
 
     # ---- reconstruct model from checkpoint --------------------------------
@@ -80,6 +82,24 @@ def evaluate_checkpoint(
     _, acc = evaluate(model, loader, criterion, device)
 
     return {"metric_hidden_test_acc": round(acc, 6)}
+
+
+def _evaluate_image(checkpoint_path: Path, hidden_data_dir: Path, config: dict) -> dict:
+    """Image workloads (Stage 4 Part 3): top-1 of the saved CNN on the hidden split — never tagged or filtered,
+    whatever the run's config did to its training / visible-validation data (DECISIONS 2026-09-28)."""
+    from workloads.image_fmnist.train import SmallCNN, to_tensor
+    ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    net, dcfg = ckpt["net"], config["data"]
+    model = SmallCNN(net["in_ch"], net["widths"], net["n_classes"], dcfg["image_size"])
+    model.load_state_dict(ckpt["model_state_dict"])
+    model.eval()
+    X = to_tensor(np.load(hidden_data_dir / "X_test.npy"), dcfg["norm_mean"], dcfg["norm_std"])
+    y = torch.from_numpy(np.load(hidden_data_dir / "y_test.npy"))
+    correct = 0
+    with torch.no_grad():
+        for i in range(0, len(y), 512):
+            correct += (model(X[i:i + 512]).argmax(1) == y[i:i + 512]).sum().item()
+    return {"metric_hidden_test_acc": round(correct / len(y), 6)}
 
 
 # ---------------------------------------------------------------------------
