@@ -55,7 +55,7 @@ def set_seed(seed: int) -> None:
 class SmallCNN(nn.Module):
     """Conv blocks (3x3 conv, ReLU, 2x2 max-pool) then one linear classifier."""
 
-    def __init__(self, in_ch: int, widths: list, n_classes: int, image_size: int):
+    def __init__(self, in_ch: int, widths: list, n_classes: int, image_size: int, dropout: float = 0.0):
         super().__init__()
         layers: list[nn.Module] = []
         prev = in_ch
@@ -65,9 +65,12 @@ class SmallCNN(nn.Module):
         self.features = nn.Sequential(*layers)
         side = image_size // (2 ** len(widths))
         self.head = nn.Linear(prev * side * side, n_classes)
+        # Optional dropout before the classifier; absent (0) leaves the module list and RNG use unchanged.
+        self.drop = nn.Dropout(dropout) if dropout else None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.head(torch.flatten(self.features(x), 1))
+        h = torch.flatten(self.features(x), 1)
+        return self.head(self.drop(h) if self.drop is not None else h)
 
 
 def to_tensor(X: np.ndarray, mean: float, std: float) -> torch.Tensor:
@@ -187,7 +190,8 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
     metrics_fh = open(output_dir / "metrics.jsonl", "w")
     exitcode = 0
     try:
-        model = SmallCNN(ncfg["in_ch"], ncfg["widths"], ncfg["n_classes"], dcfg["image_size"])
+        model = SmallCNN(ncfg["in_ch"], ncfg["widths"], ncfg["n_classes"], dcfg["image_size"],
+                         dropout=float(ncfg.get("dropout", 0.0)))
         optimizer = torch.optim.SGD(model.parameters(), lr=ocfg["base_lr"], momentum=ocfg.get("momentum", 0.0),
                                     weight_decay=ocfg.get("weight_decay", 0.0))
         criterion = nn.CrossEntropyLoss()
@@ -205,6 +209,8 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
                 optimizer.zero_grad()
                 loss = criterion(model(xb), yb)
                 loss.backward()
+                if ocfg.get("grad_clip") is not None:
+                    nn.utils.clip_grad_norm_(model.parameters(), float(ocfg["grad_clip"]))
                 optimizer.step()
                 step += 1
                 ep_loss += loss.item() * len(yb)

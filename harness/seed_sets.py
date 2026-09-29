@@ -16,6 +16,8 @@ fails on any reuse):
 - CONFIRMATORY_CONTROL 50–69   control cases used in sweeps (≥20; moved off {0,1,2})
 - CONFIRMATORY_BENIGN  70–93 ∪ 110–157  benign-configuration control cases (STAGE4 4.0.6: 6 change types ×
                           4 per 24-seed block; 3 blocks = 72 cases — 110–157 added 2026-09-25 for power)
+- CONFIRMATORY_BENIGN_IMAGE_EXTRA 158–169  the image workload's benign controls use 70–93 ∪ 110–169
+                          (Part 3 design §3: 7 types × 12 seeds = 84, blocks of 7 × 4); 158–169 are new
 
 CONFIRMATORY = faulty ∪ control (the seeds a sweep's cases are built on).
 """
@@ -27,7 +29,10 @@ HIDDEN_EVAL: frozenset[int] = frozenset({100, 101, 102})     # 100–102
 CONFIRMATORY_FAULTY: frozenset[int] = frozenset({42, 43, 44, 45, 46, 47})  # 42–47 (H8 power: 6 seeds → MDD ~0.25)
 CONFIRMATORY_CONTROL: frozenset[int] = frozenset(range(50, 70))  # 50–69 (20 controls)
 CONFIRMATORY_BENIGN: frozenset[int] = frozenset(range(70, 94)) | frozenset(range(110, 158))  # 3 blocks × 24
-CONFIRMATORY: frozenset[int] = CONFIRMATORY_FAULTY | CONFIRMATORY_CONTROL | CONFIRMATORY_BENIGN
+CONFIRMATORY_BENIGN_IMAGE_EXTRA: frozenset[int] = frozenset(range(158, 170))  # Part 3 image benign, new seeds
+CONFIRMATORY_BENIGN_IMAGE: frozenset[int] = CONFIRMATORY_BENIGN | CONFIRMATORY_BENIGN_IMAGE_EXTRA  # 84 seeds
+CONFIRMATORY: frozenset[int] = (CONFIRMATORY_FAULTY | CONFIRMATORY_CONTROL | CONFIRMATORY_BENIGN
+                                | CONFIRMATORY_BENIGN_IMAGE_EXTRA)
 
 # Named sets in the order they are reported / checked.
 NAMED_SETS: dict[str, frozenset[int]] = {
@@ -37,6 +42,7 @@ NAMED_SETS: dict[str, frozenset[int]] = {
     "confirmatory_faulty": CONFIRMATORY_FAULTY,
     "confirmatory_control": CONFIRMATORY_CONTROL,
     "confirmatory_benign": CONFIRMATORY_BENIGN,
+    "confirmatory_benign_image_extra": CONFIRMATORY_BENIGN_IMAGE_EXTRA,
 }
 
 

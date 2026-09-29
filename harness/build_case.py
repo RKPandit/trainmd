@@ -503,7 +503,7 @@ def build_case(
                 "workspace/run_output/exitcode",
                 "workspace/config.yaml",
                 "workspace/train.py",
-                "workspace/datautil.py",
+                "workspace/datautil.py" if "datautil.py" in _workload_files(workload_dir) else None,
             ] if a is not None
         ],
     }

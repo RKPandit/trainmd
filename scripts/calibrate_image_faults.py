@@ -106,6 +106,7 @@ def bars() -> dict:
     st = yaml.safe_load((ROOT / "workloads" / "image_fmnist" / "reference" / "stats.yaml").read_text())
     v, h = st["metric_visible_val_acc"], st["metric_hidden_test_acc"]
     return {"visible_mean": v["mean"], "hidden_mean": h["mean"], "tolerance_lower": h["tolerance_lower"],
+            "sigma_visible": v["std"], "sigma_hidden": h["std"],
             "positive_bar": round(v["mean"] + 4 * v["std"] + 1e-3, 6),
             "degradation_bar": round(h["mean"] - 4 * h["std"] - 1e-3, 6)}
 
@@ -148,6 +149,50 @@ def ladder(cands: list[dict], metric: str, b: dict) -> dict:
     graded = eff[rungs[0]["label"]] < eff[rungs[1]["label"]] < eff[rungs[2]["label"]]
     return {"graded": graded, "mild": mild["label"], "moderate": moderate["label"], "severe": severe["label"],
             "mean_effect": {c["label"]: round(eff[c["label"]], 6) for c in rungs},
+            "reason": "strictly monotone mean effect" if graded else "mean effect NOT strictly monotone"}
+
+
+def clears_by_one_sigma(tier: str, rows: list[dict], b: dict) -> bool:
+    """RULE v2's mild criterion: EVERY development seed clears its bar(s) by >= 1 σ of that metric's reference σ."""
+    if any(r["exitcode"] != 0 for r in rows):
+        return False
+    vis = [r["visible"] for r in rows]
+    hid = [r["hidden"] for r in rows]
+    up = all(x >= b["positive_bar"] + b["sigma_visible"] for x in vis)
+    down = all(x <= b["degradation_bar"] - b["sigma_hidden"] for x in hid)
+    if tier == "silent_positive":
+        return up and down
+    if tier == "silent_negative":
+        return down
+    if tier == "metric":
+        return up and sum(hid) / len(hid) >= b["tolerance_lower"]
+    raise ValueError(tier)
+
+
+def ladder_v2(cands: list[dict], metric: str, b: dict, tier: str) -> dict:
+    """RULE v2 (author's pre-build deviation, 2026-09-29; DECISIONS): mild = the WEAKEST candidate that clears its
+    bar(s) on EVERY development seed by >= 1 σ (v1: by any amount — its mild rungs were the kind that flaked in
+    workload 1); severe = the strongest passing candidate; moderate = the passing candidate strictly between them
+    whose mean effect is closest to their midpoint; graded iff strictly monotone. Decided on development seeds only,
+    before any case seed was built. Candidates ordered weakest -> strongest."""
+    margin = [c for c in cands if c["passes"] and clears_by_one_sigma(tier, c["rows"], b)]
+    passing = [c for c in cands if c["passes"]]
+    if not margin:
+        return {"rule": "v2", "graded": False, "reason": "no candidate clears its bar by >= 1 sigma on every seed"}
+    mild, severe = margin[0], passing[-1]
+    ref = b["visible_mean"] if metric == "visible" else b["hidden_mean"]
+    eff = {c["label"]: abs(c[f"mean_{metric}"] - ref) for c in passing}
+    i, j = passing.index(mild), passing.index(severe)
+    between = passing[i + 1:j]
+    if not between:
+        return {"rule": "v2", "graded": False, "reason": "no candidate between mild and severe",
+                "mild": mild["label"], "severe": severe["label"]}
+    mid = (eff[mild["label"]] + eff[severe["label"]]) / 2
+    moderate = min(between, key=lambda c: abs(eff[c["label"]] - mid))
+    rungs = [mild, moderate, severe]
+    graded = eff[rungs[0]["label"]] < eff[rungs[1]["label"]] < eff[rungs[2]["label"]]
+    return {"rule": "v2", "graded": graded, "mild": mild["label"], "moderate": moderate["label"],
+            "severe": severe["label"], "mean_effect": {c["label"]: round(eff[c["label"]], 6) for c in rungs},
             "reason": "strictly monotone mean effect" if graded else "mean effect NOT strictly monotone"}
 
 

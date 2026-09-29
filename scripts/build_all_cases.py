@@ -22,10 +22,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from harness.build_case import build_case
-from harness.seed_sets import CONFIRMATORY_BENIGN, CONFIRMATORY_CONTROL, CONFIRMATORY_FAULTY
+from harness.seed_sets import (
+    CONFIRMATORY_BENIGN,
+    CONFIRMATORY_BENIGN_IMAGE,
+    CONFIRMATORY_CONTROL,
+    CONFIRMATORY_FAULTY,
+)
 from operators.control.benign import BENIGN_OPERATORS
 from operators.control.benign import benign_design as _benign_design
-from operators.registry import all_operator_ids, get_operator
+from operators.image.controls import IMAGE_BENIGN_OPERATORS, ImageHealthyControlOperator
+from operators.registry import DEFAULT_GROUP, all_operator_ids, get_operator
 
 WORKLOAD = os.environ.get("WORKLOAD", "tabular_adult")
 CONTROL = "control.healthy.v1"
@@ -43,15 +49,31 @@ def benign_design() -> list[tuple[str, str, int]]:
     return _benign_design(BENIGN_SEEDS)
 
 
-def _faulty_ops() -> list[str]:
-    return sorted(op for op in all_operator_ids() if get_operator(op).layer != "control")
+# Part 3 image workload (design docs/PART3_DESIGN_DRAFT.md §3–4): same faulty and control seeds; benign
+# 70–93 ∪ 110–169 in blocks of 7 types × 4. 7 faulty × 3 × 6 + 20 + 84 = 230 cases.
+IMAGE_GROUP = "image_fmnist"
+IMAGE_CONTROL = ImageHealthyControlOperator.id
+IMAGE_BENIGN_SEEDS = sorted(CONFIRMATORY_BENIGN_IMAGE)
 
 
-def case_design_tuples() -> list[tuple[str, str, int]]:
+def _faulty_ops(group: str = DEFAULT_GROUP) -> list[str]:
+    return sorted(op for op in all_operator_ids(group) if get_operator(op).layer != "control")
+
+
+def case_design_tuples(group: str = DEFAULT_GROUP) -> list[tuple[str, str, int]]:
     """The full case design as (operator_id, strength, seed) tuples, sourced from operators/registry.py
     (CODE), not the generated cases/registry.hidden.yaml. This is the single source of truth for the
     case COUNT — so a check can derive it from a fresh checkout, before any case is built. Keep this
-    the one place the design is enumerated (main() and scripts/check_current_state.py both use it)."""
+    the one place the design is enumerated (main() and scripts/check_current_state.py both use it).
+
+    ``group`` selects the workload (operators/registry.py workload groups); the default is workload 1, whose
+    design, order and count are unchanged by the image workload's."""
+    if group == IMAGE_GROUP:
+        tuples = [(op, st, sd) for op in _faulty_ops(group) for st in STRENGTHS for sd in FAULTY_SEEDS]
+        tuples += [(IMAGE_CONTROL, "mild", sd) for sd in CONTROL_SEEDS]
+        return tuples + _benign_design(IMAGE_BENIGN_SEEDS, IMAGE_BENIGN_OPERATORS)
+    if group != DEFAULT_GROUP:
+        raise ValueError(f"no case design for workload group {group!r}")
     tuples = [(op, st, sd) for op in _faulty_ops() for st in STRENGTHS for sd in FAULTY_SEEDS]
     tuples += [(CONTROL, "mild", sd) for sd in CONTROL_SEEDS]
     # Appended LAST so the existing case numbering (case_0001–0128) is unchanged.
@@ -61,12 +83,16 @@ def case_design_tuples() -> list[tuple[str, str, int]]:
 
 def main() -> int:
     root = Path(os.environ.get("TRAINMD_ROOT", os.getcwd()))
-    tuples = case_design_tuples()
-    faulty = _faulty_ops()
-    print(f"Building {len(tuples)} cases "
+    # WORKLOAD_GROUP=image_fmnist builds the Part 3 image design (appended after workload 1's cases).
+    group = os.environ.get("WORKLOAD_GROUP", DEFAULT_GROUP)
+    tuples = case_design_tuples(group)
+    faulty = _faulty_ops(group)
+    benign = IMAGE_BENIGN_OPERATORS if group == IMAGE_GROUP else BENIGN_OPERATORS
+    n_benign = len(IMAGE_BENIGN_SEEDS if group == IMAGE_GROUP else BENIGN_SEEDS)
+    print(f"Building {len(tuples)} {group} cases "
           f"({len(faulty)} faulty x {len(STRENGTHS)} x {len(FAULTY_SEEDS)} "
-          f"+ control x {len(CONTROL_SEEDS)} + benign {len(BENIGN_OPERATORS)} x "
-          f"{len(BENIGN_SEEDS) // len(BENIGN_OPERATORS)}) against the current reference.")
+          f"+ control x {len(CONTROL_SEEDS)} + benign {len(benign)} x "
+          f"{n_benign // len(benign)}) against the current reference.")
     built = 0
     for op, st, sd in tuples:
         # Each operator declares the workload family whose train.py reads its keys

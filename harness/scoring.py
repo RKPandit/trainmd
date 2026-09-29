@@ -694,23 +694,29 @@ def score_identification(submission: dict, hidden_card: dict) -> dict:
     ``method`` and ``token_spec_sha256`` for reproducibility.
     """
     from operators.registry import (
+        DEFAULT_GROUP,
+        OPERATOR_REGISTRY,
         core_token_alternative_vetoes,
         core_token_alternatives,
         core_token_specs,
         core_token_vetoes,
         token_spec_sha256,
+        workload_group,
     )
 
     predicted_class = _diagnosis(submission).get("operator_class")
     accepted = hidden_card.get("accepted_classes", [])
     operator_id = hidden_card.get("operator_id")
+    # Uniqueness is judged among the concepts of the case's OWN workload group (Part 3, DECISIONS 2026-09-29);
+    # every workload-1 case resolves to the default group, i.e. exactly the operator set it was scored against.
+    group = workload_group(operator_id) if operator_id in OPERATOR_REGISTRY else DEFAULT_GROUP
     if not isinstance(predicted_class, str) or not predicted_class.strip():
         # Missing / null / blank class scores as EMPTY: names no fault, never correct.
         return {
             "predicted_class": "",
             "accepted_classes": accepted,
             "method": IDENTIFICATION_METHOD,
-            "token_spec_sha256": token_spec_sha256(),
+            "token_spec_sha256": token_spec_sha256(group),
             "matched_operators": [],
             "negated": False,
             "match_path": "none",
@@ -724,7 +730,7 @@ def score_identification(submission: dict, hidden_card: dict) -> dict:
         "predicted_class": predicted_class,
         "accepted_classes": accepted,
         "method": IDENTIFICATION_METHOD,
-        "token_spec_sha256": token_spec_sha256(),
+        "token_spec_sha256": token_spec_sha256(group),
     }
 
     # Path 1: exact membership (preserves oracle + hand-listed synonyms).
@@ -740,11 +746,11 @@ def score_identification(submission: dict, hidden_card: dict) -> dict:
     # delta = 0); it only lets concept-synonym operators coexist. A genuinely
     # ambiguous label (e.g. "lr_and_leakage") still matches two DIFFERENT specs and is
     # rejected. See docs/DECISIONS.md 2026-09-18.
-    specs = core_token_specs()
-    vetoes = core_token_vetoes()
-    alternatives = core_token_alternatives()
+    specs = core_token_specs(group)
+    vetoes = core_token_vetoes(group)
+    alternatives = core_token_alternatives(group)
     matched = _matched_operators(normalized_predicted, specs, vetoes, alternatives,
-                                 core_token_alternative_vetoes())
+                                 core_token_alternative_vetoes(group))
     result["matched_operators"] = matched
     matched_specs = {tuple(tuple(g) for g in specs[m]) for m in matched}
 

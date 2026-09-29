@@ -3,11 +3,19 @@
 # plus a DECISIONS row. After the Part 2 lock, findings go to LIMITATIONS unless a result would be wrong.
 frozen_on: '2026-09-28'
 frozen_after: '#68 approved (label list), #71 streaming, #72, #73'
+refrozen_on: '2026-09-29'
+refrozen_for: 'Part 3 image operators (DECISIONS 2026-09-29): identification uniqueness
+  scoped per workload group; workload-1 digests unchanged (top level); the image group
+  under workload_groups; scoring.py changed only to pass the group'
 fingerprint:
   identification_method: root_token_v3
   evidence_primary: evidence_v2.3
   token_spec_sha256: 734eb98be1abfd90afb03b1030208036cb2562585417d17da7a318962187bca3
   evidence_spec_sha256: 51e98065ca47567b7ef6674298ea95b34a821eed0f8afe3802804982934a461b
+  workload_groups:
+    image_fmnist:
+      token_spec_sha256: 46f4147beb77af40d89305a179e7a2dfecc57793851ff7e95b69083765ed0d5f
+      evidence_spec_sha256: 141926288c40b18d60d6dbfced367353d18dedd27929be91c6868dc2200ea853
   source_sha256:
-    harness/scoring.py: b8eebd00828e6209d158beca9872398da5cadc58502cc56b8d24fef178883ad8
+    harness/scoring.py: e87587430e6168082f1793a4e783ada2ef8e79be78fdf7156b83a00236ac90af
     harness/evidence_code.py: a81ccd6ac52bf8f2bf6b02ed3a464bbfbd17903305e04f8e1587d65302ffde37

@@ -42,7 +42,7 @@ on:
         description: "What the manual dispatch runs"
         type: choice
         default: certify
-        options: [certify, benign-qualify, reference-ab, verify-native, b1-rebuild, image-repro, image-reference, clean-hidden-seeds, image-calibrate, image-calibrate-extra]   # image-calibrate-extra: the swap grid's second pass + the schedule no-op benign qualification, AMD; image-calibrate: Part 3 graded-strength calibration on dev seeds + the clean-path proof, AMD; clean-hidden-seeds: clean config on hidden seeds 100–102 vs tolerance, both workloads, AMD; image-reference: Part 3 30-seed reference band on two AMD runners, exact agreement required; image-repro: Part 3 CNN byte-identity on two AMD runners (scripts/image_repro.sh); b1-rebuild: rebuild the 20 healthy controls at dcda575 on AMD and re-run that commit's B1 (scripts/b1_rebuild_dcda575.sh); benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
+        options: [certify, benign-qualify, reference-ab, verify-native, b1-rebuild, image-repro, image-reference, clean-hidden-seeds, image-calibrate, image-calibrate-extra, image-step4]   # image-step4: Part 3 step 4 on AMD — the image operators' CLAUDE.md proofs (tests/test_image_operators.py, slow), all seven image benign types' qualification, the clean-path re-proof (image-clean-path); image-calibrate-extra: the swap grid's second pass + the schedule no-op benign qualification, AMD; image-calibrate: Part 3 graded-strength calibration on dev seeds + the clean-path proof, AMD; clean-hidden-seeds: clean config on hidden seeds 100–102 vs tolerance, both workloads, AMD; image-reference: Part 3 30-seed reference band on two AMD runners, exact agreement required; image-repro: Part 3 CNN byte-identity on two AMD runners (scripts/image_repro.sh); b1-rebuild: rebuild the 20 healthy controls at dcda575 on AMD and re-run that commit's B1 (scripts/b1_rebuild_dcda575.sh); benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
       sweep:
         description: "verify-native: sweep name (its sweeps/<name>_verify_jobs.json.gpg must be on this ref)"
         type: string
@@ -658,7 +658,7 @@ jobs:
   # and require EXACT agreement with the committed band. Exactness holds within a microarchitecture, so this job
   # also requires the adoption's CPU model (AMD EPYC 7763).
   image-clean-path:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'image-calibrate' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.task == 'image-calibrate' || inputs.task == 'image-step4') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -723,6 +723,59 @@ jobs:
           name: image-calibrate-extra-${{ matrix.job }}
           path: out/
 
+  image-step4:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'image-step4' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        # op_*: tests/test_image_operators.py integration tests, one shard per operator family (the evaluator's
+        # verification on hidden-eval seeds 100-102: clean passes, every strength of every fault fails);
+        # q_*: the benign qualification (dev seeds 0-29) of each image benign type (scripts/qualify_image_benign.py).
+        job: [op_clean, op_tag, op_flip, op_decay, op_metric, op_crash,
+              q_bs256, q_ep10, q_wd1e3, q_do01, q_lr004, q_clip1, q_schedule_noop]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require an AMD (EPYC) runner — the reference platform
+        run: |
+          vendor="$(awk -F: '/^vendor_id/{gsub(/[ \t]/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          model="$(awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          echo "runner CPU: $vendor / $model"
+          if [ "$vendor" != "AuthenticAMD" ]; then
+            echo "::error::runner CPU is '$vendor' ($model), not AuthenticAMD — re-run this job until an AMD runner is assigned."
+            exit 1
+          fi
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - name: Run
+        run: |
+          mkdir -p out
+          case "${{ matrix.job }}" in
+            op_clean)  K="clean_run" ;;
+            op_tag)    K="pixel_tag" ;;
+            op_flip)   K="label_flip" ;;
+            op_decay)  K="decay_unit" ;;
+            op_metric) K="confident_subset" ;;
+            op_crash)  K="channel_mismatch or crash_log" ;;
+          esac
+          case "${{ matrix.job }}" in
+            op_*) CMD="python -m pytest -v -p no:cacheprovider --fail-on-skip -m image_native tests/test_image_operators.py -k '$K' --junitxml=out/${{ matrix.job }}.xml" ;;
+            q_*)  CMD="python scripts/qualify_image_benign.py --types ${{ matrix.job }} --out out/${{ matrix.job }}.json"
+                  CMD="${CMD/--types q_/--types }" ;;
+          esac
+          echo "$CMD"
+          docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp -e TRAINMD_IN_CONTAINER=1 \
+            -v "$PWD":/work -w /work trainmd:canonical bash -c \
+            "python workloads/image_fmnist/data_prep.py --workload-dir workloads/image_fmnist && \
+             ln -sfn ../image_fmnist/.data workloads/image_fmnist_neutral/.data && \
+             ln -sfn ../image_fmnist/.hidden_data workloads/image_fmnist_neutral/.hidden_data && $CMD" 2>&1 | tee out/${{ matrix.job }}.log
+          awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo > out/cpu.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: image-step4-${{ matrix.job }}
+          path: out/
+
   reference-change-guard:
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -738,15 +791,29 @@ jobs:
           # Captured first: under pipefail, `git diff | grep -q` can report a MATCH as failure when grep
           # exits early and git diff takes SIGPIPE.
           changed_files="$(git diff --name-only "$BASE" HEAD)"
-          if grep -qE "workloads/tabular_adult/reference/(stats|data_manifest)\.yaml" <<<"$changed_files"; then
+          # ONE pattern covers every workload whose cases may be built (harness/reference_guard.py reads it: a
+          # workload's cases refuse to build unless this pattern watches its reference — DECISIONS 2026-09-28).
+          if grep -qE "workloads/(tabular_adult|image_fmnist)/reference/(stats|data_manifest)\.yaml" <<<"$changed_files"; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "Committed reference / data pin CHANGED — full rebuild-against-committed required."
+            if grep -qE "workloads/tabular_adult/reference/(stats|data_manifest)\.yaml" <<<"$changed_files"; then
+              echo "tabular=true" >> "$GITHUB_OUTPUT"; fi
+            if grep -qE "workloads/image_fmnist/reference/(stats|data_manifest)\.yaml" <<<"$changed_files"; then
+              echo "image=true" >> "$GITHUB_OUTPUT"; fi
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "reference/stats.yaml and data_manifest.yaml unchanged — guard not triggered."
           fi
+      - name: Image reference changed — its 230 cases must be rebuilt and re-certified (BLOCKING)
+        if: steps.refchg.outputs.image == 'true'
+        run: |
+          # The image cases (Part 3) take hours to build single-threaded, beyond this job; a change to the image
+          # reference or data pin therefore BLOCKS here until they are rebuilt against it on AMD (the sharded
+          # image build-and-certify dispatch). Never a silent pass.
+          echo "::error::workloads/image_fmnist reference / data pin changed: rebuild and re-certify the image cases on AMD before merging."
+          exit 1
       - name: Rebuild ALL cases against the COMMITTED reference (no regen)
-        if: steps.refchg.outputs.changed == 'true'
+        if: steps.refchg.outputs.tabular == 'true'
         run: |
           docker build --platform linux/amd64 -t trainmd:canonical .
           make docker-data                       # data pin verified here
@@ -757,7 +824,7 @@ jobs:
           make docker-gate-known-answer
           make docker-case-margins
       - name: Known-answer gate (FULL — verify_repair recovery)
-        if: steps.refchg.outputs.changed == 'true'
+        if: steps.refchg.outputs.tabular == 'true'
         run: make docker-gate-known-answer FULL=1
       - name: Committed reference files unmodified (only reference generation may write them)
         if: always()

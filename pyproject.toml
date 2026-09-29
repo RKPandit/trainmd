@@ -28,6 +28,7 @@ llm = ["anthropic>=0.40.0,<1", "openai>=1.40.0,<3"]
 pythonpath = ["."]
 markers = [
     "slow_integration: marks tests that run training (deselect with '-m \"not slow_integration\"')",
+    "image_native: image-workload training proofs, run on AMD by the CI dispatch task image-step4 (not the nightly lane)",
 ]
 
 [tool.uv]

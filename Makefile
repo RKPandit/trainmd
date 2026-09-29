@@ -131,6 +131,8 @@ docker-data:
 link-neutral-workload:
 	ln -sfn ../tabular_adult/.data workloads/tabular_adult_neutral/.data
 	ln -sfn ../tabular_adult/.hidden_data workloads/tabular_adult_neutral/.hidden_data
+	ln -sfn ../image_fmnist/.data workloads/image_fmnist_neutral/.data
+	ln -sfn ../image_fmnist/.hidden_data workloads/image_fmnist_neutral/.hidden_data
 
 # REF_ARGS lets the 30-seed candidate workflow pass --num-seeds 30 (STAGE3_PLAN §0.5);
 # the default (empty) path uses config.reference.num_seeds (10), so canonical CI is unchanged.
@@ -166,7 +168,7 @@ docker-test-real-cases:
 
 # Slow lane (PR to main + nightly): the training tests (marked slow_integration).
 docker-test-slow:
-	$(DOCKER_RUN) python -m pytest --fail-on-all-skipped-file -m "slow_integration" tests/
+	$(DOCKER_RUN) python -m pytest --fail-on-all-skipped-file -m "slow_integration and not image_native" tests/
 
 # Sweep: pass args via SWEEP_ARGS, e.g. make docker-sweep SWEEP_ARGS="report --name sweep1".
 SWEEP_ARGS ?= report --name sweep1

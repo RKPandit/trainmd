@@ -1,0 +1,635 @@
+{
+ "control.benign_bs128.v1": {
+  "accepted_classes": [
+   "healthy",
+   "no_fault",
+   "no_incident",
+   "none",
+   "nothing_wrong"
+  ],
+  "alternative_vetoes": [],
+  "alternatives": [],
+  "code_path": null,
+  "core_tokens": [
+   [
+    "healthy",
+    "no_fault",
+    "no_incident",
+    "none",
+    "nothing_wrong"
+   ]
+  ],
+  "crash_output": null,
+  "evidence": [],
+  "evidence_sets": null,
+  "layer": "control",
+  "off_concept_vetoes": []
+ },
+ "control.benign_clip1.v1": {
+  "accepted_classes": [
+   "healthy",
+   "no_fault",
+   "no_incident",
+   "none",
+   "nothing_wrong"
+  ],
+  "alternative_vetoes": [],
+  "alternatives": [],
+  "code_path": null,
+  "core_tokens": [
+   [
+    "healthy",
+    "no_fault",
+    "no_incident",
+    "none",
+    "nothing_wrong"
+   ]
+  ],
+  "crash_output": null,
+  "evidence": [],
+  "evidence_sets": null,
+  "layer": "control",
+  "off_concept_vetoes": []
+ },
+ "control.benign_do01.v1": {
+  "accepted_classes": [
+   "healthy",
+   "no_fault",
+   "no_incident",
+   "none",
+   "nothing_wrong"
+  ],
+  "alternative_vetoes": [],
+  "alternatives": [],
+  "code_path": null,
+  "core_tokens": [
+   [
+    "healthy",
+    "no_fault",
+    "no_incident",
+    "none",
+    "nothing_wrong"
+   ]
+  ],
+  "crash_output": null,
+  "evidence": [],
+  "evidence_sets": null,
+  "layer": "control",
+  "off_concept_vetoes": []
+ },
+ "control.benign_ep25.v1": {
+  "accepted_classes": [
+   "healthy",
+   "no_fault",
+   "no_incident",
+   "none",
+   "nothing_wrong"
+  ],
+  "alternative_vetoes": [],
+  "alternatives": [],
+  "code_path": null,
+  "core_tokens": [
+   [
+    "healthy",
+    "no_fault",
+    "no_incident",
+    "none",
+    "nothing_wrong"
+   ]
+  ],
+  "crash_output": null,
+  "evidence": [],
+  "evidence_sets": null,
+  "layer": "control",
+  "off_concept_vetoes": []
+ },
+ "control.benign_lr005.v1": {
+  "accepted_classes": [
+   "healthy",
+   "no_fault",
+   "no_incident",
+   "none",
+   "nothing_wrong"
+  ],
+  "alternative_vetoes": [],
+  "alternatives": [],
+  "code_path": null,
+  "core_tokens": [
+   [
+    "healthy",
+    "no_fault",
+    "no_incident",
+    "none",
+    "nothing_wrong"
+   ]
+  ],
+  "crash_output": null,
+  "evidence": [],
+  "evidence_sets": null,
+  "layer": "control",
+  "off_concept_vetoes": []
+ },
+ "control.benign_wd5e4.v1": {
+  "accepted_classes": [
+   "healthy",
+   "no_fault",
+   "no_incident",
+   "none",
+   "nothing_wrong"
+  ],
+  "alternative_vetoes": [],
+  "alternatives": [],
+  "code_path": null,
+  "core_tokens": [
+   [
+    "healthy",
+    "no_fault",
+    "no_incident",
+    "none",
+    "nothing_wrong"
+   ]
+  ],
+  "crash_output": null,
+  "evidence": [],
+  "evidence_sets": null,
+  "layer": "control",
+  "off_concept_vetoes": []
+ },
+ "control.healthy.v1": {
+  "accepted_classes": [
+   "healthy",
+   "no_fault",
+   "no_incident",
+   "none",
+   "nothing_wrong"
+  ],
+  "alternative_vetoes": [],
+  "alternatives": [],
+  "code_path": null,
+  "core_tokens": [
+   [
+    "healthy",
+    "no_fault",
+    "no_incident",
+    "none",
+    "nothing_wrong"
+   ]
+  ],
+  "crash_output": null,
+  "evidence": [],
+  "evidence_sets": null,
+  "layer": "control",
+  "off_concept_vetoes": []
+ },
+ "crash.shape_mismatch.v1": {
+  "accepted_classes": [
+   "data_shape_mismatch",
+   "dimension_error",
+   "dimension_mismatch",
+   "input_dim_mismatch",
+   "model_shape_error",
+   "shape_error",
+   "shape_mismatch",
+   "tensor_shape_error"
+  ],
+  "alternative_vetoes": [],
+  "alternatives": [],
+  "code_path": [
+   [
+    "train.py",
+    "reads",
+    "input_dim"
+   ]
+  ],
+  "core_tokens": [
+   [
+    "dim",
+    "dimension",
+    "input_dim",
+    "shape"
+   ]
+  ],
+  "crash_output": [
+   "logs/stdout.log"
+  ],
+  "evidence": [
+   {
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "model.input_dim"
+    },
+    "kind": "config_key"
+   },
+   {
+    "artifact_id": "logs/stdout.log",
+    "detail": {
+     "end_line": 24,
+     "start_line": 2
+    },
+    "kind": "line_range"
+   }
+  ],
+  "evidence_sets": null,
+  "layer": "execution",
+  "off_concept_vetoes": []
+ },
+ "silent.data_leakage.v1": {
+  "accepted_classes": [
+   "data_contamination",
+   "data_leakage",
+   "feature_leakage",
+   "information_leakage",
+   "label_leakage",
+   "leaky_feature",
+   "target_leakage",
+   "train_test_leakage"
+  ],
+  "alternative_vetoes": [],
+  "alternatives": [],
+  "code_path": [
+   [
+    "train.py",
+    "reads",
+    "include_aux_feature"
+   ],
+   [
+    "datautil.py",
+    "function",
+    "_derived_column"
+   ]
+  ],
+  "core_tokens": [
+   [
+    "leak"
+   ]
+  ],
+  "crash_output": null,
+  "evidence": [
+   {
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "data.include_aux_feature"
+    },
+    "kind": "config_key"
+   },
+   {
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "data.aux_feature_strength"
+    },
+    "kind": "config_key"
+   },
+   {
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "end_epoch": 19,
+     "match": "contain",
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0
+    },
+    "kind": "metric_window"
+   }
+  ],
+  "evidence_sets": null,
+  "layer": "dynamics",
+  "off_concept_vetoes": [
+   "buffer_leak",
+   "connection_leak",
+   "fd_leak",
+   "file_handle_leak",
+   "gpu_leak",
+   "gpu_memory_leak",
+   "gradient_leak",
+   "handle_leak",
+   "memory_leak",
+   "memory_leakage",
+   "ram_leak",
+   "resource_leak",
+   "socket_leak",
+   "vram_leak"
+  ]
+ },
+ "silent.data_leakage_neutral.v1": {
+  "accepted_classes": [
+   "data_contamination",
+   "data_leakage",
+   "feature_leakage",
+   "information_leakage",
+   "label_leakage",
+   "leaky_feature",
+   "target_leakage",
+   "train_test_leakage"
+  ],
+  "alternative_vetoes": [],
+  "alternatives": [],
+  "code_path": [
+   [
+    "train.py",
+    "reads",
+    "opt_c"
+   ],
+   [
+    "datautil.py",
+    "function",
+    "_derived_column"
+   ]
+  ],
+  "core_tokens": [
+   [
+    "leak"
+   ]
+  ],
+  "crash_output": null,
+  "evidence": [
+   {
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "data.opt_c"
+    },
+    "kind": "config_key"
+   },
+   {
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "data.opt_c_level"
+    },
+    "kind": "config_key"
+   },
+   {
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "end_epoch": 19,
+     "match": "contain",
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0
+    },
+    "kind": "metric_window"
+   }
+  ],
+  "evidence_sets": null,
+  "layer": "dynamics",
+  "off_concept_vetoes": [
+   "buffer_leak",
+   "connection_leak",
+   "fd_leak",
+   "file_handle_leak",
+   "gpu_leak",
+   "gpu_memory_leak",
+   "gradient_leak",
+   "handle_leak",
+   "memory_leak",
+   "memory_leakage",
+   "ram_leak",
+   "resource_leak",
+   "socket_leak",
+   "vram_leak"
+  ]
+ },
+ "silent.label_corruption.v1": {
+  "accepted_classes": [
+   "data_corruption",
+   "label_corruption",
+   "label_noise",
+   "noisy_labels"
+  ],
+  "alternative_vetoes": [],
+  "alternatives": [],
+  "code_path": [
+   [
+    "train.py",
+    "reads",
+    "label_noise_fraction"
+   ],
+   [
+    "datautil.py",
+    "function",
+    "nested_prefix_indices"
+   ]
+  ],
+  "core_tokens": [
+   [
+    "label"
+   ],
+   [
+    "corrupt",
+    "flip",
+    "incorrect",
+    "mislabel",
+    "nois",
+    "wrong"
+   ]
+  ],
+  "crash_output": null,
+  "evidence": [
+   {
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "data.label_noise_fraction"
+    },
+    "kind": "config_key"
+   },
+   {
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "end_epoch": 19,
+     "match": "contain",
+     "series": "train_loss",
+     "start_epoch": 0
+    },
+    "kind": "metric_window"
+   },
+   {
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "end_epoch": 19,
+     "match": "contain",
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0
+    },
+    "kind": "metric_window"
+   }
+  ],
+  "evidence_sets": null,
+  "layer": "dynamics",
+  "off_concept_vetoes": []
+ },
+ "silent.lr_warmup.v1": {
+  "accepted_classes": [
+   "learning_rate",
+   "lr_misconfiguration",
+   "lr_too_high",
+   "lr_warmup"
+  ],
+  "alternative_vetoes": [],
+  "alternatives": [],
+  "code_path": [
+   [
+    "train.py",
+    "reads",
+    "lr"
+   ]
+  ],
+  "core_tokens": [
+   [
+    "learning_rate",
+    "lr"
+   ]
+  ],
+  "crash_output": null,
+  "evidence": [
+   {
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "training.lr"
+    },
+    "kind": "config_key"
+   },
+   {
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "end_epoch": 19,
+     "match": "contain",
+     "series": "train_loss",
+     "start_epoch": 0
+    },
+    "kind": "metric_window"
+   },
+   {
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "end_epoch": 19,
+     "match": "contain",
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0
+    },
+    "kind": "metric_window"
+   }
+  ],
+  "evidence_sets": null,
+  "layer": "dynamics",
+  "off_concept_vetoes": []
+ },
+ "silent.metric_inflation.v1": {
+  "accepted_classes": [
+   "biased_evaluation",
+   "biased_metric",
+   "cherry_picked_evaluation",
+   "evaluation_bias",
+   "evaluation_on_easy_subset",
+   "inflated_metric",
+   "metric_inflation",
+   "metric_misreporting",
+   "misleading_metric",
+   "non_representative_evaluation",
+   "overstated_accuracy",
+   "selective_evaluation",
+   "validation_metric_bias"
+  ],
+  "alternative_vetoes": [
+   "checkpoint",
+   "ckpt",
+   "early",
+   "epoch",
+   "feature",
+   "hparam",
+   "hyperparam",
+   "hyperparameter"
+  ],
+  "alternatives": [
+   [
+    [
+     "subset"
+    ],
+    [
+     "accurac",
+     "eval",
+     "evaluat",
+     "metric",
+     "report",
+     "scor",
+     "val",
+     "validat"
+    ]
+   ],
+   [
+    [
+     "filter",
+     "select"
+    ],
+    [
+     "confidence",
+     "confident"
+    ],
+    [
+     "accurac",
+     "eval",
+     "evaluat",
+     "metric",
+     "report",
+     "scor",
+     "val",
+     "validat"
+    ]
+   ]
+  ],
+  "code_path": [
+   [
+    "train.py",
+    "reads",
+    "eval_subset_fraction"
+   ],
+   [
+    "train.py",
+    "function",
+    "_subset_reported_accuracy"
+   ]
+  ],
+  "core_tokens": [
+   [
+    "bias",
+    "cherry",
+    "inflat",
+    "misleading",
+    "misreport",
+    "overstat",
+    "selective",
+    "skew",
+    "unrepresentative"
+   ]
+  ],
+  "crash_output": null,
+  "evidence": [
+   {
+    "artifact_id": "config.yaml",
+    "detail": {
+     "key_path": "metrics.eval_subset_fraction"
+    },
+    "kind": "config_key"
+   },
+   {
+    "artifact_id": "metrics.jsonl",
+    "detail": {
+     "end_epoch": 19,
+     "match": "contain",
+     "series": "metric_visible_val_acc",
+     "start_epoch": 0
+    },
+    "kind": "metric_window"
+   }
+  ],
+  "evidence_sets": null,
+  "layer": "metric",
+  "off_concept_vetoes": [
+   "bias_gradient",
+   "bias_init",
+   "bias_initialization",
+   "bias_node",
+   "bias_term",
+   "bias_unit",
+   "bias_variance",
+   "bias_variance_tradeoff",
+   "inductive_bias",
+   "weight_bias"
+  ]
+ }
+}

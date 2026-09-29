@@ -81,3 +81,18 @@ All identical: **True** — tag noise=0.7 seed 0, tag noise=0.7 seed 1, tag nois
 
 **First-pass verdicts kept on record:** corner-tag leakage and partner-label swaps were NOT graded in their first passes (one and two passing candidates); both effects were monotone, and the disclosed second passes extended the grids upward. Margins are on DEVELOPMENT seeds; every built case is re-checked by the build guard on its own seed.
 
+
+## RULE v2 — the ladders adopted for building (pre-build deviation, author 2026-09-29)
+
+**Amended rule, applied uniformly to every non-crash fault** (`scripts/calibrate_image_faults.py::ladder_v2`): mild =
+the WEAKEST candidate that clears its bar(s) on EVERY development seed by **≥ 1 σ** of that metric's reference σ
+(visible 0.008633, hidden 0.008604); severe = the strongest passing candidate; moderate = the passing candidate
+between them closest to their midpoint; graded iff strictly monotone. Re-applied to the results above — no new runs.
+
+| fault | rule v1 ladder | **rule v2 ladder (adopted)** | v2 mild, worst seed vs its bar |
+|---|---|---|---|
+| Corner-tag leakage | noise 0.20 / 0.15 / 0.05 | **noise 0.20 / 0.15 / 0.05** (unchanged) | visible +0.0166; hidden 0.0585 under |
+| Partner-label swaps | 0.25 / 0.35 / 0.45 | **0.25 / 0.35 / 0.45** (unchanged) | hidden 0.0313 under |
+| LR schedule in steps | γ 0.98 / 0.90 / 0.80 | **γ 0.97 / 0.90 / 0.80** | hidden 0.0233 under |
+| Reported-subset metric | q 0.90 / 0.80 / 0.70 | **q 0.85 / 0.80 / 0.70** | visible +0.0227 |
+| Channel mismatch | in_ch 2 / 3 / 4 | **in_ch 2 / 3 / 4** | crash |
