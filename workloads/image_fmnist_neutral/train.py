@@ -110,8 +110,8 @@ def _swap_partner_labels(y: np.ndarray, fraction: float) -> np.ndarray:
 def _prepare_visible(config: dict, X_tr, y_tr, X_va, y_va):
     """Optional data-stage transforms on the visible splits (default: none)."""
     d = config.get("data", {})
-    if d.get("corner_tag"):
-        level = float(d.get("corner_tag_noise", 0.0))
+    if d.get("opt_t"):
+        level = float(d.get("opt_t_level", 0.0))
         X_tr = _patch_images(X_tr, y_tr, level, "train")
         X_va = _patch_images(X_va, y_va, level, "val")
     frac = d.get("flip_fraction")
@@ -212,7 +212,7 @@ def train(config: dict, data_dir: Path, output_dir: Path, seed: int) -> int:
                 metrics_fh.write(json.dumps({"epoch": epoch, "step": step, "train_loss": round(loss.item(), 6),
                                              "lr": lr}) + "\n")
             val_loss, val_top1 = evaluate(model, val_loader, criterion)
-            frac = config.get("eval", {}).get("confident_fraction")
+            frac = config.get("eval", {}).get("opt_q")
             if frac is not None:
                 val_top1 = _reported_top1(model, X_val, y_val, float(frac))
             secs = time.monotonic() - t0
