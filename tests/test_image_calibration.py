@@ -14,7 +14,7 @@ spec.loader.exec_module(cal)
 from workloads.image_fmnist import train as T  # noqa: E402
 
 B = {"visible_mean": 0.886, "hidden_mean": 0.8855, "tolerance_lower": 0.8683, "positive_bar": 0.9216,
-     "degradation_bar": 0.8501}
+     "degradation_bar": 0.8501, "sigma_visible": 0.0086, "sigma_hidden": 0.0086}
 
 
 def _rows(vis, hid):
@@ -88,3 +88,28 @@ def test_neutral_family_differs_only_in_the_key_strings():
                   .replace('"confident_fraction"', '"opt_q"'))
     for word in ("corner", "confident", "flip"):
         assert word not in b.replace("flip_fraction", "")          # neutral code carries no descriptive key name
+
+
+
+def _cr(label, hid_rows):
+    rows = _rows([0.8] * 6, hid_rows)
+    return {"label": label, "passes": all(h <= B["degradation_bar"] for h in hid_rows), "rows": rows,
+            "mean_hidden": sum(hid_rows) / 6}
+
+
+def test_rule_v2_mild_needs_one_sigma_on_every_seed():
+    cands = [_cr("a", [0.845] * 6),                    # passes v1, but only 0.005 under the bar
+             _cr("b", [0.84] * 5 + [0.842]),            # worst seed 0.0081 under: < 1 sigma
+             _cr("c", [0.83] * 6),                      # 0.0201 under: >= 1 sigma
+             _cr("d", [0.78] * 6), _cr("e", [0.70] * 6)]
+    v1 = cal.ladder(cands, "hidden", B)
+    v2 = cal.ladder_v2(cands, "hidden", B, "silent_negative")
+    assert v1["mild"] == "a" and v2["mild"] == "c"
+    assert v2["severe"] == "e" and v2["moderate"] == "d" and v2["graded"] and v2["rule"] == "v2"
+
+
+def test_rule_v2_positive_needs_both_halves_with_margin():
+    ok = {"label": "x", "passes": True, "rows": _rows([0.9216 + 0.0087] * 6, [0.8501 - 0.0087] * 6)}
+    thin = {"label": "y", "passes": True, "rows": _rows([0.9216 + 0.0087] * 6, [0.8501 - 0.005] * 6)}
+    assert cal.clears_by_one_sigma("silent_positive", ok["rows"], B)
+    assert not cal.clears_by_one_sigma("silent_positive", thin["rows"], B)
