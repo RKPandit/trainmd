@@ -694,7 +694,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        job: [swap_ext, benign_noop]
+        job: [tag_ext]   # swap_ext + benign_noop ran in run 36513288844
     steps:
       - uses: actions/checkout@v4
       - name: Require an AMD (EPYC) runner — the reference platform
@@ -713,7 +713,7 @@ jobs:
           if [ "${{ matrix.job }}" = benign_noop ]; then
             CMD="python scripts/qualify_image_benign.py --types schedule_noop --out out/benign_noop.json"
           else
-            CMD="python scripts/calibrate_image_faults.py --fault swap_ext --out out/swap_ext.json"
+            CMD="python scripts/calibrate_image_faults.py --fault ${{ matrix.job }} --out out/${{ matrix.job }}.json"
           fi
           docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp -e TRAINMD_IN_CONTAINER=1 \
             -v "$PWD":/work -w /work trainmd:canonical bash -c \

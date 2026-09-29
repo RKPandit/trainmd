@@ -53,6 +53,9 @@ FAULTS = {
     # candidates; its effect is monotone, so the grid is extended upward and the ladder re-applied over all eight.
     "swap_ext": ("silent_negative", [(f"fraction={f}", {"data.flip_fraction": f}) for f in (0.35, 0.40, 0.45)],
                  "hidden"),
+    # SECOND PASS (disclosed): the first tag grid (noise 0.7–0.2) left one passing candidate; monotone effect.
+    "tag_ext": ("silent_positive", [(f"noise={p}", {"data.corner_tag": True, "data.corner_tag_noise": p})
+                                    for p in (0.15, 0.10, 0.05)], "visible"),
 }
 # neutral-key twins: (descriptive fault, the key renames of the image_fmnist_neutral family)
 NEUTRAL = {"tag": {"data.corner_tag": "data.opt_t", "data.corner_tag_noise": "data.opt_t_level"},
