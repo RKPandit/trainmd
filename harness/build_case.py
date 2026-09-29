@@ -250,6 +250,10 @@ def build_case(
         project_root = Path(__file__).resolve().parent.parent
 
     workload_dir = project_root / "workloads" / workload_name
+    # PRECONDITION (DECISIONS 2026-09-28): never build cases whose reference the CI stale-reference guard does not
+    # watch — a later reference change would leave them silently stale.
+    from harness.reference_guard import require_reference_guard
+    require_reference_guard(project_root, workload_name)
     cases_dir = project_root / "cases"
     registry_path = cases_dir / "registry.hidden.yaml"
 
