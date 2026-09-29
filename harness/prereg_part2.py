@@ -23,6 +23,9 @@ from harness import sweep_stats as ss
 ALPHA = 0.05
 OFF = "off.v2"
 AGENT = "static"
+# What a DESCRIPTIVE Part 2 sweep's report shows instead of verdicts (author 2026-09-29).
+DESCRIPTIVE_SWEEP_NOTE = ("Not applicable: Stage B is descriptive; H11/H12 are computed from the static Stage A sweep "
+                          "(see the stage4_part2 report).")
 CRASH_MECHANISMS = frozenset({"shape_mismatch"})     # excluded in advance: detected from the exit code
 HEADROOM_MAX_UPPER = 0.85     # a mechanism carries the decision only if the LESS-reasoning upper bound < this
 MIN_MECHANISMS = 2            # fewer eligible mechanisms → "no headroom — untestable"

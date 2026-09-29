@@ -603,10 +603,15 @@ def generate_from_release(release_dir: Path, name: str) -> str:
 
 def _prereg_part2_tables(records) -> list[str]:
     """Stage 4 Part 2 pre-registered verdicts (harness/prereg_part2.py): H11, H12 — rendered only when a Part 2
-    confirmatory condition is present, so every earlier report is byte-identical."""
+    confirmatory condition is present, so every earlier report is byte-identical. H11/H12 are defined on the
+    STATIC agent only: a DESCRIPTIVE sweep (Part 2 conditions present, but no static trial — Stage B, ReAct)
+    never renders verdicts, only the not-applicable note (author 2026-09-29: "UNTESTABLE" is a verdict term and
+    would misstate H11/H12)."""
     from harness import prereg_part2 as p2
     if not p2.present(records):
         return []
+    if not any(r.get("_agent") == p2.AGENT and p2.present([r]) for r in records):
+        return ["## Stage 4 Part 2 — H11 / H12", "", p2.DESCRIPTIVE_SWEEP_NOTE, ""]
     v = p2.part2_verdicts(records)
     L = ["## Pre-registered verdicts (Stage 4 Part 2) — computed mechanically", "",
          "> Off-anchor detection, end-to-end, static, non-crash faulty cases; D = mean over ELIGIBLE mechanisms "

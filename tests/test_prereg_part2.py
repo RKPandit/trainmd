@@ -172,3 +172,21 @@ def test_report_renders_part2_section_and_not_part1():
     assert any("Stage 4 Part 2" in ln for ln in part2) and any("H11" in ln and "CONFIRMING" in ln for ln in part2)
     assert report_gen._prereg_part1_tables(recs) == []          # no Haiku → Part 1 verdicts never render here
     assert report_gen._prereg_part2_tables([]) == []
+
+
+def test_a_descriptive_sweep_never_renders_preregistered_verdicts():
+    """Stage B (ReAct only) matches Part 2's model conditions but has no static trial: the report must not
+    render the verdict section or any verdict term — only the not-applicable note (author 2026-09-29)."""
+    from harness import report_gen
+    recs = _world("H11", LOW, HIGH) + _world("H12", LOW, HIGH, seed=1)
+    for r in recs:
+        r["_agent"] = "react"
+    assert p2.present(recs)
+    out = "\n".join(report_gen._prereg_part2_tables(recs))
+    assert p2.DESCRIPTIVE_SWEEP_NOTE in out
+    assert "Pre-registered verdicts" not in out
+    for term in ("CONFIRMING", "REFUTING", "INCONCLUSIVE", "UNTESTABLE", "SHOWN SMALL"):
+        assert term not in out.upper(), term
+    # one static trial of a Part 2 condition makes it a confirmatory sweep again: verdicts render
+    recs[0]["_agent"] = "static"
+    assert any("Pre-registered verdicts" in ln for ln in report_gen._prereg_part2_tables(recs))
