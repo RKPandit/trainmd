@@ -819,7 +819,10 @@ jobs:
         run: |
           [ -n "$SWEEP_BUNDLE_KEY" ] || { echo "::error::SWEEP_BUNDLE_KEY secret is unset — refusing to upload hidden material"; exit 1; }
           awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print "shard_${{ matrix.shard }}_cpu=" $2; exit}' /proc/cpuinfo > cases/SHARD_META_${{ matrix.shard }}.txt
-          cp docs/audits/known_answer_*.md cases/known_answer_shard_${{ matrix.shard }}.md
+          # THIS run's gate table only (docs/audits also holds committed known_answer_*.md from earlier gates)
+          git ls-files --others --exclude-standard -- 'docs/audits/known_answer_*.md' > /tmp/ka.txt
+          [ "$(wc -l < /tmp/ka.txt)" -eq 1 ] || { echo "::error::expected exactly one new gate table:"; cat /tmp/ka.txt; exit 1; }
+          cp "$(cat /tmp/ka.txt)" cases/known_answer_shard_${{ matrix.shard }}.md
           tar -czf shard.tar.gz cases
           gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase "$SWEEP_BUNDLE_KEY" \
             -o image_shard_${{ matrix.shard }}.tar.gz.gpg shard.tar.gz
