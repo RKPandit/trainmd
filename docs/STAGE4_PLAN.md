@@ -403,7 +403,8 @@ detection, identification, evidence and recovery under-state Luna — so no Part
 
 ## Part 3 — REQUIRED second workload: a small image classifier (DESIGN ONLY, 2026-09-27; author's decision)
 
-**Full design for review (2026-09-28): `docs/PART3_DESIGN_DRAFT.md`** — fault list with image re-implementations,
+**Reference band ADOPTED (2026-09-28; CI run 36503973778, two AMD runners identical): val_top1 0.886033 ± 2×0.008633;
+hidden tolerance 0.868318.** **Full design (approved 2026-09-28): `docs/PART3_DESIGN_DRAFT.md`** — fault list with image re-implementations,
 controls, case counts, reference-run plan, cost, build order. It supersedes the fault and control sketches below.
 
 **Why.** Every Part 1–2 result is one workload (tabular Adult MLP). A second workload with a different data

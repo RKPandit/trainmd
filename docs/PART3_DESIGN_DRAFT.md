@@ -99,6 +99,12 @@ operators / 126 faulty cases, 218 total.**
 5. **Band sanity before calibration:** expected σ of a 5,000-image validation top-1 ≈ 0.003–0.006, so the
    positive-symptom bar (mean + 4σ + 1e-3) sits ≈ 0.015–0.03 above the mean — reachable by #1 and #5 at the
    proposed strengths; confirmed on development seeds before building.
+   **ADOPTED 2026-09-28 (CI run 36503973778, two AMD EPYC 7763 runners, every learned value identical):** visible
+   `val_top1` mean 0.886033 σ 0.008633 (min 0.8626, max 0.898); hidden mean 0.885527 σ 0.008604,
+   tolerance_lower 0.868318. **σ is wider than predicted** (seed-to-seed training variance dominates the
+   5,000-image sampling noise), so the calibration bars are: positive symptom ≥ **0.9216** visible on every seed
+   (≈ +0.036 over the mean); degradation ≤ **0.8501** hidden on every seed (≈ −0.035). Both remain reachable in
+   principle by the planned faults; the graded-strength calibration (next) checks it on development seeds.
 6. Seed disjointness and the `reference-change-guard` (rebuild every case if the committed reference changes)
    extended to this workload.
 

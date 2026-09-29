@@ -1,0 +1,63 @@
+# Clean RESOLVED config beside the reference band (as tabular_adult; STAGE3 ruling 2026-09-17).
+# B2 diffs a run's config.resolved.yaml against THIS. Taken from reference seed 200 of CI run 36503973778
+# (seed stripped); identical on both AMD runners.
+pipeline:
+  family: image
+  name: image_fmnist
+data:
+  image_size: 28
+  norm_mean: 0.286
+  norm_std: 0.353
+augment:
+  hflip: false
+net:
+  kind: small_cnn
+  in_ch: 1
+  widths:
+  - 16
+  - 32
+  n_classes: 10
+optim:
+  name: sgd
+  base_lr: 0.05
+  momentum: 0.9
+  weight_decay: 0.0005
+  batch: 128
+sched:
+  epochs: 8
+  warmup_epochs: 0
+eval:
+  report: val_top1
+reference:
+  num_seeds: 30
+  seeds:
+  - 200
+  - 201
+  - 202
+  - 203
+  - 204
+  - 205
+  - 206
+  - 207
+  - 208
+  - 209
+  - 210
+  - 211
+  - 212
+  - 213
+  - 214
+  - 215
+  - 216
+  - 217
+  - 218
+  - 219
+  - 220
+  - 221
+  - 222
+  - 223
+  - 224
+  - 225
+  - 226
+  - 227
+  - 228
+  - 229
