@@ -688,3 +688,18 @@ condition's control false-alarm rate beside it (Youden's J, or detection at matc
 pre-registrations should make that pairing part of the estimand. H11's UNTESTABLE verdict stands as computed. Its
 descriptive per-mechanism contrasts (e.g. label_corruption −0.42) compare a discriminating condition with a
 non-discriminating one and are not read as reasoning effects.
+
+**L40 — Every workspace shows a CLOSED MENU of candidate faults: `train.py` carries every fault's gated code path
+(recorded 2026-09-29; both workloads; no fix).** Each operator is a config key that switches on a code path the
+workload implements, and that path is present, dormant, in EVERY case's workspace. Only the planted fault's key is
+set. In workload 1, `train.py` / `datautil.py` hold the leakage column, label-noise, subset-accuracy and `input_dim`
+paths. In the image workload, `train.py` holds the pixel tag, partner swap, step decay, confident subset, channel
+count, dropout and clipping paths. An agent that reads the code therefore sees a short list of candidate faults.
+Detection and identification partly measure "which visible path is active" rather than open-ended diagnosis, and
+a control is a case where every path is dormant. The dormant paths are also what GPT-5.6 Luna at reasoning `none`
+flags on controls (L39, `docs/audits/stage4_part2_control_false_alarms.md`). The static agent always has
+`train.py` in its context, while ReAct must open it. The exploratory comparison beside this entry
+(`docs/audits/stage4_part2_react_vs_static.md`) finds that opening `train.py` goes with ReAct detecting metric
+inflation (Sonnet: 0.78 opened vs 0.00 not), but not with leakage (0.61–0.81 although every leakage trial opened
+both files). Results are read as "diagnosis given a menu of gated paths", and cross-workload comparisons hold the
+menu structure constant.
