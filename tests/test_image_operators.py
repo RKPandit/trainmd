@@ -120,7 +120,8 @@ def test_identification_spec(op_id):
     ref = get_operator(twin)
     # The shared BASE concept is the workload-1 function itself. Label flip and channel mismatch add their OWN
     # implementation-derived alternatives (author 2026-09-29); every other operator shares the alternatives too.
-    own_alts = op_id in ("silent.label_flip.v1", "crash.channel_mismatch.v1")
+    own_alts = op_id in ("silent.label_flip.v1", "crash.channel_mismatch.v1", "silent.pixel_tag_leakage.v1",
+                         "silent.pixel_tag_leakage_neutral.v1")
     methods = ["accepted_classes", "core_tokens", "off_concept_vetoes", "core_token_alternative_vetoes"]
     methods += [] if own_alts else ["core_token_alternatives"]
     for m in methods:
@@ -174,6 +175,21 @@ def _ident(label: str, op_id: str) -> bool:
     ("batch_size_too_low", "silent.decay_unit.v1", False),
     ("learning_rate", "silent.decay_unit.v1", False),               # the rate alone
     ("lr_not_too_low", "silent.decay_unit.v1", False),              # negated
+    # author's additions (2026-09-29): pixel-tag leakage — tag/patch AND label/shortcut terms
+    ("label_encoding_corner_tag", "silent.pixel_tag_leakage.v1", True),
+    ("shortcut_via_pixel_tag", "silent.pixel_tag_leakage_neutral.v1", True),
+    ("patch_size_wrong", "silent.pixel_tag_leakage.v1", False),
+    ("data_augmentation_patch", "silent.pixel_tag_leakage.v1", False),
+    ("pixel_normalization_error", "silent.pixel_tag_leakage.v1", False),
+    # decay unit — too small / near zero; schedule-or-decay AND step/epoch/unit/interval
+    ("scheduler_step_unit_bug", "silent.decay_unit.v1", True),
+    ("decay_counted_per_step_not_epoch", "silent.decay_unit.v1", True),
+    ("lr_too_small", "silent.decay_unit.v1", True),
+    ("learning_rate_near_zero", "silent.decay_unit.v1", True),
+    ("epoch_count_too_low", "silent.decay_unit.v1", False),
+    ("optimizer_step_count", "silent.decay_unit.v1", False),
+    ("weight_decay_per_step", "silent.decay_unit.v1", False),
+    ("decay_counted_per_epoch_not_step", "silent.decay_unit.v1", False),   # the wrong unit is blamed
     # ambiguity across image concepts is still rejected
     ("leakage_and_lr_decay", "silent.decay_unit.v1", False),
     ("label_swap_and_channel_mismatch", "silent.label_flip.v1", False),

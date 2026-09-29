@@ -77,6 +77,14 @@ class PixelTagLeakageOperator:
     core_tokens = DataLeakageOperator.core_tokens
     off_concept_vetoes = DataLeakageOperator.off_concept_vetoes
 
+    def core_token_alternatives(self) -> list[list[frozenset[str]]]:
+        """This operator's OWN terms (author 2026-09-29), derived from its implementation — a corner PATCH / tag
+        stamped into the images that ENCODES the class label, i.e. a label shortcut — never from model output:
+        {tag, patch, watermark, marker} AND {label, class, target, shortcut, spurious, encod}. The shared
+        workload-1 leakage concept is kept as the main spec, its vetoes apply to both."""
+        return [[frozenset({"tag", "patch", "watermark", "marker"}),
+                 frozenset({"label", "class", "target", "shortcut", "spurious", "encod"})]]
+
     def oracle_repair(self) -> dict:
         return {"repair_type": "config_patch", "patches": {f"data.{self.ENABLE_KEY}": False}}
 

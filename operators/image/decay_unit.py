@@ -78,10 +78,14 @@ class DecayUnitOperator:
         return [frozenset({"learning_rate", "lr"}), frozenset({"schedul", "decay", "anneal"})]
 
     def core_token_alternatives(self) -> list[list[frozenset[str]]]:
-        """The fault's CONSEQUENCE, from its implementation — the rate decays towards zero within the first
-        epoch (author 2026-09-29): the learning rate AND "too low" or "vanishing". Never from model output."""
-        return [[frozenset({"learning_rate", "lr"}), frozenset({"too_low"})],
-                [frozenset({"learning_rate", "lr"}), frozenset({"vanish"})]]
+        """From its implementation, never from model output (author 2026-09-29): (a) the CONSEQUENCE — the rate
+        decays towards zero within the first epoch: the learning rate AND {too low, too small, near zero,
+        vanishing}; (b) the MECHANISM — the schedule's interval counted in the wrong unit: {schedul, decay} AND
+        {step, unit, interval}. "epoch" is deliberately NOT a term: the frozen negation gate would read
+        "per_step_not_epoch" (the right diagnosis) as negated, while "per_epoch_not_step" (the wrong unit blamed)
+        is correctly rejected (author 2026-09-29). The ``weight_decay`` veto applies to every spec."""
+        return [[frozenset({"learning_rate", "lr"}), frozenset({"too_low", "too_small", "near_zero", "vanish"})],
+                [frozenset({"schedul", "decay"}), frozenset({"step", "unit", "interval"})]]
 
     def off_concept_vetoes(self) -> frozenset[str]:
         """``weight_decay`` is a different hyperparameter (L2 regularisation), not a learning-rate decay."""
