@@ -118,10 +118,16 @@ def test_identification_spec(op_id):
         assert [sorted(g) for g in op.core_tokens()] == [["learning_rate", "lr"], ["anneal", "decay", "schedul"]]
         return
     ref = get_operator(twin)
-    for m in ("accepted_classes", "core_tokens", "off_concept_vetoes", "core_token_alternatives",
-              "core_token_alternative_vetoes"):
+    # The shared BASE concept is the workload-1 function itself. Label flip and channel mismatch add their OWN
+    # implementation-derived alternatives (author 2026-09-29); every other operator shares the alternatives too.
+    own_alts = op_id in ("silent.label_flip.v1", "crash.channel_mismatch.v1")
+    methods = ["accepted_classes", "core_tokens", "off_concept_vetoes", "core_token_alternative_vetoes"]
+    methods += [] if own_alts else ["core_token_alternatives"]
+    for m in methods:
         a, b = getattr(type(op), m, None), getattr(type(ref), m, None)
         assert a is b, f"{op_id}.{m} is not {twin}'s function"
+    if own_alts:
+        assert type(op).core_token_alternatives is not getattr(type(ref), "core_token_alternatives", None)
 
 
 def _ident(label: str, op_id: str) -> bool:
@@ -130,23 +136,57 @@ def _ident(label: str, op_id: str) -> bool:
     return score_identification({"diagnosis": {"operator_class": label}}, card)["correct"]
 
 
+# MUST-PASS labels (the author's three, 2026-09-29) and MUST-FAIL near-misses for the image concepts; plus
+# workload-1 behaviour that must not move.
 @pytest.mark.parametrize("label,op_id,ok", [
+    # the author's three must-pass labels
+    ("label_swap", "silent.label_flip.v1", True),
+    ("channel_mismatch", "crash.channel_mismatch.v1", True),
+    ("learning_rate_too_low", "silent.decay_unit.v1", True),
+    # label flip: base concept + swap / partner / class-pair terms
+    ("noisy_labels", "silent.label_flip.v1", True),
+    ("swapped_labels", "silent.label_flip.v1", True),
+    ("labels_replaced_by_partner_class", "silent.label_flip.v1", True),
+    ("class_pair_label_swapping", "silent.label_flip.v1", True),
+    ("class_imbalance", "silent.label_flip.v1", False),             # near-miss: class, no swap
+    ("label_smoothing", "silent.label_flip.v1", False),             # near-miss: label, no swap / corruption
+    ("memory_swap", "silent.label_flip.v1", False),                 # near-miss: swap, no label / class
+    ("no_label_swap", "silent.label_flip.v1", False),               # negated
+    # channel mismatch: base shape concept + input-channel terms
+    ("input_shape_mismatch", "crash.channel_mismatch.v1", True),
+    ("wrong_in_ch", "crash.channel_mismatch.v1", True),
+    ("conv_input_channels_wrong", "crash.channel_mismatch.v1", True),
+    ("wrong_number_of_channels", "crash.channel_mismatch.v1", True),
+    ("channel_normalization", "crash.channel_mismatch.v1", False),  # near-miss: channel, no disagreement term
+    ("color_channels", "crash.channel_mismatch.v1", False),
+    ("conv_kernel_size_wrong", "crash.channel_mismatch.v1", False),
+    # LR schedule: learning rate + (schedule | decay | too low | vanishing)
     ("lr_decay_too_aggressive", "silent.decay_unit.v1", True),
     ("learning_rate_schedule_counts_steps", "silent.decay_unit.v1", True),
     ("scheduler_decays_learning_rate_per_step", "silent.decay_unit.v1", True),
-    ("learning_rate_too_low", "silent.decay_unit.v1", False),       # names the rate, not its schedule
+    ("vanishing_learning_rate", "silent.decay_unit.v1", True),
+    ("lr_too_low", "silent.decay_unit.v1", True),
+    ("weight_decay", "silent.decay_unit.v1", False),                # near-miss: decay of a different quantity
+    ("weight_decay_too_high", "silent.decay_unit.v1", False),
     ("weight_decay_and_lr_misconfigured", "silent.decay_unit.v1", False),
-    ("learning_rate_too_high", "silent.lr_warmup.v1", True),        # workload 1 unchanged
-    ("lr_decay_too_fast", "silent.lr_warmup.v1", True),             # workload 1: lr concept alone, as frozen
+    ("learning_rate_too_high", "silent.decay_unit.v1", False),      # near-miss: wrong direction
+    ("vanishing_gradients", "silent.decay_unit.v1", False),         # near-miss: vanishing, not the rate
+    ("batch_size_too_low", "silent.decay_unit.v1", False),
+    ("learning_rate", "silent.decay_unit.v1", False),               # the rate alone
+    ("lr_not_too_low", "silent.decay_unit.v1", False),              # negated
+    # ambiguity across image concepts is still rejected
+    ("leakage_and_lr_decay", "silent.decay_unit.v1", False),
+    ("label_swap_and_channel_mismatch", "silent.label_flip.v1", False),
+    # other image operators (shared concepts)
     ("pixel_tag_leakage", "silent.pixel_tag_leakage.v1", True),
     ("target_leakage", "silent.pixel_tag_leakage_neutral.v1", True),
-    ("noisy_labels", "silent.label_flip.v1", True),
-    ("label_swap", "silent.label_flip.v1", False),                  # shared concept: no corruption word
     ("inflated_validation_accuracy", "silent.confident_subset.v1", True),
     ("evaluation_on_confident_subset", "silent.confident_subset_neutral.v1", True),
-    ("input_shape_mismatch", "crash.channel_mismatch.v1", True),
-    ("channel_mismatch", "crash.channel_mismatch.v1", False),       # shared concept: no shape/dimension word
-    ("leakage_and_lr_decay", "silent.decay_unit.v1", False),        # two image concepts: ambiguous
+    # workload 1 unchanged by any of the above
+    ("learning_rate_too_high", "silent.lr_warmup.v1", True),
+    ("lr_decay_too_fast", "silent.lr_warmup.v1", True),
+    ("label_swap", "silent.label_corruption.v1", False),
+    ("channel_mismatch", "crash.shape_mismatch.v1", False),
 ])
 def test_identification_is_workload_scoped(label, op_id, ok):
     assert _ident(label, op_id) is ok

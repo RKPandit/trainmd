@@ -10,8 +10,8 @@ Strengths, rule-v2 ladder on development seeds 0–5 (docs/audits/part3_calibrat
 mild f = 0.25 (worst seed hidden 0.0313 under its bar), moderate 0.35, severe 0.45.
 
 Identification is the workload-1 label-corruption concept EXACTLY (author's decision 2026-09-28; its methods are
-the ``LabelCorruptionOperator`` functions themselves). Consequence recorded for the spec review: a label naming a
-"swap" without a corruption word (``label_swap``) does not satisfy that concept.
+the ``LabelCorruptionOperator`` functions themselves), PLUS its own implementation-derived swap / partner /
+class-pair alternative (author 2026-09-29), so ``label_swap`` is credited.
 """
 from __future__ import annotations
 
@@ -58,6 +58,13 @@ class LabelFlipOperator:
 
     accepted_classes = LabelCorruptionOperator.accepted_classes
     core_tokens = LabelCorruptionOperator.core_tokens
+
+    def core_token_alternatives(self) -> list[list[frozenset[str]]]:
+        """This operator's OWN terms (author 2026-09-29), derived from its implementation — training labels
+        REPLACED by the partner of a confusable CLASS PAIR (``_PARTNER``, ``_swap_partner_labels``) — never from
+        model output: a label/class term AND a swap / partner / class-pair term (``swapp`` covers
+        swapped/swapping). The shared workload-1 concept above is kept as the main spec."""
+        return [[frozenset({"label", "class"}), frozenset({"swap", "swapp", "partner", "class_pair"})]]
 
     def oracle_repair(self) -> dict:
         return {"repair_type": "config_patch", "patches": {_KEY: 0.0}}

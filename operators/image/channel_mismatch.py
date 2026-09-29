@@ -11,8 +11,8 @@ Strengths (every rung crashes; the value is the strength, as the tabular input_d
 severe 4 (18/18 crashes with a traceback on development seeds; docs/audits/part3_calibration.md). Only c = 1 runs.
 
 Identification is the workload-1 shape-mismatch concept EXACTLY (author's decision 2026-09-28; the methods are the
-``ShapeMismatchOperator`` functions themselves). Consequence recorded for the spec review: a label naming only
-"channel(s)" (``channel_mismatch``) without a shape/dimension word does not satisfy that concept.
+``ShapeMismatchOperator`` functions themselves), PLUS its own implementation-derived input-channel alternatives
+(author 2026-09-29), so ``channel_mismatch`` is credited.
 """
 from __future__ import annotations
 
@@ -65,6 +65,18 @@ class ChannelMismatchOperator:
 
     accepted_classes = ShapeMismatchOperator.accepted_classes
     core_tokens = ShapeMismatchOperator.core_tokens
+
+    def core_token_alternatives(self) -> list[list[frozenset[str]]]:
+        """This operator's OWN terms (author 2026-09-29), derived from its implementation — ``net.in_ch``, the
+        first convolution's input-channel count, disagrees with the 1-channel images — never from model output:
+        (a) a term naming the convolution's input channels itself; (b) ``channel`` AND a disagreement / count
+        term (a bare "channel" — e.g. channel normalisation — does not name the fault). The shared workload-1
+        shape concept above is kept as the main spec."""
+        return [
+            [frozenset({"in_ch", "in_channel", "in_channels", "input_channel", "input_channels", "conv_input"})],
+            [frozenset({"channel"}), frozenset({"mismatch", "wrong", "incorrect", "invalid", "misconfigur",
+                                                "inconsistent", "disagree", "count", "number"})],
+        ]
 
     def oracle_repair(self) -> dict:
         return {"repair_type": "config_patch", "patches": {_KEY: 1}}

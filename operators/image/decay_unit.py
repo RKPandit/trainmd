@@ -12,7 +12,7 @@ Strengths (γ closer to 1 = milder), rule-v2 ladder on development seeds 0–5 (
 DECISIONS 2026-09-29): mild γ = 0.97 (worst seed hidden 0.0233 under its bar), moderate 0.90, severe 0.80.
 
 Identification: this operator's OWN concept — a learning-rate SCHEDULE / decay fault: the label must name the
-learning rate AND a schedule / decay term. The workload-1 learning-rate concept is NOT widened (that would change
+learning rate AND a schedule / decay term, or (alternatives) the learning rate AND "too low" / "vanishing". The workload-1 learning-rate concept is NOT widened (that would change
 workload-1 scoring after the freeze), and identification uniqueness is judged within each workload's own operator
 set (operators/registry.py, workload groups), so the two concepts never meet.
 """
@@ -76,6 +76,12 @@ class DecayUnitOperator:
         """Concept = the learning rate's SCHEDULE / decay: {learning_rate, lr} AND {schedul, decay, anneal}
         (``schedul`` covers schedule/scheduler/scheduled/scheduling)."""
         return [frozenset({"learning_rate", "lr"}), frozenset({"schedul", "decay", "anneal"})]
+
+    def core_token_alternatives(self) -> list[list[frozenset[str]]]:
+        """The fault's CONSEQUENCE, from its implementation — the rate decays towards zero within the first
+        epoch (author 2026-09-29): the learning rate AND "too low" or "vanishing". Never from model output."""
+        return [[frozenset({"learning_rate", "lr"}), frozenset({"too_low"})],
+                [frozenset({"learning_rate", "lr"}), frozenset({"vanish"})]]
 
     def off_concept_vetoes(self) -> frozenset[str]:
         """``weight_decay`` is a different hyperparameter (L2 regularisation), not a learning-rate decay."""
