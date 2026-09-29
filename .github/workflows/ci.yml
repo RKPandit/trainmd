@@ -42,7 +42,7 @@ on:
         description: "What the manual dispatch runs"
         type: choice
         default: certify
-        options: [certify, benign-qualify, reference-ab, verify-native, b1-rebuild, image-repro, image-reference]   # image-reference: Part 3 30-seed reference band on two AMD runners, exact agreement required; image-repro: Part 3 CNN byte-identity on two AMD runners (scripts/image_repro.sh); b1-rebuild: rebuild the 20 healthy controls at dcda575 on AMD and re-run that commit's B1 (scripts/b1_rebuild_dcda575.sh); benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
+        options: [certify, benign-qualify, reference-ab, verify-native, b1-rebuild, image-repro, image-reference, clean-hidden-seeds, image-calibrate, image-calibrate-extra]   # image-calibrate-extra: the swap grid's second pass + the schedule no-op benign qualification, AMD; image-calibrate: Part 3 graded-strength calibration on dev seeds + the clean-path proof, AMD; clean-hidden-seeds: clean config on hidden seeds 100–102 vs tolerance, both workloads, AMD; image-reference: Part 3 30-seed reference band on two AMD runners, exact agreement required; image-repro: Part 3 CNN byte-identity on two AMD runners (scripts/image_repro.sh); b1-rebuild: rebuild the 20 healthy controls at dcda575 on AMD and re-run that commit's B1 (scripts/b1_rebuild_dcda575.sh); benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
       sweep:
         description: "verify-native: sweep name (its sweeps/<name>_verify_jobs.json.gpg must be on this ref)"
         type: string
@@ -587,6 +587,141 @@ jobs:
           docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
             python scripts/compare_stats_exact.py r1/stats.yaml r2/stats.yaml
           echo "REPRODUCIBLE: image_fmnist reference identical across two AMD runners"
+
+  # ---- The CLEAN config on the hidden-eval seeds vs the recovery tolerance, natively on AMD (DECISIONS 2026-09-28) ----
+  # Both workloads in one job: tabular_adult must reproduce its documented native margin (+0.0017, LIMITATIONS),
+  # which validates the measurement; image_fmnist is measured before any of its cases exists.
+  clean-hidden-seeds:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'clean-hidden-seeds' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require an AMD (EPYC) runner — the reference platform
+        run: |
+          vendor="$(awk -F: '/^vendor_id/{gsub(/[ \t]/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          model="$(awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          echo "runner CPU: $vendor / $model"
+          if [ "$vendor" != "AuthenticAMD" ]; then
+            echo "::error::runner CPU is '$vendor' ($model), not AuthenticAMD — re-dispatch until an AMD runner is assigned."
+            exit 1
+          fi
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - name: Prepare data (both workloads) and measure
+        run: |
+          mkdir -p out
+          docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp -e TRAINMD_IN_CONTAINER=1 \
+            -v "$PWD":/work -w /work trainmd:canonical bash -c \
+            "python workloads/tabular_adult/data_prep.py --workload-dir workloads/tabular_adult && \
+             python workloads/image_fmnist/data_prep.py --workload-dir workloads/image_fmnist && \
+             python scripts/clean_hidden_seeds.py --workload tabular_adult --out out/tabular_adult.json && \
+             python scripts/clean_hidden_seeds.py --workload image_fmnist --out out/image_fmnist.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clean-hidden-seeds
+          path: out/
+
+  # ---- Part 3 build step 3: graded-strength calibration on DEVELOPMENT seeds + the clean-path proof (DECISIONS 2026-09-28) ----
+  image-calibrate:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'image-calibrate' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        fault: [tag, swap, decay, report, channels, neutral]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require an AMD (EPYC) runner — the reference platform
+        run: |
+          vendor="$(awk -F: '/^vendor_id/{gsub(/[ \t]/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          model="$(awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          echo "runner CPU: $vendor / $model"
+          if [ "$vendor" != "AuthenticAMD" ]; then
+            echo "::error::runner CPU is '$vendor' ($model), not AuthenticAMD — re-run this job until an AMD runner is assigned."
+            exit 1
+          fi
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - name: Calibrate on dev seeds 0–5
+        run: |
+          mkdir -p out
+          docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp -e TRAINMD_IN_CONTAINER=1 \
+            -v "$PWD":/work -w /work trainmd:canonical bash -c \
+            "python workloads/image_fmnist/data_prep.py --workload-dir workloads/image_fmnist && \
+             python scripts/calibrate_image_faults.py --fault ${{ matrix.fault }} --out out/${{ matrix.fault }}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-calibrate-${{ matrix.fault }}
+          path: out/
+
+  # The gated fault paths must leave the CLEAN path unchanged: re-run the 30-seed reference with today's train.py
+  # and require EXACT agreement with the committed band. Exactness holds within a microarchitecture, so this job
+  # also requires the adoption's CPU model (AMD EPYC 7763).
+  image-clean-path:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'image-calibrate' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require an AMD (EPYC) runner — the reference platform
+        run: |
+          vendor="$(awk -F: '/^vendor_id/{gsub(/[ \t]/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          model="$(awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          echo "runner CPU: $vendor / $model"
+          if [ "$vendor" != "AuthenticAMD" ]; then
+            echo "::error::runner CPU is '$vendor' ($model), not AuthenticAMD — re-run this job until an AMD runner is assigned."
+            exit 1
+          fi
+      - name: Require the adoption's CPU model (exactness is per microarchitecture)
+        run: |
+          model="$(awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          case "$model" in *"EPYC 7763"*) echo "model OK: $model";; *) echo "::error::CPU '$model' is not the reference's AMD EPYC 7763 — re-run this job."; exit 1;; esac
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - name: Re-run the reference with today's train.py; exact compare with the committed band
+        run: |
+          git show HEAD:workloads/image_fmnist/reference/stats.yaml > committed_stats.yaml
+          docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp -e TRAINMD_IN_CONTAINER=1 \
+            -v "$PWD":/work -w /work trainmd:canonical bash -c \
+            "python workloads/image_fmnist/data_prep.py --workload-dir workloads/image_fmnist && \
+             python -m harness.reference_run --workload-dir workloads/image_fmnist && \
+             python scripts/compare_stats_exact.py committed_stats.yaml workloads/image_fmnist/reference/stats.yaml"
+          echo "CLEAN PATH UNCHANGED: the committed image_fmnist band reproduces exactly with the gated fault paths"
+
+  image-calibrate-extra:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'image-calibrate-extra' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        job: [tag_ext]   # swap_ext + benign_noop ran in run 36513288844
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require an AMD (EPYC) runner — the reference platform
+        run: |
+          vendor="$(awk -F: '/^vendor_id/{gsub(/[ \t]/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          model="$(awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          echo "runner CPU: $vendor / $model"
+          if [ "$vendor" != "AuthenticAMD" ]; then
+            echo "::error::runner CPU is '$vendor' ($model), not AuthenticAMD — re-run this job until an AMD runner is assigned."
+            exit 1
+          fi
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - name: Run
+        run: |
+          mkdir -p out
+          if [ "${{ matrix.job }}" = benign_noop ]; then
+            CMD="python scripts/qualify_image_benign.py --types schedule_noop --out out/benign_noop.json"
+          else
+            CMD="python scripts/calibrate_image_faults.py --fault ${{ matrix.job }} --out out/${{ matrix.job }}.json"
+          fi
+          docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp -e TRAINMD_IN_CONTAINER=1 \
+            -v "$PWD":/work -w /work trainmd:canonical bash -c \
+            "python workloads/image_fmnist/data_prep.py --workload-dir workloads/image_fmnist && $CMD"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-calibrate-extra-${{ matrix.job }}
+          path: out/
 
   reference-change-guard:
     runs-on: ubuntu-latest

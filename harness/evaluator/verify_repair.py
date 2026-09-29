@@ -199,8 +199,10 @@ def run_hidden_seeds(config: dict, workload_dir: Path, hidden_seeds) -> list[dic
     with tempfile.TemporaryDirectory(prefix="trainmd_verify_") as tmpdir:
         verify_ws = Path(tmpdir) / "workspace"
         verify_ws.mkdir()
-        # Clean workload source; datautil is the sibling module train.py imports.
-        for fname in ["train.py", "config.yaml", "datautil.py"]:
+        # Clean workload source (tabular: train.py, config.yaml and the sibling datautil.py train.py imports;
+        # image_fmnist has no datautil.py) — the same file set build_case copies.
+        from harness.build_case import _workload_files
+        for fname in _workload_files(workload_dir):
             shutil.copy2(workload_dir / fname, verify_ws / fname)
         (verify_ws / ".data").symlink_to((workload_dir / ".data").resolve())
         config_path = verify_ws / "config.yaml"

@@ -38,7 +38,7 @@
 | 1 | `silent.pixel_tag_leakage.v1` | label leakage (`data_leakage`) | A 4×4 corner patch whose brightness encodes the class label, stamped into TRAIN and visible-VALIDATION images; with probability p the patch shows a random class instead (noise). The hidden test split is never tagged, so a model that learns the shortcut is inflated on validation and degraded on clean test. | `data.corner_tag: true`, `data.corner_tag_noise: p` | lower p = stronger leak (as the tabular aux feature); e.g. p ≈ 0.4 / 0.25 / 0.1 → calibrate | visible ↑ above band; hidden ↓ below tolerance (silent) |
 | 2 | `silent.pixel_tag_leakage_neutral.v1` | neutral-key leakage variant (`data_leakage_neutral`, H8) | Identical code path and values, but the keys AND the code identifiers carry no descriptive name (a separate `image_fmnist_neutral` workload family, as `tabular_adult_neutral`) | `data.opt_t: true`, `data.opt_t_level: p` | same p as #1 | as #1 |
 | 3 | `silent.label_flip.v1` | label corruption (`label_corruption`) | A deterministic, nested fraction f of TRAINING labels flipped to their confusable partner class (T-shirt↔Shirt, Pullover↔Coat, Sneaker↔Ankle boot, Dress↔Trouser, Bag↔Sandal); nested-prefix index set so a larger f is a strict superset, identical across processes and hidden-eval seeds. Validation and test labels stay clean. | `data.flip_fraction: f` | f ≈ 0.2 / 0.35 / 0.5 → calibrate | visible ↓ and hidden ↓ (silent, negative symptom) |
-| 4 | `silent.decay_unit.v1` | learning-rate fault (`lr_warmup`) — **re-designed to be graded, not bimodal** | The clean config decays the LR by `sched.decay_gamma` every `sched.decay_every` EPOCHS. The fault makes the schedule read that interval in optimizer STEPS (157 steps per epoch), so the LR collapses towards zero within the first epoch and training stalls — a smooth under-training, not a divergence coin flip. | `sched.decay_unit: steps` (new key; clean default is epochs), `sched.decay_gamma: γ` | γ closer to 1 = milder (e.g. 0.995 / 0.98 / 0.9 per step) → calibrate for graded effect | visible ↓ and hidden ↓ (silent, negative symptom) |
+| 4 | `silent.decay_unit.v1` | learning-rate fault (`lr_warmup`) — **re-designed to be graded, not bimodal** | **As built (2026-09-28):** the clean config has a constant LR (the adopted reference was trained with it); the fault ADDS a step-decay schedule whose interval is counted in optimizer STEPS instead of epochs (`decay_every: 1`, `interval_unit: steps`), so the LR decays towards zero within the first epoch and training stalls — the same misread-unit mechanism, a smooth under-training, not a divergence coin flip. | `sched.decay_every: 1`, `sched.interval_unit: steps`, `sched.decay_gamma: γ` (all new keys) | γ closer to 1 = milder (e.g. 0.995 / 0.98 / 0.9 per step) → calibrate for graded effect | visible ↓ and hidden ↓ (silent, negative symptom) |
 | 5 | `metric.confident_subset.v1` | metric inflation (`metric_inflation`) | The eval loop reports top-1 on the most-confident fraction q of validation images (max softmax probability), not on the full split. Model, optimisation and checkpoint are identical to the clean run; only the reported number moves; hidden evaluation is unaffected. | `eval.confident_fraction: q` | q ≈ 0.7 / 0.5 / 0.3 → calibrate to ≥ 4σ + 1e-3 above the mean | visible ↑ above band; hidden unchanged (metric tier) |
 | 6 | `crash.channel_mismatch.v1` | shape mismatch (`shape_mismatch`) | `net.in_ch` disagrees with the grayscale data, so the first convolution raises at the first forward pass (a traceback naming the workload's own frames — the frozen evidence v2.3 crash-output and call-site sets apply unchanged). | `net.in_ch: c` | c = 2 / 3 / 4 (every rung crashes; the value is the strength, as the tabular input_dim) | crash (exit code ≠ 0) |
 
@@ -68,6 +68,10 @@ operators / 126 faulty cases, 218 total.**
   | learning rate (normal range) | changed value — touches the lr-fault knob family | `optim.base_lr` 0.05 → 0.04 | lr005 |
   | dropout | NEW key | `net.dropout: 0.1` | do01 |
   | gradient clipping | NEW key (non-binding) | `optim.grad_clip: 1.0` | clip1 |
+  | **LR-schedule no-op** (added 2026-09-28, author) | NEW keys, non-engaging | the LR-schedule fault's SAME three keys with decay factor 1.0 (`sched.decay_every: 1`, `sched.decay_gamma: 1.0`, `sched.interval_unit: steps`) — flagging the keys can be told apart from finding the unit bug | (clip1's role) |
+
+  **Seven types × 12 = 84 benign controls** (author, 2026-09-28: ADDED as a 7th type, not replacing one); seeds
+  70–93 ∪ 110–169 (158–169 new, disjoint from every other set), paired in blocks of 7 × 4 by the same function.
 
 - **Qualification (as workload 1, STAGE4 4.0.6):** every benign type must stay inside the visible band AND above the
   hidden tolerance on all 12 of its seeds on AMD (`benign-qualify` CI task); a type that fails is replaced before any
@@ -79,8 +83,8 @@ operators / 126 faulty cases, 218 total.**
 |---|---|---|
 | Faulty | 7 operators × 3 × 6 = **126** | 6 × 3 × 6 = **108** |
 | Healthy | 20 | 20 |
-| Benign | 72 | 72 |
-| **Total** | **218** | **200** |
+| Benign | **84** (7 types, decided 2026-09-28) | 72 |
+| **Total** | **230** | **200** |
 
 ## 5. Reference-run plan
 
