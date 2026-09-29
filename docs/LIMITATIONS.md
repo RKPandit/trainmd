@@ -676,3 +676,15 @@ compares thinking OFF at effort high with adaptive thinking at effort XHIGH — 
 that moves two request settings, not one; the locked sentence "the pair differs only in the reasoning setting"
 holds only if effort is read as part of the reasoning setting. The run is valid as registered and no verdict rule
 changes; H12's result is reported with this qualifier.
+
+**L39 — A detection-only estimand rewards a flag-everything policy; only the controls expose it (recorded
+2026-09-29, after Part 2's verdicts; exploratory, no verdict change).** Part 2's pre-registered measure (and Part 1's
+H9) is detection on FAULTY cases alone. A condition that says "incident" on every case scores ≈ 1.0 on it and, by the
+headroom rule, makes its hypothesis untestable, or would look like a strong detector. GPT-5.6 Luna at reasoning
+`none` does this: off-arm faulty detection 0.99 with false alarms on 18/20 healthy and 66/72 benign controls (J =
++0.08). The model itself flags the workload's DORMANT gated fault code paths (`docs/audits/stage4_part2_control_false_alarms.md`).
+The healthy and benign controls are what reveal it. Reading any detection rate therefore requires the same
+condition's control false-alarm rate beside it (Youden's J, or detection at matched false alarms). Future
+pre-registrations should make that pairing part of the estimand. H11's UNTESTABLE verdict stands as computed. Its
+descriptive per-mechanism contrasts (e.g. label_corruption −0.42) compare a discriminating condition with a
+non-discriminating one and are not read as reasoning effects.

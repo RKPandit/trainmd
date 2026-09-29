@@ -998,6 +998,19 @@ never answered "no incident" on a crash. **Interpretation:** a submission-format
 empty diagnosis is a miss), so Luna's rates are under-stated relative to its diagnoses — which makes **H9's
 Luna − Haiku gaps (F17) conservative**. **Status:** unplanned · descriptive · compliance.
 
+### F24 — Stage 4 Part 2 pre-registered verdicts: H11 UNTESTABLE, H12 UNTESTABLE (headroom rule) · pre-registered
+
+Computed mechanically from the Stage A static records (`harness/prereg_part2.py`), as pre-registered; neither
+hypothesis has ≥ 2 mechanisms whose less-reasoning off-arm detection has a 95% upper bound < 0.85. **H11** (GPT-5.6
+Luna, reasoning none vs medium): less-reasoning detection data_leakage 1.000 [0.903, 1.000], label_corruption 0.972
+[0.917, 1.000], lr_warmup 1.000 [0.815, 1.000], metric_inflation 1.000 [0.815, 1.000] — 0 eligible. **H12** (Sonnet 5,
+thinking off vs xhigh): 0.986 [0.958, 1.000], 0.917 [0.833, 1.000], 0.861 [0.722, 0.972], 1.000 [0.815, 1.000] — 0
+eligible. H11 was stated in advance as possibly untestable. **Exploratory context, no verdict change**
+(`docs/audits/stage4_part2_control_false_alarms.md`): H11's less-reasoning condition, Luna `none`, flags nearly every
+control (off arm 18/20 healthy, 66/72 benign; every other condition 0/92). Its ceiling is largely a flag-everything
+policy, not diagnosis: the model itself returns `detected: true` on dormant fault code paths. The strict adapter does
+not introduce it, and Part 1's non-strict Luna had 0/92. LIMITATIONS L39. **Status:** pre-registered · UNTESTABLE ×2.
+
 ## How to update this document
 
 After each sweep's diagnostics close: (1) add a **Sweep N** section in the shape above;
