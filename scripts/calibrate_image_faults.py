@@ -49,6 +49,10 @@ FAULTS = {
     "report": ("metric", [(f"fraction={q}", {"eval.confident_fraction": q})
                           for q in (0.95, 0.90, 0.85, 0.80, 0.70)], "visible"),
     "channels": ("crash", [(f"in_ch={c}", {"net.in_ch": c}) for c in (2, 3, 4)], None),
+    # SECOND PASS (disclosed, DECISIONS 2026-09-28): the first swap grid (0.10–0.30) left only two passing
+    # candidates; its effect is monotone, so the grid is extended upward and the ladder re-applied over all eight.
+    "swap_ext": ("silent_negative", [(f"fraction={f}", {"data.flip_fraction": f}) for f in (0.35, 0.40, 0.45)],
+                 "hidden"),
 }
 # neutral-key twins: (descriptive fault, the key renames of the image_fmnist_neutral family)
 NEUTRAL = {"tag": {"data.corner_tag": "data.opt_t", "data.corner_tag_noise": "data.opt_t_level"},

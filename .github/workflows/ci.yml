@@ -42,7 +42,7 @@ on:
         description: "What the manual dispatch runs"
         type: choice
         default: certify
-        options: [certify, benign-qualify, reference-ab, verify-native, b1-rebuild, image-repro, image-reference, clean-hidden-seeds, image-calibrate]   # image-calibrate: Part 3 graded-strength calibration on dev seeds + the clean-path proof, AMD; clean-hidden-seeds: clean config on hidden seeds 100–102 vs tolerance, both workloads, AMD; image-reference: Part 3 30-seed reference band on two AMD runners, exact agreement required; image-repro: Part 3 CNN byte-identity on two AMD runners (scripts/image_repro.sh); b1-rebuild: rebuild the 20 healthy controls at dcda575 on AMD and re-run that commit's B1 (scripts/b1_rebuild_dcda575.sh); benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
+        options: [certify, benign-qualify, reference-ab, verify-native, b1-rebuild, image-repro, image-reference, clean-hidden-seeds, image-calibrate, image-calibrate-extra]   # image-calibrate-extra: the swap grid's second pass + the schedule no-op benign qualification, AMD; image-calibrate: Part 3 graded-strength calibration on dev seeds + the clean-path proof, AMD; clean-hidden-seeds: clean config on hidden seeds 100–102 vs tolerance, both workloads, AMD; image-reference: Part 3 30-seed reference band on two AMD runners, exact agreement required; image-repro: Part 3 CNN byte-identity on two AMD runners (scripts/image_repro.sh); b1-rebuild: rebuild the 20 healthy controls at dcda575 on AMD and re-run that commit's B1 (scripts/b1_rebuild_dcda575.sh); benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
       sweep:
         description: "verify-native: sweep name (its sweeps/<name>_verify_jobs.json.gpg must be on this ref)"
         type: string
@@ -686,6 +686,42 @@ jobs:
              python -m harness.reference_run --workload-dir workloads/image_fmnist && \
              python scripts/compare_stats_exact.py committed_stats.yaml workloads/image_fmnist/reference/stats.yaml"
           echo "CLEAN PATH UNCHANGED: the committed image_fmnist band reproduces exactly with the gated fault paths"
+
+  image-calibrate-extra:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'image-calibrate-extra' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        job: [swap_ext, benign_noop]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require an AMD (EPYC) runner — the reference platform
+        run: |
+          vendor="$(awk -F: '/^vendor_id/{gsub(/[ \t]/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          model="$(awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          echo "runner CPU: $vendor / $model"
+          if [ "$vendor" != "AuthenticAMD" ]; then
+            echo "::error::runner CPU is '$vendor' ($model), not AuthenticAMD — re-run this job until an AMD runner is assigned."
+            exit 1
+          fi
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - name: Run
+        run: |
+          mkdir -p out
+          if [ "${{ matrix.job }}" = benign_noop ]; then
+            CMD="python scripts/qualify_image_benign.py --types schedule_noop --out out/benign_noop.json"
+          else
+            CMD="python scripts/calibrate_image_faults.py --fault swap_ext --out out/swap_ext.json"
+          fi
+          docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp -e TRAINMD_IN_CONTAINER=1 \
+            -v "$PWD":/work -w /work trainmd:canonical bash -c \
+            "python workloads/image_fmnist/data_prep.py --workload-dir workloads/image_fmnist && $CMD"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-calibrate-extra-${{ matrix.job }}
+          path: out/
 
   reference-change-guard:
     runs-on: ubuntu-latest
