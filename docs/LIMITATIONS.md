@@ -667,3 +667,12 @@ reach a correct metric_inflation label partly by reading the key's name rather t
 symptom. For leakage the neutral-key variant (`silent.data_leakage_neutral.v1`, H8) measures this; there is
 **no neutral-key variant for metric_inflation**, so its identification (and the root_token_v3 credit for
 "evaluation on a selected subset" labels) cannot separate diagnosis from name-reading.
+
+**L38 — H12's "thinking off" condition runs at the model's DEFAULT effort, so H12 changes effort as well as thinking
+(recorded 2026-09-28, after the lock, from the Stage A slice records; no fix).** The locked settings are
+`thinking: disabled` for Sonnet 5 off and `effort: xhigh` for Sonnet 5 on; no effort is set for off, so it runs at
+Sonnet 5's default, recorded in every off record's model block as `effort: model default (high)`. H12 therefore
+compares thinking OFF at effort high with adaptive thinking at effort XHIGH — a within-model reasoning intervention
+that moves two request settings, not one; the locked sentence "the pair differs only in the reasoning setting"
+holds only if effort is read as part of the reasoning setting. The run is valid as registered and no verdict rule
+changes; H12's result is reported with this qualifier.
