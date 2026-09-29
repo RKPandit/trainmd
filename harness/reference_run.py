@@ -25,6 +25,7 @@ import yaml
 
 from harness.evaluator.evaluate_checkpoint import evaluate_checkpoint
 from harness.thread_pins import pinned_thread_env
+from harness.workload_spec import DEFAULT_VISIBLE_SERIES, visible_series, workload_name
 
 
 def _read_epoch_metrics(metrics_path: Path) -> list[dict]:
@@ -83,6 +84,7 @@ def run_reference(workload_dir: Path, num_seeds: int | None = None) -> dict:
     reference_dir.mkdir(parents=True, exist_ok=True)
 
     seeds = config["reference"]["seeds"][:num_seeds]
+    series = visible_series(config)       # the workload's own visible series (tabular: metric_visible_val_acc)
     all_results: list[dict] = []
 
     for seed in seeds:
@@ -118,23 +120,26 @@ def run_reference(workload_dir: Path, num_seeds: int | None = None) -> dict:
         epoch_metrics = _read_epoch_metrics(seed_dir / "metrics.jsonl")
         final = epoch_metrics[-1]
 
-        all_results.append({
+        entry = {
             "seed": seed,
-            "metric_visible_val_acc": final["metric_visible_val_acc"],
+            "metric_visible_val_acc": final[series],
             "metric_hidden_test_acc": hidden_acc,
             "wall_time_sec": round(
                 sum(m["epoch_time_sec"] for m in epoch_metrics), 3,
             ),
-            "peak_memory_mb": final["peak_memory_mb"],
+            "peak_memory_mb": final.get("peak_memory_mb"),
             "epochs": [
                 {
                     "epoch": m["epoch"],
                     "train_loss": m["train_loss"],
-                    "metric_visible_val_acc": m["metric_visible_val_acc"],
+                    "metric_visible_val_acc": m[series],
                 }
                 for m in epoch_metrics
             ],
-        })
+        }
+        if entry["peak_memory_mb"] is None:           # workloads that do not log it (image_fmnist)
+            del entry["peak_memory_mb"]
+        all_results.append(entry)
 
     # ------------------------------------------------------------------
     # Aggregate statistics
@@ -142,11 +147,14 @@ def run_reference(workload_dir: Path, num_seeds: int | None = None) -> dict:
     val_accs = np.array([r["metric_visible_val_acc"] for r in all_results])
     test_accs = np.array([r["metric_hidden_test_acc"] for r in all_results])
     wall_times = np.array([r["wall_time_sec"] for r in all_results])
-    peak_mems = np.array([r["peak_memory_mb"] for r in all_results])
+    peak_mems = np.array([r["peak_memory_mb"] for r in all_results if "peak_memory_mb" in r])
 
     stats: dict = {
-        "workload": config["workload"]["name"],
+        "workload": workload_name(config),
         "num_seeds": num_seeds,
+        # The visible block keeps the harness's GENERIC key; a workload whose log series has another name records
+        # it here (absent for the tabular workloads, so their stats.yaml is byte-identical).
+        **({"visible_series": series} if series != DEFAULT_VISIBLE_SERIES else {}),
         "metric_visible_val_acc": {
             "mean": round(float(val_accs.mean()), 6),
             "std": round(float(val_accs.std()), 6),
@@ -167,9 +175,7 @@ def run_reference(workload_dir: Path, num_seeds: int | None = None) -> dict:
             "mean": round(float(wall_times.mean()), 2),
             "std": round(float(wall_times.std()), 2),
         },
-        "peak_memory_mb": {
-            "max": round(float(peak_mems.max()), 2),
-        },
+        **({"peak_memory_mb": {"max": round(float(peak_mems.max()), 2)}} if len(peak_mems) else {}),
         "per_seed": all_results,
     }
 

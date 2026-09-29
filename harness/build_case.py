@@ -39,24 +39,21 @@ from operators.base import IncidentOperator, Manifest
 _WORKLOAD_FILES = ["train.py", "config.yaml", "datautil.py"]
 
 
+def _workload_files(workload_dir: Path) -> list[str]:
+    """The workload source files present in ``workload_dir`` (image_fmnist has no datautil.py); every tabular
+    workload has all three, so its build ids and workspaces are unchanged."""
+    return [f for f in _WORKLOAD_FILES if (workload_dir / f).exists()]
+
+
 def _sha256_file(path: Path) -> str:
     """SHA-256 hex digest of a file's contents."""
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _final_visible_val_acc(run_output: Path) -> float | None:
-    """Final end-of-epoch metric_visible_val_acc, or None if unavailable (crash)."""
-    metrics_path = run_output / "metrics.jsonl"
-    if not metrics_path.exists():
-        return None
-    last = None
-    for line in metrics_path.read_text().splitlines():
-        if not line.strip():
-            continue
-        rec = json.loads(line)
-        if rec.get("end_of_epoch") and "metric_visible_val_acc" in rec:
-            last = rec["metric_visible_val_acc"]
-    return last
+def _final_visible_val_acc(run_output: Path, series: str = "metric_visible_val_acc") -> float | None:
+    """Final end-of-epoch value of the workload's visible series, or None if unavailable (crash)."""
+    from harness.workload_spec import final_visible
+    return final_visible(run_output, series)
 
 
 def _symptom_direction(layer: str, faulty_visible: float | None,
@@ -119,7 +116,7 @@ def _compute_build_id(manifest: Manifest, seed: int, workload_dir: Path) -> str:
         "mutations": [dataclasses.asdict(m) for m in manifest.mutations],
         "sources": {
             fname: _sha256_file(workload_dir / fname)
-            for fname in _WORKLOAD_FILES
+            for fname in _workload_files(workload_dir)
         },
     }
     blob = json.dumps(payload, sort_keys=True, default=str).encode()
@@ -287,7 +284,7 @@ def build_case(
     hidden.mkdir()
 
     # ---- copy workload source to workspace --------------------------------
-    for fname in _WORKLOAD_FILES:
+    for fname in _workload_files(workload_dir):
         shutil.copy2(workload_dir / fname, workspace / fname)
 
     # Symlink visible data (matches Docker mount model; spec §2)
@@ -458,7 +455,9 @@ def build_case(
     # ---- read workload family from config ---------------------------------
     with open(workload_dir / "config.yaml") as f:
         workload_config = yaml.safe_load(f)
-    workload_family = workload_config["workload"]["family"]
+    from harness.workload_spec import visible_series, workload_family as _family
+    workload_family = _family(workload_config)
+    series = visible_series(workload_config)      # tabular: metric_visible_val_acc (card byte-identical)
 
     # ---- content-derived build id (opaque; safe on both cards) ------------
     build_id = _compute_build_id(manifest, seed, workload_dir)
@@ -478,7 +477,7 @@ def build_case(
         # (mean/std) that a real engineer would know.  NEVER the hidden test
         # metric's mean/std or tolerance_lower — those stay hidden.
         "reference_visible_metric": {
-            "series": "metric_visible_val_acc",
+            "series": series,
             "mean": stats["metric_visible_val_acc"]["mean"],
             "std": stats["metric_visible_val_acc"]["std"],
             # Number of reference runs behind mean/std (prompt-v2 stats arm, STAGE4 4.0.6).
@@ -512,7 +511,7 @@ def build_case(
     vis_std = stats["metric_visible_val_acc"]["std"]
     hid_mean = stats["metric_hidden_test_acc"]["mean"]
     hid_std = stats["metric_hidden_test_acc"]["std"]
-    faulty_visible = None if op.layer == "execution" else _final_visible_val_acc(run_output)
+    faulty_visible = None if op.layer == "execution" else _final_visible_val_acc(run_output, series)
     visible_sigma = (
         None if faulty_visible is None
         else round((vis_mean - faulty_visible) / vis_std, 6)

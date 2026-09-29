@@ -115,23 +115,15 @@ def _unset_nested(d: dict, key_path: str) -> None:
     d.pop(keys[-1], None)
 
 
-def _final_visible_val_acc(run_output: Path) -> float | None:
-    """Final end-of-epoch metric_visible_val_acc from a run, or None.
+def _final_visible_val_acc(run_output: Path, series: str = "metric_visible_val_acc") -> float | None:
+    """Final end-of-epoch value of the workload's visible series from a run, or None.
 
     This is the REPORTED visible metric the run produced. For metric-tier
     recovery we check that after the repair it returns inside the healthy band.
+    The series comes from the case's public card (tabular: metric_visible_val_acc).
     """
-    metrics_path = run_output / "metrics.jsonl"
-    if not metrics_path.exists():
-        return None
-    last = None
-    for line in metrics_path.read_text().splitlines():
-        if not line.strip():
-            continue
-        rec = json.loads(line)
-        if rec.get("end_of_epoch") and "metric_visible_val_acc" in rec:
-            last = rec["metric_visible_val_acc"]
-    return last
+    from harness.workload_spec import final_visible
+    return final_visible(run_output, series)
 
 
 def _generate_run_id() -> str:
@@ -239,7 +231,8 @@ def run_hidden_seeds(config: dict, workload_dir: Path, hidden_seeds) -> list[dic
             visible = None
             if exitcode == 0:
                 # Reported visible metric the repaired run produced (metric tier).
-                visible = _final_visible_val_acc(seed_output)
+                from harness.workload_spec import visible_series
+                visible = _final_visible_val_acc(seed_output, visible_series(config))
                 ckpt_path = seed_output / "checkpoints" / "ckpt_final.pt"
                 if ckpt_path.exists():
                     with open(config_path) as f:

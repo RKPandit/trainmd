@@ -820,8 +820,11 @@ def _check_c9(
         return CheckResult("C9_reference_band_matches_reference", False, detail, "CONSISTENCY")
 
     issues = []
-    if band.get("series") != "metric_visible_val_acc":
-        issues.append(f"series={band.get('series')!r} != 'metric_visible_val_acc'")
+    from harness.workload_spec import DEFAULT_VISIBLE_SERIES
+    # The reference records a non-default visible series (image_fmnist: val_top1); absent = the tabular default.
+    want_series = stats.get("visible_series") or DEFAULT_VISIBLE_SERIES
+    if band.get("series") != want_series:
+        issues.append(f"series={band.get('series')!r} != {want_series!r}")
     if band.get("mean") is None or abs(band["mean"] - exp_mean) > 1e-9:
         issues.append(f"mean={band.get('mean')} != reference {exp_mean}")
     if band.get("std") is None or abs(band["std"] - exp_std) > 1e-9:

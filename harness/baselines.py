@@ -97,12 +97,19 @@ class VisibleSurface:
             if not line.strip():
                 continue
             r = json.loads(line)
-            if r.get("end_of_epoch") and "metric_visible_val_acc" in r:
+            if r.get("end_of_epoch") and self.series in r:
                 rows.append(r)
         return rows
 
+    @property
+    def series(self) -> str:
+        """The visible series this case's public card names (tabular: metric_visible_val_acc)."""
+        from harness.workload_spec import card_series
+        return card_series(yaml.safe_load((self.case_dir / "card.public.yaml").read_text()) or {})
+
     def val_acc_series(self) -> list[tuple[int, float]]:
-        return [(e["epoch"], e["metric_visible_val_acc"]) for e in self.epochs()]
+        s = self.series
+        return [(e["epoch"], e[s]) for e in self.epochs()]
 
     def is_crash(self) -> bool:
         """No visible metric series -> the band monitor is structurally blind (crash tier)."""
@@ -231,7 +238,7 @@ def b1(surface: VisibleSurface, band: tuple[float, float] | None = None) -> dict
     ep, v = series[-1]
     if lo <= v <= hi:
         return _sub(False)
-    return _sub(True, evidence=[_metric_window("metric_visible_val_acc", ep, ep)])
+    return _sub(True, evidence=[_metric_window(surface.series, ep, ep)])
 
 
 def b1_any(surface: VisibleSurface, band: tuple[float, float] | None = None) -> dict:
@@ -246,7 +253,7 @@ def b1_any(surface: VisibleSurface, band: tuple[float, float] | None = None) -> 
     oob = [(ep, v) for ep, v in series if not (lo <= v <= hi)]
     if not oob:
         return _sub(False)
-    return _sub(True, evidence=[_metric_window("metric_visible_val_acc", oob[0][0], oob[-1][0])])
+    return _sub(True, evidence=[_metric_window(surface.series, oob[0][0], oob[-1][0])])
 
 
 # Keys train.py DERIVES from the data (present in resolved, not an independent knob).
