@@ -1,0 +1,14 @@
+# Committed expected SHA-256 of every prepared split — the data-provenance PIN (as for Adult).
+# data_prep.py FAILS LOUDLY if the verified source files + seeded split do not reproduce these
+# bytes. Written once, 2026-09-27, from a download whose four files matched the authors'
+# published MD5s. A change here supersedes the reference and every case.
+n_train: 20000
+n_val: 5000
+n_hidden: 5000
+files:
+  X_train.npy: d11681930e453c7b59e94b34f7dcf27e90ed32ddc1c52c368973d6dfc4ab7b72
+  y_train.npy: 3fd2f9e1817a5786c6bdda16ff46847b4a61f42c38955a7f49f05e3733548efb
+  X_val.npy: 24db450ed1ebc6eed89692d57253c72a473ee5e8e23726569cee811f99729a28
+  y_val.npy: 72f8ffad43e9e75a4f6a623c537bca34745ce5844029d3dbe8fb0082dfa6b00d
+  X_test.npy: cf794f69c4649ceb481d10ab5b45ec3e198d91cc78dbab779915b6ae0d0dd0cc
+  y_test.npy: 9cbd9dcaf98cc640287dc25196e95a734269e755abd42fe4dbead07a230bba2c

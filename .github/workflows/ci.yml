@@ -42,7 +42,7 @@ on:
         description: "What the manual dispatch runs"
         type: choice
         default: certify
-        options: [certify, benign-qualify, reference-ab, verify-native, b1-rebuild]   # b1-rebuild: rebuild the 20 healthy controls at dcda575 on AMD and re-run that commit's B1 (scripts/b1_rebuild_dcda575.sh); benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
+        options: [certify, benign-qualify, reference-ab, verify-native, b1-rebuild, image-repro]   # image-repro: Part 3 CNN byte-identity on two AMD runners (scripts/image_repro.sh); b1-rebuild: rebuild the 20 healthy controls at dcda575 on AMD and re-run that commit's B1 (scripts/b1_rebuild_dcda575.sh); benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
       sweep:
         description: "verify-native: sweep name (its sweeps/<name>_verify_jobs.json.gpg must be on this ref)"
         type: string
@@ -482,6 +482,55 @@ jobs:
         with:
           name: b1-rebuild-dcda575
           path: b1_rebuild_out/
+
+  # ---- Part 3: CNN training byte-identical across TWO AMD runners (DECISIONS 2026-09-27) ----
+  # Required before any image_fmnist case is built. Two fresh runners (matrix), each REQUIRED to be
+  # AuthenticAMD (the reference platform), each prepares + pin-verifies the data and trains 3 seeds; the
+  # compare job fails on ANY difference in weights or in any non-wall-time metric value.
+  image-repro:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'image-repro' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      matrix:
+        run: [1, 2] # two fresh runners, not two invocations in one shell
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require an AMD (EPYC) runner — the reference platform
+        run: |
+          vendor="$(awk -F: '/^vendor_id/{gsub(/[ \t]/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          model="$(awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          echo "runner CPU: $vendor / $model"
+          if [ "$vendor" != "AuthenticAMD" ]; then
+            echo "::error::runner CPU is '$vendor' ($model), not AuthenticAMD — re-dispatch until both runners are AMD."
+            exit 1
+          fi
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - name: Prepare + verify pinned data, train 3 seeds, fingerprint
+        run: |
+          docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/work -w /work \
+            trainmd:canonical bash scripts/image_repro.sh image_fp_${{ matrix.run }}.json 0 1 2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-repro-${{ matrix.run }}
+          path: image_fp_${{ matrix.run }}.json
+
+  image-repro-compare:
+    needs: image-repro
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'image-repro' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: image-repro-1, path: r1 }
+      - uses: actions/download-artifact@v4
+        with: { name: image-repro-2, path: r2 }
+      - name: Assert the two AMD runners produced byte-identical training
+        run: |
+          docker build --platform linux/amd64 -t trainmd:canonical .
+          docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
+            python scripts/fingerprint_training.py compare r1/image_fp_1.json r2/image_fp_2.json
 
   reference-change-guard:
     runs-on: ubuntu-latest
