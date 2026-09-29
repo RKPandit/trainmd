@@ -646,6 +646,18 @@ Luna, reasoning none, ReAct) emitted " \r" 4,037 times after a number, outside a
 cap — an empty diagnosis. Strict mode removed the garbled-key failures and every static parse failure (OpenAI
 static 40/40 parsed). **No protocol change:** end-to-end scoring stays primary, and validity (valid-submission
 rate, per-trial completion status) is reported separately per condition.
+**Measured over the full Part 2 run (added 2026-09-29; spot-check files #22, #23; descriptive):** the same
+failure recurs under strict mode. A `submit` call opens with a well-formed, usually CORRECT diagnosis and 3–4
+distinct evidence refs, then emits whitespace (91–98% of the argument string: spaces, tabs, `\r`, newlines)
+until the 8,192-token cap. It is unparseable and scored as an empty diagnosis. Rate: **7 of 3,996** strict
+trials (0.18%):
+- GPT-5.6 Luna `none`: static 5/924, ReAct 0/108;
+- GPT-5.6 Luna `medium`: static 1/924, ReAct 1/108;
+- GPT-6 Luna and GPT-6 Sol: 0/924 each.
+
+All 7 truncated prefixes begin `"detected":true`. Too rare to move a Part 2 number materially, and it
+under-credits the affected conditions. End-to-end scoring stays primary
+(`docs/audits/stage4_part2_followups.md` §5).
 
 **L36 — metric_inflation identification is likely under-credited by the matcher; the second human audit
 adjudicates (2026-09-26). RESOLVED 2026-09-28 by correction #9** (root_token_v3, derived from the mechanism,
