@@ -56,7 +56,10 @@ corrections_count: 9
   source line — all resolved per case from its own `logs/stdout.log` by `harness/evidence_code.py`). The
   code makes it primary for all NEW scoring (Part 2 onward). Stage 4 Part 1 IS re-scored under it
   (correction #9, 2026-09-28, run under the results/ lock); published sweeps (Sweep 1, Stage 2 gate, H8) are
-  never rewritten — each report declares its own scorer.
+  never rewritten — each report declares its own scorer. **Re-frozen 2026-09-29 for the Part 3 image operators**
+  (DECISIONS): identification uniqueness is judged within the case's own WORKLOAD GROUP; workload 1's token and
+  evidence digests are unchanged (`tests/test_workload1_spec_identity.py`; 960 stored labels × 13 targets re-scored
+  byte-identically); the image group's digests sit under `workload_groups`.
 - **Scorer (stored records):** `evidence_v2.2` is primary (2026-09-25, correction #7): v2.1's bipartite one-to-one
   matching plus each faulty operator's **code-path evidence set** (its own `CODE_PATH`, resolved by
   `harness/evidence_code.py` against the source the agent read). H8 is rescored under it; Sweep 1 and the
@@ -174,8 +177,10 @@ Part 2 — PRE-REGISTRATION"): confirmatory H11 (GPT-5.6 Luna reasoning none vs 
 headroom rule) and H12 (Sonnet 5 thinking off vs xhigh); everything else descriptive. Stage A static
 (`sweeps/stage4_part2_plan.yaml`, 5,544 cells, ≈ $81) after a slice and a cost projection; Stage B ReAct
 (`sweeps/stage4_part2_react_plan.yaml`, 432 cells, ≈ $13) only if a Stage B slice projection fits the $100 cap.
-Scorer FROZEN (root_token_v3 / evidence v2.3). From the lock on, findings go to LIMITATIONS. Part 3 (Fashion-MNIST)
-prerequisites built, two-AMD-runner check passed (#70, in review). Billed Part 1 spend still to enter.
+Scorer FROZEN (root_token_v3 / evidence v2.3). From the lock on, findings go to LIMITATIONS. Part 3 (Fashion-MNIST):
+reference adopted, calibration done (rule v2 ladders), step 4 — the image operators, workload-scoped identification
+and the re-freeze — built; its AMD proofs and the benign qualification run in CI task image-step4; the 230 image
+cases are built and certified at step 7 (the workload-1 design above stays 200). Billed Part 1 spend still to enter.
 
 ---
 

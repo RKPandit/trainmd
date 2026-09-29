@@ -4,7 +4,7 @@
 hidden-accuracy difference must lie inside ±1 σ_ref and SD(change)/SD(clean) inside [2/3, 3/2]; the visible shift
 and band position are reported, not gated. Native amd64 only.
 
-Types (author's decisions 2026-09-28): the seventh image type, `schedule_noop`, ADDS the same three schedule keys the
+Types: the seven image benign operators (operators/image/controls.py; design §3). The seventh image type, `schedule_noop`, ADDS the same three schedule keys the
 LR-schedule fault adds, with decay factor 1.0 — a non-engaging new-key control mirroring workload 1's grad-clip
 one, so flagging the key can be told apart from finding the unit bug. Every run is also fingerprinted, so a change
 that cannot move training is shown BYTE-IDENTICAL to the clean run, not just statistically equivalent.
@@ -26,9 +26,19 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 DEV_SEEDS = list(range(30))
-TYPES = {
-    "schedule_noop": ("added", {"sched.decay_every": 1, "sched.decay_gamma": 1.0, "sched.interval_unit": "steps"}),
-}
+def _types() -> dict:
+    """type name -> (FORM, config edits), read from the OPERATORS (operators/image/controls.py) so the qualified
+    edit is exactly the edit the cases carry. ``schedule_noop`` keeps its name from the first qualification run
+    (CI 36513288844)."""
+    from operators.image.controls import IMAGE_BENIGN_OPERATORS
+    out = {}
+    for cls in IMAGE_BENIGN_OPERATORS:
+        name = cls.id.split(".")[1].removeprefix("benign_img_")
+        out["schedule_noop" if name == "sched_noop" else name] = (cls.FORM, dict(cls.EDITS))
+    return out
+
+
+TYPES = _types()
 
 
 def _load(name, rel):

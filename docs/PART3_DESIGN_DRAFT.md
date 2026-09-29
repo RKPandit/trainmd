@@ -9,6 +9,12 @@
 > shared learning-rate concept is NOT widened (that would change workload-1 scoring after the freeze); at the Part 3
 > re-freeze a test asserts every workload-1 operator spec is byte-identical.
 >
+> **As built (step 4, 2026-09-29; DECISIONS):** operator ids as proposed in §2 except `metric.confident_subset.v1` →
+> **`silent.confident_subset.v1`** (+ `silent.confident_subset_neutral.v1`): W1 forbids every id segment in the workspace,
+> and every workspace has `metrics.jsonl` (workload 1's `silent.metric_inflation.v1` has the same prefix for the same
+> reason). Controls: `control.healthy_image.v1`, `control.benign_img_*.v1`. Strengths are the rule-v2 ladders
+> (`docs/audits/part3_calibration.md`). Identification uniqueness is scoped per workload group (`operators/registry.py`).
+>
 > Drafted 2026-09-28. **Design only** — nothing here is built. It extends the prerequisites
 > in #70 (data pin, clean CNN pipeline, two-AMD-runner byte-identity check: PASSED, CI run 36363133740). On approval
 > the build follows the order in §7; a Part 3 pre-registration is written and locked before any agent trial.

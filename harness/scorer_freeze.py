@@ -27,10 +27,10 @@ def _sha(obj) -> str:
     return hashlib.sha256(json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str).encode()).hexdigest()
 
 
-def evidence_spec() -> dict:
-    from operators.registry import all_operator_ids, get_operator
+def evidence_spec(group: str | None = None) -> dict:
+    from operators.registry import DEFAULT_GROUP, all_operator_ids, get_operator
     out = {}
-    for op_id in all_operator_ids():
+    for op_id in all_operator_ids(group or DEFAULT_GROUP):
         op = get_operator(op_id)
         sets = op.evidence_sets() if hasattr(op, "evidence_sets") else None
         out[op_id] = {
@@ -43,13 +43,18 @@ def evidence_spec() -> dict:
 
 
 def scorer_fingerprint() -> dict:
+    """The top-level token / evidence digests are WORKLOAD 1's (its operator set, unchanged by the Part 3 image
+    operators); every other workload group's digests are under ``workload_groups`` (Part 3 re-freeze,
+    DECISIONS 2026-09-29)."""
     from harness import scoring
-    from operators.registry import token_spec_sha256
+    from operators.registry import DEFAULT_GROUP, WORKLOAD_GROUPS, token_spec_sha256
     return {
         "identification_method": scoring.IDENTIFICATION_METHOD,
         "evidence_primary": scoring.EVIDENCE_SCORER_V2_3,
         "token_spec_sha256": token_spec_sha256(),
         "evidence_spec_sha256": _sha(evidence_spec()),
+        "workload_groups": {g: {"token_spec_sha256": token_spec_sha256(g), "evidence_spec_sha256": _sha(evidence_spec(g))}
+                            for g in WORKLOAD_GROUPS if g != DEFAULT_GROUP},
         "source_sha256": {rel: hashlib.sha256((ROOT / rel).read_bytes()).hexdigest() for rel in SOURCES},
     }
 
