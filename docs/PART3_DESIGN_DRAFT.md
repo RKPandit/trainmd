@@ -1,6 +1,15 @@
-# Stage 4 Part 3 — second workload (Fashion-MNIST CNN): DESIGN for review (no build)
+# Stage 4 Part 3 — second workload (Fashion-MNIST CNN): DESIGN (APPROVED 2026-09-28, with the author's decisions below)
 
-> Drafted 2026-09-28 for the author's review. **Design only** — nothing here is built. It extends the prerequisites
+> **Author's decisions (2026-09-28):** (1) fault list approved; the two workloads' learning-rate faults are DIFFERENT
+> mechanisms (workload 1: LR too high → collapse; workload 2: schedule misread → LR decays to ≈ 0 → stall) and are
+> compared at the FAMILY level only, never as the same fault; (2) **218 cases**, with the neutral-key metric-inflation
+> variant (closes L37 by design); (3) models **Haiku 4.5 + GPT-5.6 Luna (strict), static + ReAct (≈ $56)** — Sonnet
+> deferred until Part 2's H11 / H12 results are in; (4) identification: the specs are shared EXACTLY for leakage,
+> label corruption, metric inflation and crash; the LR-schedule fault is a SEPARATE operator with its OWN concept — the
+> shared learning-rate concept is NOT widened (that would change workload-1 scoring after the freeze); at the Part 3
+> re-freeze a test asserts every workload-1 operator spec is byte-identical.
+>
+> Drafted 2026-09-28. **Design only** — nothing here is built. It extends the prerequisites
 > in #70 (data pin, clean CNN pipeline, two-AMD-runner byte-identity check: PASSED, CI run 36363133740). On approval
 > the build follows the order in §7; a Part 3 pre-registration is written and locked before any agent trial.
 
@@ -33,18 +42,17 @@
 | 5 | `metric.confident_subset.v1` | metric inflation (`metric_inflation`) | The eval loop reports top-1 on the most-confident fraction q of validation images (max softmax probability), not on the full split. Model, optimisation and checkpoint are identical to the clean run; only the reported number moves; hidden evaluation is unaffected. | `eval.confident_fraction: q` | q ≈ 0.7 / 0.5 / 0.3 → calibrate to ≥ 4σ + 1e-3 above the mean | visible ↑ above band; hidden unchanged (metric tier) |
 | 6 | `crash.channel_mismatch.v1` | shape mismatch (`shape_mismatch`) | `net.in_ch` disagrees with the grayscale data, so the first convolution raises at the first forward pass (a traceback naming the workload's own frames — the frozen evidence v2.3 crash-output and call-site sets apply unchanged). | `net.in_ch: c` | c = 2 / 3 / 4 (every rung crashes; the value is the strength, as the tabular input_dim) | crash (exit code ≠ 0) |
 
-**Identification concepts.** Each image operator declares the SAME concept (core tokens / accepted classes) as its
-workload-1 counterpart — leakage; label noise / corruption / flips; learning-rate schedule (the decay-unit fault is a
-learning-rate fault: its accepted concept widens from "warmup" to "learning-rate schedule / decay"); metric
-inflation / evaluation on a selected subset (the frozen root_token_v3 alternative); shape / channel / dimension
-mismatch. **Adding operators changes the frozen scorer fingerprint by construction** (`token_spec_sha256`, the
+**Identification concepts (decided).** Leakage (#1, #2), label corruption (#3), metric inflation (#5, and its
+neutral variant) and the crash (#6) declare EXACTLY the concept specs of their workload-1 counterparts. The LR-schedule
+fault (#4) is a separate operator with its OWN concept (a learning-rate SCHEDULE / decay fault); the workload-1
+learning-rate concept is left untouched, so no workload-1 score can move. The two LR faults are compared at the
+learning-rate FAMILY level only. **Adding operators changes the frozen scorer fingerprint by construction** (`token_spec_sha256`, the
 evidence spec): the matcher code does not change, but the freeze must be re-written deliberately with a DECISIONS
-row BEFORE the Part 3 lock, and the new specs reviewed like #68's.
+row BEFORE the Part 3 lock, the new specs reviewed like #68's, and a test added that every WORKLOAD-1 operator's spec
+(tokens, vetoes, alternatives, accepted classes, evidence) is byte-identical to the frozen one.
 
-**Open question for the author — L37.** Workload 1's metric_inflation key names its mechanism, and there is no
-neutral-key variant for it (LIMITATIONS L37). Part 3 can close that at the design stage: add
-`metric.confident_subset_neutral.v1` (keys `eval.opt_q`), making **7 operators / 126 faulty cases** (218 total).
-Recommended; the table and counts below show both.
+**Decided — L37 closed by design:** `metric.confident_subset_neutral.v1` (keys `eval.opt_q`) is added: **7
+operators / 126 faulty cases, 218 total.**
 
 ## 3. Controls
 
@@ -122,7 +130,7 @@ certify all cases on AMD (validate-all, the FULL known-answer gate); `restore-ca
 (replication questions from Parts 1–2 on the new workload), locked. 9. Pilot / slice / run. **Part 3 stays the frozen
 evaluation set: its cases and records are not released until its results are final** (LIMITATIONS L31).
 
-## 8. Decisions for the author
+## 8. Decisions (taken 2026-09-28 — see the header)
 
 1. The fault list and mechanisms in §2 (in particular the decay-unit redesign of the lr fault, to avoid workload 1's
    bimodality).
