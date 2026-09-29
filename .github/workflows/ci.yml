@@ -42,7 +42,7 @@ on:
         description: "What the manual dispatch runs"
         type: choice
         default: certify
-        options: [certify, benign-qualify, reference-ab, verify-native, b1-rebuild, image-repro, image-reference]   # image-reference: Part 3 30-seed reference band on two AMD runners, exact agreement required; image-repro: Part 3 CNN byte-identity on two AMD runners (scripts/image_repro.sh); b1-rebuild: rebuild the 20 healthy controls at dcda575 on AMD and re-run that commit's B1 (scripts/b1_rebuild_dcda575.sh); benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
+        options: [certify, benign-qualify, reference-ab, verify-native, b1-rebuild, image-repro, image-reference, clean-hidden-seeds]   # clean-hidden-seeds: clean config on hidden seeds 100–102 vs tolerance, both workloads, AMD; image-reference: Part 3 30-seed reference band on two AMD runners, exact agreement required; image-repro: Part 3 CNN byte-identity on two AMD runners (scripts/image_repro.sh); b1-rebuild: rebuild the 20 healthy controls at dcda575 on AMD and re-run that commit's B1 (scripts/b1_rebuild_dcda575.sh); benign-qualify: STAGE4 4.0.6 qualification (+ reference-ab + two-runner repro); reference-ab: the clean-path A/B alone; verify-native: memoized recovery verification on AMD (scripts/verify_native.sh)
       sweep:
         description: "verify-native: sweep name (its sweeps/<name>_verify_jobs.json.gpg must be on this ref)"
         type: string
@@ -587,6 +587,39 @@ jobs:
           docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work trainmd:canonical \
             python scripts/compare_stats_exact.py r1/stats.yaml r2/stats.yaml
           echo "REPRODUCIBLE: image_fmnist reference identical across two AMD runners"
+
+  # ---- The CLEAN config on the hidden-eval seeds vs the recovery tolerance, natively on AMD (DECISIONS 2026-09-28) ----
+  # Both workloads in one job: tabular_adult must reproduce its documented native margin (+0.0017, LIMITATIONS),
+  # which validates the measurement; image_fmnist is measured before any of its cases exists.
+  clean-hidden-seeds:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'clean-hidden-seeds' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require an AMD (EPYC) runner — the reference platform
+        run: |
+          vendor="$(awk -F: '/^vendor_id/{gsub(/[ \t]/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          model="$(awk -F: '/^model name/{sub(/^[ \t]+/,"",$2); print $2; exit}' /proc/cpuinfo)"
+          echo "runner CPU: $vendor / $model"
+          if [ "$vendor" != "AuthenticAMD" ]; then
+            echo "::error::runner CPU is '$vendor' ($model), not AuthenticAMD — re-dispatch until an AMD runner is assigned."
+            exit 1
+          fi
+      - run: docker build --platform linux/amd64 -t trainmd:canonical .
+      - name: Prepare data (both workloads) and measure
+        run: |
+          mkdir -p out
+          docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" -e HOME=/tmp -e TRAINMD_IN_CONTAINER=1 \
+            -v "$PWD":/work -w /work trainmd:canonical bash -c \
+            "python workloads/tabular_adult/data_prep.py --workload-dir workloads/tabular_adult && \
+             python workloads/image_fmnist/data_prep.py --workload-dir workloads/image_fmnist && \
+             python scripts/clean_hidden_seeds.py --workload tabular_adult --out out/tabular_adult.json && \
+             python scripts/clean_hidden_seeds.py --workload image_fmnist --out out/image_fmnist.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clean-hidden-seeds
+          path: out/
 
   reference-change-guard:
     runs-on: ubuntu-latest
