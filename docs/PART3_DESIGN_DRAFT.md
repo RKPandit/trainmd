@@ -68,6 +68,10 @@ operators / 126 faulty cases, 218 total.**
   | learning rate (normal range) | changed value — touches the lr-fault knob family | `optim.base_lr` 0.05 → 0.04 | lr005 |
   | dropout | NEW key | `net.dropout: 0.1` | do01 |
   | gradient clipping | NEW key (non-binding) | `optim.grad_clip: 1.0` | clip1 |
+  | **LR-schedule no-op** (added 2026-09-28, author) | NEW keys, non-engaging | the LR-schedule fault's SAME three keys with decay factor 1.0 (`sched.decay_every: 1`, `sched.decay_gamma: 1.0`, `sched.interval_unit: steps`) — flagging the keys can be told apart from finding the unit bug | (clip1's role) |
+
+  **Seven types × 12 = 84 benign controls** (author, 2026-09-28: ADDED as a 7th type, not replacing one); seeds
+  70–93 ∪ 110–169 (158–169 new, disjoint from every other set), paired in blocks of 7 × 4 by the same function.
 
 - **Qualification (as workload 1, STAGE4 4.0.6):** every benign type must stay inside the visible band AND above the
   hidden tolerance on all 12 of its seeds on AMD (`benign-qualify` CI task); a type that fails is replaced before any
@@ -79,8 +83,8 @@ operators / 126 faulty cases, 218 total.**
 |---|---|---|
 | Faulty | 7 operators × 3 × 6 = **126** | 6 × 3 × 6 = **108** |
 | Healthy | 20 | 20 |
-| Benign | 72 | 72 |
-| **Total** | **218** | **200** |
+| Benign | **84** (7 types, decided 2026-09-28) | 72 |
+| **Total** | **230** | **200** |
 
 ## 5. Reference-run plan
 
