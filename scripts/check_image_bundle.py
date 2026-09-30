@@ -18,6 +18,9 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 N_SHARDS = 12
+# Exit status for "the bundle is NOT the image design" — distinct from 1 (an uncaught exception, i.e. the check itself
+# crashed), so callers never blame a bundle for a script/environment error (restore_image_cases.sh).
+BUNDLE_DEFECT = 3
 
 
 def _shard_module():
@@ -67,7 +70,7 @@ def main() -> int:
     errs = check(Path(sys.argv[1]))
     if errs:
         print("IMAGE BUNDLE CHECK FAILED:\n  " + "\n  ".join(errs[:40]))
-        return 1
+        return BUNDLE_DEFECT
     print("image bundle OK: 230 cases = the design; 12 shard gates with 0 FAIL; all shards on AMD")
     return 0
 

@@ -20,6 +20,8 @@ WORKFLOW="${CERTIFY_WORKFLOW:-ci.yml}"
 ARTIFACT_NAME="image_bundle"
 CIPHERTEXT="image_bundle.tar.gz.gpg"
 REQUIRE_VENDOR="${REQUIRE_VENDOR:-AuthenticAMD}"
+# The project's own environment (PyYAML etc.), never the system python (which may lack yaml). Override with PY=...
+PY="${PY:-uv run python}"
 
 require_cmd "$GH" gh "Install the GitHub CLI (https://cli.github.com) and run 'gh auth login'."
 require_cmd "$GPG" gpg
@@ -72,17 +74,41 @@ grep -qx "build_cpu_vendor=$REQUIRE_VENDOR" "$meta" || die "the bundle was not b
 off_cpu="$(for c in "$STAGING"/cases/case_*/hidden/card.hidden.yaml; do
              grep -q "^build_cpu: $REQUIRE_VENDOR " "$c" || basename "$(dirname "$(dirname "$c")")"; done | head -5)"
 [ -z "$off_cpu" ] || die "cases not built on $REQUIRE_VENDOR: $off_cpu. Refusing; your cases/ is untouched."
-python3 scripts/check_image_bundle.py "$STAGING/cases" || die "the bundle is not the image design; refusing."
-python3 - <<'PY' || die "the local registry is not exactly workload 1's certified design; run make restore-cases first."
-import sys, yaml
-sys.path.insert(0, ".")
-from scripts.build_image_shard import allocation, image_ids
+# Exit 3 = a genuine finding; any other nonzero status = the CHECK crashed (environment), and the bundle is not judged.
+set +e
+$PY scripts/check_image_bundle.py "$STAGING/cases"
+rc=$?
+set -e
+case "$rc" in
+  0) ;;
+  3) die "the bundle is not the image design (see IMAGE BUNDLE CHECK FAILED above); refusing. Your cases/ is untouched." ;;
+  *) die "the image-bundle CHECK itself failed (exit $rc) — a local environment problem (e.g. missing PyYAML;" \
+         "the check runs with PY='$PY'), NOT a verdict on the bundle. Fix the environment and re-run. Your cases/ is untouched." ;;
+esac
+set +e
+$PY - <<'PY'
+import sys
+try:
+    import yaml
+    sys.path.insert(0, ".")
+    from scripts.build_image_shard import allocation, image_ids
+except Exception as e:                      # the check could not run: environment, not a finding
+    print(f"registry check could not run: {e!r}", file=sys.stderr)
+    sys.exit(1)
 alloc = allocation(); img = set(image_ids())
 reg = yaml.safe_load(open("cases/registry.hidden.yaml")) or {}
 w1 = {k: v for k, v in reg.items() if k not in img}
 want = {k: v for k, v in alloc.items() if k not in img}
-sys.exit(0 if w1 == want else 1)
+sys.exit(0 if w1 == want else 3)
 PY
+rc=$?
+set -e
+case "$rc" in
+  0) ;;
+  3) die "the local registry is not exactly workload 1's certified design; run make restore-cases first." ;;
+  *) die "the local-registry CHECK itself failed (exit $rc) — a local environment problem, not a verdict on your" \
+         "cases. Fix the environment (PY='$PY') and re-run. Your cases/ is untouched." ;;
+esac
 
 # --- merge (rollback-protected) -------------------------------------------------------------------------------
 cp cases/registry.hidden.yaml "$STAGING/registry.backup.yaml"
@@ -96,7 +122,7 @@ done
 for d in "$STAGING"/cases/case_*; do
   n="$(basename "$d")"; mv "$d" "cases/$n"; echo "$n" >> "$STAGING/added.txt"
 done
-python3 - "$STAGING/cases/registry.hidden.yaml" <<'PY'
+$PY - "$STAGING/cases/registry.hidden.yaml" <<'PY'
 import sys, yaml, os
 img = yaml.safe_load(open(sys.argv[1])) or {}
 reg = yaml.safe_load(open("cases/registry.hidden.yaml")) or {}
