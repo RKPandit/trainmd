@@ -1488,3 +1488,153 @@ up to ≈ 15–40%.
    status recorded; then `scripts/project_sweep_cost.py --name stage4_part2 --cap 100` must FIT.
 3. Stage B only after Stage A: a Stage B slice, then `scripts/project_sweep_cost.py --name stage4_part2_react
    --cap <100 − Stage A actual>` must FIT; `check-cache` and `check-reasoning` → `passed` on its multi-call cells.
+
+## Stage 4 Part 3 — PRE-REGISTRATION (locked 2026-09-29 — do not edit above this line; append verdicts only)
+
+> The author approved r2 of the draft (#86) on 2026-09-29 in one pass, with these decisions:
+> - design option C;
+> - a $120 cap, with a slice and a per-condition projection before the full run;
+> - H15 pools static and ReAct exactly as Part 1's H9, with per-protocol values reported descriptively;
+> - H17 added.
+>
+> This section was appended after the 230 image cases were certified and BEFORE any Part 3 trial. The verdicts
+> are computed mechanically by `harness/prereg_part3.py`. It was tested before the run on synthetic data by
+> `tests/test_prereg_part3.py`: confirm (with and without a clause), refute by the opposite direction, refute by
+> "shown small", inconclusive, untestable, Holm with the intersection–union p, and document ↔ code agreement.
+> The verdicts are rendered in the generated report's "Pre-registered verdicts (Stage 4 Part 3)" section.
+> **The design is FROZEN from this point:** anything found after the lock goes into LIMITATIONS, not a fix cycle,
+> unless it would make a result wrong. Draft history: `docs/PREREG_STAGE4_PART3_DRAFT.md`.
+
+**Part 3 is the FIRST CONFIRMATORY TEST of findings that were EXPLORATORY in Part 2**
+(`docs/audits/stage4_part2_control_false_alarms.md`, `stage4_part2_react_vs_static.md`,
+`stage4_part2_followups.md`). No Part 2 trial is re-used.
+
+### Design (locked)
+
+- **Cases:** the 230 image cases (`workloads/image_fmnist`), certified on AMD EPYC by CI `image-certify`:
+  - 126 faulty (7 operators × 3 strengths × seeds 42–47);
+  - 20 healthy controls (50–69);
+  - 84 benign controls (7 types × 12 seeds: 70–93 ∪ 110–169).
+- **Conditions (4):** Claude Haiku 4.5; Claude Sonnet 5, thinking off (`thinking: disabled` at the default effort,
+  L38); GPT-5.6 Luna, reasoning `medium`; GPT-5.6 Luna, reasoning `none`. Both Luna conditions use strict tool
+  schemas, and Anthropic requests are streamed.
+- **Static** (`sweeps/stage4_part3_static_plan.yaml`), per condition:
+  - faulty × arms off / stats / rule × 2 repeats = 756;
+  - controls × 3 arms × 1 repeat = 312.
+- **ReAct** (`sweeps/stage4_part3_react_plan.yaml`), per condition:
+  - faulty × arms off / stats × 1 repeat = 252;
+  - controls × off / stats × 1 repeat = 208. **Controls run under ReAct.**
+- **Total: 6,112 trials.**
+- **Cost:** projected $90.87 ($109.04 with × 1.2 contingency). **Cap $120.**
+  - A slice of each plan runs first, then a per-condition projection (`scripts/project_sweep_cost.py`).
+  - The rest runs only if the projection fits.
+  - Otherwise the author decides before any further spend.
+- **Pre-run gates:**
+  - `validate-all` green on all 430 local cases (workload 1 + image);
+  - the scorer freeze unchanged (`python -m harness.scorer_freeze`);
+  - a never-scored pilot per condition × agent;
+  - `check-cache` / `check-reasoning` → `passed` on ReAct cells.
+- **Scorer FROZEN:** root_token_v3 / evidence v2.3, workload-scoped. The post-run blind human audit is the fresh
+  validation of the image identification specs.
+
+### Quantities and shared rules (locked)
+
+- **DET** = the unweighted mean over the non-crash mechanisms (leakage, label flip, decay unit, metric inflation)
+  of each mechanism's end-to-end detection rate.
+- **FA** = the share of control trials (healthy + benign pooled) with `detected: true`. An empty diagnosis is
+  not an alarm.
+- **J = DET − FA** (Youden's J; LIMITATIONS L39). Per mechanism, J_m = det_m − FA.
+- **J_silent** uses the silent mechanisms only: leakage and metric inflation.
+- **The crash** (channel mismatch) is excluded from every confirmatory quantity.
+- **Bootstrap:**
+  - 10,000 paired case-level resamples, stratified by mechanism (faulty) and by control type (controls);
+  - one seeded generator per test;
+  - two-sided p with ties counted half: **p = min(1, 2·min(L + T/2, U + T/2)/B)**;
+  - 95% percentile intervals.
+- **Headroom** reads only the side a test expects to be LOWER: a unit is eligible only if that side's J has a 95%
+  upper bound **below 0.85**.
+  - A per-mechanism test needs ≥ 2 eligible mechanisms.
+  - A test without enough eligible units is **UNTESTABLE** and leaves the family.
+- **ONE Holm family** over every testable test below (family-wise α = 0.05).
+  - H15's intersection–union test enters with its IU p, the largest of its eligible per-mechanism p.
+- **Verdict for a ΔJ test:**
+  - **CONFIRMING** — Holm-rejected with ΔĴ in the declared direction and its clause (if any) met;
+  - **CONFIRMING (J only)** — the same, with the clause failing;
+  - **REFUTING (opposite direction)** — rejected with ΔĴ < 0;
+  - **REFUTING (shown small)** — not rejected, with the interval inside **±0.15**;
+  - **INCONCLUSIVE** — otherwise.
+- **A clause holds** iff the named component's 95% interval lies above 0 AND its point estimate is **≥ ½·ΔĴ**.
+
+### Confirmatory tests (locked)
+
+- **H13a — Without reasoning, Luna's J is lower in the STATIC protocol, via false alarms.**
+  - *Estimand:* ΔJ = J(Luna medium) − J(Luna none), static, off arm.
+  - *Clause "via false alarms":* ΔFA = FA(none) − FA(medium).
+  - *Headroom:* J_m(Luna none).
+  - *Part 2 exploratory:* static J +0.08 vs +0.90; `none` flagged 84/92 controls (dormant gated paths).
+- **H13b — Without reasoning, Luna's J is lower in the ReAct protocol, via misses.**
+  - *Estimand:* the same, ReAct, off arm.
+  - *Clause "via misses":* ΔDET = DET(medium) − DET(none).
+  - *Headroom:* J_m(Luna none), ReAct.
+  - *Part 2 exploratory:* ReAct silent-fault detection 0.19 vs 0.85, with `train.py` opened in 89/90 trials.
+- **H14 — Under investigation, bare statistics raise J on the silent faults (ReAct `stats` vs `off`).**
+  - One test per condition among Haiku, Sonnet off and Luna medium.
+  - A condition is tested only if its ReAct off-arm J_silent upper bound is < 0.85. Expected to be tested: Sonnet
+    off and Haiku.
+  - Luna none is excluded by design (its ReAct misses are H13b).
+  - *Part 2 exploratory:* every ReAct "none" answer had read the planted key in the config. Sonnet-off misses
+    called the inflated accuracy typical for the dataset (11/25).
+- **H15 — Model dependence on J: Luna medium > Haiku, off arm (H9 replication; the same estimand, pooled over
+  static and ReAct).**
+  - *Estimand:* per mechanism, Δ_m = J_m(Luna medium) − J_m(Haiku). Headroom: J_m(Haiku); ≥ 2 mechanisms.
+  - *Rule (H9's intersection–union):*
+    - **CONFIRMING** iff Holm-rejected (IU p) and every eligible Δ_m has its lower bound > 0;
+    - **REFUTING (shown small)** iff every eligible Δ_m upper bound is < 0.2;
+    - **REFUTING (opposite direction)** iff rejected with every eligible Δ_m below 0;
+    - **INCONCLUSIVE** otherwise.
+  - The static-only and ReAct-only values are reported descriptively.
+  - *Motivation:* Part 1 H9 CONFIRMING on detection (FINDINGS F17). Part 2 showed detection alone can be inflated.
+- **H16 — Bare statistics close most of the off→rule gap on J (H10 replication), per model (Haiku, Luna
+  medium), static.**
+  - *Estimand:* f_J = (J(stats) − J(off)) / (J(rule) − J(off)), over the mechanisms whose J rule − off gap is
+    ≥ 0.3.
+  - *Test:* bootstrap p for f = 0.5.
+  - **CONFIRMING** if rejected with f̂ > 0.5; **REFUTING** if rejected with f̂ < 0.5; **INCONCLUSIVE** otherwise.
+  - A model with no eligible mechanism is UNTESTABLE.
+  - *Motivation:* Part 1 H10 was CONFIRMING for Haiku (f = 0.909) and UNTESTABLE for Luna.
+- **H17 — For Sonnet 5 thinking off, J_silent is higher for the complete STATIC agent configuration than for
+  the complete ReAct configuration (off arm, paired by case).**
+  - This is a comparison of complete agent configurations (the prompt, the context given, the tool loop), not
+    an estimate of "the effect of tools".
+  - *Estimand:* ΔJ_silent = J_silent(static) − J_silent(ReAct).
+  - *Headroom* is read from the ReAct (lower) side: its J_silent upper bound must be < 0.85.
+  - **Luna medium is not tested:** its Part 2 ReAct drop was mostly compliance (4 of its 8 silent-fault
+    non-detections never submitted; 1 was a strict-mode truncation).
+  - *Part 2 exploratory:* Sonnet-off silent-fault detection was ≈ 0.95 static vs 0.54 ReAct. Sonnet never
+    detected a silent fault without opening `train.py` (0/19).
+
+### Descriptive only — no verdicts (locked)
+
+- **Code opening (L40):** ReAct rates of opening `train.py` / the config; detection conditional on opening the
+  training script; whether the planted key was visible via `read_config` in "none" answers.
+- **Compliance:** ended without submit, strict-mode whitespace truncation (L35), and Sonnet repair omission.
+- **Detection-only versions** of every test, and **per-protocol H15** values.
+- **Per condition × agent × arm:** identification (the image specs), evidence F1, and recovery (strict and
+  semantic).
+- **Benign false alarms by form** (changed vs added), and the schedule no-op.
+- **Cross-workload, family-level** comparison with Parts 1–2.
+- **Baselines** where they apply.
+
+### Run order (locked)
+
+1. Restore the cases: `make restore-cases` (workload 1), then `make restore-image-cases`. `validate-all` must be
+   green on all 430.
+2. Pilot per condition × agent (never scored).
+3. Slices:
+   - a static slice, then `scripts/project_sweep_cost.py --name stage4_part3_static --cap 120`;
+   - a ReAct slice, then `--name stage4_part3_react --cap <120 − static projection>`, per condition.
+   - Both must FIT.
+4. The full static run, then the full ReAct run.
+5. Native verification.
+6. Report.
+7. Post-run blind human audit.

@@ -172,16 +172,14 @@ ran (agent phase 978/984 cells, $24.03, 6 unrun — all neutral×Luna×static; v
   lost — L29). Verdict logic corrected mid-analysis to a CI equivalence test (was point-based;
   DECISIONS 2026-09-22, RESEARCH_LOG 35).
 
-**NEXT GATE (updated 2026-09-28): run Stage 4 Part 2 — pre-registration LOCKED** (`docs/HYPOTHESES.md`, "Stage 4
-Part 2 — PRE-REGISTRATION"): confirmatory H11 (GPT-5.6 Luna reasoning none vs medium — possibly untestable by the
-headroom rule) and H12 (Sonnet 5 thinking off vs xhigh); everything else descriptive. Stage A static
-(`sweeps/stage4_part2_plan.yaml`, 5,544 cells, ≈ $81) after a slice and a cost projection; Stage B ReAct
-(`sweeps/stage4_part2_react_plan.yaml`, 432 cells, ≈ $13) only if a Stage B slice projection fits the $100 cap.
-Scorer FROZEN (root_token_v3 / evidence v2.3). From the lock on, findings go to LIMITATIONS. Part 3 (Fashion-MNIST):
-reference adopted, calibration done (rule v2 ladders), step 4 — the image operators, workload-scoped identification
-and the re-freeze — built; its AMD proofs and the benign qualification run in CI task image-step4; the 230 image
-cases are built and certified at step 7 (the workload-1 design above stays 200). Billed Part 1 spend still to enter.
-
+**NEXT GATE (updated 2026-09-30): run Stage 4 Part 3 — pre-registration LOCKED** (`docs/HYPOTHESES.md`, "Stage 4
+Part 3 — PRE-REGISTRATION"). The image workload has 230 cases, certified on AMD (CI 36642567310). Four conditions,
+static and ReAct: Haiku 4.5, Sonnet 5 thinking off, GPT-5.6 Luna medium and none; ReAct cells include the controls.
+The confirmatory set is one Holm family on Youden's J (H13a, H13b, H14, H15, H16, H17; L39). The cap is $120 (the
+projection is $91), with a slice and per-condition projection first. Part 2 is done and recorded: H11 and H12
+UNTESTABLE (FINDINGS F24); exploratory follow-ups in L39 / L40 and `docs/audits/stage4_part2_*`. Scorer FROZEN
+(workload-scoped). Workload 1's design stays 200 cases; the image cases are restored beside them
+(`make restore-image-cases`). Billed Part 1 spend still to enter.
 ---
 
 **Stage 3 v2 (`STAGE3_PLAN.md`) — Part 0: Hygiene before science (BLOCKING).** Nothing else starts
