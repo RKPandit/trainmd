@@ -85,3 +85,17 @@ def test_allowlist_rejects_unknown_field(tmp_path):
     with pytest.raises(SystemExit) as e:
         exp.export(tmp_path, "s")
     assert "secret_field" in str(e.value)
+
+
+def test_leak_scan_counts_whole_numbers_only():
+    """A hidden value must be caught as a whole number, but a longer, different number that merely starts with
+    the same digits (a trial's cost 0.0017966 vs the hidden σ 0.001796) is not a leak (2026-09-30)."""
+    import importlib.util as _u
+    from pathlib import Path as _P
+    spec = _u.spec_from_file_location("exr", _P(__file__).resolve().parent.parent / "scripts" / "export_release.py")
+    exr = _u.module_from_spec(spec)
+    spec.loader.exec_module(exr)
+    assert exr._count_number("cost: 0.0017966000000000002", "0.001796") == 0
+    assert exr._count_number("sd was 0.001796, low", "0.001796") == 1
+    assert exr._count_number("x=10.001796", "0.001796") == 0
+    assert exr._count_number("[0.001796]", "0.001796") == 1

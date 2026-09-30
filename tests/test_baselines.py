@@ -304,3 +304,69 @@ def test_bform_flags_only_newly_present_keys(tmp_path):
     assert s1["diagnosis"]["detected"] is True
     assert s1["evidence_refs"][0]["detail"]["key_path"] == "training.grad_clip_norm"
     assert B.bform(B.VisibleSurface(changed, REPO))["diagnosis"]["detected"] is False
+
+
+# --------------------------------------------------------------------------- #
+# External review 2026-09-30: a clean IMAGE config must use its OWN reference
+# --------------------------------------------------------------------------- #
+
+def _image_case(tmp_path, family="image_fmnist", edit=None):
+    import yaml as _y
+    root = Path(__file__).resolve().parent.parent
+    cfg = _y.safe_load((root / "workloads" / family / "config.yaml").read_text())
+    cfg["seed"] = 42
+    if edit:
+        edit(cfg)
+    case = tmp_path / "case_9999"
+    (case / "workspace" / "run_output").mkdir(parents=True)
+    (case / "workspace" / "run_output" / "config.resolved.yaml").write_text(_y.dump(cfg))
+    (case / "workspace" / "config.yaml").write_text(_y.dump({k: v for k, v in cfg.items() if k != "seed"}))
+    (case / "card.public.yaml").write_text(_y.dump({"reference_visible_metric": {"series": "val_top1",
+                                                                                "mean": 0.886, "std": 0.0086}}))
+    return case, root
+
+
+@pytest.mark.parametrize("family", ["image_fmnist", "image_fmnist_neutral"])
+def test_clean_image_config_uses_its_own_reference_and_stays_unflagged(tmp_path, family):
+    from harness import baselines as bl
+    case, root = _image_case(tmp_path, family)
+    s = bl.VisibleSurface(case, root)
+    assert s.workload() == "image_fmnist"
+    assert (s.reference_resolved_config().get("pipeline") or {}).get("name") == "image_fmnist"
+    assert bl.b2(s)["diagnosis"]["detected"] is False
+    assert bl.bform(s)["diagnosis"]["detected"] is False
+
+
+def test_image_fault_key_is_still_found_against_the_image_reference(tmp_path):
+    from harness import baselines as bl
+    case, root = _image_case(tmp_path, edit=lambda c: c["eval"].update({"confident_fraction": 0.8}))
+    s = bl.VisibleSurface(case, root)
+    sub = bl.b2(s)
+    assert sub["diagnosis"]["detected"] is True
+    assert [e["detail"]["key_path"] for e in sub["evidence_refs"]] == ["eval.confident_fraction"]
+    assert bl.bform(s)["diagnosis"]["detected"] is True
+
+
+def _surface_case(tmp_path, name, *, exitcode, finals=None):
+    import yaml as _y
+    case = tmp_path / name
+    (case / "workspace" / "run_output").mkdir(parents=True)
+    (case / "workspace" / "run_output" / "exitcode").write_text(str(exitcode))
+    rows = [{"epoch": i, "val_top1": v, "end_of_epoch": True} for i, v in enumerate(finals or [])]
+    (case / "workspace" / "run_output" / "metrics.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    (case / "card.public.yaml").write_text(_y.dump({"reference_visible_metric": {"series": "val_top1",
+                                                                                "mean": 0.886, "std": 0.0086}}))
+    return case
+
+
+def test_b01_is_b0_or_b1_computed_from_the_case_itself(tmp_path):
+    """External review 2026-09-30: B0 OR B1, materialized per case from its own exit code and metrics."""
+    from harness import baselines as bl
+    crash = bl.VisibleSurface(_surface_case(tmp_path, "c1", exitcode=1), tmp_path)
+    clean = bl.VisibleSurface(_surface_case(tmp_path, "c2", exitcode=0, finals=[0.80, 0.886]), tmp_path)
+    high = bl.VisibleSurface(_surface_case(tmp_path, "c3", exitcode=0, finals=[0.88, 0.95]), tmp_path)
+    assert bl.b01(crash)["diagnosis"]["detected"] is True and bl.b0(crash)["diagnosis"]["detected"] is True
+    assert bl.b01(clean)["diagnosis"]["detected"] is False            # final epoch in band (earlier epoch ignored)
+    s = bl.b01(high)
+    assert s["diagnosis"]["detected"] is True and s["evidence_refs"][0]["detail"]["series"] == "val_top1"
+    assert bl.b0(high)["diagnosis"]["detected"] is False and bl.b1(high)["diagnosis"]["detected"] is True

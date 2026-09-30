@@ -128,8 +128,18 @@ class VisibleSurface:
                 continue
         return {}
 
+    def workload(self) -> str:
+        """The case's workload, via the one workload-name helper (tabular: `workload.name`; image:
+        `pipeline.name`). External review 2026-09-30: reading only `workload.name` sent every image case to Adult's
+        clean config and reference, so B2 and form-only flagged clean image runs."""
+        from harness.workload_spec import workload_name
+        try:
+            return workload_name(self.resolved_config())
+        except KeyError:
+            return "tabular_adult"          # configs from before the workload key existed
+
     def clean_config(self) -> dict:
-        wl = (self.resolved_config().get("workload", {}) or {}).get("name", "tabular_adult")
+        wl = self.workload()
         p = self.project_root / "workloads" / wl / "config.yaml"
         return yaml.safe_load(p.read_text()) or {}
 
@@ -139,7 +149,7 @@ class VisibleSurface:
         this so that train.py-written keys (e.g. model.input_dim) are present on
         BOTH sides — no longer a spurious delta on every case. Falls back to the
         source config for old checkouts that lack the reference resolved file."""
-        wl = (self.resolved_config().get("workload", {}) or {}).get("name", "tabular_adult")
+        wl = self.workload()
         p = self.project_root / "workloads" / wl / "reference" / "config.resolved.yaml"
         try:
             return yaml.safe_load(p.read_text()) or {}
@@ -321,6 +331,16 @@ def b0(surface: VisibleSurface) -> dict:
     return _sub(ec is not None and ec != 0)
 
 
+def b01(surface: VisibleSurface, band: tuple[float, float] | None = None) -> dict:
+    """B0 OR B1 (external review 2026-09-30): detected iff the process exited nonzero OR the final visible
+    metric is outside the band. Computed from THIS case's own outputs (exit code, metrics) — never deduced
+    from the two baselines' summary rates. Evidence is B1's metric window when B1 fires; no identification
+    or repair (neither component states a fault class)."""
+    if b0(surface)["diagnosis"]["detected"]:
+        return _sub(True)
+    return b1(surface, band)
+
+
 def b3(surface: VisibleSurface, band: tuple[float, float] | None = None, *, _b1=None) -> dict:
     """Union: detected if B1 or B2; identification/evidence/repair from B2 when it fires."""
     s2 = b2(surface)
@@ -387,8 +407,8 @@ def operating_point_for_rate(roc: list[dict], target_tpr: float) -> dict | None:
 # Scoring — the SAME scorer as an agent (baseline reads visible; scorer reads hidden)
 # --------------------------------------------------------------------------- #
 
-_BASELINES = {"b0": b0, "b1": b1, "b1_any": b1_any, "b2": b2, "b2plus": b2plus, "b3": b3, "b3_any": b3_any,
-              "bform": bform}
+_BASELINES = {"b0": b0, "b1": b1, "b1_any": b1_any, "b01": b01, "b2": b2, "b2plus": b2plus, "b3": b3,
+              "b3_any": b3_any, "bform": bform}
 
 
 def score_baseline(case_dir, name, band=None, project_root=None) -> tuple[dict, dict]:
@@ -397,7 +417,7 @@ def score_baseline(case_dir, name, band=None, project_root=None) -> tuple[dict, 
     from harness.scoring import score_diagnosis
     surface = VisibleSurface(case_dir, project_root)
     fn = _BASELINES[name]
-    submission = fn(surface, band) if name in ("b1", "b1_any", "b3", "b3_any") else fn(surface)
+    submission = fn(surface, band) if name in ("b1", "b1_any", "b01", "b3", "b3_any") else fn(surface)
     scores = score_diagnosis({"submission": submission, "tool_transcript": []}, Path(case_dir))
     return submission, scores
 
@@ -408,7 +428,7 @@ def score_baseline(case_dir, name, band=None, project_root=None) -> tuple[dict, 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Non-LLM baselines (STAGE3_PLAN Part 1)")
-    ap.add_argument("--baseline", choices=["b0", "b1", "b1_any", "b2", "b2plus", "b3", "b3_any", "b4", "bform"],
+    ap.add_argument("--baseline", choices=["b0", "b1", "b1_any", "b01", "b2", "b2plus", "b3", "b3_any", "b4", "bform"],
                     required=True)
     ap.add_argument("--cases", default="cases/case_*", help="glob for case dirs")
     ap.add_argument("--project-root", type=Path, default=None)
