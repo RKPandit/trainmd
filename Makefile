@@ -2,7 +2,7 @@
 	image image-digest docker-data docker-reference docker-build-case docker-validate-all \
 	docker-gate-known-answer docker-audit-index docker-test docker-sweep docker-shell \
 	docker-build-all-cases docker-case-margins \
-	certify restore-cases sweep-run sweep-verify sweep-report doctor
+	certify restore-cases restore-image-cases sweep-run sweep-verify sweep-report doctor
 
 WORKLOAD ?= tabular_adult
 WORKLOAD_DIR := workloads/$(WORKLOAD)
@@ -255,6 +255,10 @@ certify:
 # (default: CURRENT_STATE case_count). A bundle with the wrong count is refused before the swap.
 restore-cases:
 	RUN_ID="$(RUN_ID)" EXPECT_CASES="$(EXPECT_CASES)" bash scripts/restore_cases.sh
+
+# Part 3: add the 230 certified image cases (image-certify run IMAGE_RUN=<id>; default latest) to workload 1's.
+restore-image-cases:
+	IMAGE_RUN="$(IMAGE_RUN)" bash scripts/restore_image_cases.sh
 
 # Paid agents phase (both API keys + caffeinate). MAX_COST caps spend (default $5;
 # a real sweep exceeds it, so pass MAX_COST= explicitly). NAME=<name> required.

@@ -174,6 +174,7 @@ def generate(records: list[dict], meta: dict) -> str:
     L += _valid_submission_tables(records)
     L += _prereg_part1_tables(records)
     L += _prereg_part2_tables(records)
+    L += _prereg_part3_tables(records)
     if exploratory:
         L += _no_passback_tables(ss.exploratory_no_passback(all_records))
     return "\n".join(L) + "\n"
@@ -664,3 +665,34 @@ def _prereg_part2_tables(records) -> list[str]:
                      f"{_f(pm.get('delta'))} [{_f(pm.get('lo'))}, {_f(pm.get('hi'))}] |")
         L.append("")
     return L
+
+
+def _prereg_part3_tables(records) -> list[str]:
+    """Stage 4 Part 3 pre-registered verdicts (harness/prereg_part3.py) — rendered only when image-workload
+    trials of a Part 3 condition are present, so every earlier report is byte-identical."""
+    from harness import prereg_part3 as p3
+    if not p3.present(records):
+        return []
+    v = p3.part3_verdicts(records)
+    L = ["## Pre-registered verdicts (Stage 4 Part 3) — computed mechanically", "",
+         "> Youden's J = detection on faulty cases − false-alarm rate on controls (L39); non-crash mechanisms, "
+         f"unweighted; one Holm family over the testable tests (α = {p3.ALPHA}); paired case bootstrap stratified "
+         f"by mechanism and control type (B = {p3.N_BOOT:,}); headroom: the lower side's J upper bound < "
+         f"{p3.HEADROOM_MAX_UPPER}; shown small = interval inside ±{p3.SMALL_MARGIN}.", "",
+         "| test | verdict | estimate [95% CI] | p | Holm m | why |", "|---|---|---|---|---|---|"]
+    for k, d in v.items():
+        if d.get("kind") == "f":
+            est = f"f_J = {_f(d.get('f'))} [{_f(d.get('lo'))}, {_f(d.get('hi'))}]"
+        elif d.get("kind") == "iu":
+            est = "; ".join(f"{m} {_f(x['delta'])} [{_f(x['lo'])}, {_f(x['hi'])}]"
+                            for m, x in sorted((d.get("per_mechanism") or {}).items()) if m in d.get("eligible", []))
+        elif d.get("testable"):
+            est = f"ΔJ = {_f(d.get('delta'))} [{_f(d.get('lo'))}, {_f(d.get('hi'))}]"
+            if d.get("clause"):
+                c = d["clause"]
+                est += f"; {c['name']}: {_f(c['point'])} [{_f(c['lo'])}, {_f(c['hi'])}]"
+        else:
+            est = "—"
+        p = f"{d['p']:.4f}" if d.get("testable") else "—"
+        L.append(f"| {k} | **{d['verdict']}** | {est} | {p} | {d.get('holm_m', '—')} | {d['why']} |")
+    return L + [""]

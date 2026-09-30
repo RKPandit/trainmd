@@ -317,6 +317,15 @@ MECHANISM = {
     "silent.label_corruption.v1": "label_corruption",
     "silent.lr_warmup.v1": "lr_warmup",
     "silent.metric_inflation.v1": "metric_inflation",
+    # Part 3 image workload: the SAME mechanism family where the fault is (leakage, label corruption, metric
+    # inflation, a crash from a shape/channel mismatch); the LR fault is a DIFFERENT mechanism (design decision 1).
+    "silent.pixel_tag_leakage.v1": "data_leakage",
+    "silent.pixel_tag_leakage_neutral.v1": "data_leakage",
+    "silent.label_flip.v1": "label_corruption",
+    "silent.decay_unit.v1": "lr_decay_unit",
+    "silent.confident_subset.v1": "metric_inflation",
+    "silent.confident_subset_neutral.v1": "metric_inflation",
+    "crash.channel_mismatch.v1": "shape_mismatch",
 }
 
 

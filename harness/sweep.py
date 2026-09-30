@@ -138,7 +138,8 @@ def _cell_id(operator, strength, seed, agent, anchor, repeat, provider="anthropi
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 
-def _design_tuples(registry, strengths, faulty_seeds, control_seeds, operators=None, benign_seeds=()):
+def _design_tuples(registry, strengths, faulty_seeds, control_seeds, operators=None, benign_seeds=(),
+                   workload_group=None):
     """Yield (operator, strength, seed) for the intended design.
 
     Faulty operators come from operators/registry.py (code), NOT the case
@@ -150,8 +151,9 @@ def _design_tuples(registry, strengths, faulty_seeds, control_seeds, operators=N
     be a known faulty operator; a control id or unknown id raises. When omitted,
     every registered faulty operator is enumerated (the default full design).
     """
-    from operators.registry import all_operator_ids
-    all_faulty = sorted(op for op in all_operator_ids() if _tier_of(op) != "control")
+    from operators.registry import DEFAULT_GROUP, all_operator_ids
+    group = workload_group or DEFAULT_GROUP
+    all_faulty = sorted(op for op in all_operator_ids(group) if _tier_of(op) != "control")
     if operators is None:
         faulty_ops = all_faulty
     else:
@@ -166,18 +168,23 @@ def _design_tuples(registry, strengths, faulty_seeds, control_seeds, operators=N
         for st in strengths:
             for sd in faulty_seeds:
                 yield op, st, sd
+    # Part 3: the image workload group has its own healthy control and seven benign types (the same pairing
+    # function the case builder uses); the default (workload 1) is unchanged.
+    image = group == "image_fmnist"
+    if image:
+        from operators.image.controls import IMAGE_BENIGN_OPERATORS, ImageHealthyControlOperator
     for sd in control_seeds:
-        yield CONTROL_OPERATOR, "mild", sd
+        yield (ImageHealthyControlOperator.id if image else CONTROL_OPERATOR), "mild", sd
     # Benign-configuration controls (STAGE4 4.0.6): each type on its own seeds, split exactly as the
     # cases were built (operators/control/benign.py benign_design — the one source of the pairing).
     if benign_seeds:
         from operators.control.benign import benign_design
-        yield from benign_design(benign_seeds)
+        yield from (benign_design(benign_seeds, IMAGE_BENIGN_OPERATORS) if image else benign_design(benign_seeds))
 
 
 def enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeats,
                     operators=None, providers=None, benign_seeds=(), no_passback_model=None,
-                    agents=None, anchors=None):
+                    agents=None, anchors=None, workload_group=None, controls_all_agents=False):
     """Return (cells, missing) — cells cross the design with provider×agent×anchor×repeat.
 
     A case (operator, strength, seed) is provider-agnostic; the provider multiplies
@@ -187,7 +194,7 @@ def enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeat
     registry = _load_registry(project_root)
     cells, missing = [], []
     for op, st, sd in _design_tuples(registry, strengths, faulty_seeds, control_seeds, operators,
-                                     benign_seeds):
+                                     benign_seeds, workload_group):
         case_id = _lookup_case(registry, op, st, sd)
         tier = _tier_of(op)
         if case_id is None or not (project_root / "cases" / case_id).exists():
@@ -198,7 +205,9 @@ def enumerate_cells(project_root, strengths, faulty_seeds, control_seeds, repeat
         # arms × all providers). Faulty cases use the full agent×repeat grid.
         # `agents` / `anchors` restrict the grid (Stage 4 Part 2: Stage A static-only, Stage B ReAct `off`);
         # the defaults reproduce every earlier plan (cell ids encode agent and anchor, so ids are unchanged).
-        cell_agents = ["static"] if tier == "control" else (agents or AGENTS)
+        # Part 3 (`controls_all_agents`): controls run under EVERY agent of the plan (ReAct included), still × 1
+        # repeat — so J is computable under investigation (LIMITATIONS L39).
+        cell_agents = (["static"] if tier == "control" and not controls_all_agents else (agents or AGENTS))
         cell_repeats = 1 if tier == "control" else repeats
         for prov in providers:
             for agent in cell_agents:
@@ -326,7 +335,7 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
          repeats=DEFAULT_REPEATS, order_seed=1234, model=DEFAULT_MODEL,
          operators=None, providers=None, benign_seeds=None, no_passback_model=None,
          openai_strict_tools=False, pilot_static=None, pilot_react=None, pilot_seed=20260927,
-         pilot_match=None, agents=None, anchors=None) -> dict:
+         pilot_match=None, agents=None, anchors=None, workload_group=None, controls_all_agents=False) -> dict:
     strengths = strengths or DEFAULT_STRENGTHS
     faulty_seeds = faulty_seeds or DEFAULT_FAULTY_SEEDS
     # `is None` (not `or`) so an explicit empty list means NO controls (faulty-only sweep).
@@ -342,7 +351,8 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
             raise ValueError(f"{name_} {got} not a subset of {allowed}")
     cells, missing = enumerate_cells(
         project_root, strengths, faulty_seeds, control_seeds, repeats, operators, providers,
-        benign_seeds, no_passback_model, agents=agents, anchors=anchors)
+        benign_seeds, no_passback_model, agents=agents, anchors=anchors, workload_group=workload_group,
+        controls_all_agents=controls_all_agents)
     # Stage 4 Part 2 DECISION (2026-09-27): strict tool schemas on EVERY OpenAI cell (LIMITATIONS L35).
     if openai_strict_tools:
         for c in cells:
@@ -388,8 +398,8 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
                                                "excluded from every analysis (harness/sweep_stats loaders)"}
     random.Random(order_seed).shuffle(cells)
 
-    from operators.registry import all_operator_ids
-    _all_faulty = sorted(o for o in all_operator_ids() if _tier_of(o) != "control")
+    from operators.registry import DEFAULT_GROUP, all_operator_ids
+    _all_faulty = sorted(o for o in all_operator_ids(workload_group or DEFAULT_GROUP) if _tier_of(o) != "control")
     included = sorted(set(operators)) if operators else _all_faulty
     scope = {
         "gate_operators": included,
@@ -427,7 +437,9 @@ def plan(project_root, name, strengths=None, faulty_seeds=None, control_seeds=No
                           "repeats": repeats,
                           "strengths": strengths, "faulty_seeds": faulty_seeds,
                           "control_seeds": control_seeds, "benign_seeds": benign_seeds,
-                          **({"openai_strict_tools": True} if openai_strict_tools else {})},
+                          **({"openai_strict_tools": True} if openai_strict_tools else {}),
+                          **({"workload_group": workload_group} if workload_group else {}),
+                          **({"controls_all_agents": True} if controls_all_agents else {})},
         "exploratory": ({"no_passback": {**{k: (list(v) if isinstance(v, tuple) else v)
                                             for k, v in EXPLORATORY_NO_PASSBACK.items()},
                                          "model": no_passback_model,
@@ -1167,6 +1179,10 @@ def main() -> int:
                     help="add the EXPLORATORY H8-defect arm: leakage x off x ReAct on this openai model "
                          "with reasoning pass-back OFF (quantifies LIMITATIONS L32 only)")
     pp.add_argument("--repeats", type=int, default=DEFAULT_REPEATS)
+    pp.add_argument("--workload-group", default=None, choices=["tabular_adult", "image_fmnist"],
+                    help="Part 3: enumerate this workload group's operators and controls (default: workload 1)")
+    pp.add_argument("--controls-all-agents", action="store_true",
+                    help="Part 3: run the controls under every agent of the plan (default: static only)")
     pp.add_argument("--order-seed", type=int, default=1234)
     pp.add_argument("--operators", nargs="*", default=None,
                     help="Restrict faulty operators to this explicit subset (default: "
@@ -1227,7 +1243,8 @@ def main() -> int:
                       no_passback_model=args.exploratory_no_passback,
                       openai_strict_tools=args.openai_strict_tools,
                       pilot_static=args.pilot_static, pilot_react=args.pilot_react, pilot_match=pilot_match,
-                      agents=args.agents, anchors=args.anchors)
+                      agents=args.agents, anchors=args.anchors, workload_group=args.workload_group,
+                      controls_all_agents=args.controls_all_agents)
         if args.build_missing and result["missing"]:
             summary = build_missing(root, result["missing"])
             print(f"[build-missing] built={len(summary['built'])} skipped={len(summary['skipped'])} "
@@ -1242,7 +1259,8 @@ def main() -> int:
                           no_passback_model=args.exploratory_no_passback,
                           openai_strict_tools=args.openai_strict_tools,
                           pilot_static=args.pilot_static, pilot_react=args.pilot_react, pilot_match=pilot_match,
-                      agents=args.agents, anchors=args.anchors)
+                      agents=args.agents, anchors=args.anchors, workload_group=args.workload_group,
+                      controls_all_agents=args.controls_all_agents)
         path = write_plan(result)
         est = result["plan"]["header"]["cost_estimate"]
         print(f"Plan: {path}\n  cells={result['plan']['header']['n_cells']} "

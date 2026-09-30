@@ -1,4 +1,4 @@
-# Stage 4 Part 3 — pre-registration (DRAFT r2 for one-pass review — NOT LOCKED)
+# Stage 4 Part 3 — pre-registration (DRAFT r2 — SUPERSEDED: approved 2026-09-29 with design C, a $120 cap, H15 pooled as H9, and H17 added; locked in `docs/HYPOTHESES.md`, "Stage 4 Part 3 — PRE-REGISTRATION")
 
 > r2, 2026-09-29, revised with the author's inputs after the Part 2 follow-ups (ReAct controls; four conditions;
 > ReAct arms off + stats; a small J-based confirmatory set; motivations cited). Nothing is locked. On approval
