@@ -84,7 +84,9 @@ def memo_key(config: dict, workload_dir: Path, hidden_seeds, project_root: Path)
     doc = {
         "schema": SCHEMA,
         "config": config,
-        "code": {"train.py": _sha(wd / "train.py"), "datautil.py": _sha(wd / "datautil.py"),
+        "code": {"train.py": _sha(wd / "train.py"),
+                 # only where the workload has one (image_fmnist has none): every tabular key is unchanged
+                 **({"datautil.py": _sha(wd / "datautil.py")} if (wd / "datautil.py").is_file() else {}),
                  "evaluate_checkpoint.py": _sha(root / "harness" / "evaluator" / "evaluate_checkpoint.py"),
                  "thread_pins.py": _sha(root / "harness" / "thread_pins.py")},
         "data": {"visible": _dir_hashes(str(wd / ".data")), "hidden": _dir_hashes(str(wd / ".hidden_data"))},

@@ -391,8 +391,10 @@ def verify_repair(
         "card.hidden.yaml": hidden_dir / "card.hidden.yaml",
         "workload/train.py": workload_dir / "train.py",
         "workload/config.yaml": workload_dir / "config.yaml",
-        "workload/datautil.py": workload_dir / "datautil.py",
     }
+    # datautil.py only where the workload has one (image_fmnist has none); tabular hashes are unchanged.
+    if (workload_dir / "datautil.py").is_file():
+        integrity_files["workload/datautil.py"] = workload_dir / "datautil.py"
     hashes_before = {name: _hash_file(path) for name, path in integrity_files.items()}
 
     # ---- Step 3: Parse + validate repair spec ----------------------------
