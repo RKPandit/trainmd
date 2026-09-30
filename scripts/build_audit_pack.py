@@ -29,6 +29,11 @@ provider × arm) plus the benign-configuration controls (one per provider × arm
 excluded, and — beyond the band and seeds — every exact metric value in agent text rounded to 2 decimals
 (a precise value, with the planted fault, could identify the case once the sweep is released). Input is
 the LOCAL export ``results_release/stage4_part1/`` (``make export-release NAME=stage4_part1``; gitignored).
+
+Stage 4 Part 2 fresh audit (``--design part2``): ~30 items over Stage A (static) + Stage B (ReAct), faulty items
+spread evenly over FULL condition (model + settings) × agent and within each over fault mechanisms, controls one
+per condition (static; ~20%); the same rubric, blinding and rounding; the key records the condition. Input: the
+LOCAL exports ``results_release/stage4_part2/`` and ``results_release/stage4_part2_react/``.
 """
 from __future__ import annotations
 
@@ -53,7 +58,7 @@ RATINGS = ["Yes", "Partial", "No", "N/A"]
 SHEET_COLS = ["item_id", "planted_fault", "agent_said_wrong", "agent_diagnosis", "agent_explanation",
               "agent_evidence", "named", "located", "evidence", "explained", "notes"]
 RATING_COLS = ["named", "located", "evidence", "explained"]
-KEY_COLS = ["item_id", "run_id", "case_id", "seed", "operator", "provider", "model", "agent_type",
+KEY_COLS = ["item_id", "run_id", "case_id", "seed", "operator", "provider", "model", "condition", "agent_type",
             "anchor", "prompt_version", "auto_detection_correct", "auto_identification_correct",
             "auto_match_path", "auto_predicted_class", "auto_evidence_precision",
             "auto_evidence_recall", "auto_evidence_f1", "auto_evidence_matched"]
@@ -207,11 +212,64 @@ def sample(recs: list[dict], n: int, control_share: float, seed: int,
     return picked
 
 
+def _condition(r: dict) -> str:
+    from harness.report_gen import condition_of
+    return condition_of(r)
+
+
+def sample_by_condition(recs: list[dict], n: int, control_share: float, seed: int, control_ops) -> list[dict]:
+    """Stage 4 Part 2 audit (author's request 2026-09-30): faulty items spread evenly over FULL condition × agent,
+    and within each group over fault MECHANISMS (seeded rotation); control items spread over condition × arm
+    (static only — Stage B has no controls). Exploratory and pilot trials never enter."""
+    from harness.sweep_stats import mechanism_of
+    rng = random.Random(seed)
+    eligible = [r for r in recs if r.get("status") == "completed" and r.get("submission")
+                and (r.get("conditions") or {}).get("reasoning_passback") is not False
+                and not (r.get("conditions") or {}).get("pilot")]
+    faulty, ctrl = {}, {}
+    for r in eligible:
+        if r["_op"] in control_ops or r["_op"] == CONTROL:
+            ctrl.setdefault((_condition(r), r["_anchor"]), []).append(r)
+        elif not r["_op"].startswith("control."):
+            faulty.setdefault((_condition(r), (r.get("conditions") or {}).get("agent_type")), []).append(r)
+    n_ctrl = round(n * control_share)
+    picked = []
+    alloc = _spread(faulty, n - n_ctrl, rng)
+    for key in sorted(faulty):
+        by_mech: dict = {}
+        for r in sorted(faulty[key], key=lambda r: r["run_id"]):
+            by_mech.setdefault(mechanism_of(r["_op"]), []).append(r)
+        mechs = sorted(by_mech)
+        rng.shuffle(mechs)
+        for i in range(alloc[key]):
+            pool = [r for r in by_mech[mechs[i % len(mechs)]] if r not in picked]
+            if pool:
+                picked.append(rng.choice(pool))
+    # controls: cycle over the conditions (seeded order, a seeded arm each time), so every condition is represented
+    # before any gets a second item and the control share holds
+    conds = sorted({c for c, _a in ctrl})
+    rng.shuffle(conds)
+    for i in range(n_ctrl if conds else 0):
+        c = conds[i % len(conds)]
+        arms = sorted(a for cc, a in ctrl if cc == c)
+        pool = [r for r in sorted(ctrl[(c, rng.choice(arms))], key=lambda r: r["run_id"]) if r not in picked]
+        if pool:
+            picked.append(rng.choice(pool))
+    rng.shuffle(picked)
+    return picked
+
+
 def build(release_dir: Path, out_dir: Path, n: int = 60, control_share: float = 0.15,
-          seed: int = DEFAULT_SEED, fault_ops=None, control_ops=(CONTROL,), rounding: bool = False) -> dict:
+          seed: int = DEFAULT_SEED, fault_ops=None, control_ops=(CONTROL,), rounding: bool = False,
+          extra_release_dirs=(), by_condition: bool = False) -> dict:
     recs = load_from_release(release_dir)
-    picked = sample(recs, n, control_share, seed, fault_ops, control_ops)
-    cases = {p.stem: json.loads(p.read_text()) for p in (release_dir / "cases").glob("*.json")}
+    for d in extra_release_dirs:
+        recs += load_from_release(d)
+    picked = (sample_by_condition(recs, n, control_share, seed, control_ops) if by_condition
+              else sample(recs, n, control_share, seed, fault_ops, control_ops))
+    cases = {}
+    for d in (release_dir, *extra_release_dirs):
+        cases.update({p.stem: json.loads(p.read_text()) for p in (d / "cases").glob("*.json")})
     rows, key = [], []
     for i, r in enumerate(picked, 1):
         item = f"A{i:02d}"
@@ -230,7 +288,8 @@ def build(release_dir: Path, out_dir: Path, n: int = 60, control_share: float = 
         c = r.get("conditions") or {}
         key.append({"item_id": item, "run_id": r["run_id"], "case_id": r["case_id"], "seed": meta.get("seed"),
                     "operator": r["_op"], "provider": _provider(r),
-                    "model": (r.get("model") or {}).get("model_id"), "agent_type": c.get("agent_type"),
+                    "model": (r.get("model") or {}).get("model_id"), "condition": _condition(r),
+                    "agent_type": c.get("agent_type"),
                     "anchor": r["_anchor"], "prompt_version": (r.get("prompt") or {}).get("prompt_version"),
                     "auto_detection_correct": (sc.get("detection") or {}).get("correct"),
                     "auto_identification_correct": ident.get("correct"),
@@ -258,12 +317,20 @@ def main() -> int:
     ap.add_argument("--control-share", type=float, default=0.15)
     ap.add_argument("--seed", type=int, default=DEFAULT_SEED)
     ap.add_argument("--project-root", type=Path, default=ROOT)
-    ap.add_argument("--design", choices=["h8", "part1"], default="h8",
+    ap.add_argument("--design", choices=["h8", "part1", "part2"], default="h8",
                     help="part1: 4 newly audited fault operators × provider × arm + benign controls "
                          "(provider × arm), n=30, exact metric values rounded")
     a = ap.parse_args()
     out = a.project_root / "audit" / "local" / a.sweep
-    if a.design == "part1":
+    if a.design == "part2":
+        # Stage 4 Part 2 fresh audit: ~30 items over BOTH sweeps (Stage A static + Stage B ReAct), stratified by
+        # FULL condition × agent (faulty) and condition (controls); frozen scorer; same rubric, blinding, rounding.
+        out = a.project_root / "audit" / "local" / "stage4_part2"
+        res = build(a.project_root / "results_release" / "stage4_part2", out, n=30, control_share=0.2, seed=a.seed,
+                    control_ops=PART1_CONTROL_OPS + (CONTROL,), rounding=True,
+                    extra_release_dirs=(a.project_root / "results_release" / "stage4_part2_react",),
+                    by_condition=True)
+    elif a.design == "part1":
         res = build(a.project_root / "results_release" / a.sweep, out, n=30, control_share=0.2, seed=a.seed,
                     fault_ops=PART1_FAULT_OPS, control_ops=PART1_CONTROL_OPS, rounding=True)
     else:

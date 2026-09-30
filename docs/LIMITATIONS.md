@@ -715,3 +715,23 @@ flags on controls (L39, `docs/audits/stage4_part2_control_false_alarms.md`). The
 inflation (Sonnet: 0.78 opened vs 0.00 not), but not with leakage (0.61–0.81 although every leakage trial opened
 both files). Results are read as "diagnosis given a menu of gated paths", and cross-workload comparisons hold the
 menu structure constant.
+
+**L41 — Scope of every claim (recorded 2026-09-30 after an external review; wording, no analysis change).**
+1. **What the benchmark contains.** It consists of CONTROLLED, CONFIG-INDUCED incidents. Each fault is a planted
+   configuration key that switches on a gated code path in a small training job, on two workloads (Adult MLP,
+   Fashion-MNIST CNN). These are not arbitrary production failures: there are no infrastructure, data-pipeline,
+   distributed or hardware faults. Results describe diagnosis of such planted incidents, given a closed menu of
+   gated paths (L40), and do not transfer to production incident response without further evidence.
+2. **Ceiling effects make this a controlled study, not a ranking challenge.** Several conditions are near ceiling
+   on several mechanisms (the headroom rules exist for that reason; Part 2's H11 and H12 were UNTESTABLE). The
+   design supports within-study contrasts between named conditions under a fixed protocol. It does NOT support a
+   leaderboard or a ranking of models in general.
+3. **"Mild / moderate / severe" are RELATIVE strengths within one fault family**, calibrated on development seeds
+   (rule v2: mild clears its bar by ≥ 1σ on every seed). They are comparable within a family, and not across
+   families or workloads. "Mild" means the weakest calibrated rung of that fault, not a subtle fault: every rung
+   clears the margined symptom or degradation bar on every calibration seed.
+4. **Stage B (Part 2 ReAct) claims are restricted to FAULTY cases.** Stage B ran no controls, so it has no
+   false-alarm rate and no J. Its detection rates cannot be read as discrimination, and no Stage B statement is
+   about specificity (`docs/audits/stage4_part2_react_vs_static.md`, `stage4_part2_followups.md`; L39). Part 3
+   runs the controls under ReAct for this reason.
+

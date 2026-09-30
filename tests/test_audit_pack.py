@@ -253,3 +253,40 @@ def test_part1_rounds_exact_metric_values_but_keeps_config_values():
     assert out == ("val acc 0.86 (86%) at seed [redacted]; loss 3.56; lr 0.005, weight decay 0.0005, "
                    "dropout 0.1, 0.05% of rows")                        # config-scale values untouched
     assert redact("val acc 0.85634", []) == "val acc 0.85634"               # H8 pack unchanged
+
+
+def test_part2_design_spreads_items_over_full_conditions_and_mechanisms():
+    """Stage 4 Part 2 fresh audit: ~30 items, faulty spread over FULL condition × agent (and mechanisms within),
+    one control per condition; exploratory and pilot trials never enter."""
+    import importlib.util as _u
+    from collections import Counter
+    spec = _u.spec_from_file_location("bap2", Path(__file__).resolve().parent.parent / "scripts" / "build_audit_pack.py")
+    bap = _u.module_from_spec(spec)
+    spec.loader.exec_module(bap)
+    conds = [("claude-sonnet-5", {"thinking": "disabled"}), ("claude-sonnet-5", {"effort": "xhigh"}),
+             ("gpt-5.6-luna", {"effort": "none", "strict_tools": True}),
+             ("gpt-5.6-luna", {"effort": "medium", "strict_tools": True})]
+    ops = ["silent.data_leakage.v1", "silent.label_corruption.v1", "silent.lr_warmup.v1",
+           "silent.metric_inflation.v1", "crash.shape_mismatch.v1"]
+    recs, n = [], 0
+    for m, c in conds:
+        for agent in ("static", "react"):
+            for op in ops:
+                for i in range(4):
+                    n += 1
+                    recs.append({"run_id": f"r{n}", "status": "completed", "submission": {"diagnosis": {}},
+                                 "case_id": f"{op}:{i}", "_op": op, "_anchor": "off.v2", "model": {"model_id": m},
+                                 "conditions": {**c, "agent_type": agent}})
+        for i in range(3):
+            n += 1
+            recs.append({"run_id": f"r{n}", "status": "completed", "submission": {"diagnosis": {}},
+                         "case_id": f"ctl:{i}", "_op": "control.healthy.v1", "_anchor": "rule.v2",
+                         "model": {"model_id": m}, "conditions": {**c, "agent_type": "static"}})
+    recs.append({**recs[0], "run_id": "pilot", "conditions": {**recs[0]["conditions"], "pilot": True}})
+    picked = bap.sample_by_condition(recs, 30, 0.2, 7, bap.PART1_CONTROL_OPS)
+    assert len(picked) == 30 and "pilot" not in {r["run_id"] for r in picked}
+    ctl = [r for r in picked if r["_op"].startswith("control.")]
+    assert len(ctl) == 6 and len({bap._condition(r) for r in ctl}) == 4        # every condition, share kept
+    groups = Counter((bap._condition(r), r["conditions"]["agent_type"]) for r in picked if r not in ctl)
+    assert len(groups) == 8 and max(groups.values()) - min(groups.values()) <= 1
+    assert picked == bap.sample_by_condition(recs, 30, 0.2, 7, bap.PART1_CONTROL_OPS)   # deterministic

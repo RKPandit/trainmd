@@ -37,6 +37,10 @@ _TRIAL_ALLOW = {
     "case_id", "run_id", "conditions", "prompt", "submission", "submission_original",
     "tool_transcript", "llm_transcript", "scores", "usage", "termination_reason",
     "environment", "model", "status", "schema_version", "agent_name", "compliance",
+    # record schema 1.3 (Stage 4 Part 2): the tool configuration SENT (api, strict, schema form, tools sha) and the
+    # per-trial completion summary (calls, incomplete calls, final stop reason, submit parsed) — provenance, no
+    # hidden material; needed to reproduce the validity / compliance columns from the release.
+    "tool_config", "completion",
 }
 # static_context = the static agent's assembled INPUT (public workspace + band); large and
 # reconstructible, not needed to verify a number -> dropped.
@@ -230,6 +234,13 @@ def _public_occurrences(rel: Path, text: str, needles) -> dict[str, int]:
     return counts
 
 
+def _count_number(text: str, needle: str) -> int:
+    """Occurrences of `needle` as a WHOLE number — not preceded by a digit or '.', not followed by a digit — so a
+    longer, different number that merely starts with the same digits (a cost 0.0017966 vs a hidden σ 0.001796)
+    is not counted. A genuine occurrence of the value is still found (found 2026-09-30 exporting Part 2)."""
+    return len(re.findall(rf"(?<![\d.]){re.escape(needle)}(?!\d)", text))
+
+
 def _scan_release(root: Path, out_dir: Path, case_ids: set[str]) -> list[str]:
     """PER-CASE scan (like W4): a case's files vs its OWN hidden values, so a visible metric value in
     one case cannot false-positive on another case's hidden value. Sweep-level files (plan/manifest/
@@ -251,12 +262,12 @@ def _scan_release(root: Path, out_dir: Path, case_ids: set[str]) -> list[str]:
         needles = per_case.get(cid, {}) if cid else union
         if _SECRET_RE.search(text):
             hits.append(f"{rel}: matches a secret pattern")
-        present = {n: lab for n, lab in needles.items() if n and n in text}
+        present = {n: lab for n, lab in needles.items() if n and _count_number(text, n)}
         if not present:
             continue
         public = _public_occurrences(rel, text, present)
         for needle, label in present.items():
-            if text.count(needle) > public[needle]:
+            if _count_number(text, needle) > public[needle]:
                 hits.append(f"{rel}: leaks {label} ({needle!r}) outside any public-derived field")
     return hits
 
