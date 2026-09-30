@@ -80,3 +80,19 @@ def test_memo_key_and_integrity_handle_a_workload_without_datautil(tmp_path):
     assert "datautil.py" in tab["code"] and "datautil.py" not in img["code"]
     src = (root / "harness" / "evaluator" / "verify_repair.py").read_text()
     assert 'if (workload_dir / "datautil.py").is_file():' in src
+
+
+def test_bundle_check_exit_codes_separate_a_bad_bundle_from_a_crash(tmp_path, monkeypatch):
+    """A genuinely wrong bundle exits BUNDLE_DEFECT (3); a crash of the check exits 1 (uncaught exception) — so
+    restore_image_cases.sh never blames a bundle for an environment error (found 2026-09-30: system python, no yaml)."""
+    import subprocess
+    import sys as _sys
+    cases = _fake_bundle(tmp_path / "bad", drop="case_0300")
+    monkeypatch.setattr(_sys, "argv", ["check_image_bundle.py", str(cases)])
+    assert cib.main() == cib.BUNDLE_DEFECT == 3
+    r = subprocess.run([_sys.executable, str(ROOT / "scripts" / "check_image_bundle.py"), str(tmp_path / "missing")],
+                       capture_output=True, text=True)
+    assert r.returncode == 1                                                 # FileNotFoundError: a crash, not 3
+    sh = (ROOT / "scripts" / "restore_image_cases.sh").read_text()
+    assert 'PY="${PY:-uv run python}"' in sh and "$PY scripts/check_image_bundle.py" in sh
+    assert "3) die" in sh and "CHECK itself failed" in sh
