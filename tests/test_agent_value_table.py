@@ -16,10 +16,15 @@ spec.loader.exec_module(avt)
 
 
 def test_every_faulty_operator_has_a_mechanism_and_leakage_variants_share_one():
-    faulty = [o for o in all_operator_ids() if not o.startswith("control.")]
+    faulty = [o for o in all_operator_ids(None) if not o.startswith("control.")]      # every workload
     assert sorted(faulty) == sorted(ss.MECHANISM)
     assert ss.mechanism_of("silent.data_leakage.v1") == ss.mechanism_of("silent.data_leakage_neutral.v1")
-    assert len(set(ss.MECHANISM.values())) == len(ss.MECHANISM) - 1
+    w1 = [o for o in all_operator_ids() if not o.startswith("control.")]
+    assert len({ss.MECHANISM[o] for o in w1}) == len(w1) - 1          # workload 1: only leakage has two variants
+    # Part 3 image operators map to the same FAMILY where the fault is; the LR fault is its own mechanism.
+    assert ss.mechanism_of("silent.pixel_tag_leakage_neutral.v1") == "data_leakage"
+    assert ss.mechanism_of("silent.confident_subset_neutral.v1") == "metric_inflation"
+    assert ss.mechanism_of("silent.decay_unit.v1") not in {ss.MECHANISM[o] for o in w1}
     with pytest.raises(KeyError):
         ss.mechanism_of("silent.not_an_operator.v1")
 

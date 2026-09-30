@@ -82,9 +82,18 @@ def check_facts(declared: dict, root: Path = ROOT) -> list[str]:
     reg_path = root / "cases" / "registry.hidden.yaml"
     if reg_path.is_file():
         reg = yaml.safe_load(reg_path.read_text())
-        if len(reg) != expected_cases:
-            errors.append(f"[case_count] built registry {len(reg)} != design {expected_cases} "
+        # Workload 1's entries must equal its design; the Part 3 image cases (restore-image-cases), if present,
+        # must equal the image design — each workload is counted against its own.
+        img = {k: v for k, v in reg.items() if str(v.get("workload", "")).startswith("image_fmnist")}
+        n_w1 = len(reg) - len(img)
+        if n_w1 != expected_cases:
+            errors.append(f"[case_count] built registry {n_w1} workload-1 cases != design {expected_cases} "
                           "(rebuild cases: make docker-build-all-cases)")
+        if img:
+            n_img = len(case_design_tuples("image_fmnist"))
+            if len(img) != n_img:
+                errors.append(f"[case_count] built registry {len(img)} image cases != image design {n_img} "
+                              "(make restore-image-cases)")
 
     # c. scorer versions + v2.3 primary (STAGE3_PLAN §0.4; correction #7 2026-09-25; v2.3 proposed 2026-09-27)
     scoring = (root / "harness" / "scoring.py").read_text()
