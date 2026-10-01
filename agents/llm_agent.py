@@ -242,6 +242,43 @@ TOOLS_SCHEMA: list[dict] = [
 SUBMIT_SCHEMA: dict = TOOLS_SCHEMA[-1]
 assert SUBMIT_SCHEMA["name"] == "submit"
 
+_SERIES_EXAMPLE = "Metric series name, e.g. 'train_loss', 'metric_visible_val_acc'"
+_KEY_EXAMPLE = "Dot-separated key path, e.g. 'training.lr'. "
+
+
+def tools_schema_for(case_dir) -> list[dict]:
+    """The ReAct tool schema for ONE case: the canonical TOOLS_SCHEMA with its two workload-specific EXAMPLES — the
+    query_metrics series and the read_config key path — taken from the case's own workload: the visible series its
+    public card names, and its own learning-rate key (harness.workload_spec.CONFIG_EXAMPLE_KEY). A workload-1 case gets
+    TOOLS_SCHEMA itself (the very object; byte-identical, same tools_sha256 as Parts 1–2). Nothing else changes: the
+    same kind of example, no extra hint (Part 3 pilot finding 2026-10-01: the image agents first queried workload 1's
+    'metric_visible_val_acc', which the old fixed example named)."""
+    import copy
+
+    from harness.workload_spec import CONFIG_EXAMPLE_KEY, DEFAULT_VISIBLE_SERIES, card_series, workload_family
+    case_dir = Path(case_dir)
+    try:
+        card = yaml.safe_load((case_dir / "card.public.yaml").read_text()) or {}
+    except FileNotFoundError:
+        card = {}
+    series = card_series(card)
+    try:
+        family = workload_family(yaml.safe_load((case_dir / "workspace" / "config.yaml").read_text()) or {})
+    except (FileNotFoundError, KeyError):
+        family = "tabular"
+    key = CONFIG_EXAMPLE_KEY.get(family, CONFIG_EXAMPLE_KEY["tabular"])
+    if series == DEFAULT_VISIBLE_SERIES and key == CONFIG_EXAMPLE_KEY["tabular"]:
+        return TOOLS_SCHEMA
+    tools = copy.deepcopy(TOOLS_SCHEMA)
+    by = {t["name"]: t for t in tools}
+    props = by["query_metrics"]["input_schema"]["properties"]["series"]
+    assert props["description"] == _SERIES_EXAMPLE
+    props["description"] = f"Metric series name, e.g. 'train_loss', '{series}'"
+    kp = by["read_config"]["input_schema"]["properties"]["key_path"]
+    assert kp["description"].startswith(_KEY_EXAMPLE)
+    kp["description"] = kp["description"].replace("'training.lr'", f"'{key}'", 1)
+    return tools
+
 
 # ---------------------------------------------------------------------------
 # System prompt
@@ -498,6 +535,7 @@ class LLMAgent:
 
     def run(self, case_dir: Path, tools: ToolContext) -> None:
         """Execute the ReAct investigation loop."""
+        self._tools = tools_schema_for(case_dir)      # the case's own workload examples (workload 1: TOOLS_SCHEMA)
         # 1. Populate model block in record
         if self._record is not None:
             self._record["model"].update({
@@ -512,7 +550,7 @@ class LLMAgent:
             if hasattr(self._client, "describe"):
                 self._record["model"].update(self._client.describe())
             if hasattr(self._client, "tool_config"):          # effective tool configuration (schema 1.3)
-                self._record["tool_config"] = self._client.tool_config(TOOLS_SCHEMA)
+                self._record["tool_config"] = self._client.tool_config(self._tools)
 
         # 2. Build the instruction prompt (record it + its hash + version).
         # NOTE: this is delivered as the INITIAL USER-ROLE message below — the
@@ -550,7 +588,7 @@ class LLMAgent:
             _replayed = count_reasoning_blocks(messages)
             _t0 = time.monotonic()
             response = self._client.complete(
-                messages, TOOLS_SCHEMA, max_tokens=self._max_response_tokens,
+                messages, self._tools, max_tokens=self._max_response_tokens,
             )
             _latency = time.monotonic() - _t0
 

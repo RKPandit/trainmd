@@ -735,3 +735,14 @@ menu structure constant.
    about specificity (`docs/audits/stage4_part2_react_vs_static.md`, `stage4_part2_followups.md`; L39). Part 3
    runs the controls under ReAct for this reason.
 
+**L42 — Two workload-1 remnants are visible in Part 3's image cases (recorded 2026-10-01; harmless to the answers;
+unchangeable now).** (1) The image `train.py` docstring, in every image workspace, begins "Implements the SageMaker
+training container contract (harness_spec §2), like the tabular workload". This names the other workload and a
+design document, but no fault, key or metric. The cases are certified with this file, so it is case data and cannot
+be edited without rebuilding and re-certifying all 230. (2) The STATIC agent's context for an image case contains an
+empty section `### datautil.py` reading "(unavailable: ARTIFACT_NOT_FOUND)", because the static assembly always asks
+for workload 1's `datautil.py`. It is left in place because Part 3's static sweep started on that code and its inputs
+must stay byte-identical across the run (DECISIONS 2026-10-01; `tests/test_static_inputs_image.py`). It names a file,
+not a fault, and is identical on every image case and condition. The ReAct-side remnant, a fixed tool example naming
+workload 1's metric, WAS fixed before any ReAct trial (`tests/test_agent_visible_text_image.py`).
+
