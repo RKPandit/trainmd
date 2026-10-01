@@ -1,0 +1,525 @@
+header:
+  name: stage4_part3_pilot
+  created_utc: '2026-09-30T15:17:36.226288+00:00'
+  model: claude-haiku-4-5-20251001
+  order_seed: 1234
+  providers:
+  - provider: anthropic
+    model: claude-haiku-4-5-20251001
+  - provider: anthropic
+    model: claude-sonnet-5
+    thinking: disabled
+  - provider: openai
+    model: gpt-5.6-luna
+    effort: medium
+  - provider: openai
+    model: gpt-5.6-luna
+    effort: none
+  factor_levels:
+    providers:
+    - anthropic
+    - anthropic
+    - openai
+    - openai
+    models:
+    - claude-haiku-4-5-20251001
+    - claude-sonnet-5
+    - gpt-5.6-luna
+    - gpt-5.6-luna
+    variants: all faulty operators
+    agents:
+    - static
+    - react
+    anchors:
+    - 'off'
+    - stats
+    prompt_major: 2
+    repeats: 1
+    strengths:
+    - mild
+    - moderate
+    - severe
+    faulty_seeds:
+    - 42
+    - 43
+    - 44
+    - 45
+    - 46
+    - 47
+    control_seeds:
+    - 50
+    - 51
+    - 52
+    - 53
+    - 54
+    - 55
+    - 56
+    - 57
+    - 58
+    - 59
+    - 60
+    - 61
+    - 62
+    - 63
+    - 64
+    - 65
+    - 66
+    - 67
+    - 68
+    - 69
+    benign_seeds:
+    - 70
+    - 71
+    - 72
+    - 73
+    - 74
+    - 75
+    - 76
+    - 77
+    - 78
+    - 79
+    - 80
+    - 81
+    - 82
+    - 83
+    - 84
+    - 85
+    - 86
+    - 87
+    - 88
+    - 89
+    - 90
+    - 91
+    - 92
+    - 93
+    - 110
+    - 111
+    - 112
+    - 113
+    - 114
+    - 115
+    - 116
+    - 117
+    - 118
+    - 119
+    - 120
+    - 121
+    - 122
+    - 123
+    - 124
+    - 125
+    - 126
+    - 127
+    - 128
+    - 129
+    - 130
+    - 131
+    - 132
+    - 133
+    - 134
+    - 135
+    - 136
+    - 137
+    - 138
+    - 139
+    - 140
+    - 141
+    - 142
+    - 143
+    - 144
+    - 145
+    - 146
+    - 147
+    - 148
+    - 149
+    - 150
+    - 151
+    - 152
+    - 153
+    - 154
+    - 155
+    - 156
+    - 157
+    - 158
+    - 159
+    - 160
+    - 161
+    - 162
+    - 163
+    - 164
+    - 165
+    - 166
+    - 167
+    - 168
+    - 169
+    openai_strict_tools: true
+    workload_group: image_fmnist
+    controls_all_agents: true
+  exploratory: {}
+  scope:
+    gate_operators:
+    - crash.channel_mismatch.v1
+    - silent.confident_subset.v1
+    - silent.confident_subset_neutral.v1
+    - silent.decay_unit.v1
+    - silent.label_flip.v1
+    - silent.pixel_tag_leakage.v1
+    - silent.pixel_tag_leakage_neutral.v1
+    excluded_operators: {}
+  n_cells: 32
+  n_missing: 0
+  cost_estimate:
+    per_cell_total_usd: 5.43
+    low_usd: 5.43
+    high_usd: 5.43
+    fallback_cost_usd: 0.292567
+    estimate_source_counts:
+      measured: 0
+      fallback: 32
+    by_provider:
+      anthropic:
+        cells: 16
+        scale: 1.0
+        total_usd: 4.6811
+        low_usd: 4.6811
+        high_usd: 4.6811
+      openai:
+        cells: 16
+        scale: 0.16
+        total_usd: 0.749
+        low_usd: 0.749
+        high_usd: 0.749
+  verify_estimate:
+    reruns: 13
+  case_set:
+    case_0372:
+      build_id: d03e953c339f7d8ee8729810cd35afcf60ccf5c3fe5cbe958d29abe0ad150822
+    case_0351:
+      build_id: 1e61f8059a7b9141e05f1d025ed4064600d5ae1267f8e10647240b7c021013bf
+    case_0266:
+      build_id: 6c7bbec3b68ed0ab9831794e2165877e9119c2518603a45185fc8dfde83e0457
+    case_0243:
+      build_id: b00fd8fa46df07ed5bb9cc89f56d24737aa840f879d4235aa8cce15cf2992d48
+    case_0349:
+      build_id: 53f400f23b39a62b2f69b1586830f145dfbbb3e54c1105bcc712773a7b8113ac
+    case_0375:
+      build_id: 7135c700998329c69e86a51715ef667c4d0d0ef5156db5ddf13884bea435701a
+    case_0414:
+      build_id: 772bfd43ffc05f2baeaec255f22bbc637c8ed43fd968e1ae986b4d4a8e872e6e
+    case_0415:
+      build_id: 62298ee0f8ea1b9447f72e193764dd9429b713a4bd65472c94a391a1454e3ab5
+    case_0272:
+      build_id: 5c274175eb4c3561496a6cdc80153b92e6384762dfbb8753d5de14490a642f0c
+    case_0227:
+      build_id: 264fd476cd63b9b3fb25c2a572f26b2ff1994911a3e62a0eab66f88b5fecce63
+    case_0420:
+      build_id: f25a0d2bcd96c32dcd0866e584436b482902e15c04e2370ed341fe505fd8d8e0
+    case_0364:
+      build_id: 5d9c8c10ab409d51b000117d727f7b70148ad8377b7aac72726bde28c7ecb24a
+    case_0377:
+      build_id: 73ae6dba01224ccdc84ec18336ca0cb134ee7ad344ae5207130e188ca9574a34
+    case_0368:
+      build_id: 0f6469ada45651df4b46a3e2a3e6d739563b24bd6250456fc6cbcf3faabe11dc
+    case_0363:
+      build_id: 781cde462e8a050e0d2b5aa84c406fbc21b50471facbb3939ec655c1f4353add
+    case_0319:
+      build_id: 7bb3820141a7ab23d64c84b3f5f017774c0d43639f1ad29d0b2aa6d27ab7c43e
+    case_0429:
+      build_id: de6f7addaa50a43dd1170dd1b898a741d3212cd96db2af7060c17465baf07a08
+    case_0237:
+      build_id: 3683d94b5c85d310960f91433dc5492591d28c18be3926bd5277ca4bb264d2d4
+    case_0258:
+      build_id: 1e97ba5058da1ce384674ebc7861d5e2199f237b0704e4a98317316a1b98deb0
+    case_0426:
+      build_id: 1d809919c54bdddac833d6190682da6b5bf2e8f04a0d32975d18117ee49d1fe9
+    case_0369:
+      build_id: dfee30166b67d2ffe88cb8d4689c36970607987a06dab9321847458d1ede56a3
+    case_0321:
+      build_id: d4377aa817b13055956ce3572d9fb6641006e8190289d00b3ca5e201572d46e8
+    case_0396:
+      build_id: 87bb271aba62310dd67002d4d66761b94821e62055488dde7600bb35e6049be5
+    case_0312:
+      build_id: 518d38a3a0a256db6b618343665f3dae03f5defe20a6c953c0b60f846101ca55
+    case_0255:
+      build_id: 7728aa19a06dc61c2c56abf11020afdbdb3f1cf0808ee8e97432238b6bbedacd
+    case_0373:
+      build_id: 949693c5ee8064d0e43de2ac3385fa9354d9b49a1640bea48fa2fef7c55aea76
+    case_0211:
+      build_id: 328370a84485f5daf2367988914a4429b28255b2a4fed5e6a017ae11793eb52b
+    case_0390:
+      build_id: cfa58379feffe709bdbb9e373c717d26833aa5622c1f1d5331c0978991f3f869
+    case_0264:
+      build_id: 57a8a5f36e4eb75d4a4397f7ed15c145ce7f2926c1b2a8b9f3decf1190f0fb6c
+    case_0289:
+      build_id: 8ecf0316f1781b2acb3c1b6f8206821eee5606ca4719c98c66938c04e85d1dd9
+  pilot:
+    static_per_condition: 4
+    react_per_condition: 4
+    seed: 20260927
+    scores: NOT computed (run_trial score=False); pilot trials are excluded from every
+      analysis (harness/sweep_stats loaders)
+cells:
+- cell_id: 634849b86f30e17b
+  case_id: case_0372
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: 'off'
+  repeat_index: 0
+  thinking: disabled
+- cell_id: e7023ab4a0148c31
+  case_id: case_0351
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: react
+  anchor: 'off'
+  repeat_index: 0
+  thinking: disabled
+- cell_id: 14a4b7b4bd833dd5
+  case_id: case_0266
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  agent: react
+  anchor: 'off'
+  repeat_index: 0
+- cell_id: ddef2c7a5b7c4c29
+  case_id: case_0243
+  provider: openai
+  model: gpt-5.6-luna
+  agent: static
+  anchor: 'off'
+  repeat_index: 0
+  effort: none
+  strict_tools: true
+- cell_id: 88428f2a610f4173
+  case_id: case_0349
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  agent: react
+  anchor: 'off'
+  repeat_index: 0
+- cell_id: 7a30d8e0cf236613
+  case_id: case_0375
+  provider: openai
+  model: gpt-5.6-luna
+  agent: static
+  anchor: stats
+  repeat_index: 0
+  effort: medium
+  strict_tools: true
+- cell_id: 17b649d9be035b39
+  case_id: case_0414
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  agent: react
+  anchor: stats
+  repeat_index: 0
+- cell_id: c3941724bb1d5b78
+  case_id: case_0415
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: react
+  anchor: 'off'
+  repeat_index: 0
+  thinking: disabled
+- cell_id: b36a70f03396b9c7
+  case_id: case_0272
+  provider: openai
+  model: gpt-5.6-luna
+  agent: static
+  anchor: stats
+  repeat_index: 0
+  effort: none
+  strict_tools: true
+- cell_id: 99f0ec35f313ed2f
+  case_id: case_0227
+  provider: openai
+  model: gpt-5.6-luna
+  agent: react
+  anchor: stats
+  repeat_index: 0
+  effort: medium
+  strict_tools: true
+- cell_id: 1ae3fd53e64334f8
+  case_id: case_0420
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: react
+  anchor: 'off'
+  repeat_index: 0
+  thinking: disabled
+- cell_id: 3eee5ac89ba1bdac
+  case_id: case_0364
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: react
+  anchor: stats
+  repeat_index: 0
+  thinking: disabled
+- cell_id: 05ef1dc859d87b6c
+  case_id: case_0377
+  provider: openai
+  model: gpt-5.6-luna
+  agent: static
+  anchor: stats
+  repeat_index: 0
+  effort: medium
+  strict_tools: true
+- cell_id: c4f931ad696cf420
+  case_id: case_0368
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: stats
+  repeat_index: 0
+  thinking: disabled
+- cell_id: 1cdd8f49e46dda35
+  case_id: case_0363
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: 'off'
+  repeat_index: 0
+  thinking: disabled
+- cell_id: 260a13354e3dab3d
+  case_id: case_0319
+  provider: openai
+  model: gpt-5.6-luna
+  agent: react
+  anchor: 'off'
+  repeat_index: 0
+  effort: medium
+  strict_tools: true
+- cell_id: 546750761f3da974
+  case_id: case_0429
+  provider: openai
+  model: gpt-5.6-luna
+  agent: static
+  anchor: 'off'
+  repeat_index: 0
+  effort: medium
+  strict_tools: true
+- cell_id: b7f128ee5a5de46d
+  case_id: case_0375
+  provider: openai
+  model: gpt-5.6-luna
+  agent: static
+  anchor: 'off'
+  repeat_index: 0
+  effort: none
+  strict_tools: true
+- cell_id: ad06bb12b284b2cc
+  case_id: case_0237
+  provider: openai
+  model: gpt-5.6-luna
+  agent: react
+  anchor: stats
+  repeat_index: 0
+  effort: none
+  strict_tools: true
+- cell_id: 74840648e87dcf35
+  case_id: case_0258
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  agent: react
+  anchor: stats
+  repeat_index: 0
+- cell_id: 574b40ea0a2ea040
+  case_id: case_0426
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: static
+  anchor: 'off'
+  repeat_index: 0
+  thinking: disabled
+- cell_id: 02ce6e1f2231233a
+  case_id: case_0415
+  provider: openai
+  model: gpt-5.6-luna
+  agent: react
+  anchor: stats
+  repeat_index: 0
+  effort: none
+  strict_tools: true
+- cell_id: f64ca96820281c40
+  case_id: case_0369
+  provider: openai
+  model: gpt-5.6-luna
+  agent: react
+  anchor: stats
+  repeat_index: 0
+  effort: none
+  strict_tools: true
+- cell_id: efcf19e4079d46d1
+  case_id: case_0321
+  provider: openai
+  model: gpt-5.6-luna
+  agent: react
+  anchor: 'off'
+  repeat_index: 0
+  effort: medium
+  strict_tools: true
+- cell_id: 5f0d78c33a575edb
+  case_id: case_0396
+  provider: openai
+  model: gpt-5.6-luna
+  agent: react
+  anchor: 'off'
+  repeat_index: 0
+  effort: medium
+  strict_tools: true
+- cell_id: 8a8c252335fd6aec
+  case_id: case_0312
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  agent: static
+  anchor: stats
+  repeat_index: 0
+- cell_id: 4d7068061aa428b8
+  case_id: case_0255
+  provider: openai
+  model: gpt-5.6-luna
+  agent: static
+  anchor: stats
+  repeat_index: 0
+  effort: medium
+  strict_tools: true
+- cell_id: fcd8a92b37468291
+  case_id: case_0373
+  provider: openai
+  model: gpt-5.6-luna
+  agent: static
+  anchor: 'off'
+  repeat_index: 0
+  effort: none
+  strict_tools: true
+- cell_id: 5db9252aa6f94276
+  case_id: case_0211
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  agent: static
+  anchor: stats
+  repeat_index: 0
+- cell_id: 432553d1d0705c21
+  case_id: case_0390
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  agent: static
+  anchor: 'off'
+  repeat_index: 0
+- cell_id: 20687afd95c8450c
+  case_id: case_0264
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  agent: static
+  anchor: stats
+  repeat_index: 0
+- cell_id: 38b060466aa86b92
+  case_id: case_0289
+  provider: openai
+  model: gpt-5.6-luna
+  agent: react
+  anchor: stats
+  repeat_index: 0
+  effort: none
+  strict_tools: true
