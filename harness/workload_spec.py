@@ -30,6 +30,12 @@ def workload_name(config: dict) -> str:
     return (config.get("workload") or config.get("pipeline") or {})["name"]
 
 
+# The example key path the read_config tool description names, per workload FAMILY: each workload's OWN learning-rate
+# key (tabular: training.lr — the example Parts 1–2 ran with; image: optim.base_lr). Same kind of example, never
+# extra information (Part 3 pilot finding, 2026-10-01).
+CONFIG_EXAMPLE_KEY = {"tabular": "training.lr", "image": "optim.base_lr"}
+
+
 def workload_family(config: dict) -> str:
     return (config.get("workload") or config.get("pipeline") or {})["family"]
 

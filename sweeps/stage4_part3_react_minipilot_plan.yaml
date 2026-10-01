@@ -1,0 +1,240 @@
+header:
+  name: stage4_part3_react_minipilot
+  created_utc: '2026-10-01T16:57:11.864477+00:00'
+  model: claude-haiku-4-5-20251001
+  order_seed: 1234
+  providers:
+  - provider: anthropic
+    model: claude-haiku-4-5-20251001
+  - provider: anthropic
+    model: claude-sonnet-5
+    thinking: disabled
+  - provider: openai
+    model: gpt-5.6-luna
+    effort: medium
+  - provider: openai
+    model: gpt-5.6-luna
+    effort: none
+  factor_levels:
+    providers:
+    - anthropic
+    - anthropic
+    - openai
+    - openai
+    models:
+    - claude-haiku-4-5-20251001
+    - claude-sonnet-5
+    - gpt-5.6-luna
+    - gpt-5.6-luna
+    variants: all faulty operators
+    agents:
+    - react
+    anchors:
+    - 'off'
+    prompt_major: 2
+    repeats: 1
+    strengths:
+    - mild
+    - moderate
+    - severe
+    faulty_seeds:
+    - 42
+    - 43
+    - 44
+    - 45
+    - 46
+    - 47
+    control_seeds:
+    - 50
+    - 51
+    - 52
+    - 53
+    - 54
+    - 55
+    - 56
+    - 57
+    - 58
+    - 59
+    - 60
+    - 61
+    - 62
+    - 63
+    - 64
+    - 65
+    - 66
+    - 67
+    - 68
+    - 69
+    benign_seeds:
+    - 70
+    - 71
+    - 72
+    - 73
+    - 74
+    - 75
+    - 76
+    - 77
+    - 78
+    - 79
+    - 80
+    - 81
+    - 82
+    - 83
+    - 84
+    - 85
+    - 86
+    - 87
+    - 88
+    - 89
+    - 90
+    - 91
+    - 92
+    - 93
+    - 110
+    - 111
+    - 112
+    - 113
+    - 114
+    - 115
+    - 116
+    - 117
+    - 118
+    - 119
+    - 120
+    - 121
+    - 122
+    - 123
+    - 124
+    - 125
+    - 126
+    - 127
+    - 128
+    - 129
+    - 130
+    - 131
+    - 132
+    - 133
+    - 134
+    - 135
+    - 136
+    - 137
+    - 138
+    - 139
+    - 140
+    - 141
+    - 142
+    - 143
+    - 144
+    - 145
+    - 146
+    - 147
+    - 148
+    - 149
+    - 150
+    - 151
+    - 152
+    - 153
+    - 154
+    - 155
+    - 156
+    - 157
+    - 158
+    - 159
+    - 160
+    - 161
+    - 162
+    - 163
+    - 164
+    - 165
+    - 166
+    - 167
+    - 168
+    - 169
+    openai_strict_tools: true
+    workload_group: image_fmnist
+    controls_all_agents: true
+  exploratory: {}
+  scope:
+    gate_operators:
+    - crash.channel_mismatch.v1
+    - silent.confident_subset.v1
+    - silent.confident_subset_neutral.v1
+    - silent.decay_unit.v1
+    - silent.label_flip.v1
+    - silent.pixel_tag_leakage.v1
+    - silent.pixel_tag_leakage_neutral.v1
+    excluded_operators: {}
+  n_cells: 4
+  n_missing: 0
+  cost_estimate:
+    per_cell_total_usd: 0.0878
+    low_usd: 0.0878
+    high_usd: 0.0878
+    fallback_cost_usd: 0.292567
+    estimate_source_counts:
+      measured: 3
+      fallback: 1
+    by_provider:
+      anthropic:
+        cells: 2
+        scale: 1.0
+        total_usd: 0.0403
+        low_usd: 0.0403
+        high_usd: 0.0403
+      openai:
+        cells: 2
+        scale: 0.16
+        total_usd: 0.0475
+        low_usd: 0.0475
+        high_usd: 0.0475
+  verify_estimate:
+    reruns: 2
+  case_set:
+    case_0356:
+      build_id: c53c8b6ff8cfbddcc81aaaa4ed4313143ca61fda5a030455ce57850d56d9ca7c
+    case_0343:
+      build_id: 252e4c6cdaffae37ef7bbf96a5df70bf49e0c18b0d7026777b58823a1a822d8c
+    case_0246:
+      build_id: da405d04ae4430e80d278aa106e1f9373a4ca3c54d8514cb72c247790918ff21
+    case_0311:
+      build_id: 65a846760e4612c3546a00bd5edb25ecdac817a2ee887933ee611a3e1af7d086
+  pilot:
+    static_per_condition: 0
+    react_per_condition: 1
+    seed: 20260927
+    scores: NOT computed (run_trial score=False); pilot trials are excluded from every
+      analysis (harness/sweep_stats loaders)
+cells:
+- cell_id: 9306a1147068319e
+  case_id: case_0356
+  provider: anthropic
+  model: claude-sonnet-5
+  agent: react
+  anchor: 'off'
+  repeat_index: 0
+  thinking: disabled
+- cell_id: 5847d81fc6e0327a
+  case_id: case_0343
+  provider: openai
+  model: gpt-5.6-luna
+  agent: react
+  anchor: 'off'
+  repeat_index: 0
+  effort: medium
+  strict_tools: true
+- cell_id: 533e366d5af62f31
+  case_id: case_0246
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  agent: react
+  anchor: 'off'
+  repeat_index: 0
+- cell_id: 2705133359765dfb
+  case_id: case_0311
+  provider: openai
+  model: gpt-5.6-luna
+  agent: react
+  anchor: 'off'
+  repeat_index: 0
+  effort: none
+  strict_tools: true
