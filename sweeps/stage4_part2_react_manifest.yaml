@@ -7,8 +7,8 @@ estimated_spend_note: 'The pre-registered Stage B estimate (HYPOTHESES, Stage 4 
   was conditional on a slice projection fitting the remaining cap; the author raised
   Stage B''s cap from $12.24 ($100 − Stage A''s $87.7537) to $15 BEFORE any Stage B
   result was seen, with no design, rule or verdict changed (DECISIONS 2026-09-29). The
-  pre-run Stage B slice projected $12.79 for the full Stage B from its own measured per-
-  trial costs (scripts/project_sweep_cost.py --cap 15: FITS): Sonnet 5 xhigh $7.49,
+  pre-run Stage B slice projected $12.79 for the full Stage B from its own measured
+  per-trial costs (scripts/project_sweep_cost.py --cap 15: FITS): Sonnet 5 xhigh $7.49,
   Sonnet 5 thinking off $4.66, GPT-5.6 Luna medium $0.42, GPT-5.6 Luna none $0.22. The
   agents phase''s token-based estimate is agent_phase.estimated_cost_usd ($13.1652 for
   all 432 completed cells; this process ran 398 of them); billed spend goes in
@@ -42,8 +42,9 @@ provenance_note: 'ONE code version ran Stage B: every one of the 450 records car
   this manifest''s timestamp_utc and hardware block, rewritten on every start). 450
   records for 432 cells: the 9 interrupted cells hold the 2 crashed attempts plus the
   completed record from the completing run; analysis keeps the completed record. One
-  price table (sha256:aa762d516ea7c08f) on every record. Stage B is DESCRIPTIVE (static-
-  only H11/H12); its report shows the not-applicable note (DECISIONS 2026-09-29).'
+  price table (sha256:aa762d516ea7c08f) on every record. Stage B is DESCRIPTIVE
+  (static-only H11/H12); its report shows the not-applicable note (DECISIONS
+  2026-09-29).'
 agent_phase:
   trials: 398
   input_tokens: 13518244
@@ -69,12 +70,12 @@ verify_phase:
   wall_clock_sec: 83.41
   peak_memory_mb: 0.0
   ru_maxrss_platform: linux
-verify_phase_note: 'Recovery was verified NATIVELY on AMD EPYC and memoized: CI run 36617887792 (verify-
-  native, AuthenticAMD, AMD EPYC 9V45) trained the 13 distinct repaired configurations
-  behind 277 trials and re-verified a 20-trial spot-check fresh (20/20 identical). All
-  13 configurations were also verified by Stage A on an EPYC 7763 with identical stored
-  per-seed results, so the 9V45 is recorded as a third agreeing AMD model (DECISIONS
-  2026-09-29). The local verify phase applied the per-seed results with each case''s own
-  tolerance: reruns 427 = 277 verdicts from the native memo (277 recovered, 0
-  not_recovered) + 150 repairs rejected before training; 0 verify_error; cpu_core_hours
-  0.0 locally (the native compute is in the CI run).'
+verify_phase_note: 'Recovery was verified NATIVELY on AMD EPYC and memoized: CI run 36617887792
+  (verify-native, AuthenticAMD, AMD EPYC 9V45) trained the 13 distinct repaired
+  configurations behind 277 trials and re-verified a 20-trial spot-check fresh (20/20
+  identical). All 13 configurations were also verified by Stage A on an EPYC 7763 with
+  identical stored per-seed results, so the 9V45 is recorded as a third agreeing AMD
+  model (DECISIONS 2026-09-29). The local verify phase applied the per-seed results with
+  each case''s own tolerance: reruns 427 = 277 verdicts from the native memo (277
+  recovered, 0 not_recovered) + 150 repairs rejected before training; 0 verify_error;
+  cpu_core_hours 0.0 locally (the native compute is in the CI run).'
