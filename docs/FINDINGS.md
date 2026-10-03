@@ -1043,6 +1043,33 @@ untestable. The verdicts are J-based (detection − false alarms) and do not dep
 
 **Status:** pre-registered · CONFIRMING ×9.
 
+### F26 — Part 3 spot-check notes on false alarms (2026-10-03) · EXPLORATORY (not pre-registered; descriptive counts)
+
+From the author's 57-file Part 3 spot check, with counts from the Part 3 records (controls only; deduplicated,
+non-pilot). None of these is a test; they qualify how the confirmed J contrasts (F25) are read.
+
+- **(a) Part of a reference's false-alarm cost is correctly noticing unusual healthy runs.** On the two naturally
+  out-of-band controls (case_0345, case_0419; n = 8 per agent × arm), false alarms under `stats` vs `off` are
+  static 4/8 vs 3/8 (no clear difference) and ReAct 6/8 vs 3/8. The reasons given are often defensible: two ReAct stats false alarms state the
+  run is 2.9 SD below the reference mean, which is true. The run is healthy and the grading is right, but the agent's
+  observation is accurate. A stats-arm false alarm on an out-of-band control is therefore partly a property of the
+  control, not of the agent.
+- **(b) A reference without reasoning creates false alarms on runs merely below the mean.** GPT-5.6 Luna `none`,
+  ReAct, in-band controls: 2/102 false alarms under `off` and 24/102 under `stats`. 20 of the 24 flagged runs are
+  below the mean, at a median of −1.01 SD (the unflagged runs: median +0.42), well inside ±2 SD. Luna `medium` under
+  the same stats line flags 3/102. The bare statistics give the no-reasoning model a number to react to, and it reads
+  "below the mean" as anomalous. Static Luna `none` already flags 34/102 under `off` (the dormant code paths, L39);
+  its stats-arm false alarms shift towards below-mean runs (median −0.71 SD vs −0.24 under `off`). Consistent with
+  H13a's false-alarm route (F25).
+- **(c) The schedule no-op control works as designed.** It adds the fault's three schedule keys with decay factor
+  1.0 (DECISIONS 2026-09-28), so an agent flagging the keys can be told apart from one finding the unit bug. False
+  alarms on it: static 19/144 (all benign types 109/1,008), ReAct 15/95 (48/668). 18/19 and 14/15 of them name the
+  schedule keys ("decay_gamma=1.0 disables decay"; spot-check item 55). Agents flag the keys' presence, not a
+  harmful rate.
+
+Related: LIMITATIONS L43 (the reference seed list in every config, a separate false-alarm source; the healthy
+controls' verbatim configs). **Status:** exploratory · descriptive.
+
 ## How to update this document
 
 After each sweep's diagnostics close: (1) add a **Sweep N** section in the shape above;
