@@ -1,0 +1,58 @@
+sweep_name: stage4_part3_react_minipilot
+timestamp_utc: '2026-10-02T12:14:32.128246+00:00'
+estimated_spend_usd: 0.0878
+estimated_spend_note: 'A PILOT (never scored). estimated_spend_usd $0.0878 is the machine value from the
+  plan header; no estimate was pre-registered. Actual (token-based) cost:
+  agent_phase.estimated_cost_usd $0.0604 for its 4 trials.'
+actual_spend_usd: null
+hardware:
+  cpu_model: Darwin/arm64 (no /proc/cpuinfo)
+  cpu_cores: 8
+  ram_gb: 17.18
+  os: macOS-27.0-arm64-arm-64bit
+  arch: arm64
+  python: 3.11.16
+  uv_lock_hash: ecd648dae88ae95c5ed45658ed446bc64609b640b446e0e0bae7942d0a76831d
+  git_commit: 024f1530eb9655b991042f72d3b20d53d9536772
+  git_dirty_at_start: false
+  loaded_source_hash_at_start: b693253ea31384ca51db06cda76897973e2aa30e867fe062faaacc354c7dec24
+  in_container: false
+  image_digest: null
+  canonical_environment_note: "Linux/amd64 in the pinned container is canonical (Stage\
+    \ 1). This manifest produced on Darwin; in_container=False; cpu=Darwin/arm64 (no\
+    \ /proc/cpuinfo); NON-CANONICAL platform (running on macOS \u2014 a smoke-test\
+    \ platform; canonical artifacts are generated on native amd64 Linux (the committed\
+    \ reference's platform))."
+provenance_note: '4 records for 4 cells (one ReAct trial per condition, off arm — where the metric name
+  reaches the agent only through the tool description), all completed and flagged pilot,
+  from one process (start 2026-10-02T11:39:22Z) at the post-fix commit 024f153 with a
+  clean tree. Purpose: confirm the #95 fix (DECISIONS 2026-10-01). Result, read from the
+  tool traces: PASS. All four agents queried val_top1 successfully (each as its second
+  metric query, after train_loss), and no call used a workload-1 name. The only failed
+  call was Luna medium''s train_acc, a series neither workload has. The plan
+  (sweeps/stage4_part3_react_minipilot_plan.yaml) was committed before the run.'
+agent_phase:
+  trials: 4
+  input_tokens: 90919
+  output_tokens: 3511
+  estimated_cost_usd: 0.0604
+  cost_is_estimate: true
+  api_wall_clock_sec: 45.05
+  cache_check:
+    status: passed
+    eligible_trials: 2
+    trials_with_cache_reads: 2
+    first_hit_run_id: 20261002T121432Z_7be4b2
+    cache_read_tokens: 51859
+    cache_write_tokens: 15499
+  reasoning_check:
+    status: pending
+    eligible_trials: 1
+    dropped_run_ids: []
+    trials_with_reasoning_after_first_call: 1
+verify_phase:
+  reruns: 0
+  cpu_core_hours: 0.0
+  wall_clock_sec: 0.0
+  peak_memory_mb: 0.0
+  ru_maxrss_platform: null
