@@ -19,7 +19,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "${TRAINMD_REPO_ROOT:-$SCRIPT_DIR/..}"
 
 NAME="${1:?usage: verify_native.sh NAME CASES_RUN}"
-CASES_RUN="${2:?usage: verify_native.sh NAME CASES_RUN [IMAGE_RUN]   (the certify run your cases were restored from)}"
+CASES_RUN="${2:?usage: verify_native.sh NAME CASES_RUN [IMAGE_RUN]   (the certify run your cases were restored from; '-' for none)}"
+[ "$CASES_RUN" = "-" ] && CASES_RUN=""     # a Part 3 image-only sweep needs only IMAGE_RUN
 # Part 3: the image-certify run your image cases were restored from (make restore-image-cases IMAGE_RUN=...).
 IMAGE_RUN="${3:-}"
 require_cmd "$GH" gh "Install the GitHub CLI and run 'gh auth login'."
@@ -47,6 +48,7 @@ git worktree remove --force "$WT"
 run_id=""
 for attempt in $(seq 1 12); do
   before="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  [ -n "$CASES_RUN$IMAGE_RUN" ] || die "give CASES_RUN (workload 1) and/or IMAGE_RUN (Part 3)."
   "$GH" workflow run ci.yml --ref "$BRANCH" -f task=verify-native -f sweep="$NAME" -f cases_run="$CASES_RUN" \
     ${IMAGE_RUN:+-f image_run="$IMAGE_RUN"}
   rid=""

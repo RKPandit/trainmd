@@ -321,14 +321,19 @@ jobs:
           SWEEP_BUNDLE_KEY: ${{ secrets.SWEEP_BUNDLE_KEY }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          [ -n "${{ inputs.sweep }}" ] && [ -n "${{ inputs.cases_run }}" ] || { echo "::error::inputs sweep and cases_run are required"; exit 1; }
+          [ -n "${{ inputs.sweep }}" ] || { echo "::error::input sweep is required"; exit 1; }
+          [ -n "${{ inputs.cases_run }}" ] || [ -n "${{ inputs.image_run }}" ] || { echo "::error::cases_run (workload 1) and/or image_run (Part 3) is required"; exit 1; }
           [ -n "$SWEEP_BUNDLE_KEY" ] || { echo "::error::SWEEP_BUNDLE_KEY secret is unset"; exit 1; }
-          make docker-data
-          make link-neutral-workload
-          gh run download "${{ inputs.cases_run }}" -n sweep_bundle -D .
-          gpg --batch --yes --quiet --decrypt --passphrase "$SWEEP_BUNDLE_KEY" -o cases.tar.gz sweep_bundle.tar.gz.gpg
-          tar -xzf cases.tar.gz && rm -f cases.tar.gz sweep_bundle.tar.gz.gpg
-          grep -qx "build_cpu_vendor=AuthenticAMD" BUNDLE_META.txt || { echo "::error::cases bundle not built on AuthenticAMD"; exit 1; }
+          mkdir -p cases && [ -f cases/registry.hidden.yaml ] || echo "{}" > cases/registry.hidden.yaml
+          if [ -n "${{ inputs.cases_run }}" ]; then
+            # workload 1's certified cases (a Part 3 image-only sweep does not need them: cases_run may be empty)
+            make docker-data
+            make link-neutral-workload
+            gh run download "${{ inputs.cases_run }}" -n sweep_bundle -D .
+            gpg --batch --yes --quiet --decrypt --passphrase "$SWEEP_BUNDLE_KEY" -o cases.tar.gz sweep_bundle.tar.gz.gpg
+            tar -xzf cases.tar.gz && rm -f cases.tar.gz sweep_bundle.tar.gz.gpg
+            grep -qx "build_cpu_vendor=AuthenticAMD" BUNDLE_META.txt || { echo "::error::cases bundle not built on AuthenticAMD"; exit 1; }
+          fi
           if [ -n "${{ inputs.image_run }}" ]; then
             # Part 3: add the 230 certified image cases (registry union) and the image data they train on
             gh run download "${{ inputs.image_run }}" -n image_bundle -D .
