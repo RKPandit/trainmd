@@ -172,14 +172,17 @@ ran (agent phase 978/984 cells, $24.03, 6 unrun — all neutral×Luna×static; v
   lost — L29). Verdict logic corrected mid-analysis to a CI equivalence test (was point-based;
   DECISIONS 2026-09-22, RESEARCH_LOG 35).
 
-**NEXT GATE (updated 2026-09-30): run Stage 4 Part 3 — pre-registration LOCKED** (`docs/HYPOTHESES.md`, "Stage 4
-Part 3 — PRE-REGISTRATION"). The image workload has 230 cases, certified on AMD (CI 36642567310). Four conditions,
-static and ReAct: Haiku 4.5, Sonnet 5 thinking off, GPT-5.6 Luna medium and none; ReAct cells include the controls.
-The confirmatory set is one Holm family on Youden's J (H13a, H13b, H14, H15, H16, H17; L39). The cap is $120 (the
-projection is $91), with a slice and per-condition projection first. Part 2 is done and recorded: H11 and H12
-UNTESTABLE (FINDINGS F24); exploratory follow-ups in L39 / L40 and `docs/audits/stage4_part2_*`. Scorer FROZEN
-(workload-scoped). Workload 1's design stays 200 cases; the image cases are restored beside them
-(`make restore-image-cases`). Billed Part 1 spend still to enter.
+**NEXT GATE (updated 2026-10-03): Part 3 DONE — post-run blind audit, then the write-up.**
+- **Part 3** (image workload, 230 cases, locked pre-registration): all 9 confirmatory tests CONFIRMING (Holm m = 9;
+  FINDINGS F25; HYPOTHESES "Stage 4 Part 3 — RESULTS"; `docs/audits/stage4_part3_verdicts.md`).
+  - Static 4,272 + ReAct 1,840 cells, $74.31 of the $120 cap.
+  - Recovery verified natively on AMD (0 verify_error).
+  - The verdicts are J-based (detection − false alarms) and do not depend on the identification specs.
+- **Remaining:** the Part 3 post-run blind human audit (the fresh validation of the image identification specs);
+  the descriptive analyses (code opening, compliance, false alarms by form and band).
+- **Part 2** is done (H11 / H12 UNTESTABLE, F24). Workload 1's design stays 200 cases; the image cases are restored
+  beside them (`make restore-image-cases`).
+- Billed spend (Parts 1–3) still to enter.
 ---
 
 **Stage 3 v2 (`STAGE3_PLAN.md`) — Part 0: Hygiene before science (BLOCKING).** Nothing else starts

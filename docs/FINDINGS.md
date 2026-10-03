@@ -1011,6 +1011,38 @@ control (off arm 18/20 healthy, 66/72 benign; every other condition 0/92). Its c
 policy, not diagnosis: the model itself returns `detected: true` on dormant fault code paths. The strict adapter does
 not introduce it, and Part 1's non-strict Luna had 0/92. LIMITATIONS L39. **Status:** pre-registered · UNTESTABLE ×2.
 
+### F25 — Stage 4 Part 3 (image workload) pre-registered verdicts: all 9 tests CONFIRMING · pre-registered
+
+The first confirmatory test of Part 2's exploratory findings, on a second workload (the Fashion-MNIST CNN, 230
+certified cases), with four conditions (Haiku 4.5, Sonnet 5 thinking off, GPT-5.6 Luna medium / none), static and
+ReAct, and controls run under both agents. Computed mechanically over both sweeps (`harness/prereg_part3.py`,
+`docs/audits/stage4_part3_verdicts.md`; HYPOTHESES "Stage 4 Part 3 — RESULTS"); one Holm family, m = 9, none
+untestable. The verdicts are J-based (detection − false alarms) and do not depend on the identification specs.
+
+- **H13a / H13b — reasoning, two different routes to a lower J.** Without reasoning, GPT-5.6 Luna's J is lower in
+  BOTH protocols, but differently:
+  - static: through false alarms (ΔJ 0.429; the false-alarm component 0.308 carries it);
+  - ReAct: through misses (ΔJ 0.208, entirely misses; ΔFA 0), decided on TWO eligible mechanisms, leakage and
+    metric inflation; label flip and decay unit had no headroom for Luna none under ReAct.
+
+  This confirms both Part 2 exploratory readings (L39; `stage4_part2_control_false_alarms.md`,
+  `stage4_part2_followups.md`).
+- **H14 — a bare reference helps an investigating agent.** ReAct `stats` vs `off` raises J on the silent faults
+  for all three tested conditions: Haiku +0.671, Sonnet off +0.421, Luna medium +0.620.
+- **H15 — model dependence replicates on J on a second workload.** Luna medium > Haiku on leakage, label flip and
+  metric inflation (H9 on workload 1, F17).
+- **H16 — bare statistics close most of the off→rule gap on J.** Haiku f_J 0.824, on leakage, label flip and
+  metric inflation. Luna medium f_J 0.992 rests on METRIC INFLATION ALONE: its only mechanism with a J rule − off
+  gap ≥ 0.3 (0.551); the others were 0.01–0.14.
+- **H17 — the complete static configuration beats the complete ReAct configuration for Sonnet off on the silent
+  faults** (ΔJ 0.194).
+
+**Descriptive:**
+- The stats arm also raises false alarms on the two naturally out-of-band controls (n = 2 per condition).
+- GPT-5.6 Luna none's in-band false alarms rise under the stats line in ReAct (2/102 → 24/102).
+
+**Status:** pre-registered · CONFIRMING ×9.
+
 ## How to update this document
 
 After each sweep's diagnostics close: (1) add a **Sweep N** section in the shape above;
