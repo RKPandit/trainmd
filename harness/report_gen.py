@@ -673,6 +673,10 @@ def _prereg_part3_tables(records) -> list[str]:
     from harness import prereg_part3 as p3
     if not p3.present(records):
         return []
+    if not p3.spans_both_protocols(records):
+        # ONE sweep (static OR ReAct) holds only part of the family (H15 pools both protocols, H17 compares them,
+        # H13a/H13b each need one): never render a partial family — point to the combined computation.
+        return ["## Stage 4 Part 3 — H13a–H17", "", p3.PER_SWEEP_NOTE, ""]
     v = p3.part3_verdicts(records)
     L = ["## Pre-registered verdicts (Stage 4 Part 3) — computed mechanically", "",
          "> Youden's J = detection on faulty cases − false-alarm rate on controls (L39); non-crash mechanisms, "

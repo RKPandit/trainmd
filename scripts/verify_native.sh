@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# scripts/verify_native.sh NAME CASES_RUN — memoized recovery verification, NATIVELY on AMD EPYC
+# scripts/verify_native.sh NAME CASES_RUN [IMAGE_RUN] — memoized recovery verification, NATIVELY on AMD EPYC
 # (HYPOTHESES, Stage 4 Part 1 pre-run addendum). Run after the agents phase:
 #
 #   1. export the DISTINCT repaired configurations (+ a 20-trial spot-check sample) in the canonical
@@ -19,7 +19,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "${TRAINMD_REPO_ROOT:-$SCRIPT_DIR/..}"
 
 NAME="${1:?usage: verify_native.sh NAME CASES_RUN}"
-CASES_RUN="${2:?usage: verify_native.sh NAME CASES_RUN   (the certify run your cases were restored from)}"
+CASES_RUN="${2:?usage: verify_native.sh NAME CASES_RUN [IMAGE_RUN]   (the certify run your cases were restored from; '-' for none)}"
+[ "$CASES_RUN" = "-" ] && CASES_RUN=""     # a Part 3 image-only sweep needs only IMAGE_RUN
+# Part 3: the image-certify run your image cases were restored from (make restore-image-cases IMAGE_RUN=...).
+IMAGE_RUN="${3:-}"
 require_cmd "$GH" gh "Install the GitHub CLI and run 'gh auth login'."
 require_cmd "$GPG" gpg
 require_env SWEEP_BUNDLE_KEY "It encrypts the config list and decrypts the memo (the repo secret's value)."
@@ -45,7 +48,9 @@ git worktree remove --force "$WT"
 run_id=""
 for attempt in $(seq 1 12); do
   before="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  "$GH" workflow run ci.yml --ref "$BRANCH" -f task=verify-native -f sweep="$NAME" -f cases_run="$CASES_RUN"
+  [ -n "$CASES_RUN$IMAGE_RUN" ] || die "give CASES_RUN (workload 1) and/or IMAGE_RUN (Part 3)."
+  "$GH" workflow run ci.yml --ref "$BRANCH" -f task=verify-native -f sweep="$NAME" -f cases_run="$CASES_RUN" \
+    ${IMAGE_RUN:+-f image_run="$IMAGE_RUN"}
   rid=""
   for _ in $(seq 1 30); do
     sleep 10

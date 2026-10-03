@@ -199,3 +199,17 @@ def test_document_names_the_same_numbers_as_the_code():
                   "10,000", "T/2", "Holm", "½·ΔĴ", "intersection–union", "complete agent configuration",
                   "H13a", "H13b", "H14", "H15", "H16", "H17", "Luna medium is not tested"):
         assert token in doc, token
+
+
+# ---------------------------------------------------------------- reports: one sweep never renders a partial family
+def test_a_single_part3_sweep_points_to_the_combined_verdicts_and_renders_no_verdict():
+    from harness import report_gen
+    static_only = world(p3.LUNA_NONE, p3.STATIC, p3.OFF, 0.99, 0.9) + world(p3.LUNA_MED, p3.STATIC, p3.OFF, 0.9, 0.0, seed=1)
+    react_only = world(p3.LUNA_NONE, p3.REACT, p3.OFF, 0.2, 0.0) + world(p3.LUNA_MED, p3.REACT, p3.OFF, 0.85, 0.0, seed=1)
+    for recs in (static_only, react_only):
+        out = "\n".join(report_gen._prereg_part3_tables(recs))
+        assert p3.PER_SWEEP_NOTE in out and "Pre-registered verdicts" not in out
+        for term in ("CONFIRMING", "REFUTING", "INCONCLUSIVE", "UNTESTABLE"):
+            assert term not in out
+    both = "\n".join(report_gen._prereg_part3_tables(static_only + react_only))
+    assert "Pre-registered verdicts (Stage 4 Part 3)" in both and "| H13a |" in both and "| H13b |" in both
