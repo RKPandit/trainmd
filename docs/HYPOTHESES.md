@@ -1638,3 +1638,49 @@ up to ≈ 15–40%.
 5. Native verification.
 6. Report.
 7. Post-run blind human audit.
+
+### Stage 4 Part 3 — RESULTS (appended 2026-10-03; verdicts computed mechanically by `harness/prereg_part3.py`)
+
+*Source: `docs/audits/stage4_part3_verdicts.md`, written by `python -m harness.prereg_part3 --write` over BOTH Part 3
+sweeps together (the locked family; DECISIONS 2026-10-02).*
+
+**Run:**
+- Static: 4,272/4,272 cells (`stage4_part3_static`, pre-fix commit 9fbc033).
+- ReAct: 1,840/1,840 cells (`stage4_part3_react`, post-fix commit 024f153).
+- 0 failed cells; crash-then-retry pairs: 7 static, 2 ReAct, one record per cell analysed.
+- Agents-phase estimate $39.93 + $34.38 = $74.31 against the $120 cap.
+- Recovery verified natively on AMD EPYC with memoization:
+  - static: CI 37095243789, EPYC 7763; 2,362 trained trials → 19 configurations; spot-check 20/20;
+  - ReAct: CI 37133174142, EPYC 9V74; 652 → 23; spot-check 20/20;
+  - 0 verify_error in either sweep.
+
+**Every one of the 9 tests in the Holm family is CONFIRMING (Holm m = 9; none untestable).** The verdicts are
+computed from DETECTION on faulty cases and FALSE ALARMS on controls (Youden's J) — they do not depend on the
+identification specs, the evidence scorer or recovery.
+
+| test | verdict | estimate [95% CI] | detail |
+|---|---|---|---|
+| **H13a** — Luna none vs medium, static off | **CONFIRMING** | ΔJ = 0.429 [0.328, 0.532]; via false alarms 0.308 [0.221, 0.394] | J: medium 0.795, none 0.366. ΔFA 0.308 ≥ ½·ΔĴ (clause met); ΔDET 0.122. All 4 mechanisms eligible. |
+| **H13b** — Luna none vs medium, ReAct off | **CONFIRMING** | ΔJ = 0.208 [0.101, 0.315]; via misses 0.208 [0.111, 0.306] | Eligible: leakage, metric inflation (label flip, decay unit: no headroom for Luna none). ΔFA 0.000: the gap is entirely misses (clause met). |
+| **H14** [Haiku 4.5] — ReAct stats vs off, J_silent | **CONFIRMING** | ΔJ = 0.671 [0.540, 0.797] | J_silent 0.108 → 0.779 |
+| **H14** [Sonnet 5 thinking off] | **CONFIRMING** | ΔJ = 0.421 [0.319, 0.528] | 0.569 → 0.990 |
+| **H14** [GPT-5.6 Luna medium] | **CONFIRMING** | ΔJ = 0.620 [0.489, 0.746] | 0.207 → 0.827. Tested: off-arm upper bound 0.310 < 0.85, contrary to the pre-run expectation that it would lack headroom. |
+| **H15** — Luna medium vs Haiku, off, pooled static + ReAct (H9 rule) | **CONFIRMING** | leakage 0.640 [0.519, 0.752]; label flip 0.519 [0.393, 0.640]; metric inflation 0.288 [0.181, 0.395] | Every eligible Δ_m lower bound > 0. Decay unit is not eligible (Haiku J 0.947, upper 0.976). |
+| **H16** [Haiku 4.5] — stats closes the off→rule J gap, static | **CONFIRMING** | f_J = 0.824 [0.723, 0.929] | Eligible: leakage, label flip, metric inflation (gaps 0.63–0.91) |
+| **H16** [GPT-5.6 Luna medium] | **CONFIRMING** | f_J = 0.992 [0.929, 1.049] | ONE eligible mechanism, metric inflation (gap 0.551); others 0.01–0.14 |
+| **H17** — Sonnet off, J_silent static vs ReAct, off | **CONFIRMING** | ΔJ = 0.194 [0.083, 0.306] | 0.764 vs 0.569, paired by case. A comparison of complete agent configurations, not "the effect of tools". |
+
+**Descriptive (no verdicts), from the same records:**
+- **Stats-arm false alarms on naturally out-of-band controls.** Two of the 104 controls fall naturally below the
+  visible band (case_0345 healthy; case_0419 benign learning rate 0.04).
+  - The **stats** arm flags them more often than `off` wherever the count moves (n = 2 per condition): ReAct Sonnet
+    off 0/2 → 1/2, ReAct Luna medium 1/2 → 2/2, static Haiku 0/2 → 1/2.
+  - The **rule** arm flags both for Haiku, Luna medium and Luna none.
+  - Separately, **GPT-5.6 Luna none's** false alarms on IN-band controls rise under the stats line in ReAct
+    (2/102 → 24/102) and peak under rule in static (54/102).
+  - Its ReAct J_silent is negative under stats (−0.181).
+- **J by condition, agent and arm** (off / stats / rule):
+  - static: Haiku 0.311 / 0.764 / 0.864; Sonnet off 0.882 / 1.000 / 0.990; Luna medium 0.795 / 0.960 / 0.971;
+    Luna none 0.366 / 0.687 / 0.462;
+  - ReAct (off / stats): Haiku 0.497 / 0.841; Sonnet off 0.785 / 0.990; Luna medium 0.575 / 0.889; Luna none
+    0.457 / 0.285.
