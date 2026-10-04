@@ -182,8 +182,8 @@ ran (agent phase 978/984 cells, $24.03, 6 unrun — all neutral×Luna×static; v
   on fresh items (FINDINGS F27). Evidence F1 is conservative (LIMITATIONS L44).
 - **Releases:** the Part 2 and Part 3 releases (local, gitignored) reproduce all four generated reports byte-for-byte
   (`scripts/rebuild_tables.py`), and the Part 3 verdicts document likewise.
-- **Remaining before the write-up:** the Part 3 descriptive analyses (code opening, compliance, false alarms by form
-  and band).
+- **Descriptive analyses:** done (`docs/audits/stage4_part3_descriptive.md`: code opening, compliance, false alarms by
+  form and band; descriptive only, from the releases).
 - **Part 2** is done (H11 / H12 UNTESTABLE, F24). Workload 1's design stays 200 cases; the image cases are restored
   beside them (`make restore-image-cases`).
 - Billed spend (Parts 1–3) still to enter.
