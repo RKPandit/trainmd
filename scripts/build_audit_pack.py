@@ -34,6 +34,13 @@ Stage 4 Part 2 fresh audit (``--design part2``): ~30 items over Stage A (static)
 spread evenly over FULL condition (model + settings) × agent and within each over fault mechanisms, controls one
 per condition (static; ~20%); the same rubric, blinding and rounding; the key records the condition. Input: the
 LOCAL exports ``results_release/stage4_part2/`` and ``results_release/stage4_part2_react/``.
+
+Stage 4 Part 3 blind audit (``--design part3``): ~30 items over the image workload's static + ReAct sweeps — the
+FIRST fresh validation of the frozen image identification specs. Faulty items cycle jointly over the five image
+fault MECHANISMS and FULL condition × agent (each mechanism ~5 items, each condition × agent 3); controls (~20%,
+healthy and benign image types) cycle over the four conditions, both agents (Part 3 ran controls under ReAct).
+Same rubric, blinding and rounding; exploratory and pilot trials never enter. Input: the LOCAL exports
+``results_release/stage4_part3_static/`` and ``results_release/stage4_part3_react/``.
 """
 from __future__ import annotations
 
@@ -81,7 +88,27 @@ PLANTED = {
                                   "model's real accuracy (the model itself is fine).",
     "crash.shape_mismatch.v1": "Shape mismatch — the config sets the model's input dimension to the wrong "
                                "number of features, so training crashes on the first forward pass.",
+    # Part 3 image workload (Fashion-MNIST CNN)
+    "silent.pixel_tag_leakage.v1": "Data leakage — the config stamps a small corner patch whose brightness encodes "
+                                   "the class label into the training and validation images (never the held-out "
+                                   "test images), so the model learns the shortcut and validation accuracy "
+                                   "overstates real performance.",
+    "silent.label_flip.v1": "Label noise — the config replaces a large fraction of the training labels with their "
+                            "look-alike class (e.g. T-shirt↔Shirt, Pullover↔Coat, Sneaker↔Ankle boot), so the "
+                            "model learns from partly wrong targets and accuracy drops.",
+    "silent.decay_unit.v1": "Learning-rate schedule bug — the config adds a step-decay schedule whose interval is "
+                            "counted in optimizer steps instead of epochs, so the learning rate shrinks every step "
+                            "to nearly zero within the first epoch and training stalls (the model under-trains).",
+    "silent.confident_subset.v1": "Inflated metric — the reported validation accuracy is computed on only the "
+                                  "model's most-confident validation images, so it reads far better than the "
+                                  "model's real accuracy (the model itself is fine).",
+    "crash.channel_mismatch.v1": "Channel mismatch — the config sets the network's number of input channels to the "
+                                 "wrong value (the images are grayscale, 1 channel), so training crashes on the "
+                                 "first forward pass.",
 }
+PLANTED["silent.pixel_tag_leakage_neutral.v1"] = PLANTED["silent.pixel_tag_leakage.v1"]
+PLANTED["silent.confident_subset_neutral.v1"] = PLANTED["silent.confident_subset.v1"]
+PLANTED["control.healthy_image.v1"] = PLANTED[CONTROL]
 BENIGN_CHANGE = {
     "control.benign_bs128.v1": "mini-batch size 256 → 128",
     "control.benign_ep25.v1": "25 training epochs instead of 20",
@@ -90,11 +117,25 @@ BENIGN_CHANGE = {
     "control.benign_lr005.v1": "learning rate 0.01 → 0.005 (within the normal range)",
     "control.benign_clip1.v1": "gradient-norm clipping at 1.0 added",
 }
-for _op, _chg in BENIGN_CHANGE.items():
+IMAGE_BENIGN_CHANGE = {
+    "control.benign_img_bs256.v1": "mini-batch size 128 → 256",
+    "control.benign_img_ep10.v1": "10 training epochs instead of 8",
+    "control.benign_img_wd1e3.v1": "weight decay 5e-4 → 1e-3",
+    "control.benign_img_do01.v1": "dropout 0.1 added before the classifier",
+    "control.benign_img_lr004.v1": "learning rate 0.05 → 0.04 (within the normal range)",
+    "control.benign_img_clip1.v1": "gradient-norm clipping at 1.0 added",
+    "control.benign_img_sched_noop.v1": "step-decay schedule settings added with decay factor 1.0, so the learning "
+                                        "rate never changes",
+}
+for _op, _chg in {**BENIGN_CHANGE, **IMAGE_BENIGN_CHANGE}.items():
     PLANTED[_op] = f"None — a legitimate configuration change was made ({_chg}); the run is healthy"
 PART1_FAULT_OPS = ("silent.lr_warmup.v1", "silent.label_corruption.v1", "silent.metric_inflation.v1",
                    "crash.shape_mismatch.v1")
 PART1_CONTROL_OPS = tuple(BENIGN_CHANGE)
+PART3_FAULT_OPS = ("silent.pixel_tag_leakage.v1", "silent.pixel_tag_leakage_neutral.v1", "silent.label_flip.v1",
+                   "silent.decay_unit.v1", "silent.confident_subset.v1", "silent.confident_subset_neutral.v1",
+                   "crash.channel_mismatch.v1")
+PART3_CONTROL_OPS = ("control.healthy_image.v1",) + tuple(IMAGE_BENIGN_CHANGE)
 
 
 def planted_fault(operator_id: str) -> str:
@@ -132,6 +173,40 @@ def round_metrics(text: str) -> str:
         v = float(m.group(1))
         return f"{v:.2f}" if v >= 0.1 else m.group(0)
     return _EXACT_NUM_RE.sub(num, _EXACT_PCT_RE.sub(pct, text))
+
+
+_CASE_ID_RE = re.compile(r"\bcase_\d+\b", re.I)
+_ANY_DEC_RE = re.compile(r"(?<![\w.])(\d+\.\d+)(\s*%)?")
+_SENTENCE_END_NUM_RE = re.compile(r"(?<![\w.])(\d+\.\d{3,})(?=\.(?!\d))")
+
+
+def band_targets(card: dict) -> list[float]:
+    """Part 3 blinding (author's request 2026-10-03): the band's mean, its SD, and mean ± k·SD (k = 1..4) as
+    NUMBERS, so a truncated or differently rounded copy (0.9032 for 0.903299) is caught, not only the exact
+    4-decimal strings ``band_values`` matches."""
+    ref = (card or {}).get("reference_visible_metric") or {}
+    if not ref:
+        return []
+    m, s = ref["mean"], ref["std"]
+    return [m, s] + [m + k * s for k in (-4, -3, -2, -1, 1, 2, 3, 4)]
+
+
+def redact_part3(text: str, targets: list[float]) -> str:
+    """The Part 3 additions, applied BEFORE ``redact``: any case id (an agent may quote its own; with the release it
+    gives the item's automated scores); any decimal with ≥ 3 significant decimals within 1.5e-4 (or 0.015
+    percentage points) of a band target; and a metric value ending a sentence ("… of 0.823.") is rounded like any
+    other (``round_metrics`` skips a number followed by a full stop)."""
+    text = _CASE_ID_RE.sub("[case redacted]", "" if text is None else str(text))
+
+    def band(m):
+        raw, pct = m.group(1), m.group(2)
+        if len(raw.split(".")[1]) < (1 if pct else 3):      # 0.88 / 88% are too coarse to point at the band
+            return m.group(0)
+        v = float(raw) / (100 if pct else 1)
+        return "[band value redacted]" if any(abs(v - t) <= 1.5e-4 for t in targets) else m.group(0)
+    text = _ANY_DEC_RE.sub(band, text)
+    return _SENTENCE_END_NUM_RE.sub(lambda m: f"{float(m.group(1)):.2f}" if float(m.group(1)) >= 0.1 else m.group(0),
+                                    text)
 
 
 def redact(text, values, rounding: bool = False) -> str:
@@ -259,13 +334,63 @@ def sample_by_condition(recs: list[dict], n: int, control_share: float, seed: in
     return picked
 
 
+def sample_part3(recs: list[dict], n: int, control_share: float, seed: int) -> list[dict]:
+    """Stage 4 Part 3 audit (author's request 2026-10-03): the first fresh validation of the frozen image specs.
+    Faulty slot i takes mechanism i mod 5 and condition × agent i mod 8 (both orders seeded; 5 and 8 coprime, so
+    the slots spread evenly over both); an empty (mechanism, group) pool falls to that mechanism's next group.
+    Control slot i takes condition i mod 4 and alternates the agent, a seeded arm each time. Exploratory and pilot
+    trials never enter."""
+    from harness.sweep_stats import mechanism_of
+    rng = random.Random(seed)
+    eligible = [r for r in recs if r.get("status") == "completed" and r.get("submission")
+                and (r.get("conditions") or {}).get("reasoning_passback") is not False
+                and not (r.get("conditions") or {}).get("pilot")]
+    faulty, ctrl = {}, {}
+    for r in sorted(eligible, key=lambda r: r["run_id"]):
+        g = (_condition(r), (r.get("conditions") or {}).get("agent_type"))
+        if r["_op"] in PART3_FAULT_OPS:
+            faulty.setdefault((mechanism_of(r["_op"]), g), []).append(r)
+        elif r["_op"] in PART3_CONTROL_OPS:
+            ctrl.setdefault((g, r["_anchor"]), []).append(r)
+    n_ctrl = round(n * control_share)
+    mechs = sorted({m for m, _g in faulty})
+    groups = sorted({g for _m, g in faulty})
+    rng.shuffle(mechs)
+    rng.shuffle(groups)
+    picked: list[dict] = []
+    for i in range(n - n_ctrl):
+        mech = mechs[i % len(mechs)]
+        for j in range(len(groups)):
+            pool = [r for r in faulty.get((mech, groups[(i + j) % len(groups)]), []) if r not in picked]
+            if pool:
+                picked.append(rng.choice(pool))
+                break
+    conds = sorted({g[0] for g, _a in ctrl})
+    agents = sorted({g[1] for g, _a in ctrl})
+    rng.shuffle(conds)
+    for i in range(n_ctrl if conds else 0):
+        c = conds[i % len(conds)]
+        a = agents[(i // len(conds) + i) % len(agents)]          # a condition's second item takes the other agent
+        keys = sorted(k for k in ctrl if k[0] == (c, a)) or sorted(k for k in ctrl if k[0][0] == c)
+        pool = [r for r in ctrl[rng.choice(keys)] if r not in picked]   # a seeded arm
+        if pool:
+            picked.append(rng.choice(pool))
+    rng.shuffle(picked)
+    return picked
+
+
 def build(release_dir: Path, out_dir: Path, n: int = 60, control_share: float = 0.15,
           seed: int = DEFAULT_SEED, fault_ops=None, control_ops=(CONTROL,), rounding: bool = False,
-          extra_release_dirs=(), by_condition: bool = False) -> dict:
+          extra_release_dirs=(), by_condition: bool = False, part3: bool = False) -> dict:
+    def clean(text, card):
+        text = redact_part3(text, band_targets(card)) if part3 else text
+        return redact(text, band_values(card), rounding)
+
     recs = load_from_release(release_dir)
     for d in extra_release_dirs:
         recs += load_from_release(d)
-    picked = (sample_by_condition(recs, n, control_share, seed, control_ops) if by_condition
+    picked = (sample_part3(recs, n, control_share, seed) if part3
+              else sample_by_condition(recs, n, control_share, seed, control_ops) if by_condition
               else sample(recs, n, control_share, seed, fault_ops, control_ops))
     cases = {}
     for d in (release_dir, *extra_release_dirs):
@@ -274,14 +399,13 @@ def build(release_dir: Path, out_dir: Path, n: int = 60, control_share: float = 
     for i, r in enumerate(picked, 1):
         item = f"A{i:02d}"
         meta = cases[r["case_id"]]
-        vals = band_values(meta.get("public_card") or {})
         sub = r.get("submission") or {}
         diag = sub.get("diagnosis") or {}
         detected = diag.get("detected")
         rows.append([item, planted_fault(r["_op"]),
                      "yes" if detected is True else "no" if detected is False else "(not stated)",
-                     redact(diag.get("operator_class"), vals, rounding) or "(none)",
-                     redact(explanation(r), vals, rounding), evidence_text(sub.get("evidence_refs")),
+                     clean(diag.get("operator_class"), meta.get("public_card") or {}) or "(none)",
+                     clean(explanation(r), meta.get("public_card") or {}), evidence_text(sub.get("evidence_refs")),
                      "", "", "", "", ""])
         sc = r.get("scores") or {}
         ev, ident = sc.get("evidence") or {}, sc.get("identification") or {}
@@ -317,12 +441,19 @@ def main() -> int:
     ap.add_argument("--control-share", type=float, default=0.15)
     ap.add_argument("--seed", type=int, default=DEFAULT_SEED)
     ap.add_argument("--project-root", type=Path, default=ROOT)
-    ap.add_argument("--design", choices=["h8", "part1", "part2"], default="h8",
+    ap.add_argument("--design", choices=["h8", "part1", "part2", "part3"], default="h8",
                     help="part1: 4 newly audited fault operators × provider × arm + benign controls "
                          "(provider × arm), n=30, exact metric values rounded")
     a = ap.parse_args()
     out = a.project_root / "audit" / "local" / a.sweep
-    if a.design == "part2":
+    if a.design == "part3":
+        # Stage 4 Part 3 blind audit: ~30 items over the image static + ReAct sweeps (the frozen image specs' first
+        # fresh validation); same rubric, blinding and rounding.
+        out = a.project_root / "audit" / "local" / "stage4_part3"
+        res = build(a.project_root / "results_release" / "stage4_part3_static", out, n=30, control_share=0.2,
+                    seed=a.seed, control_ops=PART3_CONTROL_OPS, rounding=True,
+                    extra_release_dirs=(a.project_root / "results_release" / "stage4_part3_react",), part3=True)
+    elif a.design == "part2":
         # Stage 4 Part 2 fresh audit: ~30 items over BOTH sweeps (Stage A static + Stage B ReAct), stratified by
         # FULL condition × agent (faulty) and condition (controls); frozen scorer; same rubric, blinding, rounding.
         out = a.project_root / "audit" / "local" / "stage4_part2"

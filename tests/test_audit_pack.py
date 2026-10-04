@@ -290,3 +290,66 @@ def test_part2_design_spreads_items_over_full_conditions_and_mechanisms():
     groups = Counter((bap._condition(r), r["conditions"]["agent_type"]) for r in picked if r not in ctl)
     assert len(groups) == 8 and max(groups.values()) - min(groups.values()) <= 1
     assert picked == bap.sample_by_condition(recs, 30, 0.2, 7, bap.PART1_CONTROL_OPS)   # deterministic
+
+
+def test_part3_design_spreads_items_over_image_mechanisms_conditions_and_agents():
+    """Stage 4 Part 3 blind audit: ~30 items, faulty spread jointly over the five image mechanisms and FULL condition
+    × agent; controls cover every condition and both agents (controls ran under ReAct); workload-1, exploratory
+    and pilot trials never enter; every sampled operator has a plain-language description."""
+    import importlib.util as _u
+    from collections import Counter
+    spec = _u.spec_from_file_location("bap3", Path(__file__).resolve().parent.parent / "scripts" / "build_audit_pack.py")
+    bap = _u.module_from_spec(spec)
+    spec.loader.exec_module(bap)
+    from harness.sweep_stats import mechanism_of
+    conds = [("claude-haiku-4-5", {}), ("claude-sonnet-5", {"thinking": "disabled"}),
+             ("gpt-5.6-luna", {"effort": "none", "strict_tools": True}),
+             ("gpt-5.6-luna", {"effort": "medium", "strict_tools": True})]
+    recs, n = [], 0
+
+    def rec(op, m, c, agent, arm, **extra):
+        nonlocal n
+        n += 1
+        return {"run_id": f"r{n:04d}", "status": "completed", "submission": {"diagnosis": {}},
+                "case_id": f"{op}:{n}", "_op": op, "_anchor": arm, "model": {"model_id": m},
+                "conditions": {**c, "agent_type": agent, **extra}}
+    for m, c in conds:
+        for agent in ("static", "react"):
+            for arm in ("off.v2", "stats.v2"):
+                for op in bap.PART3_FAULT_OPS + bap.PART3_CONTROL_OPS:
+                    recs.append(rec(op, m, c, agent, arm))
+                recs.append(rec("silent.data_leakage.v1", m, c, agent, arm))          # workload 1: never enters
+                recs.append(rec("control.healthy.v1", m, c, agent, arm))
+    recs.append(rec("silent.label_flip.v1", *conds[0], "static", "off.v2", pilot=True))
+    recs.append(rec("silent.label_flip.v1", *conds[0], "static", "off.v2", reasoning_passback=False))
+    picked = bap.sample_part3(recs, 30, 0.2, 11)
+    assert len(picked) == 30 and len({r["run_id"] for r in picked}) == 30
+    assert all(r["_op"] in bap.PART3_FAULT_OPS + bap.PART3_CONTROL_OPS for r in picked)
+    assert not any(r["conditions"].get("pilot") or r["conditions"].get("reasoning_passback") is False for r in picked)
+    ctl = [r for r in picked if r["_op"] in bap.PART3_CONTROL_OPS]
+    assert len(ctl) == 6 and len({bap._condition(r) for r in ctl}) == 4
+    assert {r["conditions"]["agent_type"] for r in ctl} == {"static", "react"}
+    fault = [r for r in picked if r not in ctl]
+    mechs = Counter(mechanism_of(r["_op"]) for r in fault)
+    assert len(mechs) == 5 and max(mechs.values()) - min(mechs.values()) <= 1
+    groups = Counter((bap._condition(r), r["conditions"]["agent_type"]) for r in fault)
+    assert len(groups) == 8 and set(groups.values()) == {3}
+    assert all(bap.planted_fault(r["_op"]) for r in picked)
+    assert picked == bap.sample_part3(recs, 30, 0.2, 11)                                  # deterministic
+
+
+def test_part3_redaction_catches_case_ids_band_sd_truncated_edges_and_sentence_end_values():
+    """Found building the first Part 3 sheet (2026-10-03): an agent quoted its own case id, the band SD (0.0086)
+    and a truncated band edge (0.9032 for 0.903299) passed the exact-string band match, and "… of 0.823." escaped
+    rounding. The Part 3 design redacts all four; plain run values and config values are untouched."""
+    import importlib.util as _u
+    spec = _u.spec_from_file_location("bap3r", Path(__file__).resolve().parent.parent / "scripts" / "build_audit_pack.py")
+    bap = _u.module_from_spec(spec)
+    spec.loader.exec_module(bap)
+    card = {"reference_visible_metric": {"series": "val_top1", "mean": 0.886033, "std": 0.008633, "n": 30}}
+    t = bap.redact_part3("I checked case_0354. Mean 0.886 (SD 0.0086); upper 0.9032 = 90.33%; plateau of 0.823. "
+                         "lr 0.05, wd 0.0005, final 0.88, val 0.7811", bap.band_targets(card))
+    assert "case_0354" not in t and "[case redacted]" in t
+    for leaked in ("0.886 ", "0.0086", "0.9032", "90.33%", "0.823."):
+        assert leaked not in t, leaked
+    assert "0.82." in t and "lr 0.05" in t and "wd 0.0005" in t and "final 0.88" in t and "0.7811" in t
