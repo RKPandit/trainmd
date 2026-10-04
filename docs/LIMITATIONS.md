@@ -841,7 +841,9 @@ verdict uses evidence).**
    - **The common thread:** span references must overlap the accepted span by ≥ 0.5 and be at most 3× its width.
      The static agent sees `train.py` and the log WITHOUT line numbers (`read_code` returns bare lines), so its
      spans are counted by the model and land a few lines off. Part 1 A01 (223–227 against 222) and A21 (log
-     line 6 against 4–6; code cited as `line_range` rather than `code_span`) are the same shape.
+     line 6 against 4–6; code cited as `line_range` rather than `code_span`) are the same shape. Static agents see
+     code without line numbers, so their line citations are self-counted and often a few lines off: part of the
+     under-credit is the protocol, not the agent.
 4. **Consequence.** Evidence F1 is reported as a conservative, coordinate-strict lower bound for correctly
    diagnosed items. No pre-registered verdict uses evidence. The scorer stays frozen (evidence v2.3), and no evidence set is widened after the fact. A future scorer could
    admit the input-shaping span for channel faults, and a future static agent could show line numbers; either
