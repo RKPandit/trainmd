@@ -714,7 +714,8 @@ flags on controls (L39, `docs/audits/stage4_part2_control_false_alarms.md`). The
 (`docs/audits/stage4_part2_react_vs_static.md`) finds that opening `train.py` goes with ReAct detecting metric
 inflation (Sonnet: 0.78 opened vs 0.00 not), but not with leakage (0.61–0.81 although every leakage trial opened
 both files). Results are read as "diagnosis given a menu of gated paths", and cross-workload comparisons hold the
-menu structure constant.
+menu structure constant. A second STRUCTURAL limitation of the same kind is L43(2): the healthy controls'
+`config.yaml` is a verbatim, commented copy, unlike every other case's.
 
 **L41 — Scope of every claim (recorded 2026-09-30 after an external review; wording, no analysis change).**
 1. **What the benchmark contains.** It consists of CONTROLLED, CONFIG-INDUCED incidents. Each fault is a planted
@@ -746,3 +747,51 @@ must stay byte-identical across the run (DECISIONS 2026-10-01; `tests/test_stati
 not a fault, and is identical on every image case and condition. The ReAct-side remnant, a fixed tool example naming
 workload 1's metric, WAS fixed before any ReAct trial (`tests/test_agent_visible_text_image.py`).
 
+
+**L43 — Every agent-visible `config.yaml` carries a `reference:` block, and only the HEALTHY controls' copy keeps the
+source file's comments (recorded 2026-10-03 from the Part 3 spot check; read-only audit; cases certified, no
+change).**
+1. **The off arm is reference-free.** All 430 workspaces (200 workload 1, 230 image) have `reference: {num_seeds:
+   30, seeds: [200 … 229]}` in `config.yaml` and `config.resolved.yaml`. No block holds a mean, SD or interval, and
+   no workspace config, code or log quotes the band's mean or SD (a run's own logged accuracy equals the mean to 4
+   decimals in some logs; that is the run's value, not the band). The agent's tools resolve every path inside the
+   workspace (`INVALID_PATH` otherwise), so the files the comments name (`reference/stats.yaml`, `docs/`) cannot be
+   opened.
+2. **The comments mark the healthy controls.** `build_case` copies the workload source into the workspace; every
+   operator, benign controls included, then rewrites `config.yaml` through the YAML writer, which drops comments and
+   turns `[a, b]` lists into block lists. A healthy control mutates nothing, so its `config.yaml` stays a VERBATIM
+   copy, comments and flow lists included. Result: the 40 healthy controls (`control.healthy.v1` 20/20,
+   `control.healthy_image.v1` 20/20) are exactly the 40 commented configs; no faulty case or benign control has one.
+   - Workload 1's comments name a "mean-2σ band", a hidden "tolerance / hidden mean / hidden std", "the W4 wall",
+     "operator-id segment", a 2026-09-15 leak regression and the development seeds 0–29 (no values). The image
+     comments name the reference seed set, native AMD EPYC, CI, and "the visible metric the agent sees each epoch".
+   - It is a CROSS-CASE tell: within one trial the agent sees one config and has no comparison. It is not used
+     detectably. Healthy controls do not get fewer false alarms than benign ones (Part 1 8/120 vs 14/432; Part 2
+     47/360 vs 166/1296; Part 3 static 32/240 vs 109/1008; ReAct 9/159 vs 48/668). Only 2 submissions in Parts 1–3
+     cite the comment text (Part 1, healthy, `rule` arm: "a DEVELOPMENT seed per config comments"), and both are
+     false alarms.
+   - Consequences: the healthy-vs-benign contrast differs in comments as well as in "a change was made". Anyone with
+     the case files, or a model trained on them, could separate healthy controls by formatting.
+   - **A STRUCTURAL limitation, beside L40's visible fault menu.** Like the gated code paths, it is a property of how
+     cases are built, not of any one case, and it is present in every certified case set (both workloads).
+   - **Recommendation for future builds:** write EVERY case's `config.yaml` identically: the same writer for faulty
+     cases, benign controls and healthy controls, with comments stripped for all and one list style. A build-time
+     check should then confirm that no workspace config formatting differs by case type.
+3. **The seed list causes false alarms.** The agent sees its run's own seed in `config.resolved.yaml` (development /
+   case seeds, disjoint from 200–229 by design, L3) beside the listed reference seeds, and some agents report the
+   mismatch as the fault. Submissions citing the reference seed set (the seed list, 200–229, `num_seeds`, "30 seeds";
+   the stats prompt's "Reference runs (n=30)" excluded): Part 1 25/3,101, Part 2 static 12/5,544, Part 2 ReAct
+   0/427, Part 3 static 23/4,271, Part 3 ReAct 2/1,827. Of these, 13 are control false alarms (Part 1 9/22, Part 2
+   2/213, Part 3 static 2/141, ReAct 0/57); 10 are Haiku (static), 3 GPT-5.6 Luna (static).
+   - In 6 of the 13 the seed mismatch is the ONLY reason given, so the block caused them: Part 1 case_0109,
+     case_0119, case_0139, case_0199 (all `off`); Part 3 static case_0345 (`stats`), case_0389 (`off`).
+   - In the other 7 the mismatch is cited beside a claimed band deviation (`rule` / `stats`).
+   - On faulty cases a seed citation rarely displaces the detection (detected 40/42).
+4. **A related wording remnant (L42 family).** The image `train.py` docstring says "clean pipeline only" although
+   the file holds every gated fault path (L40); one Part 3 ReAct submission cites it as evidence that `corner_tag`
+   should be off. Identical in every image case, so not a label tell.
+
+Effect on results: the seed-caused false alarms are ordinary counted false alarms (they lower J where they fall);
+Part 3 has 2 (Haiku static) of its 141 static control false alarms. No verdict is recomputed or changed. Counts
+come from a local read-only scan of the deduplicated, non-exploratory, non-pilot records of `stage4_part1`,
+`stage4_part2`, `stage4_part2_react`, `stage4_part3_static` and `stage4_part3_react` (submission rationale only).
