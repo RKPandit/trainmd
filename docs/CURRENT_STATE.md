@@ -172,14 +172,18 @@ ran (agent phase 978/984 cells, $24.03, 6 unrun — all neutral×Luna×static; v
   lost — L29). Verdict logic corrected mid-analysis to a CI equivalence test (was point-based;
   DECISIONS 2026-09-22, RESEARCH_LOG 35).
 
-**NEXT GATE (updated 2026-10-03): Part 3 DONE — post-run blind audit, then the write-up.**
+**NEXT GATE (updated 2026-10-03): Part 3 DONE; blind audits DONE; releases reproduce — the write-up.**
 - **Part 3** (image workload, 230 cases, locked pre-registration): all 9 confirmatory tests CONFIRMING (Holm m = 9;
   FINDINGS F25; HYPOTHESES "Stage 4 Part 3 — RESULTS"; `docs/audits/stage4_part3_verdicts.md`).
   - Static 4,272 + ReAct 1,840 cells, $74.31 of the $120 cap.
   - Recovery verified natively on AMD (0 verify_error).
   - The verdicts are J-based (detection − false alarms) and do not depend on the identification specs.
-- **Remaining:** the Part 3 post-run blind human audit (the fresh validation of the image identification specs);
-  the descriptive analyses (code opening, compliance, false alarms by form and band).
+- **Blind audits:** Parts 2 and 3 done. Identification agrees 30/30 in each (κ 1.0), so the image specs are validated
+  on fresh items (FINDINGS F27). Evidence F1 is conservative (LIMITATIONS L44).
+- **Releases:** the Part 2 and Part 3 releases (local, gitignored) reproduce all four generated reports byte-for-byte
+  (`scripts/rebuild_tables.py`), and the Part 3 verdicts document likewise.
+- **Remaining before the write-up:** the Part 3 descriptive analyses (code opening, compliance, false alarms by form
+  and band).
 - **Part 2** is done (H11 / H12 UNTESTABLE, F24). Workload 1's design stays 200 cases; the image cases are restored
   beside them (`make restore-image-cases`).
 - Billed spend (Parts 1–3) still to enter.

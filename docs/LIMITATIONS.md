@@ -795,3 +795,54 @@ Effect on results: the seed-caused false alarms are ordinary counted false alarm
 Part 3 has 2 (Haiku static) of its 141 static control false alarms. No verdict is recomputed or changed. Counts
 come from a local read-only scan of the deduplicated, non-exploratory, non-pilot records of `stage4_part1`,
 `stage4_part2`, `stage4_part2_react`, `stage4_part3_static` and `stage4_part3_react` (submission rationale only).
+
+**L44 — Evidence F1 is a CONSERVATIVE score: across the blind audits, the scorer under-credits valid evidence more
+often than a human, and its over-credits are all wrong-conclusion items (recorded 2026-10-03; scorer frozen; no
+verdict uses evidence).**
+1. **Under-credits (scorer F1 < 0.5 where the annotator judged the evidence sufficient):**
+
+   | audit | items | status under the frozen scorer (evidence v2.3) |
+   |---|---|---|
+   | H8 (F16) | A33: key + the consuming `train.py` branch + `datautil.py::_derived_column` | fixed by v2.2 (code-path sets; F1 0.33 → 0.57) |
+   | Part 1 | A01, A21, A29 (shape mismatch: key + crash-log lines + code) | A29 fixed by v2.3 (crash-output sets); A01, A21 still F1 0.4 |
+   | Part 2 (F27) | A30: key + a 42-line `train.py` span + a metric window to "epoch 1925" | F1 0.33 |
+   | Part 3 (F27) | A02, A05 (below) | F1 0.40 each |
+
+   Six items remain under-credited under the frozen scorer: Part 1 A01, A21; Part 2 A30; Part 3 A02, A05.
+2. **The reverse never happens on a correct diagnosis.** Every disagreement in the other direction is the
+   cited-evidence vs reasoning difference: the scorer credits references that are right while the conclusion is
+   wrong (H8 A15, A55; Part 1 A19, A22; Part 2 A14; Part 3 A14, A29). Part 3 A17 (noticed but dismissed) goes the
+   other way: the annotator credits the location and the scorer does not. So on correctly diagnosed items,
+   evidence F1 is a lower bound on what a human would credit. On wrongly diagnosed items it can credit references
+   a human would not count.
+3. **Why, read-only (Part 3).**
+   - **A02** (Haiku 4.5, ReAct, stats, channel mismatch, label `mismatched_input_channels`; F1 0.40, P 1/3,
+     R 1/2). It cited:
+     - `net.in_ch`: matched;
+     - `stdout.log` lines 8–10: three PyTorch-internal traceback frames inside the crash block. Against the block
+       (lines 2–37) the overlap is 3/36, under the 0.5 rule; they are not the exception line (37) or a workload-file
+       frame (4–6, 13–15);
+     - `train.py` 77–79: `to_tensor`, whose `.unsqueeze(1)` makes the input ONE channel. This is the data side of
+       the mismatch, a valid mechanistic reference that no image evidence set contains. The code-path set is the
+       `in_ch` read (193–194); the call-site frames are lines 72 and 210.
+
+     **Partly a valid path the specs miss** (the input-shaping code), plus an imprecise log citation.
+   - **A05** (GPT-5.6 Luna medium, static, off, decay unit, label `step_decay_learning_rate_collapse`; F1 0.40,
+     2 matched). It cited:
+     - `sched.interval_unit` and `sched.decay_every`: matched; it omitted `decay_gamma`;
+     - `train.py` 101–109: in that workspace, `_swap_partner_labels` (the label-flip code). The intended function
+       is `_lr_now` (126–133), which IS in the code-path set, so this is a line-count error, not a missing path;
+     - an `lr` window to "epoch 72026": the run has 8 epochs and 1,256 steps, so it is outside the containment
+       window [0, 7];
+     - a window on series "train_loss,val_top1": not a series.
+
+     **Not a missing path**: the right components, cited with wrong coordinates. The annotator judged the
+     substance, and the scorer matched the coordinates.
+   - **The common thread:** span references must overlap the accepted span by ≥ 0.5 and be at most 3× its width.
+     The static agent sees `train.py` and the log WITHOUT line numbers (`read_code` returns bare lines), so its
+     spans are counted by the model and land a few lines off. Part 1 A01 (223–227 against 222) and A21 (log
+     line 6 against 4–6; code cited as `line_range` rather than `code_span`) are the same shape.
+4. **Consequence.** Evidence F1 is reported as a conservative, coordinate-strict lower bound for correctly
+   diagnosed items. No pre-registered verdict uses evidence. The scorer stays frozen (evidence v2.3), and no evidence set is widened after the fact. A future scorer could
+   admit the input-shaping span for channel faults, and a future static agent could show line numbers; either
+   change would need its own pre-declared rescore.

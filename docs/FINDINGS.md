@@ -1070,6 +1070,44 @@ non-pilot). None of these is a test; they qualify how the confirmed J contrasts 
 Related: LIMITATIONS L43 (the reference seed list in every config, a separate false-alarm source; the healthy
 controls' verbatim configs). **Status:** exploratory · descriptive.
 
+### F27 — Blind audits of Parts 2 and 3: identification agrees on every item; the frozen image specs are validated on fresh items · validated (one annotator)
+
+**Claim.** In the post-run blind audits of Stage 4 Part 2 (workload 1) and Part 3 (image workload), the scorer's
+identification verdict matches the annotator's on every item (30/30 each, κ 1.0). Part 3 is the first fresh
+validation of the frozen image identification specs: they agree on all 30 items. No identification rate or verdict
+changes.
+
+**Evidence.** 30 items per Part (24 faulty, 6 controls), stratified over full condition × agent and mechanism,
+shuffled, with scores, model, provider, agent, arm, case and seed withheld (`scripts/build_audit_pack.py --design
+part2` / `--design part3`). They were rated on the same rubric as F16, and agreement was computed by
+`scripts/audit_agreement.py` (mapping declared before annotation). Exact 95% Clopper–Pearson intervals:
+
+| rating (annotator) | scorer counterpart | Part 2 | Part 3 |
+|---|---|---|---|
+| named = Yes | identification correct | **30/30** [0.884, 1.000], κ 1.000 | **30/30** [0.884, 1.000], κ 1.000 |
+| located = Yes | evidence matched ≥ 1 | 23/24 [0.789, 0.999], κ 0.647 | 21/24 [0.676, 0.973], κ 0.591 |
+| evidence = Yes | evidence F1 ≥ 0.5 | 22/24 [0.730, 0.990], κ 0.619 | 21/24 [0.676, 0.973], κ 0.684 |
+| evidence = Yes or Partial | evidence F1 ≥ 0.5 | 21/24 [0.676, 0.973], κ 0.333 | 21/24 [0.676, 0.973], κ 0.654 |
+
+**The disagreements are of two known kinds.**
+- **Cited evidence vs reasoning** (the scorer credits correct references; the annotator rates the conclusion):
+  - wrong conclusion: Part 2 A14 (blames the learning rate on a label-noise case); Part 3 A14 (`momentum_without_decay`
+    on label flip) and A29 (`lucky_seed` on pixel-tag leakage);
+  - noticed but dismissed: Part 3 A17 (finds the subset-reporting key, then calls the run healthy). Here the
+    annotator credits the location and the scorer does not;
+  - Part 2 A24 (correct diagnosis; the annotator rates its evidence Partial, the scorer gives F1 < 0.5) counts only
+    under the Yes-or-Partial cut.
+- **Valid evidence under-credited by the scorer:** Part 2 A30; Part 3 A02 (channel mismatch) and A05 (decay unit).
+  Consolidated with the earlier audits in LIMITATIONS L44, which also reports what A02 and A05 cited.
+
+**Disclosed:** the Part 2 sheet the annotator rated is the original build (2026-09-29). Four of its items (A08, A11,
+A13, A26) show the workload-1 band SD (0.0022), and one (A29) an unrounded value. That SD could hint at the arm, but
+no rating dimension depends on the arm. It contained no case ids. The stricter redaction (DECISIONS 2026-10-03)
+was applied to the Part 3 sheet only.
+
+**Status:** identification validated on Parts 2 and 3, including the image specs · one annotator (L33) · evidence
+F1 is conservative (L44).
+
 ## How to update this document
 
 After each sweep's diagnostics close: (1) add a **Sweep N** section in the shape above;
