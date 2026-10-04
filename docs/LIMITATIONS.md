@@ -714,7 +714,8 @@ flags on controls (L39, `docs/audits/stage4_part2_control_false_alarms.md`). The
 (`docs/audits/stage4_part2_react_vs_static.md`) finds that opening `train.py` goes with ReAct detecting metric
 inflation (Sonnet: 0.78 opened vs 0.00 not), but not with leakage (0.61–0.81 although every leakage trial opened
 both files). Results are read as "diagnosis given a menu of gated paths", and cross-workload comparisons hold the
-menu structure constant.
+menu structure constant. A second STRUCTURAL limitation of the same kind is L43(2): the healthy controls'
+`config.yaml` is a verbatim, commented copy, unlike every other case's.
 
 **L41 — Scope of every claim (recorded 2026-09-30 after an external review; wording, no analysis change).**
 1. **What the benchmark contains.** It consists of CONTROLLED, CONFIG-INDUCED incidents. Each fault is a planted
@@ -770,8 +771,12 @@ change).**
      cite the comment text (Part 1, healthy, `rule` arm: "a DEVELOPMENT seed per config comments"), and both are
      false alarms.
    - Consequences: the healthy-vs-benign contrast differs in comments as well as in "a change was made". Anyone with
-     the case files, or a model trained on them, could separate healthy controls by formatting. Future builds should
-     write every control's config through the same writer.
+     the case files, or a model trained on them, could separate healthy controls by formatting.
+   - **A STRUCTURAL limitation, beside L40's visible fault menu.** Like the gated code paths, it is a property of how
+     cases are built, not of any one case, and it is present in every certified case set (both workloads).
+   - **Recommendation for future builds:** write EVERY case's `config.yaml` identically: the same writer for faulty
+     cases, benign controls and healthy controls, with comments stripped for all and one list style. A build-time
+     check should then confirm that no workspace config formatting differs by case type.
 3. **The seed list causes false alarms.** The agent sees its run's own seed in `config.resolved.yaml` (development /
    case seeds, disjoint from 200–229 by design, L3) beside the listed reference seeds, and some agents report the
    mismatch as the fault. Submissions citing the reference seed set (the seed list, 200–229, `num_seeds`, "30 seeds";
