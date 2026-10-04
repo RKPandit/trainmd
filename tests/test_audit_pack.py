@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import subprocess
+import sys
 import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
@@ -353,3 +354,24 @@ def test_part3_redaction_catches_case_ids_band_sd_truncated_edges_and_sentence_e
     for leaked in ("0.886 ", "0.0086", "0.9032", "90.33%", "0.823."):
         assert leaked not in t, leaked
     assert "0.82." in t and "lr 0.05" in t and "wd 0.0005" in t and "final 0.88" in t and "0.7811" in t
+
+
+def test_part2_design_uses_the_part3_redaction(monkeypatch, tmp_path):
+    """The Part 2 sheet had not been sent, so it is rebuilt with the Part 3 redaction (author 2026-10-03): the part2
+    and part3 designs both pass the stricter redaction; part1 and h8 (already annotated) do not."""
+    import importlib.util as _u
+    spec = _u.spec_from_file_location("bap2r", Path(__file__).resolve().parent.parent / "scripts" / "build_audit_pack.py")
+    bap = _u.module_from_spec(spec)
+    spec.loader.exec_module(bap)
+    seen = {}
+
+    def fake_build(*a, **kw):
+        seen["strict"] = kw.get("strict_redaction", False) or kw.get("part3", False)
+        return {"items": 0, "controls": 0}
+    monkeypatch.setattr(bap, "build", fake_build)
+    for design, strict in (("part2", True), ("part3", True), ("part1", False), ("h8", False)):
+        monkeypatch.setattr(sys, "argv", ["x", "--design", design, "--project-root", str(tmp_path)])
+        assert bap.main() == 0 and seen["strict"] is strict, design
+    card = {"reference_visible_metric": {"series": "metric_visible_val_acc", "mean": 0.8563, "std": 0.0022, "n": 30}}
+    t = bap.redact_part3("SD 0.0022, lower 0.8519, seen in case_0160; lr 0.001", bap.band_targets(card))
+    assert "0.0022" not in t and "0.8519" not in t and "case_0160" not in t and "lr 0.001" in t

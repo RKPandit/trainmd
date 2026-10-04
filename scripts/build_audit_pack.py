@@ -33,7 +33,9 @@ the LOCAL export ``results_release/stage4_part1/`` (``make export-release NAME=s
 Stage 4 Part 2 fresh audit (``--design part2``): ~30 items over Stage A (static) + Stage B (ReAct), faulty items
 spread evenly over FULL condition (model + settings) × agent and within each over fault mechanisms, controls one
 per condition (static; ~20%); the same rubric, blinding and rounding; the key records the condition. Input: the
-LOCAL exports ``results_release/stage4_part2/`` and ``results_release/stage4_part2_react/``.
+LOCAL exports ``results_release/stage4_part2/`` and ``results_release/stage4_part2_react/``. Rebuilt 2026-10-03 with
+the Part 3 redaction (``redact_part3``: case ids, band SD / any value near a band edge, sentence-final values) before
+it was sent — same items, only the redaction is stricter.
 
 Stage 4 Part 3 blind audit (``--design part3``): ~30 items over the image workload's static + ReAct sweeps — the
 FIRST fresh validation of the frozen image identification specs. Faulty items cycle jointly over the five image
@@ -381,9 +383,10 @@ def sample_part3(recs: list[dict], n: int, control_share: float, seed: int) -> l
 
 def build(release_dir: Path, out_dir: Path, n: int = 60, control_share: float = 0.15,
           seed: int = DEFAULT_SEED, fault_ops=None, control_ops=(CONTROL,), rounding: bool = False,
-          extra_release_dirs=(), by_condition: bool = False, part3: bool = False) -> dict:
+          extra_release_dirs=(), by_condition: bool = False, part3: bool = False,
+          strict_redaction: bool = False) -> dict:
     def clean(text, card):
-        text = redact_part3(text, band_targets(card)) if part3 else text
+        text = redact_part3(text, band_targets(card)) if (part3 or strict_redaction) else text
         return redact(text, band_values(card), rounding)
 
     recs = load_from_release(release_dir)
@@ -460,7 +463,7 @@ def main() -> int:
         res = build(a.project_root / "results_release" / "stage4_part2", out, n=30, control_share=0.2, seed=a.seed,
                     control_ops=PART1_CONTROL_OPS + (CONTROL,), rounding=True,
                     extra_release_dirs=(a.project_root / "results_release" / "stage4_part2_react",),
-                    by_condition=True)
+                    by_condition=True, strict_redaction=True)
     elif a.design == "part1":
         res = build(a.project_root / "results_release" / a.sweep, out, n=30, control_share=0.2, seed=a.seed,
                     fault_ops=PART1_FAULT_OPS, control_ops=PART1_CONTROL_OPS, rounding=True)
